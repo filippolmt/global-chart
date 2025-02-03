@@ -1,0 +1,83 @@
+{{- if .Values.cronJobs }}
+{{- $dot := . }}
+{{- range $name, $job := .Values.cronJobs }}
+{{- if $job }}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ printf "%s-%s" (include "global-chart.fullname" $dot) $name | quote }}
+  namespace: {{ $dot.Release.Namespace | quote }}
+spec:
+  schedule: {{ $job.schedule | quote }}
+  successfulJobsHistoryLimit: {{ $job.successfulJobsHistoryLimit |  default 2 }}
+  failedJobsHistoryLimit: {{ $job.failedJobsHistoryLimit | default 2 }}
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          {{- if $job.initContainers }}
+          initContainers:
+          {{- toYaml $job.initContainers | nindent 10 }}
+          {{- end }}
+          containers:
+          - name: {{ $name }}
+            {{- if $job.image }}
+            image: {{ $job.image }}
+            imagePullPolicy: {{ $job.imagePullPolicy | default "Always" }}
+            {{- else }}
+            image: "{{ $dot.Values.image.repository }}:{{ $dot.Values.image.tag | default $dot.Chart.AppVersion }}"
+            imagePullPolicy: {{ $dot.Values.image.pullPolicy | default "Always" }}
+            {{- end }}
+            {{- if $job.command }}
+            command:
+              {{- toYaml $job.command | nindent 12 }}
+            {{- end }}
+            {{- if $job.args }}
+            args:
+              {{- toYaml $job.args | nindent 12 }}
+            {{- end }}
+            envFrom:
+            - configMapRef:
+                name: {{ template "global-chart.fullname" $dot }}
+            {{- range  $secret, $secrets := $dot.Values.createSecrets }}
+            - secretRef:
+                name: {{ printf "%s-%s" (include "global-chart.fullname" $dot) $secrets.name | quote }}
+            {{- end }}
+            {{- with $dot.Values.volumeMounts }}
+            volumeMounts:
+            {{- toYaml $dot.Values.volumeMounts | nindent 14 }}
+            {{- end }}
+            {{- if $job.resources }}
+            resources:
+              {{- toYaml $job.resources | nindent 14 }}
+            {{- else }}
+            resources:
+              requests:
+                cpu: 100m
+                memory: 128Mi
+            {{- end }}
+          {{- with $dot.Values.volumes }}
+          volumes:
+          {{- toYaml $dot.Values.volumes | nindent 12 }}
+          {{- end }}
+          {{- if or $job.serviceAccountName $dot.Values.serviceAccount.create }}
+          serviceAccountName: {{ $job.serviceAccountName | default (printf "%s-%s" (include "global-chart.fullname" $dot) $name) }}
+          {{- end }}
+          restartPolicy: Never
+          {{- with $job.nodeSelector }}
+          nodeSelector:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with $job.affinity }}
+          affinity:
+            {{- toYaml $job.affinity | nindent 12 }}
+          {{- end }}
+          {{- if $job.tolerations }}
+          tolerations:
+            {{- toYaml $job.tolerations | nindent 12 }}
+          {{- end }}
+{{- end }}
+{{- end }}
+{{- end }}

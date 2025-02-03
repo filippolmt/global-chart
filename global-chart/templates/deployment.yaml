@@ -1,0 +1,156 @@
+{{- $dot := . }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "global-chart.fullname" . }}
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    {{- include "global-chart.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount | default 2 }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "global-chart.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- if .Values.podRecreation.enabled }}
+        timestamp: "{{ now | date "20060102150405" }}"
+        {{- end }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "global-chart.labels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- range . }}
+          {{- if kindIs "string" . }}
+        - name: {{ . }}
+          {{- else if hasKey . "name" }}
+        - name: {{ .name }}
+          {{- else }}
+          {{ fail "imagePullSecrets must be a list of strings or objects with a 'name' key." }}
+          {{- end }}
+        {{- end }}
+      {{- end }}
+      {{- if .Values.hostAliases }}
+      hostAliases:
+        {{- toYaml .Values.hostAliases | nindent 8 }}
+      {{- end }}
+      {{- if or .Values.dnsConfig.nameservers .Values.dnsConfig.searches .Values.dnsConfig.options }}
+      dnsConfig:
+        {{- if .Values.dnsConfig.nameservers }}
+        nameservers:
+          {{- range .Values.dnsConfig.nameservers }}
+          - {{ . }}
+          {{- end }}
+        {{- end }}
+        {{- if .Values.dnsConfig.searches }}
+        searches:
+          {{- range .Values.dnsConfig.searches }}
+          - {{ . }}
+          {{- end }}
+        {{- end }}
+        {{- if .Values.dnsConfig.options }}
+        options:
+          {{- range .Values.dnsConfig.options }}
+          - name: {{ .name }}
+            {{- if .value }}
+            value: {{ .value | quote }}
+            {{- end }}
+          {{- end }}
+        {{- end }}
+      {{- end }}
+      serviceAccountName: {{ include "global-chart.serviceAccountName" . }}
+      {{- if .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- end }}
+      {{- with .Values.extraInitContainers }}
+      initContainers:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          {{- if .Values.securityContext}}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          {{- end }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy | default "Always" }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.port | default 80 }}
+              protocol: TCP
+          {{- if .Values.livenessProbe }}
+          livenessProbe:
+            {{- toYaml .Values.livenessProbe | nindent 12 }}
+          {{- end }}
+          {{- if .Values.readinessProbe }}
+          readinessProbe:
+            {{- toYaml .Values.readinessProbe | nindent 12 }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          {{- if or .Values.configMap .Values.envFromConfigMaps .Values.secret .Values.envFromSecrets }}
+          envFrom:
+            {{- if .Values.configMap }}
+            - configMapRef:
+                name: {{ template "global-chart.fullname" . }}
+            {{- end }}
+            {{- if .Values.envFromConfigMaps }}
+            {{- range  $configMap, $configMaps := .Values.envFromConfigMaps }}
+            - configMapRef:
+                name: {{ $configMaps | quote }}
+            {{- end }}
+            {{- end }}
+            {{- if .Values.secret }}
+            - secretRef:
+                name: {{ template "global-chart.fullname" . }}
+            {{- end }}
+            {{- if .Values.envFromSecrets }}
+            {{- range  $secret, $secrets := .Values.envFromSecrets }}
+            - secretRef:
+                name: {{ $secrets | quote }}
+            {{- end }}
+            {{- end }}
+          {{- end }}
+          {{- if .Values.additionalEnvs }}
+          env:
+            {{- range .Values.additionalEnvs }}
+            - name: {{ .name }}
+              valueFrom:
+                {{- toYaml .valueFrom | nindent 16 }}
+            {{- end }}
+          {{- end }}
+          {{- with .Values.volumeMounts }}
+          volumeMounts:
+          {{- toYaml . | nindent 12 }}
+          {{- end }}
+        {{- with .Values.extraContainers }}
+        {{- toYaml . | nindent 8 }}
+          {{- end }}
+      {{- with .Values.volumes }}
+      volumes:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
