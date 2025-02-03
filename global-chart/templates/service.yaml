@@ -9,8 +9,8 @@ spec:
   type: {{ .Values.service.type }}
   ports:
     - port: {{ .Values.service.port }}
-      targetPort: http
+      targetPort: {{ .Values.service.targetPort | default "http" }}
       protocol: TCP
-      name: http
+      name: {{ .Values.service.portName | default "http" }}
   selector:
     {{- include "global-chart.selectorLabels" . | nindent 4 }}

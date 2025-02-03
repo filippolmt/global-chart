@@ -1,7 +1,7 @@
 # Default values for global-chart.
 
 # -- (int) Number of replicas to deploy
-replicaCount: 2  # Specify the number of pod replicas to deploy, default is 2
+replicaCount: 2 # Specify the number of pod replicas to deploy, default is 2
 
 # -- Image configuration
 image:
@@ -45,10 +45,14 @@ securityContext: {} # Configure container security settings (e.g., runAsUser)
 
 # -- Service configuration
 service:
+  # -- Port name
+  portName: http # Specify the service port name
   # -- Service type
   type: ClusterIP # Kubernetes service type: ClusterIP, NodePort, or LoadBalancer
   # -- Service port
   port: 80 # Port on which the service is exposed
+  # -- Target port
+  targetPort: http # Port to which the service is forwarded
 
 # -- Ingress configuration
 ingress:
@@ -149,4 +153,4 @@ extraContainers: [] # Add additional containers to the deployment
 
 # -- If set to true the deployment pods will be recreated, if coupled with image.pullPolicy=Always a new image will always be downloaded.
 podRecreation:
-  enabled: true # Recreate pods when configuration changes
+  enabled: false # Recreate pods when configuration changes

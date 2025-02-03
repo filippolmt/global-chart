@@ -2,19 +2,19 @@ hooks:
   post-install:
     post-one:
       image: alpine:3.20
-      command: ["sh"]
+      command: ["/bin/sh"]
       args: ["-c", 'echo "post-install-one"']
       imagePullPolicy: IfNotPresent
       weight: 20
   pre-upgrade:
     pre-one:
-      command: ["sh", "-c"]
+      command: ["/bin/sh", "-c"]
       args: ["echo", "pre-upgrade-one"]
       weight: 10
       deletePolicy: before-hook-creation
       imagePullPolicy: Always
     pre-two:
-      command: ["bin/sh", "-c"]
+      command: ["/bin/sh", "-c"]
       args: ["echo", "pre-upgrade-two"]
       weight: 20
       deletePolicy: before-hook-creation
