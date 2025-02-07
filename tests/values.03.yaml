@@ -1,0 +1,99 @@
+hooks:
+  post-install:
+    post-one:
+      image: alpine:3.20
+      command: ["/bin/sh"]
+      args: ["-c", 'echo "post-install-one"']
+      imagePullPolicy: IfNotPresent
+      weight: 20
+  pre-upgrade:
+    pre-one:
+      command: ["/bin/sh", "-c"]
+      args: ["echo", "pre-upgrade-one"]
+      weight: 10
+      deletePolicy: before-hook-creation
+      imagePullPolicy: Always
+    pre-two:
+      command: ["/bin/sh", "-c"]
+      args: ["echo", "pre-upgrade-two"]
+      weight: 20
+      deletePolicy: before-hook-creation
+      imagePullPolicy: Always
+  post-upgrade:
+    test: null
+
+secret:
+  password: AQ23sdsd
+  username: admin
+  host: example.com
+
+configMap:
+  username: admin
+  environment: production
+  host: example.com
+
+cronJobs:
+  cron-job-one:
+    tolerations: []
+    annotations: {}
+    schedule: "00 12 * * 1-5"
+    serviceAccountName:
+    successfulJobsHistoryLimit: 2
+    failedJobsHistoryLimit: 2
+    args: ["sh", "-c", 'echo "cron-job-one"']
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+  cron-job-two:
+    schedule: "00 12 * * 1-5"
+    command: ["sh", "-c", 'echo "cron-job-two"']
+    args: ["echo", ""]
+    resources:
+      requests:
+        cpu: 1000m
+        memory: 1280Mi
+volumes:
+  - name: myvolume
+    type: secret
+    secret:
+      secretName: test-global-chart
+volumeMounts:
+  - name: myvolume
+    mountPath: /etc/secret
+
+hostAliases: []
+dnsConfig:
+  nameservers: []
+  searches: []
+  options: []
+
+envFromConfigMaps: []
+
+envFromSecrets: []
+
+livenessProbe:
+  httpGet:
+    path: /
+    port: http
+
+readinessProbe:
+  httpGet:
+    path: /
+    port: http
+
+extraInitContainers:
+  - name: init-myservice
+    image: busybox:1.28
+    command: ["sh", "-c", "echo The init container is running; sleep 5"]
+    volumeMounts:
+      - name: myvolume
+        mountPath: /myvolume
+
+extraContainers:
+  - name: sidecar-myservice
+    image: busybox:1.28
+    command: ["sh", "-c", "echo The sidecar container is running; sleep 5"]
+    volumeMounts:
+      - name: myvolume
+        mountPath: /myvolume

@@ -1,0 +1,114 @@
+{{- $dot := . }}
+{{- range $hook, $hooks := .Values.hooks }}
+{{- range $name, $command := $hooks }}
+{{- if $command }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ template "global-chart.hookfullname" (merge (dict "hookname" $hook "jobname" $name) $dot) }}
+  namespace: {{ $dot.Release.Namespace | quote }}
+  labels:
+    {{- include "global-chart.labels" $dot | nindent 4 }}
+  annotations:
+    "helm.sh/hook": {{ $hook }}
+    "helm.sh/hook-weight": {{ $command.weight | default "10" | quote }}
+    "helm.sh/hook-delete-policy": {{ $command.deletePolicy | default "before-hook-creation" | quote }}
+spec:
+  template:
+    metadata:
+      name: {{ template "global-chart.hookfullname" (merge (dict "hookname" $hook "jobname" $name) $dot) }}
+      labels:
+        {{- include "global-chart.labels" $dot | nindent 8 }}
+    spec:
+      {{- with $dot.Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- range . }}
+          {{- if kindIs "string" . }}
+        - name: {{ . }}
+          {{- else if hasKey . "name" }}
+        - name: {{ .name }}
+          {{- else }}
+          {{ fail "imagePullSecrets must be a list of strings or objects with a 'name' key." }}
+          {{- end }}
+        {{- end }}
+      {{- end }}
+      {{- if $dot.Values.hostAliases }}
+      hostAliases:
+        {{- toYaml $dot.Values.hostAliases | nindent 8 }}
+      {{- end }}
+      {{- if or $dot.Values.dnsConfig.nameservers $dot.Values.dnsConfig.searches $dot.Values.dnsConfig.options }}
+      dnsConfig:
+        {{- if $dot.Values.dnsConfig.nameservers }}
+        nameservers:
+          {{- range $dot.Values.dnsConfig.nameservers }}
+          - {{ . }}
+          {{- end }}
+        {{- end }}
+        {{- if $dot.Values.dnsConfig.searches }}
+        searches:
+          {{- range $dot.Values.dnsConfig.searches }}
+          - {{ . }}
+          {{- end }}
+        {{- end }}
+        {{- if $dot.Values.dnsConfig.options }}
+        options:
+          {{- range $dot.Values.dnsConfig.options }}
+          - name: {{ .name }}
+            {{- if .value }}
+            value: {{ .value | quote }}
+            {{- end }}
+          {{- end }}
+        {{- end }}
+      {{- end }}
+      containers:
+      - name: {{ template "global-chart.hookfullname" (merge (dict "hookname" $hook "jobname" $name) $dot) }}
+        {{- if $command.image }}
+        image: {{ $command.image }}
+        {{- else }}
+        image: "{{ $dot.Values.image.repository }}:{{ $dot.Values.image.tag | default $dot.Chart.AppVersion }}"
+        {{- end }}
+        imagePullPolicy: {{ $command.imagePullPolicy | default "Always" }}
+        {{- if $command.command }}
+        command:
+          {{- toYaml $command.command | nindent 10 }}
+        {{- end }}
+        {{- if $command.args }}
+        args:
+          {{- toYaml $command.args | nindent 10 }}
+        {{- end }}
+        envFrom:
+          - configMapRef:
+              name: {{ template "global-chart.fullname" $dot }}
+        {{- range  $secret, $secrets := $dot.Values.createSecrets }}
+          - secretRef:
+              name: {{ printf "%s-%s" (include "global-chart.fullname" $dot) $secrets.name | quote }}
+        {{- end }}
+        {{- if $command.resources }}
+        resources:
+          {{- toYaml $command.resources | nindent 10 }}
+        {{- else }}
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        {{- end }}
+      {{- if $command.serviceAccountName }}
+      serviceAccountName: {{ $command.serviceAccountName }}
+      {{- end }}
+      restartPolicy: Never
+      {{- with $command.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $command.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $command.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
