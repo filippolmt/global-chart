@@ -9,9 +9,9 @@ metadata:
 data:
 {{- range $key, $value := .Values.configMap }}
   {{- if kindIs "string" $value }}
-  {{ $key }}: {{ $value | b64enc | quote }}
+  {{ $key }}: {{ $value | quote }}
   {{- else }}
-  {{ $key }}: {{ toYaml $value | b64enc | quote }}
+  {{ $key }}: {{ toYaml $value | quote }}
   {{- end }}
 {{- end }}
 {{- end }}
