@@ -137,3 +137,12 @@ additionalEnvs:
       configMapKeyRef:
         name: myconfig
         key: test
+
+externalSecrets:
+  mysecret:
+    remote:
+      key: test
+    secretstore:
+      kind: ClusterSecretStore
+      name: mysecretstore
+    secretkey: api-token

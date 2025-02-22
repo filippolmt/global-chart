@@ -154,3 +154,6 @@ extraContainers: [] # Add additional containers to the deployment
 # -- If set to true the deployment pods will be recreated, if coupled with image.pullPolicy=Always a new image will always be downloaded.
 podRecreation:
   enabled: false # Recreate pods when configuration changes
+
+# -- ExternalSecrets configuration
+externalSecrets: [] # Define ExternalSecrets for managing secrets
