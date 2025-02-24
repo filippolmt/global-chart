@@ -49,4 +49,15 @@ entries:
     urls:
     - https://github.com/filippolmt/global-chart/releases/download/global-chart-0.1.0/global-chart-0.1.0.tgz
     version: 0.1.0
-generated: "2025-02-24T10:35:00.120826587Z"
+  raw:
+  - apiVersion: v2
+    appVersion: 1.0.0
+    created: "2025-02-24T14:09:05.958754842Z"
+    description: A Helm chart for deploying raw resources
+    digest: 4cd8425b0025f39ab135a5efd6f75b9b4054d082cd031327c380108b0d09d941
+    name: raw
+    type: application
+    urls:
+    - https://github.com/filippolmt/global-chart/releases/download/raw-0.1.0/raw-0.1.0.tgz
+    version: 0.1.0
+generated: "2025-02-24T14:09:05.958776403Z"
