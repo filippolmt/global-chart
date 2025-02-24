@@ -2,7 +2,6 @@ STRICT ?= --strict
 
 GLOBAL_CHART_NAME := global-chart
 CHART_DIR := charts
-GLOBAL_CHART_VERSION := 0.1.0
 
 lint-chart:
 	helm lint $(STRICT) -f tests/values.01.yaml ./${CHART_DIR}/${GLOBAL_CHART_NAME}
