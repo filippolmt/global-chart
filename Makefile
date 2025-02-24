@@ -2,7 +2,6 @@ STRICT ?= --strict
 
 GLOBAL_CHART_NAME := global-chart
 CHART_DIR := charts
-GLOBAL_CHART_VERSION := 0.1.0
 
 lint-chart:
 	helm lint $(STRICT) -f tests/values.01.yaml ./${CHART_DIR}/${GLOBAL_CHART_NAME}
@@ -50,7 +49,7 @@ kube-linter:
 	@docker run -v $(PWD)/${GLOBAL_CHART_NAME}:/dir ghcr.io/stackrox/kube-linter:v0.6.8-alpine lint /dir
 
 generate-docs:
-	@docker run --rm --volume "$$(pwd)/${GLOBAL_CHART_NAME}:/helm-docs" -u $$(id -u) jnorwood/helm-docs:latest --sort-values-order file
+	@docker run --rm --volume "$$(pwd)/./${CHART_DIR}/${GLOBAL_CHART_NAME}:/helm-docs" -u $$(id -u) jnorwood/helm-docs:latest --sort-values-order file
 
 build-chart-to-test-registry:
 	helm package ${GLOBAL_CHART_NAME}
