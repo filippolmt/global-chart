@@ -1,6 +1,7 @@
 STRICT ?= --strict
 
 GLOBAL_CHART_NAME := global-chart
+RAW_CHART_NAME := raw
 CHART_DIR := charts
 
 lint-chart:
@@ -50,6 +51,7 @@ kube-linter:
 
 generate-docs:
 	@docker run --rm --volume "$$(pwd)/./${CHART_DIR}/${GLOBAL_CHART_NAME}:/helm-docs" -u $$(id -u) jnorwood/helm-docs:latest --sort-values-order file
+	@docker run --rm --volume "$$(pwd)/./${CHART_DIR}/${RAW}:/helm-docs" -u $$(id -u) jnorwood/helm-docs:latest --sort-values-order file
 
 build-chart-to-test-registry:
 	helm package ${GLOBAL_CHART_NAME}
