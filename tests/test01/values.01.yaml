@@ -182,12 +182,8 @@ ingress:
   annotations: {}
   tls: []
 
-  # ==============================
-  # Per ogni host, posso ora specificare il service
-  # ==============================
   hosts:
     - host: chart-example.local
-      # se non specificato, ricade sul fullname del chart
       service:
         name: "" # default: fullname
         port: 0 # default: deployment.service.port
