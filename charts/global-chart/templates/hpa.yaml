@@ -1,10 +1,8 @@
 {{- $root := . }}
 {{- $dep  := $root.Values.deployment }}
 {{- $hpa  := $dep.autoscaling }}
-{{- /* converto in interi (""→0) */ -}}
 {{- $cpu  := int $hpa.targetCPUUtilizationPercentage }}
 {{- $mem  := int $hpa.targetMemoryUtilizationPercentage }}
-{{- /* almeno una metrica >0? */ -}}
 {{- $hasMetric := or (gt $cpu 0) (gt $mem 0) }}
 
 {{- if and $dep.enabled $hpa.enabled $hasMetric }}

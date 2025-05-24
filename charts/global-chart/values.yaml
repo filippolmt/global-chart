@@ -1,7 +1,7 @@
 # Default values for global-chart.
-
-# -- (bool) Enable/disable the deployment of the application
+# -- Deployment configuration
 deployment:
+  # -- (bool) Enable/disable the deployment of the application
   enabled: false
 
   # -- (int) Number of replicas to deploy, default is 2
