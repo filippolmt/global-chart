@@ -6,12 +6,21 @@ metadata:
 apiVersion: v1
 kind: Secret
 metadata:
-  name: mysecret
+  name: additional-env-secret
   namespace: test01
 type: Opaque
 data:
-  username: dXNlcg== # "user"
-  password: cGFzc3dvcmQ= # "password"
+  test: test
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mysql-0-secret
+  namespace: test01
+type: Opaque
+data:
+  mysql_user: bXl1c2Vy # "myuser"
+  mysql_pass: bXlwYXNzd29yZA== # "mypassword"
 ---
 apiVersion: v1
 kind: Secret
@@ -26,11 +35,10 @@ data:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: myconfigmap
+  name: mysql-0-config
   namespace: test01
 data:
-  config.yaml: |
-    key: value
+  MYSQL_HOST: mysql
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -40,6 +48,14 @@ metadata:
 data:
   MONGO_INITDB_ROOT_USERNAME: admin
   MONGO_INITDB_ROOT_PASSWORD: example
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: additional-env-config
+  namespace: test01
+data:
+  test: test
 ---
 apiVersion: v1
 kind: PersistentVolume

@@ -1,60 +1,75 @@
-{{- if .Values.ingress.enabled -}}
-{{- $fullName := include "global-chart.fullname" . -}}
-{{- $svcPort := .Values.service.port -}}
-{{- if and .Values.ingress.className (not (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion)) }}
-  {{- if not (hasKey .Values.ingress.annotations "kubernetes.io/ingress.class") }}
-  {{- $_ := set .Values.ingress.annotations "kubernetes.io/ingress.class" .Values.ingress.className}}
+{{- if .Values.ingress.enabled }}
+{{- $root       := . }}
+{{- $ing        := $root.Values.ingress }}
+{{- $depSvcPort := $root.Values.deployment.service.port }}
+{{- $fullName   := include "global-chart.fullname" $root }}
+
+{{- /* ingressClass compatibility for K8s <1.18 */}}
+{{- if and $ing.className (not (semverCompare ">=1.18-0" $root.Capabilities.KubeVersion.GitVersion)) }}
+  {{- if not (hasKey $ing.annotations "kubernetes.io/ingress.class") }}
+    {{- $_ := set $ing.annotations "kubernetes.io/ingress.class" $ing.className }}
   {{- end }}
 {{- end }}
-{{- if semverCompare ">=1.19-0" .Capabilities.KubeVersion.GitVersion -}}
+
+{{- /* apiVersion choice */}}
+{{- if semverCompare ">=1.19-0" $root.Capabilities.KubeVersion.GitVersion }}
 apiVersion: networking.k8s.io/v1
-{{- else if semverCompare ">=1.14-0" .Capabilities.KubeVersion.GitVersion -}}
+{{- else if semverCompare ">=1.14-0" $root.Capabilities.KubeVersion.GitVersion }}
 apiVersion: networking.k8s.io/v1beta1
-{{- else -}}
+{{- else }}
 apiVersion: extensions/v1beta1
 {{- end }}
 kind: Ingress
 metadata:
   name: {{ $fullName }}
   labels:
-    {{- include "global-chart.labels" . | nindent 4 }}
-  {{- with .Values.ingress.annotations }}
+    {{- include "global-chart.labels" $root | nindent 4 }}
+  {{- with $ing.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 spec:
-  {{- if and .Values.ingress.className (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion) }}
-  ingressClassName: {{ .Values.ingress.className }}
+  {{- if and $ing.className (semverCompare ">=1.18-0" $root.Capabilities.KubeVersion.GitVersion) }}
+  ingressClassName: {{ $ing.className | quote }}
   {{- end }}
-  {{- if .Values.ingress.tls }}
+
+  {{- if $ing.tls }}
   tls:
-    {{- range .Values.ingress.tls }}
+    {{- range $ing.tls }}
     - hosts:
         {{- range .hosts }}
         - {{ . | quote }}
         {{- end }}
-      secretName: {{ .secretName }}
+      secretName: {{ .secretName | quote }}
     {{- end }}
   {{- end }}
+
   rules:
-    {{- range .Values.ingress.hosts }}
-    - host: {{ .host | quote }}
+    {{- range $hostEntry := $ing.hosts }}
+      {{- /* preparo un dict sicuro con valori di fallback */}}
+      {{- $svcMap := dict "name" $fullName "port" $depSvcPort }}
+      {{- if and (hasKey $hostEntry "service") $hostEntry.service }}
+        {{- $_ := set $svcMap "name" (default $fullName $hostEntry.service.name) }}
+        {{- $_ := set $svcMap "port" (default $depSvcPort $hostEntry.service.port) }}
+      {{- end }}
+
+    - host: {{ $hostEntry.host | quote }}
       http:
         paths:
-          {{- range .paths }}
-          - path: {{ .path }}
-            {{- if and .pathType (semverCompare ">=1.18-0" $.Capabilities.KubeVersion.GitVersion) }}
-            pathType: {{ .pathType }}
+          {{- range $path := $hostEntry.paths }}
+          - path: {{ $path.path }}
+            {{- if and $path.pathType (semverCompare ">=1.18-0" $root.Capabilities.KubeVersion.GitVersion) }}
+            pathType: {{ $path.pathType | quote }}
             {{- end }}
             backend:
-              {{- if semverCompare ">=1.19-0" $.Capabilities.KubeVersion.GitVersion }}
+              {{- if semverCompare ">=1.19-0" $root.Capabilities.KubeVersion.GitVersion }}
               service:
-                name: {{ $fullName }}
+                name: {{ $svcMap.name }}
                 port:
-                  number: {{ $svcPort }}
+                  number: {{ $svcMap.port }}
               {{- else }}
-              serviceName: {{ $fullName }}
-              servicePort: {{ $svcPort }}
+              serviceName: {{ $svcMap.name }}
+              servicePort: {{ $svcMap.port }}
               {{- end }}
           {{- end }}
     {{- end }}

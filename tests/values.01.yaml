@@ -1,6 +1,5 @@
 deployment:
   enabled: true
-  imagePullSecrets: [docker-login-test-example-net-9194]
   secret:
     password: AQ23sdsd
     username: admin
@@ -15,11 +14,11 @@ deployment:
     - name: myvolume
       type: secret
       secret:
-        secretName: mysecret
+        secretName: mysql-0-secret
     - name: myvolume2
       type: configMap
       configMap:
-        name: myconfigmap
+        name: mysql-0-config
     - name: myvolume3
       type: persistentVolumeClaim
       persistentVolumeClaim:
@@ -45,11 +44,11 @@ deployment:
       - name: edns0
 
   envFromConfigMaps:
-    - myconfigmap
+    - mysql-0-config
     - mongodb-0-config
 
   envFromSecrets:
-    - mysecret
+    - mysql-0-secret
     - mongodb-0-secret
 
   livenessProbe:
@@ -66,12 +65,12 @@ deployment:
     - name: NEWPASS
       valueFrom:
         secretKeyRef:
-          name: mysecret
+          name: additional-env-secret
           key: test
     - name: NEWCONFIG
       valueFrom:
         configMapKeyRef:
-          name: myconfig
+          name: additional-env-config
           key: test
 
 hooks:
@@ -132,7 +131,7 @@ cronJobs:
       - myconfigmap
       - mongodb-0-config
     envFromSecrets:
-      - mysecret
+      - mysql-0-secret
       - mongodb-0-secret
   testcron:
     schedule: "00 12 * * 1-5"
@@ -154,3 +153,31 @@ externalSecrets:
       kind: ClusterSecretStore
       name: mysecretstore
     secretkey: api-token
+
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations: {}
+  tls: []
+
+  # ==============================
+  # Per ogni host, posso ora specificare il service
+  # ==============================
+  hosts:
+    - host: chart-example.local
+      # se non specificato, ricade sul fullname del chart
+      service:
+        name: "" # default: fullname
+        port: 0 # default: deployment.service.port
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+    - host: api.example.local
+      service:
+        name: my-api-svc
+        port: 8080
+      paths:
+        - path: /v1
+          pathType: Prefix
+        - path: /health
+          pathType: Exact

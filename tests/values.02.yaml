@@ -9,7 +9,7 @@ image:
   repository: test.example.net:9191/validation-service
   # -- Image pull policy
   pullPolicy: Always
-  # -- Overrides the image tag whose default is the chart appVersion.
+  # -- Overrides the image tag whose default.
   tag: ${APP_IMAGE_VERSION}
 
 # -- Image pull secrets

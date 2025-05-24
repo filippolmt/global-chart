@@ -1,67 +1,69 @@
 {{- if .Values.deployment.enabled }}
-{{- $dot := . }}
+{{- $root := . }}
+{{- $dep := .Values.deployment }}
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "global-chart.fullname" . }}
+  name: {{ include "global-chart.fullname" $root }}
   labels:
-    {{- include "global-chart.labels" . | nindent 4 }}
+    {{- include "global-chart.labels" $root | nindent 4 }}
 spec:
-  {{- if not .Values.deployment.autoscaling.enabled }}
-  replicas: {{ .Values.deployment.replicaCount | default 2 }}
+  {{- if not $dep.autoscaling.enabled }}
+  replicas: {{ $dep.replicaCount | default 2 }}
   {{- end }}
   selector:
     matchLabels:
-      {{- include "global-chart.selectorLabels" . | nindent 6 }}
+      {{- include "global-chart.selectorLabels" $root | nindent 6 }}
   template:
     metadata:
       annotations:
-        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
-        {{- if .Values.deployment.podRecreation.enabled }}
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") $root | sha256sum }}
+        {{- if $dep.podRecreation.enabled }}
         timestamp: "{{ now | date "20060102150405" }}"
         {{- end }}
-        {{- with .Values.deployment.podAnnotations }}
+        {{- with $dep.podAnnotations }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
       labels:
-        {{- include "global-chart.labels" . | nindent 8 }}
-        {{- with .Values.deployment.podLabels }}
+        {{- include "global-chart.labels" $root | nindent 8 }}
+        {{- with $dep.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
     spec:
-      {{- with .Values.deployment.imagePullSecrets }}
+      {{- with $dep.imagePullSecrets }}
       imagePullSecrets:
         {{- range . }}
           {{- if kindIs "string" . }}
-        - name: {{ . }}
+        - name: {{ . | quote }}
           {{- else if hasKey . "name" }}
-        - name: {{ .name }}
+        - name: {{ .name | quote }}
           {{- else }}
-          {{ fail "imagePullSecrets must be a list of strings or objects with a 'name' key." }}
+          {{ fail "imagePullSecrets must be a list of strings or objects with a 'name' key.'" }}
           {{- end }}
         {{- end }}
       {{- end }}
-      {{- if .Values.deployment.hostAliases }}
+      {{- if $dep.hostAliases }}
       hostAliases:
-        {{- toYaml .Values.deployment.hostAliases | nindent 8 }}
+        {{- toYaml $dep.hostAliases | nindent 8 }}
       {{- end }}
-      {{- if or .Values.deployment.dnsConfig.nameservers .Values.deployment.dnsConfig.searches .Values.deployment.dnsConfig.options }}
+      {{- if or $dep.dnsConfig.nameservers $dep.dnsConfig.searches $dep.dnsConfig.options }}
       dnsConfig:
-        {{- if .Values.deployment.dnsConfig.nameservers }}
+        {{- if $dep.dnsConfig.nameservers }}
         nameservers:
-          {{- range .Values.deployment.dnsConfig.nameservers }}
+          {{- range $dep.dnsConfig.nameservers }}
           - {{ . }}
           {{- end }}
         {{- end }}
-        {{- if .Values.deployment.dnsConfig.searches }}
+        {{- if $dep.dnsConfig.searches }}
         searches:
-          {{- range .Values.deployment.dnsConfig.searches }}
+          {{- range $dep.dnsConfig.searches }}
           - {{ . }}
           {{- end }}
         {{- end }}
-        {{- if .Values.deployment.dnsConfig.options }}
+        {{- if $dep.dnsConfig.options }}
         options:
-          {{- range .Values.deployment.dnsConfig.options }}
+          {{- range $dep.dnsConfig.options }}
           - name: {{ .name }}
             {{- if .value }}
             value: {{ .value | quote }}
@@ -69,88 +71,94 @@ spec:
           {{- end }}
         {{- end }}
       {{- end }}
-      serviceAccountName: {{ include "global-chart.serviceAccountName" . }}
-      {{- if .Values.deployment.podSecurityContext }}
+      serviceAccountName: {{ include "global-chart.serviceAccountName" $root }}
+      {{- if $dep.podSecurityContext }}
       securityContext:
-        {{- toYaml .Values.deployment.podSecurityContext | nindent 8 }}
+        {{- toYaml $dep.podSecurityContext | nindent 8 }}
       {{- end }}
-      {{- with .Values.deployment.extraInitContainers }}
+      {{- with $dep.extraInitContainers }}
       initContainers:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       containers:
-        - name: {{ .Chart.Name }}
-          {{- if .Values.deployment.securityContext}}
-          securityContext:
-            {{- toYaml .Values.deployment.securityContext | nindent 12 }}
-          {{- end }}
-          image: "{{ .Values.deployment.image.repository }}:{{ .Values.deployment.image.tag | default .Chart.AppVersion }}"
-          imagePullPolicy: {{ .Values.deployment.image.pullPolicy | default "Always" }}
+        - name: {{ include "global-chart.fullname" $root }}
+          image: "{{ $dep.image.repository }}:{{ $dep.image.tag }}"
+          imagePullPolicy: {{ $dep.image.pullPolicy | default "Always" }}
           ports:
             - name: http
-              containerPort: {{ .Values.deployment.service.port | default 80 }}
+              containerPort: {{ $dep.service.port | default 80 }}
               protocol: TCP
-          {{- if .Values.deployment.livenessProbe }}
+          {{- if $dep.livenessProbe }}
           livenessProbe:
-            {{- toYaml .Values.deployment.livenessProbe | nindent 12 }}
+            {{- toYaml $dep.livenessProbe | nindent 12 }}
           {{- end }}
-          {{- if .Values.deployment.readinessProbe }}
+          {{- if $dep.readinessProbe }}
           readinessProbe:
-            {{- toYaml .Values.deployment.readinessProbe | nindent 12 }}
+            {{- toYaml $dep.readinessProbe | nindent 12 }}
           {{- end }}
           resources:
-            {{- toYaml .Values.deployment.resources | nindent 12 }}
-          {{- if or .Values.deployment.configMap .Values.deployment.envFromConfigMaps .Values.deployment.secret .Values.deployment.envFromSecrets }}
+            {{- toYaml $dep.resources | nindent 12 }}
+          {{- if or $dep.configMap $dep.envFromConfigMaps $dep.secret $dep.envFromSecrets }}
           envFrom:
-            {{- if .Values.deployment.configMap }}
+            {{- if $dep.configMap }}
             - configMapRef:
-                name: {{ template "global-chart.fullname" . }}
+                name: {{ include "global-chart.fullname" $root | quote }}
             {{- end }}
-            {{- if .Values.deployment.envFromConfigMaps }}
-            {{- range  $configMap, $configMaps := .Values.deployment.envFromConfigMaps }}
+            {{- range $cm := $dep.envFromConfigMaps }}
             - configMapRef:
-                name: {{ $configMaps | quote }}
+                name: {{ $cm | quote }}
             {{- end }}
-            {{- end }}
-            {{- if .Values.deployment.secret }}
+            {{- if $dep.secret }}
             - secretRef:
-                name: {{ template "global-chart.fullname" . }}
+                name: {{ include "global-chart.fullname" $root | quote }}
             {{- end }}
-            {{- if .Values.deployment.envFromSecrets }}
-            {{- range  $secret, $secrets := .Values.deployment.envFromSecrets }}
+            {{- range $sec := $dep.envFromSecrets }}
             - secretRef:
-                name: {{ $secrets | quote }}
-            {{- end }}
+                name: {{ $sec | quote }}
             {{- end }}
           {{- end }}
-          {{- if .Values.deployment.additionalEnvs }}
+          {{- if $dep.additionalEnvs }}
           env:
-            {{- range .Values.deployment.additionalEnvs }}
-            - name: {{ .name }}
+            {{- range $env := $dep.additionalEnvs }}
+            - name: {{ $env.name | quote }}
               valueFrom:
-                {{- toYaml .valueFrom | nindent 16 }}
+                {{- toYaml $env.valueFrom | nindent 16 }}
             {{- end }}
           {{- end }}
-          {{- with .Values.deployment.volumeMounts }}
+          {{- with $dep.volumeMounts }}
           volumeMounts:
-          {{- toYaml . | nindent 12 }}
+            {{- toYaml . | nindent 12 }}
           {{- end }}
-        {{- with .Values.deployment.extraContainers }}
-        {{- toYaml . | nindent 8 }}
-          {{- end }}
-      {{- with .Values.deployment.volumes }}
+      {{- with $dep.volumes }}
       volumes:
-        {{- toYaml . | nindent 8 }}
+        {{- range . }}
+        - name: {{ .name }}
+          {{- if eq .type "emptyDir" }}
+          emptyDir: {}
+          {{- end }}
+          {{- if eq .type "configMap" }}
+          configMap:
+            name: {{ .configMap.name | quote }}
+          {{- end }}
+          {{- if eq .type "secret" }}
+          secret:
+            secretName: {{ default .secret.secretName .secret.name | quote }}
+          {{- end }}
+          {{- if eq .type "persistentVolumeClaim" }}
+          persistentVolumeClaim:
+            claimName: {{ default .persistentVolumeClaim.claimName .persistentVolumeClaim.name | quote }}
+          {{- end }}
+        {{- end }}
       {{- end }}
-      {{- with .Values.deployment.nodeSelector }}
+      {{- with $dep.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.deployment.affinity }}
+      {{- with $dep.affinity }}
       affinity:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.deployment.tolerations }}
+      {{- with $dep.tolerations }}
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}

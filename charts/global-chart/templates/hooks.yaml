@@ -1,4 +1,4 @@
-{{- $dot := . }}
+{{- $root := . }}
 {{- range $hook, $hooks := .Values.hooks }}
 {{- range $name, $command := $hooks }}
 {{- if $command }}
@@ -6,9 +6,9 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ template "global-chart.hookfullname" (merge (dict "hookname" $hook "jobname" $name) $dot) }}
+  name: {{ template "global-chart.hookfullname" (merge (dict "hookname" $hook "jobname" $name) $root) }}
   labels:
-    {{- include "global-chart.labels" $dot | nindent 4 }}
+    {{- include "global-chart.labels" $root | nindent 4 }}
   annotations:
     "helm.sh/hook": {{ $hook }}
     "helm.sh/hook-weight": {{ $command.weight | default "10" | quote }}
@@ -16,43 +16,43 @@ metadata:
 spec:
   template:
     metadata:
-      name: {{ template "global-chart.hookfullname" (merge (dict "hookname" $hook "jobname" $name) $dot) }}
+      name: {{ template "global-chart.hookfullname" (merge (dict "hookname" $hook "jobname" $name) $root) }}
       labels:
-        {{- include "global-chart.labels" $dot | nindent 8 }}
+        {{- include "global-chart.labels" $root | nindent 8 }}
     spec:
-      {{- with $dot.Values.deployment.imagePullSecrets }}
+      {{- with $root.Values.deployment.imagePullSecrets }}
       imagePullSecrets:
         {{- range . }}
           {{- if kindIs "string" . }}
-        - name: {{ . }}
+        - name: {{ . | quote }}
           {{- else if hasKey . "name" }}
-        - name: {{ .name }}
+        - name: {{ .name | quote }}
           {{- else }}
           {{ fail "imagePullSecrets must be a list of strings or objects with a 'name' key." }}
           {{- end }}
         {{- end }}
       {{- end }}
-      {{- if $dot.Values.deployment.hostAliases }}
+      {{- if $root.Values.deployment.hostAliases }}
       hostAliases:
-        {{- toYaml $dot.Values.deployment.hostAliases | nindent 8 }}
+        {{- toYaml $root.Values.deployment.hostAliases | nindent 8 }}
       {{- end }}
-      {{- if or $dot.Values.deployment.dnsConfig.nameservers $dot.Values.deployment.dnsConfig.searches $dot.Values.deployment.dnsConfig.options }}
+      {{- if or $root.Values.deployment.dnsConfig.nameservers $root.Values.deployment.dnsConfig.searches $root.Values.deployment.dnsConfig.options }}
       dnsConfig:
-        {{- if $dot.Values.deployment.dnsConfig.nameservers }}
+        {{- if $root.Values.deployment.dnsConfig.nameservers }}
         nameservers:
-          {{- range $dot.Values.deployment.dnsConfig.nameservers }}
+          {{- range $root.Values.deployment.dnsConfig.nameservers }}
           - {{ . }}
           {{- end }}
         {{- end }}
-        {{- if $dot.Values.deployment.dnsConfig.searches }}
+        {{- if $root.Values.deployment.dnsConfig.searches }}
         searches:
-          {{- range $dot.Values.deployment.dnsConfig.searches }}
+          {{- range $root.Values.deployment.dnsConfig.searches }}
           - {{ . }}
           {{- end }}
         {{- end }}
-        {{- if $dot.Values.deployment.dnsConfig.options }}
+        {{- if $root.Values.deployment.dnsConfig.options }}
         options:
-          {{- range $dot.Values.deployment.dnsConfig.options }}
+          {{- range $root.Values.deployment.dnsConfig.options }}
           - name: {{ .name }}
             {{- if .value }}
             value: {{ .value | quote }}
@@ -62,11 +62,11 @@ spec:
       {{- end }}
       restartPolicy: {{ $command.restartPolicy | default "Never" }}
       containers:
-        - name: {{ template "global-chart.hookfullname" (merge (dict "hookname" $hook "jobname" $name) $dot) }}
+        - name: {{ template "global-chart.hookfullname" (merge (dict "hookname" $hook "jobname" $name) $root) }}
           {{- if $command.image }}
           image: {{ $command.image }}
           {{- else }}
-          image: "{{ $dot.Values.deployment.image.repository }}:{{ $dot.Values.deployment.image.tag | default $dot.Chart.AppVersion }}"
+          image: "{{ $root.Values.deployment.image.repository }}:{{ $root.Values.deployment.image.tag }}"
           {{- end }}
           imagePullPolicy: {{ $command.imagePullPolicy | default "Always" }}
           {{- if $command.command }}
@@ -77,60 +77,73 @@ spec:
           args:
             {{- toYaml $command.args | nindent 12 }}
           {{- end }}
-          {{- if or $dot.Values.deployment.configMap $dot.Values.deployment.envFromConfigMaps $dot.Values.deployment.secret $dot.Values.deployment.envFromSecrets }}
+          {{- if or $root.Values.deployment.configMap $root.Values.deployment.envFromConfigMaps $root.Values.deployment.secret $root.Values.deployment.envFromSecrets }}
           envFrom:
-            {{- if $dot.Values.deployment.configMap }}
+            {{- if $root.Values.deployment.configMap }}
             - configMapRef:
-                name: {{ template "global-chart.fullname" $dot }}
+                name: {{ template "global-chart.fullname" $root }}
             {{- end }}
-            {{- if $dot.Values.deployment.envFromConfigMaps }}
-            {{- range  $configMap, $configMaps := $dot.Values.deployment.envFromConfigMaps }}
+            {{- range $cm := $root.Values.deployment.envFromConfigMaps }}
             - configMapRef:
-                name: {{ $configMaps | quote }}
+                name: {{ $cm | quote }}
             {{- end }}
-            {{- end }}
-            {{- if $dot.Values.deployment.secret }}
+            {{- if $root.Values.deployment.secret }}
             - secretRef:
-                name: {{ template "global-chart.fullname" $dot }}
+                name: {{ template "global-chart.fullname" $root }}
             {{- end }}
-            {{- if $dot.Values.deployment.envFromSecrets }}
-            {{- range  $secret, $secrets := $dot.Values.deployment.envFromSecrets }}
+            {{- range $sec := $root.Values.deployment.envFromSecrets }}
             - secretRef:
-                name: {{ $secrets | quote }}
-            {{- end }}
+                name: {{ $sec | quote }}
             {{- end }}
           {{- end }}
-          {{- if $dot.Values.deployment.additionalEnvs }}
+          {{- if $root.Values.deployment.additionalEnvs }}
           env:
-            {{- range $dot.Values.deployment.additionalEnvs }}
-            - name: {{ .name }}
+            {{- range $env := $root.Values.deployment.additionalEnvs }}
+            - name: {{ $env.name | quote }}
               valueFrom:
-                {{- toYaml $dot.valueFrom | nindent 16 }}
+                {{- toYaml $env.valueFrom | nindent 16 }}
             {{- end }}
           {{- end }}
-          {{- with $dot.Values.deployment.volumeMounts }}
+          {{- with $root.Values.deployment.volumeMounts }}
           volumeMounts:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-          {{- with $dot.Values.deployment.extraContainers }}
+          {{- with $root.Values.deployment.extraContainers }}
             {{- toYaml . | nindent 8 }}
           {{- end }}
-      {{- with $dot.Values.deployment.volumes }}
+      {{- with $root.Values.deployment.volumes }}
       volumes:
-        {{- toYaml . | nindent 8 }}
+        {{- range . }}
+        - name: {{ .name }}
+          {{- if eq .type "emptyDir" }}
+          emptyDir: {}
+          {{- end }}
+          {{- if eq .type "configMap" }}
+          configMap:
+            name: {{ .configMap.name | quote }}
+          {{- end }}
+          {{- if eq .type "secret" }}
+          secret:
+            secretName: {{ default .secret.secretName .secret.name | quote }}
+          {{- end }}
+          {{- if eq .type "persistentVolumeClaim" }}
+          persistentVolumeClaim:
+            claimName: {{ default .persistentVolumeClaim.claimName .persistentVolumeClaim.name | quote }}
+          {{- end }}
+        {{- end }}
       {{- end }}
-      {{- with $dot.Values.deployment.nodeSelector }}
+      {{- with $root.Values.deployment.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with $dot.Values.deployment.affinity }}
+      {{- with $root.Values.deployment.affinity }}
       affinity:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with $dot.Values.deployment.tolerations }}
+      {{- with $root.Values.deployment.tolerations }}
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
     {{- end }}
-  {{- end }}
+{{- end }}
 {{- end }}

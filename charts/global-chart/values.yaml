@@ -1,163 +1,177 @@
 # Default values for global-chart.
 
+# -- (bool) Enable/disable the deployment of the application
 deployment:
-  # -- (bool) Enable/disable the deployment of the application
-  enabled: false # Enable/disable the deployment of the application
-  # -- (int) Number of replicas to deploy
-  replicaCount: 2 # Specify the number of pod replicas to deploy, default is 2
+  enabled: false
+
+  # -- (int) Number of replicas to deploy, default is 2
+  replicaCount: 2
 
   # -- Image configuration
   image:
-    # -- Image repository
-    repository: nginx # Docker image repository
-    # -- (string) Image pull policy
-    pullPolicy: Always # Image pull policy: Always, IfNotPresent, or Never
-    # -- Overrides the image tag whose default is the chart appVersion.
-    tag: latest # Specify the image tag (default: chart appVersion)
+    # -- Docker image repository
+    repository: nginx
+    # -- Image pull policy: Always, IfNotPresent, or Never
+    pullPolicy: Always
+    # -- Overrides the image tag (default: chart AppVersion)
+    tag: latest
 
-  # -- Image pull secrets
-  imagePullSecrets: [] # List of secrets for pulling private images
+  # -- List of imagePullSecrets for private registries
+  imagePullSecrets: []
 
-  # -- Override the name of the chart
-  nameOverride: "" # Specify a custom name for the chart
-  # -- Override the full name of the chart
-  fullnameOverride: "" # Specify a custom full name for the chart
+  # -- Override the chart name
+  nameOverride: ""
+  # -- Override the chart fullname
+  fullnameOverride: ""
 
-  # -- Service account configuration
+  # -- ServiceAccount creation and mounting
   serviceAccount:
-    # -- Specifies whether a service account should be created
-    create: true # Create a new service account (true/false)
-    # Automatically mount a ServiceAccount's API credentials?
-    automount: true # Mount service account credentials (true/false)
-    # -- Annotations to add to the service account
-    annotations: {} # Add custom annotations for the service account
-    # -- The name of the service account to use
-    name: "" # Specify an existing service account name
+    # -- Create a ServiceAccount
+    create: true
+    # -- Automount the ServiceAccount credentials
+    automount: true
+    # -- Annotations to add to the ServiceAccount
+    annotations: {}
+    # -- Use an existing ServiceAccount name
+    name: ""
 
   # -- Pod annotations
-  podAnnotations: {} # Add custom annotations for the pods
+  podAnnotations: {}
   # -- Pod labels
-  podLabels: {} # Add custom labels for the pods
+  podLabels: {}
 
-  # -- Pod security context
-  podSecurityContext:
-    {} # Configure security settings for the pod (e.g., fsGroup)
-    # fsGroup: 2000
+  # -- Pod-level security context (e.g., fsGroup)
+  podSecurityContext: {}
 
-  # -- Security context
-  securityContext: {} # Configure container security settings (e.g., runAsUser)
+  # -- Container-level security context (e.g., runAsUser)
+  securityContext: {}
 
-  # -- Service configuration
+  # -- Service that front-ends the Deployment
   service:
-    # -- Port name
-    portName: http # Specify the service port name
-    # -- Service type
-    type: ClusterIP # Kubernetes service type: ClusterIP, NodePort, or LoadBalancer
-    # -- Service port
-    port: 80 # Port on which the service is exposed
-    # -- Target port
-    targetPort: http # Port to which the service is forwarded
-  # -- Resource requests and limits for the deployment
-  resources: # Specify resource requests and limits for the pods
+    # -- Service port name
+    portName: http
+    # -- Service type: ClusterIP, NodePort, or LoadBalancer
+    type: ClusterIP
+    # -- Port exposed by the Service
+    port: 80
+    # -- Target port on the pod
+    targetPort: http
+
+  # -- Resource requests & limits for pods
+  resources:
     requests:
-      memory: "64Mi" # Memory resource requests
-      cpu: "100m" # CPU resource requests
+      # -- Memory request
+      memory: "64Mi"
+      # -- CPU request
+      cpu: "100m"
+
   # -- Liveness probe configuration
-  livenessProbe:
-    {} # Configure liveness probe to check pod health
-    # httpGet:
-    #   path: /
-    #   port: http
+  livenessProbe: {}
 
   # -- Readiness probe configuration
-  readinessProbe:
-    {} # Configure readiness probe to check pod readiness
-    # httpGet:
-    #   path: /
-    #   port: http
+  readinessProbe: {}
 
-  # -- Autoscaling configuration
+  # -- Horizontal Pod Autoscaling configuration
   autoscaling:
     # -- Enable autoscaling
-    enabled: false # Enable/disable horizontal pod autoscaling
-    # -- Min number of pods
-    minReplicas: 2 # Minimum number of replicas
-    # -- Max number of pods
-    maxReplicas: 10 # Maximum number of replicas
-    # -- Target CPU utilization percentage
-    targetCPUUtilizationPercentage: "" # Target average CPU usage for scaling
-    targetMemoryUtilizationPercentage: "" # Target average memory usage for scaling
+    enabled: false
+    # -- Minimum replicas
+    minReplicas: 2
+    # -- Maximum replicas
+    maxReplicas: 10
+    # -- Target average CPU utilization (%)
+    targetCPUUtilizationPercentage: ""
+    # -- Target average Memory utilization (%)
+    targetMemoryUtilizationPercentage: ""
 
-  # -- Volumes configuration, supported types: Secret, ConfigMap, PersistentVolumeClaim
-  volumes: [] # Define volumes for the pods
+  # -- Pod volumes: Secret, ConfigMap, PVC, etc.
+  volumes: []
 
-  # -- Volume mounts configuration
-  volumeMounts: [] # Specify volume mounts for the containers
+  # -- Container volumeMounts for the above volumes
+  volumeMounts: []
 
-  # -- Node selector
-  nodeSelector: {} # Define node selector constraints for pod placement
+  # -- Node selector constraints for pod placement
+  nodeSelector: {}
 
-  # -- Tolerations
-  tolerations: [] # Add tolerations for pods
+  # -- Pod tolerations
+  tolerations: []
 
-  # -- Affinity
-  affinity: {} # Define affinity rules for pod scheduling
+  # -- Pod affinity/anti-affinity rules
+  affinity: {}
 
-  # -- Creates a global secret to be used as an environment variable in the deployment
-  secret: {} # Define global secrets for environment variables
+  # -- Global Secret key/value for envFrom injection
+  secret: {}
 
-  # -- Creates a global configMap to be used as an environment variable in the deployment
-  configMap: {} # Define global ConfigMaps for environment variables
+  # -- Global ConfigMap key/value for envFrom injection
+  configMap: {}
 
-  # -- HostAliases
-  hostAliases: [] # Add custom host entries to the pod
+  # -- hostAliases entries for pods
+  hostAliases: []
 
-  # -- DNS Configuration
+  # -- DNS settings for pods
   dnsConfig:
-    nameservers: [] # Specify custom DNS servers
-    searches: [] # Define DNS search domains
-    options: [] # Configure DNS options
+    # -- Custom nameservers
+    nameservers: []
+    # -- DNS search domains
+    searches: []
+    # -- DNS options (name/value)
+    options: []
 
-  # -- Injects one or more existing configMaps into the deployment as environment variables
-  envFromConfigMaps: [] # Specify ConfigMaps to import as environment variables
-
-  # -- Injects one or more existing secrets into the deployment as environment variables
-  envFromSecrets: [] # Specify Secrets to import as environment variables
-
+  # -- Import existing ConfigMaps as envFrom
+  envFromConfigMaps: []
+  # -- Import existing Secrets as envFrom
+  envFromSecrets: []
   # -- Additional environment variables
-  additionalEnvs: [] # Add custom environment variables to the pods
+  additionalEnvs: []
 
-  # -- Extra init containers
-  extraInitContainers: [] # Add additional init containers to the deployment
-  # -- Extra containers
-  extraContainers: [] # Add additional containers to the deployment
+  # -- Extra initContainers
+  extraInitContainers: []
+  # -- Extra sidecar containers
+  extraContainers: []
 
-  # -- If set to true the deployment pods will be recreated, if coupled with image.pullPolicy=Always a new image will always be downloaded.
+  # -- Recreate pods on config change (with pullPolicy=Always)
   podRecreation:
-    enabled: false # Recreate pods when configuration changes
+    enabled: false
 
 # -- Ingress configuration
 ingress:
-  # -- (bool) Enable/disable ingress for the application
-  enabled: false # Enable/disable ingress for the application
-  # -- Ingress class name
-  className: "nginx" # Specify the ingress class to use
-  # -- Annotations to add to the ingress
-  annotations: {} # Add custom annotations for the ingress
-  # -- Hosts configuration
+  # -- Enable or disable Ingress
+  enabled: false
+  # -- IngressClass to use (e.g., nginx)
+  className: "nginx"
+  # -- Annotations to add to the Ingress
+  annotations: {}
+  # -- TLS configuration for secure hosts
+  tls: []
+
+  # -- Definitions for each host rule
   hosts:
-    - host: chart-example.local # Specify the hostname for the ingress
+    - host: chart-example.local
+      # -- Service backend name (default: chart fullname)
+      service:
+        name: ""
+        # -- Service backend port (default: deployment.service.port)
+        port: 0
+      # -- HTTP path definitions for this host
       paths:
-        - path: / # Define the path for the ingress
-          pathType: ImplementationSpecific # Path type: Prefix or Exact
-  # -- TLS configuration
-  tls: [] # Configure TLS for secure ingress access
+        - path: /
+          pathType: ImplementationSpecific
 
-# -- Cronjobs
-cronJobs: {} # Define scheduled jobs (cronjobs) for the application
+    # - host: api.example.local
+    #   service:
+    #     name: my-api-svc
+    #     port: 8080
+    #   paths:
+    #     - path: /v1
+    #       pathType: Prefix
+    #     - path: /health
+    #       pathType: Exact
 
-# -- Hooks configuration
-hooks: {} # Configure lifecycle hooks for install/upgrade
+# -- CronJobs configuration (map of named cronJobs)
+cronJobs: {}
 
-# -- ExternalSecrets configuration
-externalSecrets: [] # Define ExternalSecrets for managing secrets
+# -- Hook jobs for chart lifecycle (install/upgrade)
+hooks: {}
+
+# -- ExternalSecrets definitions for secret management
+externalSecrets: []

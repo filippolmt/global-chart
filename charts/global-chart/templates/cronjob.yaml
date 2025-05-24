@@ -1,12 +1,12 @@
 {{- if .Values.cronJobs }}
-{{- $dot := . }}
+{{- $root := . }}
 {{- range $name, $job := .Values.cronJobs }}
 {{- if $job }}
 ---
 apiVersion: batch/v1
 kind: CronJob
 metadata:
-  name: {{ printf "%s-%s" (include "global-chart.fullname" $dot) $name | quote }}
+  name: {{ printf "%s-%s" (include "global-chart.fullname" $root) $name | quote }}
 spec:
   schedule: {{ $job.schedule | quote }}
   successfulJobsHistoryLimit: {{ $job.successfulJobsHistoryLimit | default 2 }}
@@ -26,8 +26,8 @@ spec:
             image: {{ $job.image }}
             imagePullPolicy: {{ $job.imagePullPolicy | default "Always" }}
             {{- else }}
-            image: "{{ $dot.Values.deployment.image.repository }}:{{ $dot.Values.deployment.image.tag | default $dot.Chart.AppVersion }}"
-            imagePullPolicy: {{ $dot.Values.deployment.image.pullPolicy | default "Always" }}
+            image: "{{ $root.Values.deployment.image.repository }}:{{ $root.Values.deployment.image.tag }}"
+            imagePullPolicy: {{ $root.Values.deployment.image.pullPolicy | default "Always" }}
             {{- end }}
             {{- if $job.command }}
             command:
@@ -37,7 +37,7 @@ spec:
             args:
               {{- toYaml $job.args | nindent 14 }}
             {{- end }}
-            {{- with $dot.Values.deployment.volumeMounts }}
+            {{- with $root.Values.deployment.volumeMounts }}
             volumeMounts:
               {{- toYaml . | nindent 14 }}
             {{- end }}
@@ -61,7 +61,7 @@ spec:
                 cpu: 100m
                 memory: 128Mi
             {{- end }}
-          {{- with $dot.Values.deployment.volumes }}
+          {{- with $root.Values.deployment.volumes }}
           volumes:
             {{- range . }}
             - name: {{ .name }}
@@ -82,8 +82,8 @@ spec:
               {{- end }}
             {{- end }}
           {{- end }}
-          {{- if or $job.serviceAccountName $dot.Values.deployment.serviceAccount.create }}
-          serviceAccountName: {{ $job.serviceAccountName | default (printf "%s-%s" (include "global-chart.fullname" $dot) $name) | quote }}
+          {{- if or $job.serviceAccountName $root.Values.deployment.serviceAccount.create }}
+          serviceAccountName: {{ $job.serviceAccountName | default (printf "%s-%s" (include "global-chart.fullname" $root) $name) | quote }}
           {{- end }}
           restartPolicy: Never
           {{- with $job.nodeSelector }}
