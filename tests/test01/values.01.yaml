@@ -1,5 +1,9 @@
 deployment:
   enabled: true
+  image:
+    repository: nginx
+    pullPolicy: IfNotPresent
+    tag: "1.23.3"
   secret:
     password: AQ23sdsd
     username: admin

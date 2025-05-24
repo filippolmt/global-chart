@@ -82,7 +82,7 @@ spec:
       {{- end }}
       containers:
         - name: {{ include "global-chart.fullname" $root }}
-          image: "{{ $dep.image.repository }}:{{ $dep.image.tag }}"
+          image: "{{ required "repository is mandatory" $dep.image.repository }}:{{ required "tag image is mandadory" $dep.image.tag }}"
           imagePullPolicy: {{ $dep.image.pullPolicy | default "Always" }}
           ports:
             - name: http

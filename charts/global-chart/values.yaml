@@ -10,11 +10,11 @@ deployment:
   # -- Image configuration
   image:
     # -- Docker image repository
-    repository: nginx
+    repository: ""
     # -- Image pull policy: Always, IfNotPresent, or Never
-    pullPolicy: Always
+    pullPolicy: IfNotPresent
     # -- Overrides the image tag (default: chart AppVersion)
-    tag: latest
+    tag: ""
 
   # -- List of imagePullSecrets for private registries
   imagePullSecrets: []
