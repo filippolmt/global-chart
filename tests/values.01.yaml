@@ -1,4 +1,78 @@
-imagePullSecrets: [docker-login-test-example-net-9194]
+deployment:
+  enabled: true
+  imagePullSecrets: [docker-login-test-example-net-9194]
+  secret:
+    password: AQ23sdsd
+    username: admin
+    host: example.com
+
+  configMap:
+    username: admin
+    environment: production
+    host: example.com
+
+  volumes:
+    - name: myvolume
+      type: secret
+      secret:
+        secretName: mysecret
+    - name: myvolume2
+      type: configMap
+      configMap:
+        name: myconfigmap
+    - name: myvolume3
+      type: persistentVolumeClaim
+      persistentVolumeClaim:
+        claimName: mypvc
+  volumeMounts:
+    - name: myvolume
+      mountPath: /etc/secret
+    - name: myvolume2
+      mountPath: /etc/config
+    - name: myvolume3
+      mountPath: /etc/pvc
+
+  hostAliases: []
+  dnsConfig:
+    nameservers:
+      - 10.1.2.3
+      - 10.1.2.4
+    searches:
+      - example.net
+    options:
+      - name: ndots
+        value: "2"
+      - name: edns0
+
+  envFromConfigMaps:
+    - myconfigmap
+    - mongodb-0-config
+
+  envFromSecrets:
+    - mysecret
+    - mongodb-0-secret
+
+  livenessProbe:
+    httpGet:
+      path: /
+      port: http
+
+  readinessProbe:
+    httpGet:
+      path: /
+      port: http
+
+  additionalEnvs:
+    - name: NEWPASS
+      valueFrom:
+        secretKeyRef:
+          name: mysecret
+          key: test
+    - name: NEWCONFIG
+      valueFrom:
+        configMapKeyRef:
+          name: myconfig
+          key: test
 
 hooks:
   post-install:
@@ -41,16 +115,6 @@ hooks:
   post-upgrade:
     cr: null
 
-secret:
-  password: AQ23sdsd
-  username: admin
-  host: example.com
-
-configMap:
-  username: admin
-  environment: production
-  host: example.com
-
 cronJobs:
   cron:
     tolerations: []
@@ -64,6 +128,12 @@ cronJobs:
       requests:
         cpu: 100m
         memory: 128Mi
+    envFromConfigMaps:
+      - myconfigmap
+      - mongodb-0-config
+    envFromSecrets:
+      - mysecret
+      - mongodb-0-secret
   testcron:
     schedule: "00 12 * * 1-5"
     command: ["sh", "-c"]
@@ -75,68 +145,6 @@ cronJobs:
       requests:
         cpu: 1000m
         memory: 1280Mi
-volumes:
-  - name: myvolume
-    type: secret
-    secret:
-      secretName: mysecret
-  - name: myvolume2
-    type: configMap
-    configMap:
-      name: myconfigmap
-  - name: myvolume3
-    type: persistentVolumeClaim
-    persistentVolumeClaim:
-      claimName: mypvc
-volumeMounts:
-  - name: myvolume
-    mountPath: /etc/secret
-  - name: myvolume2
-    mountPath: /etc/config
-  - name: myvolume3
-    mountPath: /etc/pvc
-
-hostAliases: []
-dnsConfig:
-  nameservers:
-    - 10.1.2.3
-    - 10.1.2.4
-  searches:
-    - example.net
-  options:
-    - name: ndots
-      value: "2"
-    - name: edns0
-
-envFromConfigMaps:
-  - myconfigmap
-  - mongodb-0-config
-
-envFromSecrets:
-  - mysecret
-  - mongodb-0-secret
-
-livenessProbe:
-  httpGet:
-    path: /
-    port: http
-
-readinessProbe:
-  httpGet:
-    path: /
-    port: http
-
-additionalEnvs:
-  - name: NEWPASS
-    valueFrom:
-      secretKeyRef:
-        name: mysecret
-        key: test
-  - name: NEWCONFIG
-    valueFrom:
-      configMapKeyRef:
-        name: myconfig
-        key: test
 
 externalSecrets:
   mysecret:

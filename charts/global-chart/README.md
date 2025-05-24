@@ -1,6 +1,6 @@
 # global-chart
 
-![Version: 0.2.0](https://img.shields.io/badge/Version-0.2.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 1.16.0](https://img.shields.io/badge/AppVersion-1.16.0-informational?style=flat-square)
+![Version: 0.3.0](https://img.shields.io/badge/Version-0.3.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square)
 
 A versatile Helm chart designed for flexible Kubernetes deployments, supporting customizable services, ConfigMaps, volumes, deployments, ingress, hooks, and cronjobs for comprehensive application management.
 
@@ -29,9 +29,8 @@ A versatile Helm chart designed for flexible Kubernetes deployments, supporting 
 | service.type | string | `"ClusterIP"` | Service type |
 | service.port | int | `80` | Service port |
 | service.targetPort | string | `"http"` | Target port |
-| ingress | object | `{"annotations":{},"className":"nginx","clusterIssuer":"cluster-ca-issuer","enabled":false,"hosts":[{"host":"chart-example.local","paths":[{"path":"/","pathType":"ImplementationSpecific"}]}],"tls":[]}` | Ingress configuration |
+| ingress | object | `{"annotations":{},"className":"nginx","enabled":false,"hosts":[{"host":"chart-example.local","paths":[{"path":"/","pathType":"ImplementationSpecific"}]}],"tls":[]}` | Ingress configuration |
 | ingress.enabled | bool | `false` | Enable ingress |
-| ingress.clusterIssuer | string | `"cluster-ca-issuer"` | Cert-manager cluster issuer |
 | ingress.className | string | `"nginx"` | Ingress class name |
 | ingress.annotations | object | `{}` | Annotations to add to the ingress |
 | ingress.hosts | list | `[{"host":"chart-example.local","paths":[{"path":"/","pathType":"ImplementationSpecific"}]}]` | Hosts configuration |

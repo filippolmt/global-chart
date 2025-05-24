@@ -7,7 +7,6 @@ apiVersion: batch/v1
 kind: CronJob
 metadata:
   name: {{ printf "%s-%s" (include "global-chart.fullname" $dot) $name | quote }}
-  namespace: {{ $dot.Release.Namespace | quote }}
 spec:
   schedule: {{ $job.schedule | quote }}
   successfulJobsHistoryLimit: {{ $job.successfulJobsHistoryLimit |  default 2 }}
@@ -27,8 +26,8 @@ spec:
             image: {{ $job.image }}
             imagePullPolicy: {{ $job.imagePullPolicy | default "Always" }}
             {{- else }}
-            image: "{{ $dot.Values.image.repository }}:{{ $dot.Values.image.tag | default $dot.Chart.AppVersion }}"
-            imagePullPolicy: {{ $dot.Values.image.pullPolicy | default "Always" }}
+            image: "{{ $dot.Values.deployment.image.repository }}:{{ $dot.Values.deployment.image.tag | default $dot.Chart.AppVersion }}"
+            imagePullPolicy: {{ $dot.Values.deployment.image.pullPolicy | default "Always" }}
             {{- end }}
             {{- if $job.command }}
             command:
@@ -38,16 +37,22 @@ spec:
             args:
               {{- toYaml $job.args | nindent 12 }}
             {{- end }}
+            {{-  if or $job.envFromConfigMaps $job.envFromSecrets}}
             envFrom:
+            {{- range  $envFromConfigMap, $envFromConfigMaps := $job.envFromConfigMaps }}
             - configMapRef:
-                name: {{ template "global-chart.fullname" $dot }}
-            {{- range  $secret, $secrets := $dot.Values.createSecrets }}
-            - secretRef:
-                name: {{ printf "%s-%s" (include "global-chart.fullname" $dot) $secrets.name | quote }}
+                name: {{ $envFromConfigMaps | quote }}
             {{- end }}
-            {{- with $dot.Values.volumeMounts }}
+            {{- end }}
+            {{- if $job.envFromSecrets }}
+            {{- range  $envFromSecret, $envFromSecrets := $job.envFromSecrets }}
+            - secretRef:
+                name: {{ $envFromSecrets | quote }}
+            {{- end }}
+            {{- end }}
+            {{- with $dot.Values.deployment.volumeMounts }}
             volumeMounts:
-            {{- toYaml $dot.Values.volumeMounts | nindent 14 }}
+            {{- toYaml $dot.Values.deployment.volumeMounts | nindent 14 }}
             {{- end }}
             {{- if $job.resources }}
             resources:
@@ -58,11 +63,11 @@ spec:
                 cpu: 100m
                 memory: 128Mi
             {{- end }}
-          {{- with $dot.Values.volumes }}
+          {{- with $dot.Values.deployment.volumes }}
           volumes:
-          {{- toYaml $dot.Values.volumes | nindent 12 }}
+          {{- toYaml $dot.Values.deployment.volumes | nindent 12 }}
           {{- end }}
-          {{- if or $job.serviceAccountName $dot.Values.serviceAccount.create }}
+          {{- if or $job.serviceAccountName $dot.Values.deployment.serviceAccount.create }}
           serviceAccountName: {{ $job.serviceAccountName | default (printf "%s-%s" (include "global-chart.fullname" $dot) $name) }}
           {{- end }}
           restartPolicy: Never

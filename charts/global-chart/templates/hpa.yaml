@@ -1,9 +1,8 @@
-{{- if .Values.autoscaling.enabled }}
+{{- if and .Values.deployment.enabled .Values.deployment.autoscaling.enabled }}
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: {{ include "global-chart.fullname" . }}
-  namespace: {{ .Release.Namespace | quote }}
   labels:
     {{- include "global-chart.labels" . | nindent 4 }}
 spec:
@@ -11,23 +10,19 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: {{ include "global-chart.fullname" . }}
-  minReplicas: {{ .Values.autoscaling.minReplicas }}
-  maxReplicas: {{ .Values.autoscaling.maxReplicas }}
+  minReplicas: {{ .Values.deployment.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.deployment.autoscaling.maxReplicas }}
   metrics:
-    {{- if .Values.autoscaling.targetCPUUtilizationPercentage }}
     - type: Resource
       resource:
         name: cpu
         target:
           type: Utilization
-          averageUtilization: {{ .Values.autoscaling.targetCPUUtilizationPercentage }}
-    {{- end }}
-    {{- if .Values.autoscaling.targetMemoryUtilizationPercentage }}
+          averageUtilization: {{ .Values.deployment.autoscaling.targetCPUUtilizationPercentage  | default 90}}
     - type: Resource
       resource:
         name: memory
         target:
           type: Utilization
-          averageUtilization: {{ .Values.autoscaling.targetMemoryUtilizationPercentage }}
-    {{- end }}
+          averageUtilization: {{ .Values.deployment.autoscaling.targetMemoryUtilizationPercentage  | default 90 }}
 {{- end }}

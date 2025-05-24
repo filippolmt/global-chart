@@ -16,12 +16,10 @@ apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
   name: {{ $fullName }}
-  namespace: {{ .Release.Namespace | quote }}
   labels:
     {{- include "global-chart.labels" . | nindent 4 }}
-  annotations:
-    cert-manager.io/cluster-issuer: {{ .Values.ingress.clusterIssuer | quote }}
   {{- with .Values.ingress.annotations }}
+  annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 spec:

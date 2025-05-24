@@ -1,65 +1,145 @@
 # Default values for global-chart.
 
-# -- (int) Number of replicas to deploy
-replicaCount: 2 # Specify the number of pod replicas to deploy, default is 2
+deployment:
+  # -- (bool) Enable/disable the deployment of the application
+  enabled: false # Enable/disable the deployment of the application
+  # -- (int) Number of replicas to deploy
+  replicaCount: 2 # Specify the number of pod replicas to deploy, default is 2
 
-# -- Image configuration
-image:
-  # -- Image repository
-  repository: nginx # Docker image repository
-  # -- (string) Image pull policy
-  pullPolicy: Always # Image pull policy: Always, IfNotPresent, or Never
-  # -- Overrides the image tag whose default is the chart appVersion.
-  tag: latest # Specify the image tag (default: chart appVersion)
+  # -- Image configuration
+  image:
+    # -- Image repository
+    repository: nginx # Docker image repository
+    # -- (string) Image pull policy
+    pullPolicy: Always # Image pull policy: Always, IfNotPresent, or Never
+    # -- Overrides the image tag whose default is the chart appVersion.
+    tag: latest # Specify the image tag (default: chart appVersion)
 
-# -- Image pull secrets
-imagePullSecrets: [] # List of secrets for pulling private images
+  # -- Image pull secrets
+  imagePullSecrets: [] # List of secrets for pulling private images
 
-# -- Override the name of the chart
-nameOverride: "" # Specify a custom name for the chart
-# -- Override the full name of the chart
-fullnameOverride: "" # Specify a custom full name for the chart
+  # -- Override the name of the chart
+  nameOverride: "" # Specify a custom name for the chart
+  # -- Override the full name of the chart
+  fullnameOverride: "" # Specify a custom full name for the chart
 
-# -- Service account configuration
-serviceAccount:
-  # -- Specifies whether a service account should be created
-  create: true # Create a new service account (true/false)
-  # Automatically mount a ServiceAccount's API credentials?
-  automount: true # Mount service account credentials (true/false)
-  # -- Annotations to add to the service account
-  annotations: {} # Add custom annotations for the service account
-  # -- The name of the service account to use
-  name: "" # Specify an existing service account name
+  # -- Service account configuration
+  serviceAccount:
+    # -- Specifies whether a service account should be created
+    create: true # Create a new service account (true/false)
+    # Automatically mount a ServiceAccount's API credentials?
+    automount: true # Mount service account credentials (true/false)
+    # -- Annotations to add to the service account
+    annotations: {} # Add custom annotations for the service account
+    # -- The name of the service account to use
+    name: "" # Specify an existing service account name
 
-# -- Pod annotations
-podAnnotations: {} # Add custom annotations for the pods
-# -- Pod labels
-podLabels: {} # Add custom labels for the pods
+  # -- Pod annotations
+  podAnnotations: {} # Add custom annotations for the pods
+  # -- Pod labels
+  podLabels: {} # Add custom labels for the pods
 
-# -- Pod security context
-podSecurityContext: {} # Configure security settings for the pod (e.g., fsGroup)
-  # fsGroup: 2000
+  # -- Pod security context
+  podSecurityContext:
+    {} # Configure security settings for the pod (e.g., fsGroup)
+    # fsGroup: 2000
 
-# -- Security context
-securityContext: {} # Configure container security settings (e.g., runAsUser)
+  # -- Security context
+  securityContext: {} # Configure container security settings (e.g., runAsUser)
 
-# -- Service configuration
-service:
-  # -- Port name
-  portName: http # Specify the service port name
-  # -- Service type
-  type: ClusterIP # Kubernetes service type: ClusterIP, NodePort, or LoadBalancer
-  # -- Service port
-  port: 80 # Port on which the service is exposed
-  # -- Target port
-  targetPort: http # Port to which the service is forwarded
+  # -- Service configuration
+  service:
+    # -- Port name
+    portName: http # Specify the service port name
+    # -- Service type
+    type: ClusterIP # Kubernetes service type: ClusterIP, NodePort, or LoadBalancer
+    # -- Service port
+    port: 80 # Port on which the service is exposed
+    # -- Target port
+    targetPort: http # Port to which the service is forwarded
+  # -- Resource requests and limits for the deployment
+  resources: # Specify resource requests and limits for the pods
+    requests:
+      memory: "64Mi" # Memory resource requests
+      cpu: "100m" # CPU resource requests
+  # -- Liveness probe configuration
+  livenessProbe:
+    {} # Configure liveness probe to check pod health
+    # httpGet:
+    #   path: /
+    #   port: http
+
+  # -- Readiness probe configuration
+  readinessProbe:
+    {} # Configure readiness probe to check pod readiness
+    # httpGet:
+    #   path: /
+    #   port: http
+
+  # -- Autoscaling configuration
+  autoscaling:
+    # -- Enable autoscaling
+    enabled: false # Enable/disable horizontal pod autoscaling
+    # -- Min number of pods
+    minReplicas: 2 # Minimum number of replicas
+    # -- Max number of pods
+    maxReplicas: 10 # Maximum number of replicas
+    # -- Target CPU utilization percentage
+    targetCPUUtilizationPercentage: "" # Target average CPU usage for scaling
+    targetMemoryUtilizationPercentage: "" # Target average memory usage for scaling
+
+  # -- Volumes configuration, supported types: Secret, ConfigMap, PersistentVolumeClaim
+  volumes: [] # Define volumes for the pods
+
+  # -- Volume mounts configuration
+  volumeMounts: [] # Specify volume mounts for the containers
+
+  # -- Node selector
+  nodeSelector: {} # Define node selector constraints for pod placement
+
+  # -- Tolerations
+  tolerations: [] # Add tolerations for pods
+
+  # -- Affinity
+  affinity: {} # Define affinity rules for pod scheduling
+
+  # -- Creates a global secret to be used as an environment variable in the deployment
+  secret: {} # Define global secrets for environment variables
+
+  # -- Creates a global configMap to be used as an environment variable in the deployment
+  configMap: {} # Define global ConfigMaps for environment variables
+
+  # -- HostAliases
+  hostAliases: [] # Add custom host entries to the pod
+
+  # -- DNS Configuration
+  dnsConfig:
+    nameservers: [] # Specify custom DNS servers
+    searches: [] # Define DNS search domains
+    options: [] # Configure DNS options
+
+  # -- Injects one or more existing configMaps into the deployment as environment variables
+  envFromConfigMaps: [] # Specify ConfigMaps to import as environment variables
+
+  # -- Injects one or more existing secrets into the deployment as environment variables
+  envFromSecrets: [] # Specify Secrets to import as environment variables
+
+  # -- Additional environment variables
+  additionalEnvs: [] # Add custom environment variables to the pods
+
+  # -- Extra init containers
+  extraInitContainers: [] # Add additional init containers to the deployment
+  # -- Extra containers
+  extraContainers: [] # Add additional containers to the deployment
+
+  # -- If set to true the deployment pods will be recreated, if coupled with image.pullPolicy=Always a new image will always be downloaded.
+  podRecreation:
+    enabled: false # Recreate pods when configuration changes
 
 # -- Ingress configuration
 ingress:
-  # -- Enable ingress
+  # -- (bool) Enable/disable ingress for the application
   enabled: false # Enable/disable ingress for the application
-  # -- Cert-manager cluster issuer
-  clusterIssuer: "cluster-ca-issuer" # Cert-manager cluster issuer
   # -- Ingress class name
   className: "nginx" # Specify the ingress class to use
   # -- Annotations to add to the ingress
@@ -73,87 +153,11 @@ ingress:
   # -- TLS configuration
   tls: [] # Configure TLS for secure ingress access
 
-# -- Resource requests and limits for the deployment
-resources: # Specify resource requests and limits for the pods
-  requests:
-    memory: "64Mi" # Memory resource requests
-    cpu: "100m" # CPU resource requests
-# -- Liveness probe configuration
-livenessProbe: {} # Configure liveness probe to check pod health
-  # httpGet:
-  #   path: /
-  #   port: http
-
-# -- Readiness probe configuration
-readinessProbe: {} # Configure readiness probe to check pod readiness
-  # httpGet:
-  #   path: /
-  #   port: http
-
-# -- Autoscaling configuration
-autoscaling:
-  # -- Enable autoscaling
-  enabled: false # Enable/disable horizontal pod autoscaling
-  # -- Min number of pods
-  minReplicas: 2 # Minimum number of replicas
-  # -- Max number of pods
-  maxReplicas: 10 # Maximum number of replicas
-  # -- Target CPU utilization percentage
-  targetCPUUtilizationPercentage: 80 # Target average CPU usage for scaling
-
-# -- Volumes configuration, supported types: Secret, ConfigMap, PersistentVolumeClaim
-volumes: [] # Define volumes for the pods
-
-# -- Volume mounts configuration
-volumeMounts: [] # Specify volume mounts for the containers
-
-# -- Node selector
-nodeSelector: {} # Define node selector constraints for pod placement
-
-# -- Tolerations
-tolerations: [] # Add tolerations for pods
-
-# -- Affinity
-affinity: {} # Define affinity rules for pod scheduling
-
-# -- Hooks configuration
-hooks: {} # Configure lifecycle hooks for install/upgrade
-
-# -- Creates a global secret to be used as an environment variable in the deployment
-secret: {} # Define global secrets for environment variables
-
-# -- Creates a global configMap to be used as an environment variable in the deployment
-configMap: {} # Define global ConfigMaps for environment variables
-
 # -- Cronjobs
 cronJobs: {} # Define scheduled jobs (cronjobs) for the application
 
-# -- HostAliases
-hostAliases: [] # Add custom host entries to the pod
-
-# -- DNS Configuration
-dnsConfig:
-  nameservers: [] # Specify custom DNS servers
-  searches: [] # Define DNS search domains
-  options: [] # Configure DNS options
-
-# -- Injects one or more existing configMaps into the deployment as environment variables
-envFromConfigMaps: [] # Specify ConfigMaps to import as environment variables
-
-# -- Injects one or more existing secrets into the deployment as environment variables
-envFromSecrets: [] # Specify Secrets to import as environment variables
-
-# -- Additional environment variables
-additionalEnvs: [] # Add custom environment variables to the pods
-
-# -- Extra init containers
-extraInitContainers: [] # Add additional init containers to the deployment
-# -- Extra containers
-extraContainers: [] # Add additional containers to the deployment
-
-# -- If set to true the deployment pods will be recreated, if coupled with image.pullPolicy=Always a new image will always be downloaded.
-podRecreation:
-  enabled: false # Recreate pods when configuration changes
+# -- Hooks configuration
+hooks: {} # Configure lifecycle hooks for install/upgrade
 
 # -- ExternalSecrets configuration
 externalSecrets: [] # Define ExternalSecrets for managing secrets
