@@ -39,7 +39,7 @@ spec:
           {{- else if hasKey . "name" }}
         - name: {{ .name | quote }}
           {{- else }}
-          {{ fail "imagePullSecrets must be a list of strings or objects with a 'name' key.'" }}
+          {{ fail "imagePullSecrets must be a list of strings or objects with a 'name' key." }}
           {{- end }}
         {{- end }}
       {{- end }}

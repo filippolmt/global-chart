@@ -1,28 +1,53 @@
-{{- if and .Values.deployment.enabled .Values.deployment.autoscaling.enabled }}
+{{- $root := . }}
+{{- $dep  := $root.Values.deployment }}
+{{- $hpa  := $dep.autoscaling }}
+{{- /* converto in interi (""→0) */ -}}
+{{- $cpu  := int $hpa.targetCPUUtilizationPercentage }}
+{{- $mem  := int $hpa.targetMemoryUtilizationPercentage }}
+{{- /* almeno una metrica >0? */ -}}
+{{- $hasMetric := or (gt $cpu 0) (gt $mem 0) }}
+
+{{- if and $dep.enabled $hpa.enabled $hasMetric }}
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: {{ include "global-chart.fullname" . }}
+  name: {{ include "global-chart.fullname" $root }}
   labels:
-    {{- include "global-chart.labels" . | nindent 4 }}
+    {{- include "global-chart.labels" $root | nindent 4 }}
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: {{ include "global-chart.fullname" . }}
-  minReplicas: {{ .Values.deployment.autoscaling.minReplicas }}
-  maxReplicas: {{ .Values.deployment.autoscaling.maxReplicas }}
+    name: {{ include "global-chart.fullname" $root }}
+  minReplicas: {{ $hpa.minReplicas }}
+  maxReplicas: {{ $hpa.maxReplicas }}
   metrics:
+    {{- if gt $cpu 0 }}
     - type: Resource
       resource:
         name: cpu
         target:
           type: Utilization
-          averageUtilization: {{ .Values.deployment.autoscaling.targetCPUUtilizationPercentage  | default 90}}
+          averageUtilization: {{ $cpu }}
+    {{- end }}
+    {{- if gt $mem 0 }}
     - type: Resource
       resource:
         name: memory
         target:
           type: Utilization
-          averageUtilization: {{ .Values.deployment.autoscaling.targetMemoryUtilizationPercentage  | default 90 }}
+          averageUtilization: {{ $mem }}
+    {{- end }}
+
+  {{- with $hpa.behavior }}
+  behavior:
+    {{- with .scaleUp }}
+    scaleUp:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+    {{- with .scaleDown }}
+    scaleDown:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+  {{- end }}
 {{- end }}

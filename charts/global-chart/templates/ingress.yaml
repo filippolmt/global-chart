@@ -43,16 +43,13 @@ spec:
       secretName: {{ .secretName | quote }}
     {{- end }}
   {{- end }}
-
   rules:
     {{- range $hostEntry := $ing.hosts }}
-      {{- /* preparo un dict sicuro con valori di fallback */}}
       {{- $svcMap := dict "name" $fullName "port" $depSvcPort }}
       {{- if and (hasKey $hostEntry "service") $hostEntry.service }}
         {{- $_ := set $svcMap "name" (default $fullName $hostEntry.service.name) }}
         {{- $_ := set $svcMap "port" (default $depSvcPort $hostEntry.service.port) }}
       {{- end }}
-
     - host: {{ $hostEntry.host | quote }}
       http:
         paths:

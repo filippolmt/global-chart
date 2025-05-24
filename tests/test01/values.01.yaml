@@ -4,6 +4,24 @@ deployment:
     repository: nginx
     pullPolicy: IfNotPresent
     tag: "1.23.3"
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 80
+    behavior:
+      scaleUp:
+        stabilizationWindowSeconds: 60
+        policies:
+          - type: Percent
+            value: 20
+            periodSeconds: 60
+      scaleDown:
+        stabilizationWindowSeconds: 60
+        policies:
+          - type: Percent
+            value: 20
+            periodSeconds: 60
   secret:
     password: AQ23sdsd
     username: admin

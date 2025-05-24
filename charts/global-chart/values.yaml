@@ -9,11 +9,11 @@ deployment:
 
   # -- Image configuration
   image:
-    # -- Image repository
+    # -- Image repository (e.g., nginx)
     repository: ""
     # -- Image pull policy: Always, IfNotPresent, or Never
     pullPolicy: IfNotPresent
-    # -- Overrides the image tag.
+    # -- Image tag (e.g., "1.23.3")
     tag: ""
 
   # -- List of imagePullSecrets for private registries
@@ -73,16 +73,22 @@ deployment:
 
   # -- Horizontal Pod Autoscaling configuration
   autoscaling:
-    # -- Enable autoscaling
+    # -- Enable HPA (only when at least one target metric is set)
     enabled: false
-    # -- Minimum replicas
+    # -- Minimum replicas for HPA
     minReplicas: 2
-    # -- Maximum replicas
+    # -- Maximum replicas for HPA
     maxReplicas: 10
-    # -- Target average CPU utilization (%)
+    # -- Target average CPU utilization (%) (optional)
     targetCPUUtilizationPercentage: ""
-    # -- Target average Memory utilization (%)
+    # -- Target average memory utilization (%) (optional)
     targetMemoryUtilizationPercentage: ""
+    # -- Optional HPA behavior settings
+    behavior:
+      # -- scaleUp parameters passed through directly to HPA.behavior.scaleUp
+      scaleUp: {}
+      # -- scaleDown parameters passed through directly to HPA.behavior.scaleDown
+      scaleDown: {}
 
   # -- Pod volumes: Secret, ConfigMap, PVC, etc.
   volumes: []

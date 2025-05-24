@@ -31,7 +31,7 @@ generate-templates: lint-chart
 helm-install-${GLOBAL_CHART_NAME}-01:
 	kubectl apply -f tests/test01/test01.yaml || true
 	helm upgrade --install test ./${CHART_DIR}/${GLOBAL_CHART_NAME} \
-		-f tests/values.01.yaml \
+		-f tests/test01/values.01.yaml \
 		--namespace test01 \
 		--create-namespace
 
