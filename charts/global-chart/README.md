@@ -1,6 +1,6 @@
 # global-chart
 
-![Version: 0.2.0](https://img.shields.io/badge/Version-0.2.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 1.16.0](https://img.shields.io/badge/AppVersion-1.16.0-informational?style=flat-square)
+![Version: 0.3.0](https://img.shields.io/badge/Version-0.3.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square)
 
 A versatile Helm chart designed for flexible Kubernetes deployments, supporting customizable services, ConfigMaps, volumes, deployments, ingress, hooks, and cronjobs for comprehensive application management.
 
@@ -8,60 +8,74 @@ A versatile Helm chart designed for flexible Kubernetes deployments, supporting 
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| replicaCount | int | `2` | Number of replicas to deploy |
-| image | object | `{"pullPolicy":"Always","repository":"nginx","tag":"latest"}` | Image configuration |
-| image.repository | string | `"nginx"` | Image repository |
-| image.pullPolicy | string | `"Always"` | Image pull policy |
-| image.tag | string | `"latest"` | Overrides the image tag whose default is the chart appVersion. |
-| imagePullSecrets | list | `[]` | Image pull secrets |
-| nameOverride | string | `""` | Override the name of the chart |
-| fullnameOverride | string | `""` | Override the full name of the chart |
-| serviceAccount | object | `{"annotations":{},"automount":true,"create":true,"name":""}` | Service account configuration |
-| serviceAccount.create | bool | `true` | Specifies whether a service account should be created |
-| serviceAccount.annotations | object | `{}` | Annotations to add to the service account |
-| serviceAccount.name | string | `""` | The name of the service account to use |
-| podAnnotations | object | `{}` | Pod annotations |
-| podLabels | object | `{}` | Pod labels |
-| podSecurityContext | object | `{}` | Pod security context |
-| securityContext | object | `{}` | Security context |
-| service | object | `{"port":80,"portName":"http","targetPort":"http","type":"ClusterIP"}` | Service configuration |
-| service.portName | string | `"http"` | Port name |
-| service.type | string | `"ClusterIP"` | Service type |
-| service.port | int | `80` | Service port |
-| service.targetPort | string | `"http"` | Target port |
-| ingress | object | `{"annotations":{},"className":"nginx","clusterIssuer":"cluster-ca-issuer","enabled":false,"hosts":[{"host":"chart-example.local","paths":[{"path":"/","pathType":"ImplementationSpecific"}]}],"tls":[]}` | Ingress configuration |
-| ingress.enabled | bool | `false` | Enable ingress |
-| ingress.clusterIssuer | string | `"cluster-ca-issuer"` | Cert-manager cluster issuer |
-| ingress.className | string | `"nginx"` | Ingress class name |
-| ingress.annotations | object | `{}` | Annotations to add to the ingress |
-| ingress.hosts | list | `[{"host":"chart-example.local","paths":[{"path":"/","pathType":"ImplementationSpecific"}]}]` | Hosts configuration |
-| ingress.tls | list | `[]` | TLS configuration |
-| resources | object | `{"requests":{"cpu":"100m","memory":"64Mi"}}` | Resource requests and limits for the deployment |
-| livenessProbe | object | `{}` | Liveness probe configuration |
-| readinessProbe | object | `{}` | Readiness probe configuration |
-| autoscaling | object | `{"enabled":false,"maxReplicas":10,"minReplicas":2,"targetCPUUtilizationPercentage":80}` | Autoscaling configuration |
-| autoscaling.enabled | bool | `false` | Enable autoscaling |
-| autoscaling.minReplicas | int | `2` | Min number of pods |
-| autoscaling.maxReplicas | int | `10` | Max number of pods |
-| autoscaling.targetCPUUtilizationPercentage | int | `80` | Target CPU utilization percentage |
-| volumes | list | `[]` | Volumes configuration, supported types: Secret, ConfigMap, PersistentVolumeClaim |
-| volumeMounts | list | `[]` | Volume mounts configuration |
-| nodeSelector | object | `{}` | Node selector |
-| tolerations | list | `[]` | Tolerations |
-| affinity | object | `{}` | Affinity |
-| hooks | object | `{}` | Hooks configuration |
-| secret | object | `{}` | Creates a global secret to be used as an environment variable in the deployment |
-| configMap | object | `{}` | Creates a global configMap to be used as an environment variable in the deployment |
-| cronJobs | object | `{}` | Cronjobs |
-| hostAliases | list | `[]` | HostAliases |
-| dnsConfig | object | `{"nameservers":[],"options":[],"searches":[]}` | DNS Configuration |
-| envFromConfigMaps | list | `[]` | Injects one or more existing configMaps into the deployment as environment variables |
-| envFromSecrets | list | `[]` | Injects one or more existing secrets into the deployment as environment variables |
-| additionalEnvs | list | `[]` | Additional environment variables |
-| extraInitContainers | list | `[]` | Extra init containers |
-| extraContainers | list | `[]` | Extra containers |
-| podRecreation | object | `{"enabled":false}` | If set to true the deployment pods will be recreated, if coupled with image.pullPolicy=Always a new image will always be downloaded. |
-| externalSecrets | list | `[]` | ExternalSecrets configuration |
+| deployment | object | `{"additionalEnvs":[],"affinity":{},"autoscaling":{"behavior":{"scaleDown":{},"scaleUp":{}},"enabled":false,"maxReplicas":10,"minReplicas":2,"targetCPUUtilizationPercentage":"","targetMemoryUtilizationPercentage":""},"configMap":{},"dnsConfig":{"nameservers":[],"options":[],"searches":[]},"enabled":false,"envFromConfigMaps":[],"envFromSecrets":[],"extraContainers":[],"extraInitContainers":[],"fullnameOverride":"","hostAliases":[],"image":{"pullPolicy":"IfNotPresent","repository":"","tag":""},"imagePullSecrets":[],"livenessProbe":{},"nameOverride":"","nodeSelector":{},"podAnnotations":{},"podLabels":{},"podRecreation":{"enabled":false},"podSecurityContext":{},"readinessProbe":{},"replicaCount":2,"resources":{"requests":{"cpu":"100m","memory":"64Mi"}},"secret":{},"securityContext":{},"service":{"port":80,"portName":"http","targetPort":"http","type":"ClusterIP"},"serviceAccount":{"annotations":{},"automount":true,"create":true,"name":""},"tolerations":[],"volumeMounts":[],"volumes":[]}` | Deployment configuration |
+| deployment.enabled | bool | `false` | Enable/disable the deployment of the application |
+| deployment.replicaCount | int | `2` | Number of replicas to deploy, default is 2 |
+| deployment.image | object | `{"pullPolicy":"IfNotPresent","repository":"","tag":""}` | Image configuration |
+| deployment.image.repository | string | `""` | Image repository (e.g., nginx) |
+| deployment.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy: Always, IfNotPresent, or Never |
+| deployment.image.tag | string | `""` | Image tag (e.g., "1.23.3") |
+| deployment.imagePullSecrets | list | `[]` | List of imagePullSecrets for private registries |
+| deployment.nameOverride | string | `""` | Override the chart name |
+| deployment.fullnameOverride | string | `""` | Override the chart fullname |
+| deployment.serviceAccount | object | `{"annotations":{},"automount":true,"create":true,"name":""}` | ServiceAccount creation and mounting |
+| deployment.serviceAccount.create | bool | `true` | Create a ServiceAccount |
+| deployment.serviceAccount.automount | bool | `true` | Automount the ServiceAccount credentials |
+| deployment.serviceAccount.annotations | object | `{}` | Annotations to add to the ServiceAccount |
+| deployment.serviceAccount.name | string | `""` | Use an existing ServiceAccount name |
+| deployment.podAnnotations | object | `{}` | Pod annotations |
+| deployment.podLabels | object | `{}` | Pod labels |
+| deployment.podSecurityContext | object | `{}` | Pod-level security context (e.g., fsGroup) |
+| deployment.securityContext | object | `{}` | Container-level security context (e.g., runAsUser) |
+| deployment.service | object | `{"port":80,"portName":"http","targetPort":"http","type":"ClusterIP"}` | Service that front-ends the Deployment |
+| deployment.service.portName | string | `"http"` | Service port name |
+| deployment.service.type | string | `"ClusterIP"` | Service type: ClusterIP, NodePort, or LoadBalancer |
+| deployment.service.port | int | `80` | Port exposed by the Service |
+| deployment.service.targetPort | string | `"http"` | Target port on the pod |
+| deployment.resources | object | `{"requests":{"cpu":"100m","memory":"64Mi"}}` | Resource requests & limits for pods |
+| deployment.resources.requests.memory | string | `"64Mi"` | Memory request |
+| deployment.resources.requests.cpu | string | `"100m"` | CPU request |
+| deployment.livenessProbe | object | `{}` | Liveness probe configuration |
+| deployment.readinessProbe | object | `{}` | Readiness probe configuration |
+| deployment.autoscaling | object | `{"behavior":{"scaleDown":{},"scaleUp":{}},"enabled":false,"maxReplicas":10,"minReplicas":2,"targetCPUUtilizationPercentage":"","targetMemoryUtilizationPercentage":""}` | Horizontal Pod Autoscaling configuration |
+| deployment.autoscaling.enabled | bool | `false` | Enable HPA (only when at least one target metric is set) |
+| deployment.autoscaling.minReplicas | int | `2` | Minimum replicas for HPA |
+| deployment.autoscaling.maxReplicas | int | `10` | Maximum replicas for HPA |
+| deployment.autoscaling.targetCPUUtilizationPercentage | string | `""` | Target average CPU utilization (%) (optional) |
+| deployment.autoscaling.targetMemoryUtilizationPercentage | string | `""` | Target average memory utilization (%) (optional) |
+| deployment.autoscaling.behavior | object | `{"scaleDown":{},"scaleUp":{}}` | Optional HPA behavior settings |
+| deployment.autoscaling.behavior.scaleUp | object | `{}` | scaleUp parameters passed through directly to HPA.behavior.scaleUp |
+| deployment.autoscaling.behavior.scaleDown | object | `{}` | scaleDown parameters passed through directly to HPA.behavior.scaleDown |
+| deployment.volumes | list | `[]` | Pod volumes: Secret, ConfigMap, PVC, etc. |
+| deployment.volumeMounts | list | `[]` | Container volumeMounts for the above volumes |
+| deployment.nodeSelector | object | `{}` | Node selector constraints for pod placement |
+| deployment.tolerations | list | `[]` | Pod tolerations |
+| deployment.affinity | object | `{}` | Pod affinity/anti-affinity rules |
+| deployment.secret | object | `{}` | Global Secret key/value for envFrom injection |
+| deployment.configMap | object | `{}` | Global ConfigMap key/value for envFrom injection |
+| deployment.hostAliases | list | `[]` | hostAliases entries for pods |
+| deployment.dnsConfig | object | `{"nameservers":[],"options":[],"searches":[]}` | DNS settings for pods |
+| deployment.dnsConfig.nameservers | list | `[]` | Custom nameservers |
+| deployment.dnsConfig.searches | list | `[]` | DNS search domains |
+| deployment.dnsConfig.options | list | `[]` | DNS options (name/value) |
+| deployment.envFromConfigMaps | list | `[]` | Import existing ConfigMaps as envFrom |
+| deployment.envFromSecrets | list | `[]` | Import existing Secrets as envFrom |
+| deployment.additionalEnvs | list | `[]` | Additional environment variables |
+| deployment.extraInitContainers | list | `[]` | Extra initContainers |
+| deployment.extraContainers | list | `[]` | Extra sidecar containers |
+| deployment.podRecreation | object | `{"enabled":false}` | Recreate pods on config change (with pullPolicy=Always) |
+| ingress | object | `{"annotations":{},"className":"nginx","enabled":false,"hosts":[{"host":"chart-example.local","paths":[{"path":"/","pathType":"ImplementationSpecific"}],"service":{"name":"","port":0}}],"tls":[]}` | Ingress configuration |
+| ingress.enabled | bool | `false` | Enable or disable Ingress |
+| ingress.className | string | `"nginx"` | IngressClass to use (e.g., nginx) |
+| ingress.annotations | object | `{}` | Annotations to add to the Ingress |
+| ingress.tls | list | `[]` | TLS configuration for secure hosts |
+| ingress.hosts | list | `[{"host":"chart-example.local","paths":[{"path":"/","pathType":"ImplementationSpecific"}],"service":{"name":"","port":0}}]` | Definitions for each host rule |
+| ingress.hosts[0].service | object | `{"name":"","port":0}` | Service backend name (default: chart fullname) |
+| ingress.hosts[0].service.port | int | `0` | Service backend port (default: deployment.service.port) |
+| ingress.hosts[0].paths | list | `[{"path":"/","pathType":"ImplementationSpecific"}]` | HTTP path definitions for this host |
+| cronJobs | object | `{}` | CronJobs configuration (map of named cronJobs) |
+| hooks | object | `{}` | Hook jobs for chart lifecycle (install/upgrade) |
+| externalSecrets | list | `[]` | ExternalSecrets definitions for secret management |
 
 ----------------------------------------------
 Autogenerated from chart metadata using [helm-docs v1.14.2](https://github.com/norwoodj/helm-docs/releases/v1.14.2)

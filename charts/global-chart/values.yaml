@@ -1,159 +1,183 @@
 # Default values for global-chart.
+# -- Deployment configuration
+deployment:
+  # -- (bool) Enable/disable the deployment of the application
+  enabled: false
 
-# -- (int) Number of replicas to deploy
-replicaCount: 2 # Specify the number of pod replicas to deploy, default is 2
+  # -- (int) Number of replicas to deploy, default is 2
+  replicaCount: 2
 
-# -- Image configuration
-image:
-  # -- Image repository
-  repository: nginx # Docker image repository
-  # -- (string) Image pull policy
-  pullPolicy: Always # Image pull policy: Always, IfNotPresent, or Never
-  # -- Overrides the image tag whose default is the chart appVersion.
-  tag: latest # Specify the image tag (default: chart appVersion)
+  # -- Image configuration
+  image:
+    # -- Image repository (e.g., nginx)
+    repository: ""
+    # -- Image pull policy: Always, IfNotPresent, or Never
+    pullPolicy: IfNotPresent
+    # -- Image tag (e.g., "1.23.3")
+    tag: ""
 
-# -- Image pull secrets
-imagePullSecrets: [] # List of secrets for pulling private images
+  # -- List of imagePullSecrets for private registries
+  imagePullSecrets: []
 
-# -- Override the name of the chart
-nameOverride: "" # Specify a custom name for the chart
-# -- Override the full name of the chart
-fullnameOverride: "" # Specify a custom full name for the chart
+  # -- Override the chart name
+  nameOverride: ""
+  # -- Override the chart fullname
+  fullnameOverride: ""
 
-# -- Service account configuration
-serviceAccount:
-  # -- Specifies whether a service account should be created
-  create: true # Create a new service account (true/false)
-  # Automatically mount a ServiceAccount's API credentials?
-  automount: true # Mount service account credentials (true/false)
-  # -- Annotations to add to the service account
-  annotations: {} # Add custom annotations for the service account
-  # -- The name of the service account to use
-  name: "" # Specify an existing service account name
+  # -- ServiceAccount creation and mounting
+  serviceAccount:
+    # -- Create a ServiceAccount
+    create: true
+    # -- Automount the ServiceAccount credentials
+    automount: true
+    # -- Annotations to add to the ServiceAccount
+    annotations: {}
+    # -- Use an existing ServiceAccount name
+    name: ""
 
-# -- Pod annotations
-podAnnotations: {} # Add custom annotations for the pods
-# -- Pod labels
-podLabels: {} # Add custom labels for the pods
+  # -- Pod annotations
+  podAnnotations: {}
+  # -- Pod labels
+  podLabels: {}
 
-# -- Pod security context
-podSecurityContext: {} # Configure security settings for the pod (e.g., fsGroup)
-  # fsGroup: 2000
+  # -- Pod-level security context (e.g., fsGroup)
+  podSecurityContext: {}
 
-# -- Security context
-securityContext: {} # Configure container security settings (e.g., runAsUser)
+  # -- Container-level security context (e.g., runAsUser)
+  securityContext: {}
 
-# -- Service configuration
-service:
-  # -- Port name
-  portName: http # Specify the service port name
-  # -- Service type
-  type: ClusterIP # Kubernetes service type: ClusterIP, NodePort, or LoadBalancer
-  # -- Service port
-  port: 80 # Port on which the service is exposed
-  # -- Target port
-  targetPort: http # Port to which the service is forwarded
+  # -- Service that front-ends the Deployment
+  service:
+    # -- Service port name
+    portName: http
+    # -- Service type: ClusterIP, NodePort, or LoadBalancer
+    type: ClusterIP
+    # -- Port exposed by the Service
+    port: 80
+    # -- Target port on the pod
+    targetPort: http
+
+  # -- Resource requests & limits for pods
+  resources:
+    requests:
+      # -- Memory request
+      memory: "64Mi"
+      # -- CPU request
+      cpu: "100m"
+
+  # -- Liveness probe configuration
+  livenessProbe: {}
+
+  # -- Readiness probe configuration
+  readinessProbe: {}
+
+  # -- Horizontal Pod Autoscaling configuration
+  autoscaling:
+    # -- Enable HPA (only when at least one target metric is set)
+    enabled: false
+    # -- Minimum replicas for HPA
+    minReplicas: 2
+    # -- Maximum replicas for HPA
+    maxReplicas: 10
+    # -- Target average CPU utilization (%) (optional)
+    targetCPUUtilizationPercentage: ""
+    # -- Target average memory utilization (%) (optional)
+    targetMemoryUtilizationPercentage: ""
+    # -- Optional HPA behavior settings
+    behavior:
+      # -- scaleUp parameters passed through directly to HPA.behavior.scaleUp
+      scaleUp: {}
+      # -- scaleDown parameters passed through directly to HPA.behavior.scaleDown
+      scaleDown: {}
+
+  # -- Pod volumes: Secret, ConfigMap, PVC, etc.
+  volumes: []
+
+  # -- Container volumeMounts for the above volumes
+  volumeMounts: []
+
+  # -- Node selector constraints for pod placement
+  nodeSelector: {}
+
+  # -- Pod tolerations
+  tolerations: []
+
+  # -- Pod affinity/anti-affinity rules
+  affinity: {}
+
+  # -- Global Secret key/value for envFrom injection
+  secret: {}
+
+  # -- Global ConfigMap key/value for envFrom injection
+  configMap: {}
+
+  # -- hostAliases entries for pods
+  hostAliases: []
+
+  # -- DNS settings for pods
+  dnsConfig:
+    # -- Custom nameservers
+    nameservers: []
+    # -- DNS search domains
+    searches: []
+    # -- DNS options (name/value)
+    options: []
+
+  # -- Import existing ConfigMaps as envFrom
+  envFromConfigMaps: []
+  # -- Import existing Secrets as envFrom
+  envFromSecrets: []
+  # -- Additional environment variables
+  additionalEnvs: []
+
+  # -- Extra initContainers
+  extraInitContainers: []
+  # -- Extra sidecar containers
+  extraContainers: []
+
+  # -- Recreate pods on config change (with pullPolicy=Always)
+  podRecreation:
+    enabled: false
 
 # -- Ingress configuration
 ingress:
-  # -- Enable ingress
-  enabled: false # Enable/disable ingress for the application
-  # -- Cert-manager cluster issuer
-  clusterIssuer: "cluster-ca-issuer" # Cert-manager cluster issuer
-  # -- Ingress class name
-  className: "nginx" # Specify the ingress class to use
-  # -- Annotations to add to the ingress
-  annotations: {} # Add custom annotations for the ingress
-  # -- Hosts configuration
+  # -- Enable or disable Ingress
+  enabled: false
+  # -- IngressClass to use (e.g., nginx)
+  className: "nginx"
+  # -- Annotations to add to the Ingress
+  annotations: {}
+  # -- TLS configuration for secure hosts
+  tls: []
+
+  # -- Definitions for each host rule
   hosts:
-    - host: chart-example.local # Specify the hostname for the ingress
+    - host: chart-example.local
+      # -- Service backend name (default: chart fullname)
+      service:
+        name: ""
+        # -- Service backend port (default: deployment.service.port)
+        port: 0
+      # -- HTTP path definitions for this host
       paths:
-        - path: / # Define the path for the ingress
-          pathType: ImplementationSpecific # Path type: Prefix or Exact
-  # -- TLS configuration
-  tls: [] # Configure TLS for secure ingress access
+        - path: /
+          pathType: ImplementationSpecific
 
-# -- Resource requests and limits for the deployment
-resources: # Specify resource requests and limits for the pods
-  requests:
-    memory: "64Mi" # Memory resource requests
-    cpu: "100m" # CPU resource requests
-# -- Liveness probe configuration
-livenessProbe: {} # Configure liveness probe to check pod health
-  # httpGet:
-  #   path: /
-  #   port: http
+    # - host: api.example.local
+    #   service:
+    #     name: my-api-svc
+    #     port: 8080
+    #   paths:
+    #     - path: /v1
+    #       pathType: Prefix
+    #     - path: /health
+    #       pathType: Exact
 
-# -- Readiness probe configuration
-readinessProbe: {} # Configure readiness probe to check pod readiness
-  # httpGet:
-  #   path: /
-  #   port: http
+# -- CronJobs configuration (map of named cronJobs)
+cronJobs: {}
 
-# -- Autoscaling configuration
-autoscaling:
-  # -- Enable autoscaling
-  enabled: false # Enable/disable horizontal pod autoscaling
-  # -- Min number of pods
-  minReplicas: 2 # Minimum number of replicas
-  # -- Max number of pods
-  maxReplicas: 10 # Maximum number of replicas
-  # -- Target CPU utilization percentage
-  targetCPUUtilizationPercentage: 80 # Target average CPU usage for scaling
+# -- Hook jobs for chart lifecycle (install/upgrade)
+hooks: {}
 
-# -- Volumes configuration, supported types: Secret, ConfigMap, PersistentVolumeClaim
-volumes: [] # Define volumes for the pods
-
-# -- Volume mounts configuration
-volumeMounts: [] # Specify volume mounts for the containers
-
-# -- Node selector
-nodeSelector: {} # Define node selector constraints for pod placement
-
-# -- Tolerations
-tolerations: [] # Add tolerations for pods
-
-# -- Affinity
-affinity: {} # Define affinity rules for pod scheduling
-
-# -- Hooks configuration
-hooks: {} # Configure lifecycle hooks for install/upgrade
-
-# -- Creates a global secret to be used as an environment variable in the deployment
-secret: {} # Define global secrets for environment variables
-
-# -- Creates a global configMap to be used as an environment variable in the deployment
-configMap: {} # Define global ConfigMaps for environment variables
-
-# -- Cronjobs
-cronJobs: {} # Define scheduled jobs (cronjobs) for the application
-
-# -- HostAliases
-hostAliases: [] # Add custom host entries to the pod
-
-# -- DNS Configuration
-dnsConfig:
-  nameservers: [] # Specify custom DNS servers
-  searches: [] # Define DNS search domains
-  options: [] # Configure DNS options
-
-# -- Injects one or more existing configMaps into the deployment as environment variables
-envFromConfigMaps: [] # Specify ConfigMaps to import as environment variables
-
-# -- Injects one or more existing secrets into the deployment as environment variables
-envFromSecrets: [] # Specify Secrets to import as environment variables
-
-# -- Additional environment variables
-additionalEnvs: [] # Add custom environment variables to the pods
-
-# -- Extra init containers
-extraInitContainers: [] # Add additional init containers to the deployment
-# -- Extra containers
-extraContainers: [] # Add additional containers to the deployment
-
-# -- If set to true the deployment pods will be recreated, if coupled with image.pullPolicy=Always a new image will always be downloaded.
-podRecreation:
-  enabled: false # Recreate pods when configuration changes
-
-# -- ExternalSecrets configuration
-externalSecrets: [] # Define ExternalSecrets for managing secrets
+# -- ExternalSecrets definitions for secret management
+externalSecrets: []

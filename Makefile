@@ -5,7 +5,7 @@ RAW_CHART_NAME := raw
 CHART_DIR := charts
 
 lint-chart:
-	helm lint $(STRICT) -f tests/values.01.yaml ./${CHART_DIR}/${GLOBAL_CHART_NAME}
+	helm lint $(STRICT) -f tests/test01/values.01.yaml ./${CHART_DIR}/${GLOBAL_CHART_NAME}
 	helm lint $(STRICT) -f tests/values.02.yaml ./${CHART_DIR}/${GLOBAL_CHART_NAME}
 	helm lint $(STRICT) -f tests/values.03.yaml ./${CHART_DIR}/${GLOBAL_CHART_NAME}
 
@@ -13,7 +13,7 @@ generate-templates: lint-chart
 	@rm -r generated-manifests || true
 	@mkdir -p generated-manifests
 	helm template test01-${GLOBAL_CHART_NAME} ./${CHART_DIR}/${GLOBAL_CHART_NAME} \
-		-f tests/values.01.yaml \
+		-f tests/test01/values.01.yaml \
 		--namespace test \
 		--output-dir generated-manifests/01 \
 		--include-crds
@@ -29,8 +29,9 @@ generate-templates: lint-chart
 		--include-crds
 
 helm-install-${GLOBAL_CHART_NAME}-01:
+	kubectl apply -f tests/test01/test01.yaml || true
 	helm upgrade --install test ./${CHART_DIR}/${GLOBAL_CHART_NAME} \
-		-f tests/values.01.yaml \
+		-f tests/test01/values.01.yaml \
 		--namespace test01 \
 		--create-namespace
 

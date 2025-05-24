@@ -1,0 +1,216 @@
+deployment:
+  enabled: true
+  image:
+    repository: nginx
+    pullPolicy: IfNotPresent
+    tag: "1.23.3"
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 80
+    behavior:
+      scaleUp:
+        stabilizationWindowSeconds: 60
+        policies:
+          - type: Percent
+            value: 20
+            periodSeconds: 60
+      scaleDown:
+        stabilizationWindowSeconds: 60
+        policies:
+          - type: Percent
+            value: 20
+            periodSeconds: 60
+  secret:
+    password: AQ23sdsd
+    username: admin
+    host: example.com
+
+  configMap:
+    username: admin
+    environment: production
+    host: example.com
+
+  volumes:
+    - name: myvolume
+      type: secret
+      secret:
+        secretName: mysql-0-secret
+    - name: myvolume2
+      type: configMap
+      configMap:
+        name: mysql-0-config
+    - name: myvolume3
+      type: persistentVolumeClaim
+      persistentVolumeClaim:
+        claimName: mypvc
+  volumeMounts:
+    - name: myvolume
+      mountPath: /etc/secret
+    - name: myvolume2
+      mountPath: /etc/config
+    - name: myvolume3
+      mountPath: /etc/pvc
+
+  hostAliases: []
+  dnsConfig:
+    nameservers:
+      - 10.1.2.3
+      - 10.1.2.4
+    searches:
+      - example.net
+    options:
+      - name: ndots
+        value: "2"
+      - name: edns0
+
+  envFromConfigMaps:
+    - mysql-0-config
+    - mongodb-0-config
+
+  envFromSecrets:
+    - mysql-0-secret
+    - mongodb-0-secret
+
+  livenessProbe:
+    httpGet:
+      path: /
+      port: http
+
+  readinessProbe:
+    httpGet:
+      path: /
+      port: http
+
+  additionalEnvs:
+    - name: NEWPASS
+      valueFrom:
+        secretKeyRef:
+          name: additional-env-secret
+          key: test
+    - name: NEWCONFIG
+      valueFrom:
+        configMapKeyRef:
+          name: additional-env-config
+          key: test
+
+  extraInitContainers:
+    - name: init-myservice
+      image: busybox:1.28
+      command: ["sh", "-c", "echo The init container is running; sleep 5"]
+      volumeMounts:
+        - name: myvolume
+          mountPath: /myvolume
+  extraContainers:
+    - name: sidecar-myservice
+      image: busybox:1.28
+      command: ["sh", "-c", "echo The sidecar container is running; sleep 5"]
+      volumeMounts:
+        - name: myvolume
+          mountPath: /myvolume
+
+hooks:
+  post-install:
+    db-seed-import:
+      image: alpine:3.18
+      command: ["sh"]
+      args: ["-c", 'echo "ciao"']
+      imagePullPolicy: Always
+      weight: 20
+      affinity: &affinity
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/e2e-az-name
+                    operator: In
+                    values:
+                      - e2e-az1
+                      - e2e-az2
+      tolerations: &tolerations
+        - key: "key"
+          operator: "Equal"
+          value: "value"
+          effect: "NoSchedule"
+      nodeSelector: &nodeSelector
+        kubernetes.io/e2e-az-name: e2e-az1
+  pre-upgrade:
+    deploy:
+      command: ["sh", "-c"]
+      args: ["echo", "ciao"]
+      weight: 10
+      deletePolicy: before-hook-creation
+      imagePullPolicy: Always
+    s3fs:
+      command: ["bin/sh", "-c"]
+      args: ["echo", "ciao"]
+      weight: 20
+      deletePolicy: before-hook-creation
+      imagePullPolicy: Always
+  post-upgrade:
+    cr: null
+
+cronJobs:
+  cron:
+    tolerations: []
+    annotations: {}
+    schedule: "00 12 * * 1-5"
+    serviceAccountName:
+    successfulJobsHistoryLimit: 2
+    failedJobsHistoryLimit: 2
+    args: ["sh", "-c", 'echo "ciao"']
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+    envFromConfigMaps:
+      - myconfigmap
+      - mongodb-0-config
+    envFromSecrets:
+      - mysql-0-secret
+      - mongodb-0-secret
+  testcron:
+    schedule: "00 12 * * 1-5"
+    command: ["sh", "-c"]
+    args: ["echo", "ciao"]
+    affinity: *affinity
+    tolerations: *tolerations
+    nodeSelector: *nodeSelector
+    resources:
+      requests:
+        cpu: 1000m
+        memory: 1280Mi
+
+externalSecrets:
+  mysecret:
+    remote:
+      key: test
+    secretstore:
+      kind: ClusterSecretStore
+      name: mysecretstore
+    secretkey: api-token
+
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations: {}
+  tls: []
+
+  hosts:
+    - host: chart-example.local
+      service:
+        name: "" # default: fullname
+        port: 0 # default: deployment.service.port
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+    - host: api.example.local
+      service:
+        name: my-api-svc
+        port: 8080
+      paths:
+        - path: /v1
+          pathType: Prefix
+        - path: /health
+          pathType: Exact

@@ -2,7 +2,7 @@
 Expand the name of the chart.
 */}}
 {{- define "global-chart.name" -}}
-{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
+{{- default .Chart.Name .Values.deployment.nameOverride | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
@@ -11,10 +11,10 @@ We truncate at 63 chars because some Kubernetes name fields are limited to this 
 If release name contains chart name it will be used as a full name.
 */}}
 {{- define "global-chart.fullname" -}}
-{{- if .Values.fullnameOverride }}
-{{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
+{{- if .Values.deployment.fullnameOverride }}
+{{- .Values.deployment.fullnameOverride | trunc 63 | trimSuffix "-" }}
 {{- else }}
-{{- $name := default .Chart.Name .Values.nameOverride }}
+{{- $name := default .Chart.Name .Values.deployment.nameOverride }}
 {{- if contains $name .Release.Name }}
 {{- .Release.Name | trunc 63 | trimSuffix "-" }}
 {{- else }}
@@ -36,9 +36,6 @@ Common labels
 {{- define "global-chart.labels" -}}
 helm.sh/chart: {{ include "global-chart.chart" . }}
 {{ include "global-chart.selectorLabels" . }}
-{{- if .Chart.AppVersion }}
-app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
-{{- end }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end }}
 
@@ -54,10 +51,10 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 Create the name of the service account to use
 */}}
 {{- define "global-chart.serviceAccountName" -}}
-{{- if .Values.serviceAccount.create }}
-{{- default (include "global-chart.fullname" .) .Values.serviceAccount.name }}
+{{- if .Values.deployment.serviceAccount.create }}
+{{- default (include "global-chart.fullname" .) .Values.deployment.serviceAccount.name }}
 {{- else }}
-{{- default "default" .Values.serviceAccount.name }}
+{{- default "default" .Values.deployment.serviceAccount.name }}
 {{- end }}
 {{- end }}
 

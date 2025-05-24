@@ -1,16 +1,15 @@
+{{- if .Values.deployment.enabled }}
 apiVersion: v1
 kind: Service
 metadata:
   name: {{ include "global-chart.fullname" . }}
-  namespace: {{ .Release.Namespace | quote }}
-  labels:
-    {{- include "global-chart.labels" . | nindent 4 }}
+  labels: {{- include "global-chart.labels" . | nindent 4 }}
 spec:
-  type: {{ .Values.service.type }}
+  type: {{ .Values.deployment.service.type }}
   ports:
-    - port: {{ .Values.service.port }}
-      targetPort: {{ .Values.service.targetPort | default "http" }}
+    - port: {{ .Values.deployment.service.port }}
+      targetPort: {{ .Values.deployment.service.targetPort | default "http" }}
       protocol: TCP
-      name: {{ .Values.service.portName | default "http" }}
-  selector:
-    {{- include "global-chart.selectorLabels" . | nindent 4 }}
+      name: {{ .Values.deployment.service.portName | default "http" }}
+  selector: {{- include "global-chart.selectorLabels" . | nindent 4 }}
+{{- end }}

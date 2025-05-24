@@ -1,33 +1,51 @@
-{{- if .Values.autoscaling.enabled }}
+{{- $root := . }}
+{{- $dep  := $root.Values.deployment }}
+{{- $hpa  := $dep.autoscaling }}
+{{- $cpu  := int $hpa.targetCPUUtilizationPercentage }}
+{{- $mem  := int $hpa.targetMemoryUtilizationPercentage }}
+{{- $hasMetric := or (gt $cpu 0) (gt $mem 0) }}
+
+{{- if and $dep.enabled $hpa.enabled $hasMetric }}
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: {{ include "global-chart.fullname" . }}
-  namespace: {{ .Release.Namespace | quote }}
+  name: {{ include "global-chart.fullname" $root }}
   labels:
-    {{- include "global-chart.labels" . | nindent 4 }}
+    {{- include "global-chart.labels" $root | nindent 4 }}
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: {{ include "global-chart.fullname" . }}
-  minReplicas: {{ .Values.autoscaling.minReplicas }}
-  maxReplicas: {{ .Values.autoscaling.maxReplicas }}
+    name: {{ include "global-chart.fullname" $root }}
+  minReplicas: {{ $hpa.minReplicas }}
+  maxReplicas: {{ $hpa.maxReplicas }}
   metrics:
-    {{- if .Values.autoscaling.targetCPUUtilizationPercentage }}
+    {{- if gt $cpu 0 }}
     - type: Resource
       resource:
         name: cpu
         target:
           type: Utilization
-          averageUtilization: {{ .Values.autoscaling.targetCPUUtilizationPercentage }}
+          averageUtilization: {{ $cpu }}
     {{- end }}
-    {{- if .Values.autoscaling.targetMemoryUtilizationPercentage }}
+    {{- if gt $mem 0 }}
     - type: Resource
       resource:
         name: memory
         target:
           type: Utilization
-          averageUtilization: {{ .Values.autoscaling.targetMemoryUtilizationPercentage }}
+          averageUtilization: {{ $mem }}
     {{- end }}
+
+  {{- with $hpa.behavior }}
+  behavior:
+    {{- with .scaleUp }}
+    scaleUp:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+    {{- with .scaleDown }}
+    scaleDown:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+  {{- end }}
 {{- end }}

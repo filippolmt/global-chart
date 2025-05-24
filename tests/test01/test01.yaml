@@ -1,0 +1,83 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: test01
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: additional-env-secret
+  namespace: test01
+type: Opaque
+data:
+  test: test
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mysql-0-secret
+  namespace: test01
+type: Opaque
+data:
+  mysql_user: bXl1c2Vy # "myuser"
+  mysql_pass: bXlwYXNzd29yZA== # "mypassword"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mongodb-0-secret
+  namespace: test01
+type: Opaque
+data:
+  mongo_user: bW9uZ29hZG1pbg== # "mongoadmin"
+  mongo_pass: c2VjcmV0cGFzcw== # "secretpass"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mysql-0-config
+  namespace: test01
+data:
+  MYSQL_HOST: mysql
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mongodb-0-config
+  namespace: test01
+data:
+  MONGO_INITDB_ROOT_USERNAME: admin
+  MONGO_INITDB_ROOT_PASSWORD: example
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: additional-env-config
+  namespace: test01
+data:
+  test: test
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: mypv
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /tmp/data
+  persistentVolumeReclaimPolicy: Retain
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mypvc
+  namespace: test01
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
