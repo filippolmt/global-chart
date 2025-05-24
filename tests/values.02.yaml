@@ -1,111 +1,20 @@
-# Default values for global-chart.
-
-# -- Number of replicas
-replicaCount: 1
-
-# -- Image configuration
-image:
-  # -- Image repository
-  repository: test.example.net:9191/validation-service
-  # -- Image pull policy
-  pullPolicy: Always
-  # -- Overrides the image tag whose default.
-  tag: ${APP_IMAGE_VERSION}
-
-# -- Image pull secrets
-imagePullSecrets:
-  - name: "docker-login-test-example-net-9191"
-
-# -- Override the name of the chart
-nameOverride: ""
-# -- Override the full name of the chart
-fullnameOverride: ""
-
-# -- Service account configuration
-serviceAccount:
-  # -- Specifies whether a service account should be created
-  create: true
-  # Automatically mount a ServiceAccount's API credentials?
-  automount: true
-  # -- Annotations to add to the service account
-  annotations: {}
-  # -- The name of the service account to use
-  name: ""
-
-# -- Service configuration
-service:
-  # -- Service type
-  type: ClusterIP
-  # -- Service port
-  port: 3001
-
-# -- Ingress configuration
-ingress:
-  # -- Enable ingress
+deployment:
   enabled: true
-  # -- Ingress class name
-  className: "nginx"
-  # -- Annotations to add to the ingress
-  annotations: {}
-  # -- Hosts configuration
-  hosts:
-    - host: validation.spark.example.net
-      paths:
-        - path: /
-          pathType: ImplementationSpecific
-  # -- TLS configuration
-  tls:
-    - secretName: validation-test-tls
-      hosts:
-        - validation.spark.example.net
+  replicaCount: 1
+  image:
+    repository: nginx
+    tag: "1.23.3"
 
-# -- Resource requests and limits for the deployment
-resources: {}
+  autoscaling:
+    enabled: false
 
-# -- Liveness probe configuration
-livenessProbe: {}
+  serviceAccount:
+    create: false
+    name: test
 
-# -- Readiness probe configuration
-readinessProbe: {}
+  service:
+    type: ClusterIP
+    port: 3001
 
-# -- Autoscaling configuration
-autoscaling:
-  # -- Enable autoscaling
+ingress:
   enabled: false
-  # -- Min number of pods
-  minReplicas: 1
-  # -- Max number of pods
-  maxReplicas: 100
-  # -- Target CPU utilization percentage
-  targetCPUUtilizationPercentage: 80
-
-# -- Volumes configuration, supported types: Secret, ConfigMap, PersistentVolumeClaim
-volumes:
-  - name: vs-config
-    configMap:
-      name: vs-config
-
-# -- Volume mounts configuration
-volumeMounts:
-  - name: vs-config
-    mountPath: /usr/share/nginx/html/assets/config/config.json
-    subPath: config.json
-
-envFromConfigMaps:
-  - mongodb-0-config
-
-envFromSecrets:
-  - mongodb
-
-# -- Tolerations
-tolerations: []
-
-# -- Affinity
-affinity: {}
-
-# -- Hooks configuration
-hooks: {}
-
-dnsConfig:
-  searches:
-    - example.net

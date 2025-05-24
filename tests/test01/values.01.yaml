@@ -95,6 +95,21 @@ deployment:
           name: additional-env-config
           key: test
 
+  extraInitContainers:
+    - name: init-myservice
+      image: busybox:1.28
+      command: ["sh", "-c", "echo The init container is running; sleep 5"]
+      volumeMounts:
+        - name: myvolume
+          mountPath: /myvolume
+  extraContainers:
+    - name: sidecar-myservice
+      image: busybox:1.28
+      command: ["sh", "-c", "echo The sidecar container is running; sleep 5"]
+      volumeMounts:
+        - name: myvolume
+          mountPath: /myvolume
+
 hooks:
   post-install:
     db-seed-import:
