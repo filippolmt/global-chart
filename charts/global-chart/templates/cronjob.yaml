@@ -6,12 +6,16 @@
 apiVersion: batch/v1
 kind: CronJob
 metadata:
-  name: {{ printf "%s-%s" (include "global-chart.fullname" $root) $name | quote }}
+  name: {{ printf "%s-%s" (include "global-chart.fullname" $root) $name }}
+  {{- if $job.annotations }}
+  annotations:
+    {{- toYaml $job.annotations | nindent 4 }}
+  {{- end }}
 spec:
   schedule: {{ $job.schedule | quote }}
-  successfulJobsHistoryLimit: {{ $job.successfulJobsHistoryLimit | default 2 }}
-  failedJobsHistoryLimit: {{ $job.failedJobsHistoryLimit | default 2 }}
-  concurrencyPolicy: Forbid
+  concurrencyPolicy: {{ default "Forbid" $job.concurrencyPolicy | quote }}
+  successfulJobsHistoryLimit: {{ default 2 $job.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ default 2 $job.failedJobsHistoryLimit }}
   jobTemplate:
     spec:
       template:
@@ -22,13 +26,8 @@ spec:
           {{- end }}
           containers:
           - name: {{ $name }}
-            {{- if $job.image }}
-            image: {{ $job.image }}
-            imagePullPolicy: {{ $job.imagePullPolicy | default "Always" }}
-            {{- else }}
-            image: "{{ $root.Values.deployment.image.repository }}:{{ $root.Values.deployment.image.tag }}"
-            imagePullPolicy: {{ $root.Values.deployment.image.pullPolicy | default "Always" }}
-            {{- end }}
+            image: {{ default (printf "%s:%s" $root.Values.deployment.image.repository $root.Values.deployment.image.tag) $job.image | quote }}
+            imagePullPolicy: {{ default $root.Values.deployment.image.pullPolicy $job.imagePullPolicy | quote }}
             {{- if $job.command }}
             command:
               {{- toYaml $job.command | nindent 14 }}
@@ -36,10 +35,6 @@ spec:
             {{- if $job.args }}
             args:
               {{- toYaml $job.args | nindent 14 }}
-            {{- end }}
-            {{- with $root.Values.deployment.volumeMounts }}
-            volumeMounts:
-              {{- toYaml . | nindent 14 }}
             {{- end }}
             {{- if or $job.envFromConfigMaps $job.envFromSecrets }}
             envFrom:
@@ -61,43 +56,70 @@ spec:
                 cpu: 100m
                 memory: 128Mi
             {{- end }}
-          {{- with $root.Values.deployment.volumes }}
+            {{- if $job.volumeMounts }}
+            volumeMounts:
+              {{- toYaml $job.volumeMounts | nindent 14 }}
+            {{- else if and $root.Values.deployment.volumeMounts (gt (len $root.Values.deployment.volumeMounts) 0) }}
+            volumeMounts:
+              {{- toYaml $root.Values.deployment.volumeMounts | nindent 14 }}
+            {{- end }}
+          {{- if $job.volumes }}
           volumes:
-            {{- range . }}
-            - name: {{ .name }}
-              {{- if eq .type "emptyDir" }}
+            {{- range $vol := $job.volumes }}
+            - name: {{ $vol.name | quote }}
+              {{- if eq $vol.type "emptyDir" }}
               emptyDir: {}
               {{- end }}
-              {{- if eq .type "configMap" }}
+              {{- if eq $vol.type "configMap" }}
               configMap:
-                name: {{ .configMap.name | quote }}
+                name: {{ $vol.configMap.name | quote }}
               {{- end }}
-              {{- if eq .type "secret" }}
+              {{- if eq $vol.type "secret" }}
               secret:
-                secretName: {{ default .secret.secretName .secret.name | quote }}
+                secretName: {{ default $vol.secret.secretName $vol.secret.name | quote }}
               {{- end }}
-              {{- if eq .type "persistentVolumeClaim" }}
+              {{- if eq $vol.type "persistentVolumeClaim" }}
               persistentVolumeClaim:
-                claimName: {{ default .persistentVolumeClaim.claimName .persistentVolumeClaim.name | quote }}
+                claimName: {{ default $vol.persistentVolumeClaim.claimName $vol.persistentVolumeClaim.name | quote }}
+              {{- end }}
+            {{- end }}
+          {{- else if and $root.Values.deployment.volumes (gt (len $root.Values.deployment.volumes) 0) }}
+          volumes:
+            {{- range $vol := $root.Values.deployment.volumes }}
+            - name: {{ $vol.name | quote }}
+              {{- if eq $vol.type "emptyDir" }}
+              emptyDir: {}
+              {{- end }}
+              {{- if eq $vol.type "configMap" }}
+              configMap:
+                name: {{ $vol.configMap.name | quote }}
+              {{- end }}
+              {{- if eq $vol.type "secret" }}
+              secret:
+                secretName: {{ default $vol.secret.secretName $vol.secret.name | quote }}
+              {{- end }}
+              {{- if eq $vol.type "persistentVolumeClaim" }}
+              persistentVolumeClaim:
+                claimName: {{ default $vol.persistentVolumeClaim.claimName $vol.persistentVolumeClaim.name | quote }}
               {{- end }}
             {{- end }}
           {{- end }}
           {{- if or $job.serviceAccountName $root.Values.deployment.serviceAccount.create }}
           serviceAccountName: {{ $job.serviceAccountName | default (printf "%s-%s" (include "global-chart.fullname" $root) $name) | quote }}
           {{- end }}
-          restartPolicy: Never
-          {{- with $job.nodeSelector }}
+          {{- if or $job.nodeSelector $root.Values.deployment.nodeSelector }}
           nodeSelector:
-            {{- toYaml . | nindent 12 }}
+            {{- toYaml (default $root.Values.deployment.nodeSelector $job.nodeSelector) | nindent 12 }}
           {{- end }}
-          {{- with $job.affinity }}
+          {{- if or $job.affinity $root.Values.deployment.affinity }}
           affinity:
-            {{- toYaml . | nindent 12 }}
+            {{- toYaml (default $root.Values.deployment.affinity $job.affinity) | nindent 12 }}
           {{- end }}
-          {{- if $job.tolerations }}
+          {{- if or $job.tolerations $root.Values.deployment.tolerations }}
           tolerations:
-            {{- toYaml $job.tolerations | nindent 12 }}
+            {{- toYaml (default $root.Values.deployment.tolerations $job.tolerations) | nindent 12 }}
           {{- end }}
+          restartPolicy: {{ default "Never" $job.restartPolicy | quote }}
 {{- end }}
 {{- end }}
 {{- end }}

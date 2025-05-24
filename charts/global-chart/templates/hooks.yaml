@@ -1,22 +1,23 @@
+{{- if .Values.hooks }}
 {{- $root := . }}
-{{- range $hook, $hooks := .Values.hooks }}
-{{- range $name, $command := $hooks }}
-{{- if $command }}
+{{- range $hookType, $jobs := .Values.hooks }}
+  {{- range $name, $command := $jobs }}
+    {{- if $command }}
 ---
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ template "global-chart.hookfullname" (merge (dict "hookname" $hook "jobname" $name) $root) }}
+  name: {{ template "global-chart.hookfullname" (merge (dict "hookname" $hookType "jobname" $name) $root) }}
   labels:
     {{- include "global-chart.labels" $root | nindent 4 }}
   annotations:
-    "helm.sh/hook": {{ $hook }}
-    "helm.sh/hook-weight": {{ $command.weight | default "10" | quote }}
-    "helm.sh/hook-delete-policy": {{ $command.deletePolicy | default "before-hook-creation" | quote }}
+    "helm.sh/hook": {{ $hookType | quote }}
+    "helm.sh/hook-weight": {{ default "10" $command.weight | quote }}
+    "helm.sh/hook-delete-policy": {{ default "before-hook-creation" $command.deletePolicy | quote }}
 spec:
   template:
     metadata:
-      name: {{ template "global-chart.hookfullname" (merge (dict "hookname" $hook "jobname" $name) $root) }}
+      name: {{ template "global-chart.hookfullname" (merge (dict "hookname" $hookType "jobname" $name) $root) }}
       labels:
         {{- include "global-chart.labels" $root | nindent 8 }}
     spec:
@@ -28,7 +29,7 @@ spec:
           {{- else if hasKey . "name" }}
         - name: {{ .name | quote }}
           {{- else }}
-          {{ fail "imagePullSecrets must be a list of strings or objects with a 'name' key." }}
+          {{- fail "imagePullSecrets must be a list of strings or objects with a 'name' key." }}
           {{- end }}
         {{- end }}
       {{- end }}
@@ -60,90 +61,107 @@ spec:
           {{- end }}
         {{- end }}
       {{- end }}
-      restartPolicy: {{ $command.restartPolicy | default "Never" }}
+      restartPolicy: {{ default "Never" $command.restartPolicy | quote }}
       containers:
-        - name: {{ template "global-chart.hookfullname" (merge (dict "hookname" $hook "jobname" $name) $root) }}
-          {{- if $command.image }}
-          image: {{ $command.image }}
-          {{- else }}
-          image: "{{ $root.Values.deployment.image.repository }}:{{ $root.Values.deployment.image.tag }}"
+      - name: {{ template "global-chart.hookfullname" (merge (dict "hookname" $hookType "jobname" $name) $root) }}
+        image: {{ default (printf "%s:%s" $root.Values.deployment.image.repository $root.Values.deployment.image.tag) $command.image | quote }}
+        imagePullPolicy: {{ default "IfNotPresent" $command.imagePullPolicy | quote }}
+        {{- if $command.command }}
+        command:
+          {{- toYaml $command.command | nindent 10 }}
+        {{- end }}
+        {{- if $command.args }}
+        args:
+          {{- toYaml $command.args | nindent 10 }}
+        {{- end }}
+        {{- if or $root.Values.deployment.configMap $root.Values.deployment.envFromConfigMaps $root.Values.deployment.secret $root.Values.deployment.envFromSecrets }}
+        envFrom:
+          {{- if $root.Values.deployment.configMap }}
+          - configMapRef:
+              name: {{ template "global-chart.fullname" $root }}
           {{- end }}
-          imagePullPolicy: {{ $command.imagePullPolicy | default "Always" }}
-          {{- if $command.command }}
-          command:
-            {{- toYaml $command.command | nindent 12 }}
+          {{- range $cm := $root.Values.deployment.envFromConfigMaps }}
+          - configMapRef:
+              name: {{ $cm | quote }}
           {{- end }}
-          {{- if $command.args }}
-          args:
-            {{- toYaml $command.args | nindent 12 }}
+          {{- if $root.Values.deployment.secret }}
+          - secretRef:
+              name: {{ template "global-chart.fullname" $root }}
           {{- end }}
-          {{- if or $root.Values.deployment.configMap $root.Values.deployment.envFromConfigMaps $root.Values.deployment.secret $root.Values.deployment.envFromSecrets }}
-          envFrom:
-            {{- if $root.Values.deployment.configMap }}
-            - configMapRef:
-                name: {{ template "global-chart.fullname" $root }}
-            {{- end }}
-            {{- range $cm := $root.Values.deployment.envFromConfigMaps }}
-            - configMapRef:
-                name: {{ $cm | quote }}
-            {{- end }}
-            {{- if $root.Values.deployment.secret }}
-            - secretRef:
-                name: {{ template "global-chart.fullname" $root }}
-            {{- end }}
-            {{- range $sec := $root.Values.deployment.envFromSecrets }}
-            - secretRef:
-                name: {{ $sec | quote }}
-            {{- end }}
+          {{- range $sec := $root.Values.deployment.envFromSecrets }}
+          - secretRef:
+              name: {{ $sec | quote }}
           {{- end }}
-          {{- if $root.Values.deployment.additionalEnvs }}
-          env:
-            {{- range $env := $root.Values.deployment.additionalEnvs }}
-            - name: {{ $env.name | quote }}
-              valueFrom:
-                {{- toYaml $env.valueFrom | nindent 16 }}
-            {{- end }}
+        {{- end }}
+        {{- if $root.Values.deployment.additionalEnvs }}
+        env:
+          {{- range $env := $root.Values.deployment.additionalEnvs }}
+          - name: {{ $env.name | quote }}
+            valueFrom:
+              {{- toYaml $env.valueFrom | nindent 14 }}
           {{- end }}
-          {{- with $root.Values.deployment.volumeMounts }}
-          volumeMounts:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
-          {{- with $root.Values.deployment.extraContainers }}
-            {{- toYaml . | nindent 8 }}
-          {{- end }}
-      {{- with $root.Values.deployment.volumes }}
+        {{- end }}
+        {{- if $command.volumeMounts }}
+        volumeMounts:
+          {{- toYaml $command.volumeMounts | nindent 10 }}
+        {{- else if and $root.Values.deployment.volumeMounts (gt (len $root.Values.deployment.volumeMounts) 0) }}
+        volumeMounts:
+          {{- toYaml $root.Values.deployment.volumeMounts | nindent 10 }}
+        {{- end }}
+      {{- if $command.volumes }}
       volumes:
-        {{- range . }}
-        - name: {{ .name }}
-          {{- if eq .type "emptyDir" }}
+        {{- range $vol := $command.volumes }}
+        - name: {{ $vol.name | quote }}
+          {{- if eq $vol.type "emptyDir" }}
           emptyDir: {}
           {{- end }}
-          {{- if eq .type "configMap" }}
+          {{- if eq $vol.type "configMap" }}
           configMap:
-            name: {{ .configMap.name | quote }}
+            name: {{ $vol.configMap.name | quote }}
           {{- end }}
-          {{- if eq .type "secret" }}
+          {{- if eq $vol.type "secret" }}
           secret:
-            secretName: {{ default .secret.secretName .secret.name | quote }}
+            secretName: {{ default $vol.secret.secretName $vol.secret.name | quote }}
           {{- end }}
-          {{- if eq .type "persistentVolumeClaim" }}
+          {{- if eq $vol.type "persistentVolumeClaim" }}
           persistentVolumeClaim:
-            claimName: {{ default .persistentVolumeClaim.claimName .persistentVolumeClaim.name | quote }}
+            claimName: {{ default $vol.persistentVolumeClaim.claimName $vol.persistentVolumeClaim.name | quote }}
+          {{- end }}
+        {{- end }}
+      {{- else if and $root.Values.deployment.volumes (gt (len $root.Values.deployment.volumes) 0) }}
+      volumes:
+        {{- range $vol := $root.Values.deployment.volumes }}
+        - name: {{ $vol.name | quote }}
+          {{- if eq $vol.type "emptyDir" }}
+          emptyDir: {}
+          {{- end }}
+          {{- if eq $vol.type "configMap" }}
+          configMap:
+            name: {{ $vol.configMap.name | quote }}
+          {{- end }}
+          {{- if eq $vol.type "secret" }}
+          secret:
+            secretName: {{ default $vol.secret.secretName $vol.secret.name | quote }}
+          {{- end }}
+          {{- if eq $vol.type "persistentVolumeClaim" }}
+          persistentVolumeClaim:
+            claimName: {{ default $vol.persistentVolumeClaim.claimName $vol.persistentVolumeClaim.name | quote }}
           {{- end }}
         {{- end }}
       {{- end }}
-      {{- with $root.Values.deployment.nodeSelector }}
+      {{- if or $command.nodeSelector $root.Values.deployment.nodeSelector }}
       nodeSelector:
-        {{- toYaml . | nindent 8 }}
+        {{- toYaml (default $root.Values.deployment.nodeSelector $command.nodeSelector) | nindent 6 }}
       {{- end }}
-      {{- with $root.Values.deployment.affinity }}
+      {{- if or $command.affinity $root.Values.deployment.affinity }}
       affinity:
-        {{- toYaml . | nindent 8 }}
+        {{- toYaml (default $root.Values.deployment.affinity $command.affinity) | nindent 6 }}
       {{- end }}
-      {{- with $root.Values.deployment.tolerations }}
+      {{- if or $command.tolerations $root.Values.deployment.tolerations }}
       tolerations:
-        {{- toYaml . | nindent 8 }}
+        {{- toYaml (default $root.Values.deployment.tolerations $command.tolerations) | nindent 6 }}
       {{- end }}
     {{- end }}
+  {{- end }}
 {{- end }}
 {{- end }}
