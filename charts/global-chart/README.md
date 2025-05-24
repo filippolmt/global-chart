@@ -8,12 +8,12 @@ A versatile Helm chart designed for flexible Kubernetes deployments, supporting 
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| deployment | bool | `{"additionalEnvs":[],"affinity":{},"autoscaling":{"enabled":false,"maxReplicas":10,"minReplicas":2,"targetCPUUtilizationPercentage":"","targetMemoryUtilizationPercentage":""},"configMap":{},"dnsConfig":{"nameservers":[],"options":[],"searches":[]},"enabled":false,"envFromConfigMaps":[],"envFromSecrets":[],"extraContainers":[],"extraInitContainers":[],"fullnameOverride":"","hostAliases":[],"image":{"pullPolicy":"Always","repository":"nginx","tag":"latest"},"imagePullSecrets":[],"livenessProbe":{},"nameOverride":"","nodeSelector":{},"podAnnotations":{},"podLabels":{},"podRecreation":{"enabled":false},"podSecurityContext":{},"readinessProbe":{},"replicaCount":2,"resources":{"requests":{"cpu":"100m","memory":"64Mi"}},"secret":{},"securityContext":{},"service":{"port":80,"portName":"http","targetPort":"http","type":"ClusterIP"},"serviceAccount":{"annotations":{},"automount":true,"create":true,"name":""},"tolerations":[],"volumeMounts":[],"volumes":[]}` | Enable/disable the deployment of the application |
+| deployment | bool | `{"additionalEnvs":[],"affinity":{},"autoscaling":{"enabled":false,"maxReplicas":10,"minReplicas":2,"targetCPUUtilizationPercentage":"","targetMemoryUtilizationPercentage":""},"configMap":{},"dnsConfig":{"nameservers":[],"options":[],"searches":[]},"enabled":false,"envFromConfigMaps":[],"envFromSecrets":[],"extraContainers":[],"extraInitContainers":[],"fullnameOverride":"","hostAliases":[],"image":{"pullPolicy":"IfNotPresent","repository":"","tag":""},"imagePullSecrets":[],"livenessProbe":{},"nameOverride":"","nodeSelector":{},"podAnnotations":{},"podLabels":{},"podRecreation":{"enabled":false},"podSecurityContext":{},"readinessProbe":{},"replicaCount":2,"resources":{"requests":{"cpu":"100m","memory":"64Mi"}},"secret":{},"securityContext":{},"service":{"port":80,"portName":"http","targetPort":"http","type":"ClusterIP"},"serviceAccount":{"annotations":{},"automount":true,"create":true,"name":""},"tolerations":[],"volumeMounts":[],"volumes":[]}` | Enable/disable the deployment of the application |
 | deployment.replicaCount | int | `2` | Number of replicas to deploy, default is 2 |
-| deployment.image | object | `{"pullPolicy":"Always","repository":"nginx","tag":"latest"}` | Image configuration |
-| deployment.image.repository | string | `"nginx"` | Docker image repository |
-| deployment.image.pullPolicy | string | `"Always"` | Image pull policy: Always, IfNotPresent, or Never |
-| deployment.image.tag | string | `"latest"` | Overrides the image tag (default: chart AppVersion) |
+| deployment.image | object | `{"pullPolicy":"IfNotPresent","repository":"","tag":""}` | Image configuration |
+| deployment.image.repository | string | `""` | Image repository |
+| deployment.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy: Always, IfNotPresent, or Never |
+| deployment.image.tag | string | `""` | Overrides the image tag. |
 | deployment.imagePullSecrets | list | `[]` | List of imagePullSecrets for private registries |
 | deployment.nameOverride | string | `""` | Override the chart name |
 | deployment.fullnameOverride | string | `""` | Override the chart fullname |
