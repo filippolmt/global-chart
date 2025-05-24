@@ -9,7 +9,7 @@ metadata:
   name: {{ printf "%s-%s" (include "global-chart.fullname" $dot) $name | quote }}
 spec:
   schedule: {{ $job.schedule | quote }}
-  successfulJobsHistoryLimit: {{ $job.successfulJobsHistoryLimit |  default 2 }}
+  successfulJobsHistoryLimit: {{ $job.successfulJobsHistoryLimit | default 2 }}
   failedJobsHistoryLimit: {{ $job.failedJobsHistoryLimit | default 2 }}
   concurrencyPolicy: Forbid
   jobTemplate:
@@ -18,7 +18,7 @@ spec:
         spec:
           {{- if $job.initContainers }}
           initContainers:
-          {{- toYaml $job.initContainers | nindent 10 }}
+            {{- toYaml $job.initContainers | nindent 12 }}
           {{- end }}
           containers:
           - name: {{ $name }}
@@ -31,28 +31,26 @@ spec:
             {{- end }}
             {{- if $job.command }}
             command:
-              {{- toYaml $job.command | nindent 12 }}
+              {{- toYaml $job.command | nindent 14 }}
             {{- end }}
             {{- if $job.args }}
             args:
-              {{- toYaml $job.args | nindent 12 }}
-            {{- end }}
-            {{-  if or $job.envFromConfigMaps $job.envFromSecrets}}
-            envFrom:
-            {{- range  $envFromConfigMap, $envFromConfigMaps := $job.envFromConfigMaps }}
-            - configMapRef:
-                name: {{ $envFromConfigMaps | quote }}
-            {{- end }}
-            {{- end }}
-            {{- if $job.envFromSecrets }}
-            {{- range  $envFromSecret, $envFromSecrets := $job.envFromSecrets }}
-            - secretRef:
-                name: {{ $envFromSecrets | quote }}
-            {{- end }}
+              {{- toYaml $job.args | nindent 14 }}
             {{- end }}
             {{- with $dot.Values.deployment.volumeMounts }}
             volumeMounts:
-            {{- toYaml $dot.Values.deployment.volumeMounts | nindent 14 }}
+              {{- toYaml . | nindent 14 }}
+            {{- end }}
+            {{- if or $job.envFromConfigMaps $job.envFromSecrets }}
+            envFrom:
+              {{- range $cm := $job.envFromConfigMaps }}
+              - configMapRef:
+                  name: {{ $cm | quote }}
+              {{- end }}
+              {{- range $sec := $job.envFromSecrets }}
+              - secretRef:
+                  name: {{ $sec | quote }}
+              {{- end }}
             {{- end }}
             {{- if $job.resources }}
             resources:
@@ -65,10 +63,27 @@ spec:
             {{- end }}
           {{- with $dot.Values.deployment.volumes }}
           volumes:
-          {{- toYaml $dot.Values.deployment.volumes | nindent 12 }}
+            {{- range . }}
+            - name: {{ .name }}
+              {{- if eq .type "emptyDir" }}
+              emptyDir: {}
+              {{- end }}
+              {{- if eq .type "configMap" }}
+              configMap:
+                name: {{ .configMap.name | quote }}
+              {{- end }}
+              {{- if eq .type "secret" }}
+              secret:
+                secretName: {{ default .secret.secretName .secret.name | quote }}
+              {{- end }}
+              {{- if eq .type "persistentVolumeClaim" }}
+              persistentVolumeClaim:
+                claimName: {{ default .persistentVolumeClaim.claimName .persistentVolumeClaim.name | quote }}
+              {{- end }}
+            {{- end }}
           {{- end }}
           {{- if or $job.serviceAccountName $dot.Values.deployment.serviceAccount.create }}
-          serviceAccountName: {{ $job.serviceAccountName | default (printf "%s-%s" (include "global-chart.fullname" $dot) $name) }}
+          serviceAccountName: {{ $job.serviceAccountName | default (printf "%s-%s" (include "global-chart.fullname" $dot) $name) | quote }}
           {{- end }}
           restartPolicy: Never
           {{- with $job.nodeSelector }}
@@ -77,7 +92,7 @@ spec:
           {{- end }}
           {{- with $job.affinity }}
           affinity:
-            {{- toYaml $job.affinity | nindent 12 }}
+            {{- toYaml . | nindent 12 }}
           {{- end }}
           {{- if $job.tolerations }}
           tolerations:

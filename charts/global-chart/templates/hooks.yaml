@@ -60,6 +60,7 @@ spec:
           {{- end }}
         {{- end }}
       {{- end }}
+      restartPolicy: {{ $command.restartPolicy | default "Never" }}
       containers:
         - name: {{ template "global-chart.hookfullname" (merge (dict "hookname" $hook "jobname" $name) $dot) }}
           {{- if $command.image }}
