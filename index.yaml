@@ -2,6 +2,17 @@ apiVersion: v1
 entries:
   global-chart:
   - apiVersion: v2
+    created: "2025-05-24T12:02:37.453938635Z"
+    description: A versatile Helm chart designed for flexible Kubernetes deployments,
+      supporting customizable services, ConfigMaps, volumes, deployments, ingress,
+      hooks, and cronjobs for comprehensive application management.
+    digest: 2fa33b803cd2cd80b8241f4be45b8171bbc56666087552b182797a064f97c9b3
+    name: global-chart
+    type: application
+    urls:
+    - https://github.com/filippolmt/global-chart/releases/download/global-chart-0.3.0/global-chart-0.3.0.tgz
+    version: 0.3.0
+  - apiVersion: v2
     appVersion: 1.16.0
     created: "2025-02-24T10:35:00.120805718Z"
     description: A versatile Helm chart designed for flexible Kubernetes deployments,
@@ -60,4 +71,4 @@ entries:
     urls:
     - https://github.com/filippolmt/global-chart/releases/download/raw-0.1.0/raw-0.1.0.tgz
     version: 0.1.0
-generated: "2025-02-24T14:09:05.958776403Z"
+generated: "2025-05-24T12:02:37.453952351Z"
