@@ -190,7 +190,19 @@ externalSecrets:
       kind: ClusterSecretStore
       name: mysecretstore
     secretkey: api-token
-
+  my-db-credentials:
+    remote:
+      key: "path/to/secret"
+      conversionStrategy: "Default"
+      decodingStrategy: "None"
+    secretkey: "username"
+    secretstore:
+      kind: "ClusterSecretStore"
+      name: "my-secret-store"
+    refreshInterval: "30m"
+    target:
+      creationPolicy: "Owner"
+      deletionPolicy: "Retain"
 ingress:
   enabled: true
   className: "nginx"
