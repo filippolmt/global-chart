@@ -203,6 +203,7 @@ externalSecrets:
     target:
       creationPolicy: "Owner"
       deletionPolicy: "Retain"
+
 ingress:
   enabled: true
   className: "nginx"
