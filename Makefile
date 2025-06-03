@@ -16,8 +16,7 @@ generate-templates: lint-chart
 		-f tests/test01/values.01.yaml \
 		--namespace test \
 		--output-dir generated-manifests/01 \
-		--include-crds \
-		--api-versions external-secrets.io/v1
+		--include-crds
 	helm template test02-${GLOBAL_CHART_NAME} ./${CHART_DIR}/${GLOBAL_CHART_NAME} \
 		-f tests/values.02.yaml \
 		--namespace test \
