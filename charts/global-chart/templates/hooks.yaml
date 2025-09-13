@@ -21,6 +21,9 @@ spec:
       labels:
         {{- include "global-chart.labels" $root | nindent 8 }}
     spec:
+      {{- if or $root.Values.deployment.serviceAccount.name $command.serviceAccountName }}
+      serviceAccountName: {{ coalesce $command.serviceAccountName $root.Values.deployment.serviceAccount.name | quote }}
+      {{- end }}
       {{- with $root.Values.deployment.imagePullSecrets }}
       imagePullSecrets:
         {{- range . }}
