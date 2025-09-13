@@ -96,6 +96,10 @@ spec:
           readinessProbe:
             {{- toYaml $dep.readinessProbe | nindent 12 }}
           {{- end }}
+          {{- if $dep.startupProbe }}
+          startupProbe:
+            {{- toYaml $dep.startupProbe | nindent 12 }}
+          {{- end }}
           resources:
             {{- toYaml $dep.resources | nindent 12 }}
           {{- if or $dep.configMap $dep.envFromConfigMaps $dep.secret $dep.envFromSecrets }}
