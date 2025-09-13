@@ -83,6 +83,15 @@ deployment:
       path: /
       port: http
 
+  startupProbe:
+    httpGet:
+      path: /
+      port: http
+    failureThreshold: 30
+    periodSeconds: 10
+    initialDelaySeconds: 10
+    timeoutSeconds: 5
+
   additionalEnvs:
     - name: NEWPASS
       valueFrom:
