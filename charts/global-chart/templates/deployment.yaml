@@ -181,7 +181,7 @@ spec:
         {{- range $i, $f := $mountedConfigFiles.files }}
         - name: md-cm-file-{{ $f.name }}
           configMap:
-            name: {{ include "global-chart.fullname" $root }}-cm-{{ $f.name }}
+            name: {{ include "global-chart.fullname" $root }}-md-cm-{{ $f.name }}
         {{- end }}
         {{- end }}
         {{- if $mountedConfigFiles.bundles }}
@@ -191,7 +191,7 @@ spec:
             sources:
             {{- range $fi, $f := $b.files }}
               - configMap:
-                  name: {{ include "global-chart.fullname" $root }}-cm-{{ $f.name }}
+                  name: {{ include "global-chart.fullname" $root }}-md-cm-{{ $f.name }}
                   items:
                     - key: {{ $f.relPath | base }}
                       path: {{ $f.relPath }}
