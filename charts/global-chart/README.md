@@ -1,6 +1,6 @@
 # global-chart
 
-![Version: 0.7.0](https://img.shields.io/badge/Version-0.7.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square)
+![Version: 0.8.0](https://img.shields.io/badge/Version-0.8.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square)
 
 A versatile Helm chart designed for flexible Kubernetes deployments, supporting customizable services, ConfigMaps, volumes, deployments, ingress, hooks, and cronjobs for comprehensive application management.
 
@@ -8,7 +8,7 @@ A versatile Helm chart designed for flexible Kubernetes deployments, supporting 
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| deployment | object | `{"additionalEnvs":[],"affinity":{},"autoscaling":{"behavior":{"scaleDown":{},"scaleUp":{}},"enabled":false,"maxReplicas":10,"minReplicas":2,"targetCPUUtilizationPercentage":"","targetMemoryUtilizationPercentage":""},"configMap":{},"dnsConfig":{"nameservers":[],"options":[],"searches":[]},"enabled":false,"envFromConfigMaps":[],"envFromSecrets":[],"extraContainers":[],"extraInitContainers":[],"fullnameOverride":"","hostAliases":[],"image":{"pullPolicy":"IfNotPresent","repository":"","tag":""},"imagePullSecrets":[],"livenessProbe":{},"nameOverride":"","nodeSelector":{},"podAnnotations":{},"podLabels":{},"podRecreation":{"enabled":false},"podSecurityContext":{},"readinessProbe":{},"replicaCount":2,"resources":{"requests":{"cpu":"100m","memory":"64Mi"}},"secret":{},"securityContext":{},"service":{"port":80,"portName":"http","protocol":"TCP","targetPort":"http","type":"ClusterIP"},"serviceAccount":{"annotations":{},"automount":true,"create":true,"name":""},"tolerations":[],"volumeMounts":[],"volumes":[]}` | Deployment configuration |
+| deployment | object | `{"additionalEnvs":[],"affinity":{},"autoscaling":{"behavior":{"scaleDown":{},"scaleUp":{}},"enabled":false,"maxReplicas":10,"minReplicas":2,"targetCPUUtilizationPercentage":"","targetMemoryUtilizationPercentage":""},"configMap":{},"dnsConfig":{"nameservers":[],"options":[],"searches":[]},"enabled":false,"envFromConfigMaps":[],"envFromSecrets":[],"extraContainers":[],"extraInitContainers":[],"fullnameOverride":"","hostAliases":[],"image":{"pullPolicy":"IfNotPresent","repository":"","tag":""},"imagePullSecrets":[],"livenessProbe":{},"mountedConfigFiles":{"bundles":[],"files":[]},"nameOverride":"","nodeSelector":{},"podAnnotations":{},"podLabels":{},"podRecreation":{"enabled":false},"podSecurityContext":{},"readinessProbe":{},"replicaCount":2,"resources":{"requests":{"cpu":"100m","memory":"64Mi"}},"secret":{},"securityContext":{},"service":{"port":80,"portName":"http","protocol":"TCP","targetPort":"http","type":"ClusterIP"},"serviceAccount":{"annotations":{},"automount":true,"create":true,"name":""},"tolerations":[],"volumeMounts":[],"volumes":[]}` | Deployment configuration |
 | deployment.enabled | bool | `false` | Enable/disable the deployment of the application |
 | deployment.replicaCount | int | `2` | Number of replicas to deploy, default is 2 |
 | deployment.image | object | `{"pullPolicy":"IfNotPresent","repository":"","tag":""}` | Image configuration |
@@ -65,6 +65,9 @@ A versatile Helm chart designed for flexible Kubernetes deployments, supporting 
 | deployment.extraInitContainers | list | `[]` | Extra initContainers |
 | deployment.extraContainers | list | `[]` | Extra sidecar containers |
 | deployment.podRecreation | object | `{"enabled":false}` | Recreate pods on config change (with pullPolicy=Always) |
+| deployment.mountedConfigFiles | object | `{"bundles":[],"files":[]}` | Dynamic ConfigMaps to create from inline content or file bundles |
+| deployment.mountedConfigFiles.files | list | `[]` | List of individual config files to create as ConfigMaps |
+| deployment.mountedConfigFiles.bundles | list | `[]` | List of config file bundles (multiple files in one ConfigMap) |
 | ingress | object | `{"annotations":{},"className":"nginx","enabled":false,"hosts":[{"host":"chart-example.local","paths":[{"path":"/","pathType":"ImplementationSpecific"}],"service":{"name":"","port":0}}],"tls":[]}` | Ingress configuration |
 | ingress.enabled | bool | `false` | Enable or disable Ingress |
 | ingress.className | string | `"nginx"` | IngressClass to use (e.g., nginx) |

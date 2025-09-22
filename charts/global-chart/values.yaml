@@ -141,6 +141,12 @@ deployment:
   podRecreation:
     enabled: false
 
+  # -- Dynamic ConfigMaps to create from inline content or file bundles
+  mountedConfigFiles:
+    # -- List of individual config files to create as ConfigMaps
+    files: []
+    # -- List of config file bundles (multiple files in one ConfigMap)
+    bundles: []
 # -- Ingress configuration
 ingress:
   # -- Enable or disable Ingress
