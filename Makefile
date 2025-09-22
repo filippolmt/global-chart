@@ -8,25 +8,25 @@ lint-chart:
 	helm lint $(STRICT) -f tests/test01/values.01.yaml ./${CHART_DIR}/${GLOBAL_CHART_NAME}
 	helm lint $(STRICT) -f tests/values.02.yaml ./${CHART_DIR}/${GLOBAL_CHART_NAME}
 	helm lint $(STRICT) -f tests/values.03.yaml ./${CHART_DIR}/${GLOBAL_CHART_NAME}
-	helm lint $(STRICT) -f tests/dynamics1.yaml ./${CHART_DIR}/${GLOBAL_CHART_NAME}
-	helm lint $(STRICT) -f tests/dynamics2.yaml ./${CHART_DIR}/${GLOBAL_CHART_NAME}
+	helm lint $(STRICT) -f tests/mountedcm1.yaml ./${CHART_DIR}/${GLOBAL_CHART_NAME}
+	helm lint $(STRICT) -f tests/mountedcm2.yaml ./${CHART_DIR}/${GLOBAL_CHART_NAME}
 
 
-generate-template-dynamics1:
-	@rm -r generated-manifests/dynamics1 || true
-	@mkdir -p generated-manifests/dynamics1
+generate-template-mountedcm1:
+	@rm -r generated-manifests/mountedcm1 || true
+	@mkdir -p generated-manifests/mountedcm1
 	helm template test-${GLOBAL_CHART_NAME} ./${CHART_DIR}/${GLOBAL_CHART_NAME} \
-		-f tests/dynamics1.yaml \
-		--namespace dynamics1 \
-		--output-dir generated-manifests/dynamics1 \
+		-f tests/mountedcm1.yaml \
+		--namespace mountedcm1 \
+		--output-dir generated-manifests/mountedcm1 \
 		--include-crds
-generate-template-dynamics2:
-	@rm -r generated-manifests/dynamics2 || true
-	@mkdir -p generated-manifests/dynamics2
+generate-template-mountedcm2:
+	@rm -r generated-manifests/mountedcm2 || true
+	@mkdir -p generated-manifests/mountedcm2
 	helm template test-${GLOBAL_CHART_NAME} ./${CHART_DIR}/${GLOBAL_CHART_NAME} \
-		-f tests/dynamics2.yaml \
-		--namespace dynamics2 \
-		--output-dir generated-manifests/dynamics2 \
+		-f tests/mountedcm2.yaml \
+		--namespace mountedcm2 \
+		--output-dir generated-manifests/mountedcm2 \
 		--include-crds
 
 generate-template-test01:
@@ -56,15 +56,15 @@ generate-templates: lint-chart
 		--namespace test \
 		--output-dir generated-manifests/03 \
 		--include-crds
-	helm template test-dynamics1-${GLOBAL_CHART_NAME} ./${CHART_DIR}/${GLOBAL_CHART_NAME} \
-		-f tests/dynamics1.yaml \
-		--namespace dynamics1 \
-		--output-dir generated-manifests/dynamics1 \
+	helm template test-mountedcm1-${GLOBAL_CHART_NAME} ./${CHART_DIR}/${GLOBAL_CHART_NAME} \
+		-f tests/mountedcm1.yaml \
+		--namespace mountedcm1 \
+		--output-dir generated-manifests/mountedcm1 \
 		--include-crds
-	helm template test-dynamics2-${GLOBAL_CHART_NAME} ./${CHART_DIR}/${GLOBAL_CHART_NAME} \
-		-f tests/dynamics2.yaml \
-		--namespace dynamics2 \
-		--output-dir generated-manifests/dynamics2 \
+	helm template test-mountedcm2-${GLOBAL_CHART_NAME} ./${CHART_DIR}/${GLOBAL_CHART_NAME} \
+		-f tests/mountedcm2.yaml \
+		--namespace mountedcm2 \
+		--output-dir generated-manifests/mountedcm2 \
 		--include-crds
 
 helm-install-${GLOBAL_CHART_NAME}-01:
@@ -96,15 +96,15 @@ generate-docs:
 build-chart-to-test-registry:
 	helm package ${GLOBAL_CHART_NAME}
 
-helm-install-${GLOBAL_CHART_NAME}-dynamics1:
+helm-install-${GLOBAL_CHART_NAME}-mountedcm1:
 	helm upgrade --install test ./${CHART_DIR}/${GLOBAL_CHART_NAME} \
-		-f tests/dynamics1.yaml \
-		--namespace dynamics1 \
+		-f tests/mountedcm1.yaml \
+		--namespace mountedcm1 \
 		--create-namespace
 
-helm-install-${GLOBAL_CHART_NAME}-dynamics2:
+helm-install-${GLOBAL_CHART_NAME}-mountedcm2:
 	helm upgrade --install test ./${CHART_DIR}/${GLOBAL_CHART_NAME} \
-		-f tests/dynamics2.yaml \
-		--namespace dynamics2 \
+		-f tests/mountedcm2.yaml \
+		--namespace mountedcm2 \
 		--create-namespace
 

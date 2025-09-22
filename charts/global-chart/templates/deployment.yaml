@@ -138,7 +138,7 @@ spec:
             {{- end }}
             {{- if and $dc $dc.files }}
             {{- range $i, $f := $dc.files }}
-            - name: dyn-cm-file-{{ $f.name }}
+            - name: md-cm-file-{{ $f.name }}
               mountPath: {{ $f.targetPath }}
               subPath: {{ $f.filename }}
               readOnly: true
@@ -146,7 +146,7 @@ spec:
             {{- end }}
             {{- if and $dc $dc.bundles }}
             {{- range $bi, $b := $dc.bundles }}
-            - name: dyn-cm-bundle-{{ $bi }}
+            - name: md-cm-bundle-{{ $bi }}
               mountPath: {{ $b.mountDir }}
               readOnly: true
             {{- end }}
@@ -179,14 +179,14 @@ spec:
       volumes:
         {{- if $dc.files }}
         {{- range $i, $f := $dc.files }}
-        - name: dyn-cm-file-{{ $f.name }}
+        - name: md-cm-file-{{ $f.name }}
           configMap:
             name: {{ include "global-chart.fullname" $root }}-cm-{{ $f.name }}
         {{- end }}
         {{- end }}
         {{- if $dc.bundles }}
         {{- range $bi, $b := $dc.bundles }}
-        - name: dyn-cm-bundle-{{ $bi }}
+        - name: md-cm-bundle-{{ $bi }}
           projected:
             sources:
             {{- range $fi, $f := $b.files }}
