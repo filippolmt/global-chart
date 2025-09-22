@@ -236,20 +236,3 @@ ingress:
           pathType: Prefix
         - path: /health
           pathType: Exact
-
-dynamicConfigMaps:
-  files:
-    - name: odoo-nginx-config
-      filename: odoo.conf
-      targetPath: /etc/nginx/conf.d/odoo.conf
-      content: |
-        ciao
-        ciao
-  bundles:
-    - mountDir: /etc/nginx
-      files:
-        - name: odoo-extra-rules
-          relPath: includes/security/rate-limit.conf
-          content: |
-            magico
-            magico

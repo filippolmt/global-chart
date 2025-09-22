@@ -1,7 +1,6 @@
-{{- if .Values.deployment.enabled }}
 {{- $root := . -}}
 {{- $mountedConfigFiles := .Values.deployment.mountedConfigFiles -}}
-{{- if $mountedConfigFiles }}
+{{- if and $mountedConfigFiles .Values.deployment.enabled }}
   {{- if $mountedConfigFiles.files }}
     {{- range $i, $f := $mountedConfigFiles.files }}
       {{- if gt $i 0 }}
@@ -37,5 +36,4 @@ data:
       {{- end }}
     {{- end }}
   {{- end }}
-{{- end }}
 {{- end }}
