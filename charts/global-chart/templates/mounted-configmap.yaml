@@ -1,9 +1,9 @@
 {{- if .Values.deployment.enabled }}
 {{- $root := . -}}
-{{- $dc := .Values.deployment.mountedConfigFiles -}}
-{{- if $dc }}
-  {{- if $dc.files }}
-    {{- range $i, $f := $dc.files }}
+{{- $mountedConfigFiles := .Values.deployment.mountedConfigFiles -}}
+{{- if $mountedConfigFiles }}
+  {{- if $mountedConfigFiles.files }}
+    {{- range $i, $f := $mountedConfigFiles.files }}
       {{- if gt $i 0 }}
 ---
       {{- end }}
@@ -20,8 +20,8 @@ data:
   {{- end }}
   {{- end }}
 
-  {{- if $dc.bundles }}
-    {{- range $bi, $b := $dc.bundles }}
+  {{- if $mountedConfigFiles.bundles }}
+    {{- range $bi, $b := $mountedConfigFiles.bundles }}
       {{- range $fi, $f := $b.files }}
 ---
 apiVersion: v1

@@ -130,22 +130,22 @@ spec:
                 {{- toYaml $env.valueFrom | nindent 16 }}
             {{- end }}
           {{- end }}
-          {{- $dc := .Values.deployment.mountedConfigFiles }}
-          {{- if or $dep.volumeMounts (and $dc (or $dc.files $dc.bundles)) }}
+          {{- $mountedConfigFiles := .Values.deployment.mountedConfigFiles }}
+          {{- if or $dep.volumeMounts (and $mountedConfigFiles (or $mountedConfigFiles.files $mountedConfigFiles.bundles)) }}
           volumeMounts:
             {{- with $dep.volumeMounts }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
-            {{- if and $dc $dc.files }}
-            {{- range $i, $f := $dc.files }}
+            {{- if and $mountedConfigFiles $mountedConfigFiles.files }}
+            {{- range $i, $f := $mountedConfigFiles.files }}
             - name: md-cm-file-{{ $f.name }}
               mountPath: {{ $f.targetPath }}
               subPath: {{ $f.filename }}
               readOnly: true
             {{- end }}
             {{- end }}
-            {{- if and $dc $dc.bundles }}
-            {{- range $bi, $b := $dc.bundles }}
+            {{- if and $mountedConfigFiles $mountedConfigFiles.bundles }}
+            {{- range $bi, $b := $mountedConfigFiles.bundles }}
             - name: md-cm-bundle-{{ $bi }}
               mountPath: {{ $b.mountDir }}
               readOnly: true
@@ -173,19 +173,19 @@ spec:
           {{- end }}
         {{- end }}
       {{- end }}
-      {{- $dc := .Values.deployment.mountedConfigFiles }}
-      {{- if $dc }}
-      {{- if or $dc.files $dc.bundles }}
+      {{- $mountedConfigFiles := .Values.deployment.mountedConfigFiles }}
+      {{- if $mountedConfigFiles }}
+      {{- if or $mountedConfigFiles.files $mountedConfigFiles.bundles }}
       volumes:
-        {{- if $dc.files }}
-        {{- range $i, $f := $dc.files }}
+        {{- if $mountedConfigFiles.files }}
+        {{- range $i, $f := $mountedConfigFiles.files }}
         - name: md-cm-file-{{ $f.name }}
           configMap:
             name: {{ include "global-chart.fullname" $root }}-cm-{{ $f.name }}
         {{- end }}
         {{- end }}
-        {{- if $dc.bundles }}
-        {{- range $bi, $b := $dc.bundles }}
+        {{- if $mountedConfigFiles.bundles }}
+        {{- range $bi, $b := $mountedConfigFiles.bundles }}
         - name: md-cm-bundle-{{ $bi }}
           projected:
             sources:
