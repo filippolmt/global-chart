@@ -5,11 +5,11 @@ metadata:
   name: {{ include "global-chart.fullname" . }}
   labels: {{- include "global-chart.labels" . | nindent 4 }}
 spec:
-  type: {{ .Values.deployment.service.type }}
+  type: {{ .Values.deployment.service.type | default "ClusterIP" }}
   ports:
-    - port: {{ .Values.deployment.service.port }}
+    - port: {{ .Values.deployment.service.port | default 80 }}
       targetPort: {{ .Values.deployment.service.targetPort | default "http" }}
-      protocol: TCP
+      protocol: {{ (.Values.deployment.service.protocol | default "TCP") | upper }}
       name: {{ .Values.deployment.service.portName | default "http" }}
   selector: {{- include "global-chart.selectorLabels" . | nindent 4 }}
 {{- end }}

@@ -83,11 +83,11 @@ spec:
       containers:
         - name: {{ include "global-chart.fullname" $root }}
           image: "{{ required "repository is mandatory" $dep.image.repository }}:{{ required "tag image is mandatory" $dep.image.tag }}"
-          imagePullPolicy: {{ $dep.image.pullPolicy | default "Always" }}
+          imagePullPolicy: {{ $dep.image.pullPolicy | default "IfNotPresent" }}
           ports:
-            - name: http
+            - name: {{ $dep.service.portName | default "http" }}
               containerPort: {{ $dep.service.port | default 80 }}
-              protocol: TCP
+              protocol: {{ ($dep.service.protocol | default "TCP") | upper }}
           {{- if $dep.livenessProbe }}
           livenessProbe:
             {{- toYaml $dep.livenessProbe | nindent 12 }}

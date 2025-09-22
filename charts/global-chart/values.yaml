@@ -56,6 +56,8 @@ deployment:
     port: 80
     # -- Target port on the pod
     targetPort: http
+    # -- Protocol for the service port (TCP|UDP)
+    protocol: TCP
 
   # -- Resource requests & limits for pods
   resources:
