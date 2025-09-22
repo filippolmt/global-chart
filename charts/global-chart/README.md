@@ -8,7 +8,7 @@ A versatile Helm chart designed for flexible Kubernetes deployments, supporting 
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| deployment | object | `{"additionalEnvs":[],"affinity":{},"autoscaling":{"behavior":{"scaleDown":{},"scaleUp":{}},"enabled":false,"maxReplicas":10,"minReplicas":2,"targetCPUUtilizationPercentage":"","targetMemoryUtilizationPercentage":""},"configMap":{},"dnsConfig":{"nameservers":[],"options":[],"searches":[]},"enabled":false,"envFromConfigMaps":[],"envFromSecrets":[],"extraContainers":[],"extraInitContainers":[],"fullnameOverride":"","hostAliases":[],"image":{"pullPolicy":"IfNotPresent","repository":"","tag":""},"imagePullSecrets":[],"livenessProbe":{},"mountedConfigFiles":{"bundles":[],"files":[]},"nameOverride":"","nodeSelector":{},"podAnnotations":{},"podLabels":{},"podRecreation":{"enabled":false},"podSecurityContext":{},"readinessProbe":{},"replicaCount":2,"resources":{"requests":{"cpu":"100m","memory":"64Mi"}},"secret":{},"securityContext":{},"service":{"port":80,"portName":"http","targetPort":"http","type":"ClusterIP"},"serviceAccount":{"annotations":{},"automount":true,"create":true,"name":""},"tolerations":[],"volumeMounts":[],"volumes":[]}` | Deployment configuration |
+| deployment | object | `{"additionalEnvs":[],"affinity":{},"autoscaling":{"behavior":{"scaleDown":{},"scaleUp":{}},"enabled":false,"maxReplicas":10,"minReplicas":2,"targetCPUUtilizationPercentage":"","targetMemoryUtilizationPercentage":""},"configMap":{},"dnsConfig":{"nameservers":[],"options":[],"searches":[]},"enabled":false,"envFromConfigMaps":[],"envFromSecrets":[],"extraContainers":[],"extraInitContainers":[],"fullnameOverride":"","hostAliases":[],"image":{"pullPolicy":"IfNotPresent","repository":"","tag":""},"imagePullSecrets":[],"livenessProbe":{},"nameOverride":"","nodeSelector":{},"podAnnotations":{},"podLabels":{},"podRecreation":{"enabled":false},"podSecurityContext":{},"readinessProbe":{},"replicaCount":2,"resources":{"requests":{"cpu":"100m","memory":"64Mi"}},"secret":{},"securityContext":{},"service":{"port":80,"portName":"http","protocol":"TCP","targetPort":"http","type":"ClusterIP"},"serviceAccount":{"annotations":{},"automount":true,"create":true,"name":""},"tolerations":[],"volumeMounts":[],"volumes":[]}` | Deployment configuration |
 | deployment.enabled | bool | `false` | Enable/disable the deployment of the application |
 | deployment.replicaCount | int | `2` | Number of replicas to deploy, default is 2 |
 | deployment.image | object | `{"pullPolicy":"IfNotPresent","repository":"","tag":""}` | Image configuration |
@@ -27,11 +27,12 @@ A versatile Helm chart designed for flexible Kubernetes deployments, supporting 
 | deployment.podLabels | object | `{}` | Pod labels |
 | deployment.podSecurityContext | object | `{}` | Pod-level security context (e.g., fsGroup) |
 | deployment.securityContext | object | `{}` | Container-level security context (e.g., runAsUser) |
-| deployment.service | object | `{"port":80,"portName":"http","targetPort":"http","type":"ClusterIP"}` | Service that front-ends the Deployment |
+| deployment.service | object | `{"port":80,"portName":"http","protocol":"TCP","targetPort":"http","type":"ClusterIP"}` | Service that front-ends the Deployment |
 | deployment.service.portName | string | `"http"` | Service port name |
 | deployment.service.type | string | `"ClusterIP"` | Service type: ClusterIP, NodePort, or LoadBalancer |
 | deployment.service.port | int | `80` | Port exposed by the Service |
 | deployment.service.targetPort | string | `"http"` | Target port on the pod |
+| deployment.service.protocol | string | `"TCP"` | Protocol for the service port (TCP|UDP) |
 | deployment.resources | object | `{"requests":{"cpu":"100m","memory":"64Mi"}}` | Resource requests & limits for pods |
 | deployment.resources.requests.memory | string | `"64Mi"` | Memory request |
 | deployment.resources.requests.cpu | string | `"100m"` | CPU request |
