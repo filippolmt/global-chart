@@ -1,0 +1,41 @@
+{{- if .Values.deployment.enabled }}
+{{- $root := . -}}
+{{- $dc := .Values.deployment.mountedConfigFiles -}}
+{{- if $dc }}
+  {{- if $dc.files }}
+    {{- range $i, $f := $dc.files }}
+      {{- if gt $i 0 }}
+---
+      {{- end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "global-chart.fullname" $root }}-cm-{{ $f.name }}
+  labels:
+    {{- include "global-chart.labels" $root | nindent 6 }}
+data:
+  {{ $f.filename }}: |
+    {{- $content := required (printf "mountedConfigFiles.files[%d] (%s): 'content' is required" $i $f.name) $f.content -}}
+    {{- $content | nindent 6 -}}
+  {{- end }}
+  {{- end }}
+
+  {{- if $dc.bundles }}
+    {{- range $bi, $b := $dc.bundles }}
+      {{- range $fi, $f := $b.files }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "global-chart.fullname" $root }}-cm-{{ $f.name }}
+  labels:
+    {{- include "global-chart.labels" $root | nindent 6 }}
+data:
+  {{ $f.relPath | base }}: |
+    {{- $content := required (printf "mountedConfigFiles.bundles[%d].files[%d] (%s): 'content' is required" $bi $fi $f.name) $f.content -}}
+    {{- $content | nindent 6 -}}
+      {{- end }}
+    {{- end }}
+  {{- end }}
+{{- end }}
+{{- end }}

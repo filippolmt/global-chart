@@ -19,6 +19,7 @@ spec:
     metadata:
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") $root | sha256sum }}
+        checksum/mounted-config-files: {{ toYaml .Values.deployment.mountedConfigFiles | sha256sum }}
         {{- if $dep.podRecreation.enabled }}
         timestamp: "{{ now | date "20060102150405" }}"
         {{- end }}
@@ -129,9 +130,27 @@ spec:
                 {{- toYaml $env.valueFrom | nindent 16 }}
             {{- end }}
           {{- end }}
-          {{- with $dep.volumeMounts }}
+          {{- $dc := .Values.deployment.mountedConfigFiles }}
+          {{- if or $dep.volumeMounts (and $dc (or $dc.files $dc.bundles)) }}
           volumeMounts:
+            {{- with $dep.volumeMounts }}
             {{- toYaml . | nindent 12 }}
+            {{- end }}
+            {{- if and $dc $dc.files }}
+            {{- range $i, $f := $dc.files }}
+            - name: dyn-cm-file-{{ $f.name }}
+              mountPath: {{ $f.targetPath }}
+              subPath: {{ $f.filename }}
+              readOnly: true
+            {{- end }}
+            {{- end }}
+            {{- if and $dc $dc.bundles }}
+            {{- range $bi, $b := $dc.bundles }}
+            - name: dyn-cm-bundle-{{ $bi }}
+              mountPath: {{ $b.mountDir }}
+              readOnly: true
+            {{- end }}
+            {{- end }}
           {{- end }}
       {{- with $dep.volumes }}
       volumes:
@@ -153,6 +172,33 @@ spec:
             claimName: {{ default .persistentVolumeClaim.claimName .persistentVolumeClaim.name | quote }}
           {{- end }}
         {{- end }}
+      {{- end }}
+      {{- $dc := .Values.deployment.mountedConfigFiles }}
+      {{- if $dc }}
+      {{- if or $dc.files $dc.bundles }}
+      volumes:
+        {{- if $dc.files }}
+        {{- range $i, $f := $dc.files }}
+        - name: dyn-cm-file-{{ $f.name }}
+          configMap:
+            name: {{ include "global-chart.fullname" $root }}-cm-{{ $f.name }}
+        {{- end }}
+        {{- end }}
+        {{- if $dc.bundles }}
+        {{- range $bi, $b := $dc.bundles }}
+        - name: dyn-cm-bundle-{{ $bi }}
+          projected:
+            sources:
+            {{- range $fi, $f := $b.files }}
+              - configMap:
+                  name: {{ include "global-chart.fullname" $root }}-cm-{{ $f.name }}
+                  items:
+                    - key: {{ $f.relPath | base }}
+                      path: {{ $f.relPath }}
+            {{- end }}
+        {{- end }}
+        {{- end }}
+      {{- end }}
       {{- end }}
       {{- with $dep.nodeSelector }}
       nodeSelector:
