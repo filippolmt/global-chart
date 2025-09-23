@@ -129,7 +129,11 @@ spec:
         {{- $inhVMEff  := and $inhVM  $root.Values.deployment.enabled -}}
         {{- $inhVEff   := and $inhV   $root.Values.deployment.enabled -}}
         {{- $inhMCFEff := and $inhMCF $root.Values.deployment.enabled -}}
-        {{- $dep := dict "volumeMounts" (coalesce $command.volumeMounts (and $inhVMEff  $root.Values.deployment.volumeMounts)) "volumes" (coalesce $command.volumes (and $inhVEff $root.Values.deployment.volumes)) -}}
+        {{- $hasCmdVM := hasKey $command "volumeMounts" -}}
+        {{- $hasCmdV  := hasKey $command "volumes" -}}
+        {{- $vm := $hasCmdVM | ternary $command.volumeMounts (and $inhVMEff  $root.Values.deployment.volumeMounts) -}}
+        {{- $v  := $hasCmdV  | ternary $command.volumes      (and $inhVEff  $root.Values.deployment.volumes) -}}
+        {{- $dep := dict "volumeMounts" $vm "volumes" $v -}}
         {{- $mountedConfigFiles := $root.Values.deployment.mountedConfigFiles -}}
         {{- if or $dep.volumeMounts (and $inhMCFEff $mountedConfigFiles (or $mountedConfigFiles.files $mountedConfigFiles.bundles)) }}
         volumeMounts:

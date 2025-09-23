@@ -7,10 +7,8 @@
 {{- $inherit := (kindIs "map" $inheritRaw) | ternary $inheritRaw (dict) -}}
 {{- $inhSA := (hasKey $inherit "serviceAccount") | ternary ($inherit.serviceAccount) true -}}
 
-{{- if and (not $root.Values.deployment.enabled) $inhSA }}
-{{- $inhSA = false -}}
-{{- end -}}
-{{- if not $inhSA }}
+{{- $inhSAEff := and $inhSA $root.Values.deployment.enabled -}}
+{{- if not $inhSAEff }}
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -87,7 +85,11 @@ spec:
             {{- $inhVMEff  := and $inhVM  $root.Values.deployment.enabled -}}
             {{- $inhVEff   := and $inhV   $root.Values.deployment.enabled -}}
             {{- $inhMCFEff := and $inhMCF $root.Values.deployment.enabled -}}
-            {{- $dep := dict "volumeMounts" (coalesce $job.volumeMounts (and $inhVMEff  $root.Values.deployment.volumeMounts)) "volumes" (coalesce $job.volumes (and $inhVEff $root.Values.deployment.volumes)) -}}
+            {{- $hasJobVM := hasKey $job "volumeMounts" -}}
+            {{- $hasJobV  := hasKey $job "volumes" -}}
+            {{- $vm := $hasJobVM | ternary $job.volumeMounts (and $inhVMEff  $root.Values.deployment.volumeMounts) -}}
+            {{- $v  := $hasJobV  | ternary $job.volumes      (and $inhVEff  $root.Values.deployment.volumes) -}}
+            {{- $dep := dict "volumeMounts" $vm "volumes" $v -}}
             {{- $mountedConfigFiles := $root.Values.deployment.mountedConfigFiles -}}
             {{- if or $dep.volumeMounts (and $inhMCFEff $mountedConfigFiles (or $mountedConfigFiles.files $mountedConfigFiles.bundles)) }}
             volumeMounts:
@@ -154,7 +156,7 @@ spec:
             {{- end }}
             {{- end }}
           {{- end }}
-          serviceAccountName: {{ if $inhSA }}{{ include "global-chart.serviceAccountName" $root | quote }}{{ else }}{{ coalesce $job.serviceAccountName (printf "%s-%s" (include "global-chart.fullname" $root) $name) | quote }}{{ end }}
+          serviceAccountName: {{ if $inhSAEff }}{{ include "global-chart.serviceAccountName" $root | quote }}{{ else }}{{ coalesce $job.serviceAccountName (printf "%s-%s" (include "global-chart.fullname" $root) $name) | quote }}{{ end }}
           {{- if or $job.nodeSelector $root.Values.deployment.nodeSelector }}
           nodeSelector:
             {{- toYaml (default $root.Values.deployment.nodeSelector $job.nodeSelector) | nindent 12 }}
