@@ -16,5 +16,16 @@ deployment:
     type: ClusterIP
     port: 3001
 
+  volumes:
+    - name: nginx-config
+      type: configMap
+      configMap:
+        name: nginx-config
+  volumeMounts:
+    - name: nginx-config
+      mountPath: /etc/nginx/conf.d/default.conf
+      subPath: default.conf
+      readOnly: true
+
 ingress:
   enabled: false

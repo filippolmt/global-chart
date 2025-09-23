@@ -104,53 +104,79 @@ spec:
               {{- toYaml $env.valueFrom | nindent 14 }}
           {{- end }}
         {{- end }}
-        {{- if $command.volumeMounts }}
+        {{- $inherit := default (dict) $command.inheritFromDeployment -}}
+        {{- $inhVM  := (hasKey $inherit "volumeMounts")       | ternary ($inherit.volumeMounts)       true -}}
+        {{- $inhV   := (hasKey $inherit "volumes")            | ternary ($inherit.volumes)            true -}}
+        {{- $inhMCF := (hasKey $inherit "mountedConfigFiles") | ternary ($inherit.mountedConfigFiles) true -}}
+        {{- $dep := dict "volumeMounts" (coalesce $command.volumeMounts (and $inhVM $root.Values.deployment.volumeMounts)) "volumes" (coalesce $command.volumes (and $inhV $root.Values.deployment.volumes)) -}}
+        {{- $mountedConfigFiles := and $inhMCF $root.Values.deployment.mountedConfigFiles -}}
+        {{- if or $dep.volumeMounts (and $mountedConfigFiles (or $mountedConfigFiles.files $mountedConfigFiles.bundles)) }}
         volumeMounts:
-          {{- toYaml $command.volumeMounts | nindent 10 }}
-        {{- else if and $root.Values.deployment.volumeMounts (gt (len $root.Values.deployment.volumeMounts) 0) }}
-        volumeMounts:
-          {{- toYaml $root.Values.deployment.volumeMounts | nindent 10 }}
+          {{- with $dep.volumeMounts }}
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
+          {{- if and $mountedConfigFiles $mountedConfigFiles.files }}
+          {{- range $i, $f := $mountedConfigFiles.files }}
+          - name: md-cm-file-{{ $f.name }}
+            mountPath: {{ $f.targetPath }}
+            subPath: {{ $f.filename }}
+            readOnly: true
+          {{- end }}
+          {{- end }}
+          {{- if and $mountedConfigFiles $mountedConfigFiles.bundles }}
+          {{- range $bi, $b := $mountedConfigFiles.bundles }}
+          - name: md-cm-bundle-{{ $bi }}
+            mountPath: {{ $b.mountDir }}
+            readOnly: true
+          {{- end }}
+          {{- end }}
         {{- end }}
-      {{- if $command.volumes }}
+      {{- with $dep.volumes }}
       volumes:
-        {{- range $vol := $command.volumes }}
-        - name: {{ $vol.name | quote }}
-          {{- if eq $vol.type "emptyDir" }}
+        {{- range . }}
+        - name: {{ .name }}
+          {{- if eq .type "emptyDir" }}
           emptyDir: {}
           {{- end }}
-          {{- if eq $vol.type "configMap" }}
+          {{- if eq .type "configMap" }}
           configMap:
-            name: {{ $vol.configMap.name | quote }}
+            name: {{ .configMap.name | quote }}
           {{- end }}
-          {{- if eq $vol.type "secret" }}
+          {{- if eq .type "secret" }}
           secret:
-            secretName: {{ default $vol.secret.secretName $vol.secret.name | quote }}
+            secretName: {{ default .secret.secretName .secret.name | quote }}
           {{- end }}
-          {{- if eq $vol.type "persistentVolumeClaim" }}
+          {{- if eq .type "persistentVolumeClaim" }}
           persistentVolumeClaim:
-            claimName: {{ default $vol.persistentVolumeClaim.claimName $vol.persistentVolumeClaim.name | quote }}
+            claimName: {{ default .persistentVolumeClaim.claimName .persistentVolumeClaim.name | quote }}
           {{- end }}
         {{- end }}
-      {{- else if and $root.Values.deployment.volumes (gt (len $root.Values.deployment.volumes) 0) }}
+      {{- end }}
+      {{- if $mountedConfigFiles }}
+      {{- if or $mountedConfigFiles.files $mountedConfigFiles.bundles }}
       volumes:
-        {{- range $vol := $root.Values.deployment.volumes }}
-        - name: {{ $vol.name | quote }}
-          {{- if eq $vol.type "emptyDir" }}
-          emptyDir: {}
-          {{- end }}
-          {{- if eq $vol.type "configMap" }}
+        {{- if $mountedConfigFiles.files }}
+        {{- range $i, $f := $mountedConfigFiles.files }}
+        - name: md-cm-file-{{ $f.name }}
           configMap:
-            name: {{ $vol.configMap.name | quote }}
-          {{- end }}
-          {{- if eq $vol.type "secret" }}
-          secret:
-            secretName: {{ default $vol.secret.secretName $vol.secret.name | quote }}
-          {{- end }}
-          {{- if eq $vol.type "persistentVolumeClaim" }}
-          persistentVolumeClaim:
-            claimName: {{ default $vol.persistentVolumeClaim.claimName $vol.persistentVolumeClaim.name | quote }}
-          {{- end }}
+            name: {{ include "global-chart.fullname" $root }}-md-cm-{{ $f.name }}
         {{- end }}
+        {{- end }}
+        {{- if $mountedConfigFiles.bundles }}
+        {{- range $bi, $b := $mountedConfigFiles.bundles }}
+        - name: md-cm-bundle-{{ $bi }}
+          projected:
+            sources:
+            {{- range $fi, $f := $b.files }}
+              - configMap:
+                  name: {{ include "global-chart.fullname" $root }}-md-cm-{{ $f.name }}
+                  items:
+                    - key: {{ $f.relPath | base }}
+                      path: {{ $f.relPath }}
+            {{- end }}
+        {{- end }}
+        {{- end }}
+      {{- end }}
       {{- end }}
       {{- if or $command.nodeSelector $root.Values.deployment.nodeSelector }}
       nodeSelector:
