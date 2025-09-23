@@ -7,7 +7,8 @@
 {{- $inherit := (kindIs "map" $inheritRaw) | ternary $inheritRaw (dict) -}}
 {{- $inhSA := (hasKey $inherit "serviceAccount") | ternary ($inherit.serviceAccount) true -}}
 {{- $inhSAEff := and $inhSA $root.Values.deployment.enabled -}}
-{{- if not $inhSAEff }}
+{{- $saCreate := or (and (hasKey $command "serviceAccount") (hasKey $command.serviceAccount "create") $command.serviceAccount.create) $root.Values.deployment.serviceAccount.create -}}
+{{- if and (not $inhSAEff) (or $saCreate (not $command.serviceAccountName)) }}
 ---
 apiVersion: v1
 kind: ServiceAccount
