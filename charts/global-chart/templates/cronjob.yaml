@@ -56,7 +56,8 @@ spec:
                 cpu: 100m
                 memory: 128Mi
             {{- end }}
-            {{- $inherit := default (dict) $job.inheritFromDeployment -}}
+            {{- $inheritRaw := default (dict) $job.inheritFromDeployment -}}
+            {{- $inherit := (kindIs "map" $inheritRaw) | ternary $inheritRaw (dict) -}}
             {{- $inhVM  := (hasKey $inherit "volumeMounts")       | ternary ($inherit.volumeMounts)       true -}}
             {{- $inhV   := (hasKey $inherit "volumes")            | ternary ($inherit.volumes)            true -}}
             {{- $inhMCF := (hasKey $inherit "mountedConfigFiles") | ternary ($inherit.mountedConfigFiles) true -}}
@@ -83,8 +84,9 @@ spec:
               {{- end }}
               {{- end }}
             {{- end }}
-          {{- with $dep.volumes }}
+          {{- if or $dep.volumes (and $mountedConfigFiles (or $mountedConfigFiles.files $mountedConfigFiles.bundles)) }}
           volumes:
+            {{- with $dep.volumes }}
             {{- range . }}
             - name: {{ .name }}
               {{- if eq .type "emptyDir" }}
@@ -103,18 +105,15 @@ spec:
                 claimName: {{ default .persistentVolumeClaim.claimName .persistentVolumeClaim.name | quote }}
               {{- end }}
             {{- end }}
-          {{- end }}
-          {{- if $mountedConfigFiles }}
-          {{- if or $mountedConfigFiles.files $mountedConfigFiles.bundles }}
-          volumes:
-            {{- if $mountedConfigFiles.files }}
+            {{- end }}
+            {{- if and $mountedConfigFiles $mountedConfigFiles.files }}
             {{- range $i, $f := $mountedConfigFiles.files }}
             - name: md-cm-file-{{ $f.name }}
               configMap:
                 name: {{ include "global-chart.fullname" $root }}-md-cm-{{ $f.name }}
             {{- end }}
             {{- end }}
-            {{- if $mountedConfigFiles.bundles }}
+            {{- if and $mountedConfigFiles $mountedConfigFiles.bundles }}
             {{- range $bi, $b := $mountedConfigFiles.bundles }}
             - name: md-cm-bundle-{{ $bi }}
               projected:
@@ -129,9 +128,8 @@ spec:
             {{- end }}
             {{- end }}
           {{- end }}
-          {{- end }}
-          {{- if or $job.serviceAccountName $root.Values.deployment.serviceAccount.create }}
-          serviceAccountName: {{ $job.serviceAccountName | default (printf "%s-%s" (include "global-chart.fullname" $root) $name) | quote }}
+          {{- if or $root.Values.deployment.serviceAccount.name $job.serviceAccountName }}
+          serviceAccountName: {{ coalesce $job.serviceAccountName $root.Values.deployment.serviceAccount.name | quote }}
           {{- end }}
           {{- if or $job.nodeSelector $root.Values.deployment.nodeSelector }}
           nodeSelector:
