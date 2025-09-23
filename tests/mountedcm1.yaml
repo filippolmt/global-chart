@@ -121,8 +121,9 @@ hooks:
         volumeMounts: false
         volumes: true
         mountedConfigFiles: false
+        serviceAccount: false
       command: ["sh", "-c"]
-      serviceAccountName: test-mountedcm1-global-chart
+      # serviceAccountName: test-mountedcm1-global-chart
       args: ["echo", "ciao"]
       weight: 10
       deletePolicy: before-hook-creation
@@ -142,6 +143,7 @@ cronJobs:
     annotations: {}
     schedule: "00 12 * * 1-5"
     inheritFromDeployment:
+      serviceAccount: false
       volumeMounts: false
       volumes: true
       mountedConfigFiles: false
@@ -163,7 +165,9 @@ cronJobs:
     schedule: "00 12 * * 1-5"
     command: ["sh", "-c"]
     args: ["echo", "ciao"]
-    serviceAccountName: test-mountedcm1-global-chart
+    inheritFromDeployment:
+      serviceAccount: false
+    # serviceAccountName: test-mountedcm1-global-chart
     affinity: *affinity
     tolerations: *tolerations
     nodeSelector: *nodeSelector

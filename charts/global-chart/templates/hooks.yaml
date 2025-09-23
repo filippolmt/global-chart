@@ -3,11 +3,30 @@
 {{- range $hookType, $jobs := .Values.hooks }}
   {{- range $name, $command := $jobs }}
     {{- if $command }}
+{{- $inheritRaw := default (dict) $command.inheritFromDeployment -}}
+{{- $inherit := (kindIs "map" $inheritRaw) | ternary $inheritRaw (dict) -}}
+{{- $inhSA := (hasKey $inherit "serviceAccount") | ternary ($inherit.serviceAccount) true -}}
+{{- $inhSAEff := and $inhSA $root.Values.deployment.enabled -}}
+{{- if not $inhSAEff }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ coalesce $command.serviceAccountName (include "global-chart.hookfullname" (merge (dict "hookname" $hookType "jobname" $name) $root)) }}
+  namespace: {{ $root.Release.Namespace | quote }}
+  labels:
+    {{- include "global-chart.labels" $root | nindent 4 }}
+  {{- with $command.serviceAccountAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+automountServiceAccountToken: {{ default true $command.automountServiceAccountToken }}
+{{- end }}
 ---
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ template "global-chart.hookfullname" (merge (dict "hookname" $hookType "jobname" $name) $root) }}
+  name: {{ include "global-chart.hookfullname" (merge (dict "hookname" $hookType "jobname" $name) $root) }}
   labels:
     {{- include "global-chart.labels" $root | nindent 4 }}
   annotations:
@@ -17,13 +36,11 @@ metadata:
 spec:
   template:
     metadata:
-      name: {{ template "global-chart.hookfullname" (merge (dict "hookname" $hookType "jobname" $name) $root) }}
+      name: {{ include "global-chart.hookfullname" (merge (dict "hookname" $hookType "jobname" $name) $root) }}
       labels:
         {{- include "global-chart.labels" $root | nindent 8 }}
     spec:
-      {{- if or $root.Values.deployment.serviceAccount.name $command.serviceAccountName }}
-      serviceAccountName: {{ coalesce $command.serviceAccountName $root.Values.deployment.serviceAccount.name | quote }}
-      {{- end }}
+      serviceAccountName: {{ if $inhSAEff }}{{ include "global-chart.serviceAccountName" $root | quote }}{{ else }}{{ coalesce $command.serviceAccountName (include "global-chart.hookfullname" (merge (dict "hookname" $hookType "jobname" $name) $root)) | quote }}{{ end }}
       {{- with $root.Values.deployment.imagePullSecrets }}
       imagePullSecrets:
         {{- range . }}
@@ -66,7 +83,7 @@ spec:
       {{- end }}
       restartPolicy: {{ default "Never" $command.restartPolicy | quote }}
       containers:
-      - name: {{ template "global-chart.hookfullname" (merge (dict "hookname" $hookType "jobname" $name) $root) }}
+      - name: {{ include "global-chart.hookfullname" (merge (dict "hookname" $hookType "jobname" $name) $root) }}
         image: {{ default (printf "%s:%s" $root.Values.deployment.image.repository $root.Values.deployment.image.tag) $command.image | quote }}
         imagePullPolicy: {{ default "IfNotPresent" $command.imagePullPolicy | quote }}
         {{- if $command.command }}
@@ -109,14 +126,17 @@ spec:
         {{- $inhVM  := (hasKey $inherit "volumeMounts")       | ternary ($inherit.volumeMounts)       true -}}
         {{- $inhV   := (hasKey $inherit "volumes")            | ternary ($inherit.volumes)            true -}}
         {{- $inhMCF := (hasKey $inherit "mountedConfigFiles") | ternary ($inherit.mountedConfigFiles) true -}}
-        {{- $dep := dict "volumeMounts" (coalesce $command.volumeMounts (and $inhVM $root.Values.deployment.volumeMounts)) "volumes" (coalesce $command.volumes (and $inhV $root.Values.deployment.volumes)) -}}
-        {{- $mountedConfigFiles := and $inhMCF $root.Values.deployment.mountedConfigFiles -}}
-        {{- if or $dep.volumeMounts (and $mountedConfigFiles (or $mountedConfigFiles.files $mountedConfigFiles.bundles)) }}
+        {{- $inhVMEff  := and $inhVM  $root.Values.deployment.enabled -}}
+        {{- $inhVEff   := and $inhV   $root.Values.deployment.enabled -}}
+        {{- $inhMCFEff := and $inhMCF $root.Values.deployment.enabled -}}
+        {{- $dep := dict "volumeMounts" (coalesce $command.volumeMounts (and $inhVMEff  $root.Values.deployment.volumeMounts)) "volumes" (coalesce $command.volumes (and $inhVEff $root.Values.deployment.volumes)) -}}
+        {{- $mountedConfigFiles := $root.Values.deployment.mountedConfigFiles -}}
+        {{- if or $dep.volumeMounts (and $inhMCFEff (or $mountedConfigFiles.files $mountedConfigFiles.bundles)) }}
         volumeMounts:
           {{- with $dep.volumeMounts }}
           {{- toYaml . | nindent 10 }}
           {{- end }}
-          {{- if and $mountedConfigFiles $mountedConfigFiles.files }}
+          {{- if and $inhMCFEff $mountedConfigFiles.files }}
           {{- range $i, $f := $mountedConfigFiles.files }}
           - name: md-cm-file-{{ $f.name }}
             mountPath: {{ $f.targetPath }}
@@ -124,7 +144,7 @@ spec:
             readOnly: true
           {{- end }}
           {{- end }}
-          {{- if and $mountedConfigFiles $mountedConfigFiles.bundles }}
+          {{- if and $inhMCFEff $mountedConfigFiles.bundles }}
           {{- range $bi, $b := $mountedConfigFiles.bundles }}
           - name: md-cm-bundle-{{ $bi }}
             mountPath: {{ $b.mountDir }}
@@ -132,7 +152,7 @@ spec:
           {{- end }}
           {{- end }}
         {{- end }}
-      {{- if or $dep.volumes (and $mountedConfigFiles (or $mountedConfigFiles.files $mountedConfigFiles.bundles)) }}
+      {{- if or $dep.volumes (and $inhMCFEff (or $mountedConfigFiles.files $mountedConfigFiles.bundles)) }}
       volumes:
         {{- with $dep.volumes }}
         {{- range . }}
@@ -154,14 +174,14 @@ spec:
           {{- end }}
         {{- end }}
         {{- end }}
-        {{- if and $mountedConfigFiles $mountedConfigFiles.files }}
+        {{- if and $inhMCFEff $mountedConfigFiles.files }}
         {{- range $i, $f := $mountedConfigFiles.files }}
         - name: md-cm-file-{{ $f.name }}
           configMap:
             name: {{ include "global-chart.fullname" $root }}-md-cm-{{ $f.name }}
         {{- end }}
         {{- end }}
-        {{- if and $mountedConfigFiles $mountedConfigFiles.bundles }}
+        {{- if and $inhMCFEff $mountedConfigFiles.bundles }}
         {{- range $bi, $b := $mountedConfigFiles.bundles }}
         - name: md-cm-bundle-{{ $bi }}
           projected:
