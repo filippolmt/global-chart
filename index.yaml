@@ -2,6 +2,16 @@ apiVersion: v1
 entries:
   global-chart:
   - apiVersion: v2
+    created: "2025-10-26T21:49:26.8124591Z"
+    description: Reusable Helm chart providing common building blocks—Deployments,
+      Services, Ingress, Jobs, and more—for broadly adaptable Kubernetes applications.
+    digest: 351e508483ff0537a28d39b37b8050d31b482f3b5dc9d13479b182bb6221cd72
+    name: global-chart
+    type: application
+    urls:
+    - https://github.com/filippolmt/global-chart/releases/download/global-chart-0.10.1/global-chart-0.10.1.tgz
+    version: 0.10.1
+  - apiVersion: v2
     created: "2025-10-26T21:27:16.788503885Z"
     description: Reusable Helm chart providing common building blocks—Deployments,
       Services, Ingress, Jobs, and more—for broadly adaptable Kubernetes applications.
@@ -147,4 +157,4 @@ entries:
     urls:
     - https://github.com/filippolmt/global-chart/releases/download/raw-0.1.0/raw-0.1.0.tgz
     version: 0.1.0
-generated: "2025-10-26T21:27:16.788555576Z"
+generated: "2025-10-26T21:49:26.812568324Z"
