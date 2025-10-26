@@ -28,6 +28,9 @@ deployment:
     host: example.com
 
   configMap:
+    BOOLEAN: true
+    PORT: 5432
+    HOST: 10.10.10.10
     username: admin
     environment: production
     host: example.com

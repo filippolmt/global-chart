@@ -7,11 +7,11 @@ metadata:
     {{- include "global-chart.labels" . | nindent 4 }}
 data:
 {{- range $key, $value := .Values.deployment.configMap }}
-  {{- if kindIs "string" $value }}
-  {{ $key }}: {{ $value | quote }}
-  {{- else }}
+  {{- if or (kindIs "map" $value) (kindIs "slice" $value) }}
   {{ $key }}:
     {{- toYaml $value | nindent 4 }}
+  {{- else }}
+  {{ $key }}: {{ toString $value | quote }}
   {{- end }}
 {{- end }}
 {{- end }}
