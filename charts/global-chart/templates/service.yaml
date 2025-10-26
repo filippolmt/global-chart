@@ -3,7 +3,8 @@ apiVersion: v1
 kind: Service
 metadata:
   name: {{ include "global-chart.fullname" . }}
-  labels: {{- include "global-chart.labels" . | nindent 4 }}
+  labels:
+    {{- include "global-chart.labels" . | nindent 4 }}
 spec:
   type: {{ .Values.deployment.service.type | default "ClusterIP" }}
   ports:
@@ -11,5 +12,6 @@ spec:
       targetPort: {{ .Values.deployment.service.targetPort | default "http" }}
       protocol: {{ (.Values.deployment.service.protocol | default "TCP") | upper }}
       name: {{ .Values.deployment.service.portName | default "http" }}
-  selector: {{- include "global-chart.selectorLabels" . | nindent 4 }}
+  selector:
+    {{- include "global-chart.selectorLabels" . | nindent 4 }}
 {{- end }}

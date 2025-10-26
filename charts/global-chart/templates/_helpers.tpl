@@ -62,3 +62,60 @@ Create the name of the service account to use
 {{- $fullname := (include "global-chart.fullname" .) }}
 {{- printf "%s-%s-%s" $fullname .hookname .jobname | trunc 62 | trimSuffix "-" -}}
 {{- end -}}
+
+{{/*
+Render an image reference from either a plain string or a map with repository/tag/digest.
+*/}}
+{{- define "global-chart.imageString" -}}
+{{- $img := . -}}
+{{- if kindIs "string" $img }}
+  {{- $trimmed := $img | trim -}}
+  {{- if $trimmed }}
+    {{- $trimmed -}}
+  {{- end }}
+{{- else if and (kindIs "map" $img) $img.repository }}
+  {{- $repo := $img.repository | trim -}}
+  {{- $digest := default "" $img.digest | trim -}}
+  {{- $tag := default "" $img.tag | trim -}}
+  {{- if $repo }}
+    {{- if $digest }}
+      {{- printf "%s@%s" $repo $digest -}}
+    {{- else if $tag }}
+      {{- printf "%s:%s" $repo $tag -}}
+    {{- else }}
+      {{- $repo -}}
+    {{- end }}
+  {{- end }}
+{{- else if and (kindIs "map" $img) $img.digest }}
+  {{- $digest := $img.digest | trim -}}
+  {{- if $digest }}
+    {{- fail "image definitions that set a digest must also provide a repository (expected repository@digest)" -}}
+  {{- end }}
+{{- end }}
+{{- end }}
+
+{{/*
+Resolve an image pull policy from optional overrides, image map values, and a fallback.
+*/}}
+{{- define "global-chart.imagePullPolicy" -}}
+{{- $ctx := . -}}
+{{- $policy := "" -}}
+{{- if and (hasKey $ctx "override") (ne $ctx.override nil) }}
+  {{- $policy = printf "%v" $ctx.override | trim -}}
+{{- end }}
+{{- if not $policy }}
+  {{- if and (hasKey $ctx "image") (kindIs "map" $ctx.image) (hasKey $ctx.image "pullPolicy") (ne $ctx.image.pullPolicy nil) }}
+    {{- $policy = printf "%v" $ctx.image.pullPolicy | trim -}}
+  {{- end }}
+{{- end }}
+{{- if not $policy }}
+  {{- if and (hasKey $ctx "fallback") (ne $ctx.fallback nil) }}
+    {{- $policy = printf "%v" $ctx.fallback | trim -}}
+  {{- end }}
+{{- end }}
+{{- if $policy }}
+  {{- $policy -}}
+{{- else }}
+  IfNotPresent
+{{- end }}
+{{- end }}

@@ -1,6 +1,6 @@
 apiVersion: v2
 name: global-chart
-description: "A versatile Helm chart designed for flexible Kubernetes deployments, supporting customizable services, ConfigMaps, volumes, deployments, ingress, hooks, and cronjobs for comprehensive application management."
+description: "Reusable Helm chart providing common building blocks—Deployments, Services, Ingress, Jobs, and more—for broadly adaptable Kubernetes applications."
 
 # A chart can be either an 'application' or a 'library' chart.
 #
@@ -15,4 +15,4 @@ type: application
 # This is the chart version. This version number should be incremented each time you make changes
 # to the chart and its templates, including the app version.
 # Versions are expected to follow Semantic Versioning (https://semver.org/)
-version: 0.9.0
+version: 0.10.0
