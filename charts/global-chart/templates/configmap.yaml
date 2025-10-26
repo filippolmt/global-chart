@@ -11,7 +11,7 @@ data:
   {{ $key }}:
     {{- toYaml $value | nindent 4 }}
   {{- else }}
-  {{ $key }}: {{ printf "%v" $value | quote }}
+  {{ $key }}: {{ toString $value | quote }}
   {{- end }}
 {{- end }}
 {{- end }}
