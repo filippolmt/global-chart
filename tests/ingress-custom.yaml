@@ -1,0 +1,21 @@
+deployment:
+  enabled: true
+  image:
+    repository: nginx
+    tag: "1.25"
+  autoscaling:
+    enabled: false
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+  tls:
+    - hosts:
+        - app.example.com
+      secretName: app-tls
+  hosts:
+    - host: app.example.com
+      paths:
+        - path: /
+          pathType: Prefix

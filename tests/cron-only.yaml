@@ -1,0 +1,11 @@
+deployment:
+  enabled: false
+cronJobs:
+  nightly:
+    schedule: "0 3 * * *"
+    image: busybox:1.36
+    command: ["sh", "-c"]
+    args: ["echo night run"]
+    envFromSecrets:
+      - shared-secret
+    resources: {}

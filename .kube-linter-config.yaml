@@ -1,0 +1,22 @@
+# Enable all built-in checks and drop the ones that do not integrate well with
+# Helm-rendered manifests (namespaces are injected at install time) or are
+# handled by other tooling in this repository. Adjust the list below to match
+# your policies.
+checks:
+  addAllBuiltIn: true
+  exclude:
+    # Namespace is supplied by Helm at install time, which confuses this check.
+    - use-namespace
+    # Hooks and cronjobs rely on release namespaces, so the SA check is noisy.
+    - non-existent-service-account
+    # NetworkPolicies are managed outside of this chart.
+    - non-isolated-pod
+    # DNS config, restart policy and owner metadata are not chart concerns.
+    - dnsconfig-options
+    - restart-policy
+    - required-annotation-email
+    - required-label-owner
+  optional:
+    # These are useful signals but often require environment-specific tuning.
+    - no-anti-affinity
+    - no-node-affinity

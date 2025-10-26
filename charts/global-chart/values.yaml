@@ -188,4 +188,4 @@ cronJobs: {}
 hooks: {}
 
 # -- ExternalSecrets definitions for secret management
-externalSecrets: []
+externalSecrets: {}

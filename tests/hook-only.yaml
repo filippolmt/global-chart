@@ -1,0 +1,11 @@
+deployment:
+  enabled: false
+hooks:
+  post-install:
+    init-db:
+      image:
+        repository: busybox
+        tag: "1.36"
+      command: ["sh", "-c"]
+      args: ["echo init"]
+      restartPolicy: OnFailure

@@ -13,7 +13,7 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: {{ coalesce $job.serviceAccountName (printf "%s-%s" (include "global-chart.fullname" $root) $name) }}
+  name: {{ default (printf "%s-%s" (include "global-chart.fullname" $root) $name) $job.serviceAccountName }}
   namespace: {{ $root.Release.Namespace | quote }}
   labels:
     {{- include "global-chart.labels" $root | nindent 4 }}
@@ -45,10 +45,16 @@ spec:
           initContainers:
             {{- toYaml $job.initContainers | nindent 12 }}
           {{- end }}
+          {{- $jobImage := "" }}
+          {{- if hasKey $job "image" }}
+            {{- $jobImage = include "global-chart.imageString" $job.image -}}
+          {{- end }}
+          {{- $depImage := include "global-chart.imageString" $root.Values.deployment.image }}
+          {{- $imageRef := required (printf "image is required for cronJobs.%s (set cronJobs.%s.image or deployment.image)" $name $name) (default $depImage $jobImage) }}
           containers:
           - name: {{ $name }}
-            image: {{ default (printf "%s:%s" $root.Values.deployment.image.repository $root.Values.deployment.image.tag) $job.image | quote }}
-            imagePullPolicy: {{ default $root.Values.deployment.image.pullPolicy $job.imagePullPolicy | quote }}
+            image: {{ $imageRef | quote }}
+            imagePullPolicy: {{ include "global-chart.imagePullPolicy" (dict "override" $job.imagePullPolicy "image" $job.image "fallback" $root.Values.deployment.image.pullPolicy) | quote }}
             {{- if $job.command }}
             command:
               {{- toYaml $job.command | nindent 14 }}
@@ -156,7 +162,7 @@ spec:
             {{- end }}
             {{- end }}
           {{- end }}
-          serviceAccountName: {{ if $inhSAEff }}{{ include "global-chart.serviceAccountName" $root | quote }}{{ else }}{{ coalesce $job.serviceAccountName (printf "%s-%s" (include "global-chart.fullname" $root) $name) | quote }}{{ end }}
+          serviceAccountName: {{ if $inhSAEff }}{{ include "global-chart.serviceAccountName" $root | quote }}{{ else }}{{ default (printf "%s-%s" (include "global-chart.fullname" $root) $name) $job.serviceAccountName | quote }}{{ end }}
           {{- if or $job.nodeSelector $root.Values.deployment.nodeSelector }}
           nodeSelector:
             {{- toYaml (default $root.Values.deployment.nodeSelector $job.nodeSelector) | nindent 12 }}

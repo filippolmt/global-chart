@@ -10,7 +10,8 @@ data:
   {{- if kindIs "string" $value }}
   {{ $key }}: {{ $value | quote }}
   {{- else }}
-  {{ $key }}: {{ toYaml $value | quote }}
+  {{ $key }}:
+    {{- toYaml $value | nindent 4 }}
   {{- end }}
 {{- end }}
 {{- end }}

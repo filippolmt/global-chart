@@ -83,8 +83,12 @@ spec:
       {{- end }}
       containers:
         - name: {{ include "global-chart.fullname" $root }}
-          image: "{{ required "repository is mandatory" $dep.image.repository }}:{{ required "tag image is mandatory" $dep.image.tag }}"
-          imagePullPolicy: {{ $dep.image.pullPolicy | default "IfNotPresent" }}
+          {{- if and (kindIs "map" $dep.image) $dep.image.repository (not (or $dep.image.tag $dep.image.digest)) }}
+          {{- fail "deployment.image requires either a tag or digest when repository is provided" }}
+          {{- end }}
+          {{- $depImageRef := include "global-chart.imageString" $dep.image }}
+          image: {{ required "deployment.image must define a repository with tag/digest or be a full image reference" $depImageRef | quote }}
+          imagePullPolicy: {{ include "global-chart.imagePullPolicy" (dict "image" $dep.image) }}
           ports:
             - name: {{ $dep.service.portName | default "http" }}
               containerPort: {{ $dep.service.port | default 80 }}
@@ -152,9 +156,14 @@ spec:
             {{- end }}
             {{- end }}
           {{- end }}
-      {{- with $dep.volumes }}
+      {{- $mountedConfigFiles := .Values.deployment.mountedConfigFiles }}
+      {{- $userVolumes := default (list) $dep.volumes }}
+      {{- $hasUserVolumes := gt (len $userVolumes) 0 }}
+      {{- $hasMcfFiles := and $mountedConfigFiles (gt (len (default (list) $mountedConfigFiles.files)) 0) }}
+      {{- $hasMcfBundles := and $mountedConfigFiles (gt (len (default (list) $mountedConfigFiles.bundles)) 0) }}
+      {{- if or $hasUserVolumes (or $hasMcfFiles $hasMcfBundles) }}
       volumes:
-        {{- range . }}
+        {{- range $userVolumes }}
         - name: {{ .name }}
           {{- if eq .type "emptyDir" }}
           emptyDir: {}
@@ -172,19 +181,14 @@ spec:
             claimName: {{ default .persistentVolumeClaim.claimName .persistentVolumeClaim.name | quote }}
           {{- end }}
         {{- end }}
-      {{- end }}
-      {{- $mountedConfigFiles := .Values.deployment.mountedConfigFiles }}
-      {{- if $mountedConfigFiles }}
-      {{- if or $mountedConfigFiles.files $mountedConfigFiles.bundles }}
-      volumes:
-        {{- if $mountedConfigFiles.files }}
+        {{- if $hasMcfFiles }}
         {{- range $i, $f := $mountedConfigFiles.files }}
         - name: md-cm-file-{{ $f.name }}
           configMap:
             name: {{ include "global-chart.fullname" $root }}-md-cm-{{ $f.name }}
         {{- end }}
         {{- end }}
-        {{- if $mountedConfigFiles.bundles }}
+        {{- if $hasMcfBundles }}
         {{- range $bi, $b := $mountedConfigFiles.bundles }}
         - name: md-cm-bundle-{{ $bi }}
           projected:
@@ -198,7 +202,6 @@ spec:
             {{- end }}
         {{- end }}
         {{- end }}
-      {{- end }}
       {{- end }}
       {{- with $dep.nodeSelector }}
       nodeSelector:

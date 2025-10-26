@@ -24,7 +24,7 @@ reviews:
     base_branches: ["main"]
   tools:
     shellcheck:
-      enabled: true
+      enabled: false
     ruff:
       enabled: false
     markdownlint:

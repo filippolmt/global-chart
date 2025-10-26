@@ -1,0 +1,13 @@
+deployment:
+  enabled: false
+ingress:
+  enabled: true
+  className: "nginx"
+  hosts:
+    - host: backend.example.com
+      service:
+        name: backend-svc
+        port: 9000
+      paths:
+        - path: /
+          pathType: Prefix
