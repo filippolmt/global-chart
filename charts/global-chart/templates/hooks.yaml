@@ -16,7 +16,7 @@ metadata:
   name: {{ default (include "global-chart.hookfullname" (merge (dict "hookname" $hookType "jobname" $name) $root)) $command.serviceAccountName }}
   namespace: {{ $root.Release.Namespace | quote }}
   labels:
-    {{- include "global-chart.labels" $root | nindent 4 }}
+    {{- include "global-chart.hookLabels" $root | nindent 4 }}
   {{- with $command.serviceAccountAnnotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
@@ -29,7 +29,7 @@ kind: Job
 metadata:
   name: {{ include "global-chart.hookfullname" (merge (dict "hookname" $hookType "jobname" $name) $root) }}
   labels:
-    {{- include "global-chart.labels" $root | nindent 4 }}
+    {{- include "global-chart.hookLabels" $root | nindent 4 }}
   annotations:
     "helm.sh/hook": {{ $hookType | quote }}
     "helm.sh/hook-weight": {{ default "10" $command.weight | quote }}
@@ -39,7 +39,7 @@ spec:
     metadata:
       name: {{ include "global-chart.hookfullname" (merge (dict "hookname" $hookType "jobname" $name) $root) }}
       labels:
-        {{- include "global-chart.labels" $root | nindent 8 }}
+        {{- include "global-chart.hookLabels" $root | nindent 8 }}
     spec:
       serviceAccountName: {{ if $inhSAEff }}{{ include "global-chart.serviceAccountName" $root | quote }}{{ else }}{{ default (include "global-chart.hookfullname" (merge (dict "hookname" $hookType "jobname" $name) $root)) $command.serviceAccountName | quote }}{{ end }}
       {{- with $root.Values.deployment.imagePullSecrets }}

@@ -48,6 +48,15 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{/*
+Hook-specific labels: do not include selectorLabels so hooks don't match Deployment/HPA selectors.
+*/}}
+{{- define "global-chart.hookLabels" -}}
+helm.sh/chart: {{ include "global-chart.chart" . }}
+app.kubernetes.io/managed-by: {{ .Release.Service }}
+app.kubernetes.io/component: hook
+{{- end }}
+
+{{/*
 Create the name of the service account to use
 */}}
 {{- define "global-chart.serviceAccountName" -}}
