@@ -1,0 +1,19 @@
+deployment:
+  enabled: false
+
+cronJobs:
+  existing-sa:
+    schedule: "15 2 * * *"
+    image: busybox:1.36
+    command: ["sh", "-c"]
+    args: ["echo using an existing SA"]
+    serviceAccountName: shared-cron-service-account
+    serviceAccount:
+      create: false
+    resources: {}
+  auto-create:
+    schedule: "30 3 * * *"
+    image: busybox:1.36
+    command: ["sh", "-c"]
+    args: ["echo default SA"]
+    resources: {}

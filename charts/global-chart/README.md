@@ -77,8 +77,8 @@ Reusable Helm chart providing common building blocks—Deployments, Services, In
 | ingress.hosts[0].service | object | `{"name":"","port":0}` | Service backend name (default: chart fullname) |
 | ingress.hosts[0].service.port | int | `0` | Service backend port (default: deployment.service.port) |
 | ingress.hosts[0].paths | list | `[{"path":"/","pathType":"ImplementationSpecific"}]` | HTTP path definitions for this host |
-| cronJobs | object | `{}` | CronJobs configuration (map of named cronJobs) |
-| hooks | object | `{}` | Hook jobs for chart lifecycle (install/upgrade) |
+| cronJobs | object | `{}` | CronJobs configuration (map of named cronJobs). ServiceAccounts are created only when `cronJobs.<job>.serviceAccount.create` is true or no `serviceAccountName` is provided; supplying a name always skips the manifest. |
+| hooks | object | `{}` | Hook jobs for chart lifecycle (install/upgrade). Hook ServiceAccounts follow the same rule: create one only when `hooks.<hook>.<job>.serviceAccount.create` is true or `serviceAccountName` is empty. |
 | externalSecrets | object | `{}` | ExternalSecrets definitions for secret management |
 
 ----------------------------------------------
