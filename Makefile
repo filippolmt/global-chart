@@ -8,16 +8,17 @@ KUBE_LINTER_VERSION := $(shell if [ "$(shell uname -m)" = "x86_64" ]; then echo 
 KUBE_LINTER_IMAGE := ghcr.io/stackrox/kube-linter:$(KUBE_LINTER_VERSION)
 KUBE_LINTER_OUTPUT_DIR := generated-manifests/kube-linter
 KUBE_LINTER_CASES := \
-	tests/test01/values.01.yaml:test:test01 \
-	tests/values.02.yaml:test:test02 \
-	tests/values.03.yaml:test:test03 \
-	tests/mountedcm1.yaml:mountedcm1:mountedcm1 \
-	tests/mountedcm2.yaml:mountedcm2:mountedcm2 \
-	tests/cron-only.yaml:cron:cron \
-	tests/hook-only.yaml:hooks:hooks \
-	tests/externalsecret-only.yaml:externalsecrets:externalsecret \
-	tests/ingress-custom.yaml:ingress:ingress \
-	tests/external-ingress.yaml:ingress:external-ingress
+        tests/test01/values.01.yaml:test:test01 \
+        tests/values.02.yaml:test:test02 \
+        tests/values.03.yaml:test:test03 \
+        tests/mountedcm1.yaml:mountedcm1:mountedcm1 \
+        tests/mountedcm2.yaml:mountedcm2:mountedcm2 \
+        tests/cron-only.yaml:cron:cron \
+        tests/cron-existing-sa.yaml:cronexisting:cron-existing-sa \
+        tests/hook-only.yaml:hooks:hooks \
+        tests/externalsecret-only.yaml:externalsecrets:externalsecret \
+        tests/ingress-custom.yaml:ingress:ingress \
+        tests/external-ingress.yaml:ingress:external-ingress
 
 lint-chart:
 	helm lint $(STRICT) -f tests/test01/values.01.yaml ./${CHART_DIR}/${GLOBAL_CHART_NAME}
@@ -26,6 +27,7 @@ lint-chart:
 	helm lint $(STRICT) -f tests/mountedcm1.yaml ./${CHART_DIR}/${GLOBAL_CHART_NAME}
 	helm lint $(STRICT) -f tests/mountedcm2.yaml ./${CHART_DIR}/${GLOBAL_CHART_NAME}
 	helm lint $(STRICT) -f tests/cron-only.yaml ./${CHART_DIR}/${GLOBAL_CHART_NAME}
+	helm lint $(STRICT) -f tests/cron-existing-sa.yaml ./${CHART_DIR}/${GLOBAL_CHART_NAME}
 	helm lint $(STRICT) -f tests/hook-only.yaml ./${CHART_DIR}/${GLOBAL_CHART_NAME}
 	helm lint $(STRICT) -f tests/externalsecret-only.yaml ./${CHART_DIR}/${GLOBAL_CHART_NAME}
 	helm lint $(STRICT) -f tests/ingress-custom.yaml ./${CHART_DIR}/${GLOBAL_CHART_NAME}
@@ -90,6 +92,11 @@ generate-templates: lint-chart
 		-f tests/cron-only.yaml \
 		--namespace cron \
 		--output-dir generated-manifests/cron \
+		--include-crds
+	helm template test-cron-existing-sa-${GLOBAL_CHART_NAME} ./${CHART_DIR}/${GLOBAL_CHART_NAME} \
+		-f tests/cron-existing-sa.yaml \
+		--namespace cronexisting \
+		--output-dir generated-manifests/cron-existing-sa \
 		--include-crds
 	helm template test-hook-${GLOBAL_CHART_NAME} ./${CHART_DIR}/${GLOBAL_CHART_NAME} \
 		-f tests/hook-only.yaml \

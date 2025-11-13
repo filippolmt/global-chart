@@ -181,10 +181,14 @@ ingress:
     #     - path: /health
     #       pathType: Exact
 
-# -- CronJobs configuration (map of named cronJobs)
+# -- CronJobs configuration (map of named cronJobs). ServiceAccounts are only created when
+# -- `cronJobs.<job>.serviceAccount.create` is true or when `serviceAccountName` is omitted; providing
+# -- an existing `serviceAccountName` always skips the ServiceAccount manifest.
 cronJobs: {}
 
-# -- Hook jobs for chart lifecycle (install/upgrade)
+# -- Hook jobs for chart lifecycle (install/upgrade). Hook ServiceAccounts follow the same creation rules:
+# -- set `hooks.<hook>.<job>.serviceAccount.create: true` or leave `serviceAccountName` empty to create one,
+# -- otherwise the chart expects an existing ServiceAccount name.
 hooks: {}
 
 # -- ExternalSecrets definitions for secret management

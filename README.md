@@ -57,8 +57,8 @@ All configuration lives under `charts/global-chart/values.yaml`. Highlights:
   - `image` can be `{ repository, tag, digest, pullPolicy }` or a single string.
   - `mountedConfigFiles` has two modes: `files` (one ConfigMap per file) or `bundles` (projected sets of files). The main Deployment automatically mounts them when supplied.
   - `autoscaling.enabled` with CPU/memory targets generates an HPA (`templates/hpa.yaml`).
-- `cronJobs` – map keyed by job name. Each job inherits volumes, envs, service account, mounted configs when desired (see `inheritFromDeployment` flags).
-- `hooks` – map of hook types (post-install/pre-upgrade/etc.) to job definitions. Additional volumes/envs behave like cronJobs.
+- `cronJobs` – map keyed by job name. Each job inherits volumes, envs, service account, mounted configs when desired (see `inheritFromDeployment` flags). A CronJob-specific ServiceAccount is only created when `cronJobs.<job>.serviceAccount.create` is true or when `serviceAccountName` is omitted; providing a name always reuses that existing ServiceAccount.
+- `hooks` – map of hook types (post-install/pre-upgrade/etc.) to job definitions. Additional volumes/envs behave like cronJobs, and hook ServiceAccounts respect the same creation rule (`hooks.<hook>.<job>.serviceAccount.create` or no `serviceAccountName`).
 - `externalSecrets` – map keyed by logical name. Each entry must define `secretkey`, `remote.key`, and `secretstore.{kind,name}`.
 - `ingress` – even if the deployment is disabled, you can target an external service via `hosts[].service` overrides.
 
@@ -69,6 +69,7 @@ See the `tests/` directory for concrete examples:
 - `values.03.yaml` – chart disabled (sanity check for no output).
 - `mountedcm*.yaml` – rich mounted config scenarios.
 - `cron-only.yaml`, `hook-only.yaml`, `externalsecret-only.yaml`, `ingress-custom.yaml`, `external-ingress.yaml` – isolated resources without a Deployment.
+- `cron-existing-sa.yaml` – CronJob scenario that reuses an existing ServiceAccount to ensure no new ServiceAccount is rendered when a name is provided.
 
 ## Testing & CI
 
