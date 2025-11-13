@@ -1,3 +1,4 @@
+{{- define "global-chart.partial.configmap" -}}
 {{- if and .Values.deployment.enabled .Values.deployment.configMap }}
 apiVersion: v1
 kind: ConfigMap
@@ -15,3 +16,5 @@ data:
   {{- end }}
 {{- end }}
 {{- end }}
+{{- end }}
+{{- include "global-chart.renderForDeployments" (dict "root" . "template" "global-chart.partial.configmap") }}

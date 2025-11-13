@@ -8,10 +8,11 @@ KUBE_LINTER_VERSION := $(shell if [ "$(shell uname -m)" = "x86_64" ]; then echo 
 KUBE_LINTER_IMAGE := ghcr.io/stackrox/kube-linter:$(KUBE_LINTER_VERSION)
 KUBE_LINTER_OUTPUT_DIR := generated-manifests/kube-linter
 KUBE_LINTER_CASES := \
-	tests/test01/values.01.yaml:test:test01 \
-	tests/values.02.yaml:test:test02 \
-	tests/values.03.yaml:test:test03 \
-	tests/mountedcm1.yaml:mountedcm1:mountedcm1 \
+        tests/test01/values.01.yaml:test:test01 \
+        tests/values.02.yaml:test:test02 \
+        tests/values.03.yaml:test:test03 \
+        tests/multi-deployments.yaml:test:multi-deployments \
+        tests/mountedcm1.yaml:mountedcm1:mountedcm1 \
 	tests/mountedcm2.yaml:mountedcm2:mountedcm2 \
 	tests/cron-only.yaml:cron:cron \
 	tests/hook-only.yaml:hooks:hooks \
@@ -20,10 +21,11 @@ KUBE_LINTER_CASES := \
 	tests/external-ingress.yaml:ingress:external-ingress
 
 lint-chart:
-	helm lint $(STRICT) -f tests/test01/values.01.yaml ./${CHART_DIR}/${GLOBAL_CHART_NAME}
-	helm lint $(STRICT) -f tests/values.02.yaml ./${CHART_DIR}/${GLOBAL_CHART_NAME}
-	helm lint $(STRICT) -f tests/values.03.yaml ./${CHART_DIR}/${GLOBAL_CHART_NAME}
-	helm lint $(STRICT) -f tests/mountedcm1.yaml ./${CHART_DIR}/${GLOBAL_CHART_NAME}
+        helm lint $(STRICT) -f tests/test01/values.01.yaml ./${CHART_DIR}/${GLOBAL_CHART_NAME}
+        helm lint $(STRICT) -f tests/values.02.yaml ./${CHART_DIR}/${GLOBAL_CHART_NAME}
+        helm lint $(STRICT) -f tests/values.03.yaml ./${CHART_DIR}/${GLOBAL_CHART_NAME}
+        helm lint $(STRICT) -f tests/multi-deployments.yaml ./${CHART_DIR}/${GLOBAL_CHART_NAME}
+        helm lint $(STRICT) -f tests/mountedcm1.yaml ./${CHART_DIR}/${GLOBAL_CHART_NAME}
 	helm lint $(STRICT) -f tests/mountedcm2.yaml ./${CHART_DIR}/${GLOBAL_CHART_NAME}
 	helm lint $(STRICT) -f tests/cron-only.yaml ./${CHART_DIR}/${GLOBAL_CHART_NAME}
 	helm lint $(STRICT) -f tests/hook-only.yaml ./${CHART_DIR}/${GLOBAL_CHART_NAME}
@@ -71,11 +73,16 @@ generate-templates: lint-chart
 		--namespace test \
 		--output-dir generated-manifests/02 \
 		--include-crds
-	helm template test03-${GLOBAL_CHART_NAME} ./${CHART_DIR}/${GLOBAL_CHART_NAME} \
-		-f tests/values.03.yaml \
-		--namespace test \
-		--output-dir generated-manifests/03 \
-		--include-crds
+        helm template test03-${GLOBAL_CHART_NAME} ./${CHART_DIR}/${GLOBAL_CHART_NAME} \
+                -f tests/values.03.yaml \
+                --namespace test \
+                --output-dir generated-manifests/03 \
+                --include-crds
+        helm template test-multi-deployments-${GLOBAL_CHART_NAME} ./${CHART_DIR}/${GLOBAL_CHART_NAME} \
+                -f tests/multi-deployments.yaml \
+                --namespace multi \
+                --output-dir generated-manifests/multi-deployments \
+                --include-crds
 	helm template test-mountedcm1-${GLOBAL_CHART_NAME} ./${CHART_DIR}/${GLOBAL_CHART_NAME} \
 		-f tests/mountedcm1.yaml \
 		--namespace mountedcm1 \

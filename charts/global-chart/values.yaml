@@ -147,6 +147,8 @@ deployment:
     files: []
     # -- List of config file bundles (multiple files in one ConfigMap)
     bundles: []
+# -- Additional named deployments that inherit from the base `deployment` configuration
+deployments: {}
 # -- Ingress configuration
 ingress:
   # -- Enable or disable Ingress

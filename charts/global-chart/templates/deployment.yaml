@@ -1,7 +1,7 @@
+{{- define "global-chart.partial.deployment" -}}
 {{- if .Values.deployment.enabled }}
 {{- $root := . }}
 {{- $dep := .Values.deployment }}
-
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -18,8 +18,8 @@ spec:
   template:
     metadata:
       annotations:
-        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") $root | sha256sum }}
-        checksum/mounted-config-files: {{ toYaml .Values.deployment.mountedConfigFiles | sha256sum }}
+        checksum/config: {{ include "global-chart.partial.configmap" $root | sha256sum }}
+        checksum/mounted-config-files: {{ toYaml $dep.mountedConfigFiles | sha256sum }}
         {{- if $dep.podRecreation.enabled }}
         timestamp: "{{ now | date "20060102150405" }}"
         {{- end }}
@@ -134,7 +134,7 @@ spec:
                 {{- toYaml $env.valueFrom | nindent 16 }}
             {{- end }}
           {{- end }}
-          {{- $mountedConfigFiles := .Values.deployment.mountedConfigFiles }}
+          {{- $mountedConfigFiles := $dep.mountedConfigFiles }}
           {{- if or $dep.volumeMounts (and $mountedConfigFiles (or $mountedConfigFiles.files $mountedConfigFiles.bundles)) }}
           volumeMounts:
             {{- with $dep.volumeMounts }}
@@ -156,7 +156,7 @@ spec:
             {{- end }}
             {{- end }}
           {{- end }}
-      {{- $mountedConfigFiles := .Values.deployment.mountedConfigFiles }}
+      {{- $mountedConfigFiles := $dep.mountedConfigFiles }}
       {{- $userVolumes := default (list) $dep.volumes }}
       {{- $hasUserVolumes := gt (len $userVolumes) 0 }}
       {{- $hasMcfFiles := and $mountedConfigFiles (gt (len (default (list) $mountedConfigFiles.files)) 0) }}
@@ -216,3 +216,5 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
 {{- end }}
+{{- end }}
+{{- include "global-chart.renderForDeployments" (dict "root" . "template" "global-chart.partial.deployment") }}

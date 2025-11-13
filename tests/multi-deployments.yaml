@@ -1,0 +1,30 @@
+deployment:
+  enabled: true
+  image:
+    repository: nginx
+    tag: "1.25.3"
+  service:
+    port: 8080
+  configMap:
+    MODE: web
+    SHARED: true
+
+deployments:
+  api:
+    enabled: true
+    replicaCount: 3
+    service:
+      port: 8081
+    configMap:
+      MODE: api
+  metrics:
+    enabled: true
+    service:
+      port: 9090
+      targetPort: metrics
+    autoscaling:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 5
+      targetCPUUtilizationPercentage: 65
+      targetMemoryUtilizationPercentage: 70
