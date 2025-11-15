@@ -4,8 +4,15 @@
 {{- $roleName := default (printf "%s-role-%d" $root.Release.Name $index) $role.name }}
 {{- $sa := $role.serviceAccount }}
 {{- $saName := "" }}
+{{- $saCreate := false }}
 {{- if $sa }}
 {{- $saName = default (printf "%s-sa" $roleName) $sa.name }}
+{{- $saCreate = true }}
+{{- if hasKey $sa "create" }}
+  {{- $saCreate = $sa.create }}
+{{- end }}
+{{- end }}
+{{- if and $sa $saCreate }}
 apiVersion: v1
 kind: ServiceAccount
 metadata:

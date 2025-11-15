@@ -11,6 +11,14 @@ rbacs:
         - apiGroups: [""]
           resources: ["deployments"]
           verbs: ["get", "list", "watch", "update", "patch"]
+    - name: "existing-role"
+      serviceAccount:
+        name: "external-sa"
+        create: false
+      rules:
+        - apiGroups: ["apps"]
+          resources: ["deployments/scale"]
+          verbs: ["patch"]
 hooks:
   pre-upgrade:
     scale-down:

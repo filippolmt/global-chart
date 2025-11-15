@@ -194,10 +194,12 @@ externalSecrets: {}
 
 rbacs:
   # -- List of RBAC role definitions. When a serviceAccount is defined, a RoleBinding targeting that ServiceAccount is generated automatically.
+  # -- Set serviceAccount.create to false to bind to an existing account without creating it.
   roles:
     # - name: custom-role
     #   serviceAccount:
     #     name: custom-sa
+    #     create: true
     #     automount: true
     #     annotations:
     #       key: value

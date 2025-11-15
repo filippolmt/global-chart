@@ -95,16 +95,6 @@ generate-templates: lint-chart
 		--namespace ingress \
 		--output-dir generated-manifests/external-ingress \
 		--include-crds
-	helm template test-${GLOBAL_CHART_NAME} ./${CHART_DIR}/${GLOBAL_CHART_NAME} \
-		-f tests/mountedcm2.yaml \
-		--namespace mountedcm2 \
-		--output-dir generated-manifests/mountedcm2 \
-		--include-crds
-	helm template test01-${GLOBAL_CHART_NAME} ./${CHART_DIR}/${GLOBAL_CHART_NAME} \
-		-f tests/test01/values.01.yaml \
-		--namespace test \
-		--output-dir generated-manifests/01 \
-		--include-crds
 	helm template test-rbac-${GLOBAL_CHART_NAME} ./${CHART_DIR}/${GLOBAL_CHART_NAME} \
 		-f tests/rbac.yaml \
 		--namespace rbac \
