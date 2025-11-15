@@ -156,6 +156,9 @@ spec:
             {{- end }}
             {{- end }}
           {{- end }}
+      {{- with $dep.extraContainers }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       {{- $mountedConfigFiles := .Values.deployment.mountedConfigFiles }}
       {{- $userVolumes := default (list) $dep.volumes }}
       {{- $hasUserVolumes := gt (len $userVolumes) 0 }}

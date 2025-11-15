@@ -76,6 +76,17 @@ deployment:
     port: 80
     targetPort: http
 
+  extraContainers:
+    - name: log-sidecar
+      image: busybox:1.36
+      command:
+        - sh
+        - -c
+        - "while true; do tail -F /var/log/nginx/access.log; sleep 60; done"
+      volumeMounts:
+        - name: myvolume2
+          mountPath: /etc/config
+
   # Probe sull’endpoint di health
   readinessProbe:
     httpGet:
