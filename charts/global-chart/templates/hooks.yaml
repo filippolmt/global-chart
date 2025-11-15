@@ -21,6 +21,9 @@
 {{- if hasKey $commandSAMap "automountServiceAccountToken" -}}
   {{- $saAutomount = $commandSAMap.automountServiceAccountToken -}}
 {{- end -}}
+{{- if hasKey $commandSAMap "automount" -}}
+  {{- $saAutomount = $commandSAMap.automount -}}
+{{- end -}}
 {{- $saAnnotations := $command.serviceAccountAnnotations -}}
 {{- if hasKey $commandSAMap "annotations" -}}
   {{- $saAnnotations = $commandSAMap.annotations -}}
