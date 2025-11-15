@@ -7,8 +7,8 @@
 {{- $inherit := (kindIs "map" $inheritRaw) | ternary $inheritRaw (dict) -}}
 {{- $inhSA := (hasKey $inherit "serviceAccount") | ternary ($inherit.serviceAccount) true -}}
 {{- $commandSAMap := (and (hasKey $command "serviceAccount") (kindIs "map" $command.serviceAccount)) | ternary $command.serviceAccount (dict) -}}
-{{- $commandSAExplicitName := default $commandSAMap.name $command.serviceAccountName -}}
-{{- $customSANamed := $commandSAExplicitName -}}
+{{- $commandSAExplicitName := coalesce $command.serviceAccountName $commandSAMap.name -}}
+{{- $customSANamed := not (empty $commandSAExplicitName) -}}
 {{- $inhSAEff := and (not $customSANamed) $inhSA $root.Values.deployment.enabled -}}
 {{- $saCreate := $root.Values.deployment.serviceAccount.create -}}
 {{- if hasKey $commandSAMap "create" -}}
