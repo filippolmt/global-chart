@@ -7,7 +7,8 @@
 {{- $inherit := (kindIs "map" $inheritRaw) | ternary $inheritRaw (dict) -}}
 {{- $inhSA := (hasKey $inherit "serviceAccount") | ternary ($inherit.serviceAccount) true -}}
 {{- $commandSAMap := (and (hasKey $command "serviceAccount") (kindIs "map" $command.serviceAccount)) | ternary $command.serviceAccount (dict) -}}
-{{- $customSANamed := or $command.serviceAccountName (and (hasKey $commandSAMap "name") $commandSAMap.name) -}}
+{{- $commandSAExplicitName := default $commandSAMap.name $command.serviceAccountName -}}
+{{- $customSANamed := $commandSAExplicitName -}}
 {{- $inhSAEff := and (not $customSANamed) $inhSA $root.Values.deployment.enabled -}}
 {{- $saCreate := $root.Values.deployment.serviceAccount.create -}}
 {{- if hasKey $commandSAMap "create" -}}
@@ -18,7 +19,7 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: {{ default (include "global-chart.hookfullname" (merge (dict "hookname" $hookType "jobname" $name) $root)) $command.serviceAccountName }}
+  name: {{ default (include "global-chart.hookfullname" (merge (dict "hookname" $hookType "jobname" $name) $root)) $commandSAExplicitName }}
   namespace: {{ $root.Release.Namespace | quote }}
   labels:
     {{- include "global-chart.hookLabels" $root | nindent 4 }}
@@ -46,7 +47,7 @@ spec:
       labels:
         {{- include "global-chart.hookLabels" $root | nindent 8 }}
     spec:
-      serviceAccountName: {{ if $inhSAEff }}{{ include "global-chart.serviceAccountName" $root | quote }}{{ else }}{{ default (include "global-chart.hookfullname" (merge (dict "hookname" $hookType "jobname" $name) $root)) $command.serviceAccountName | quote }}{{ end }}
+      serviceAccountName: {{ if $inhSAEff }}{{ include "global-chart.serviceAccountName" $root | quote }}{{ else }}{{ default (include "global-chart.hookfullname" (merge (dict "hookname" $hookType "jobname" $name) $root)) $commandSAExplicitName | quote }}{{ end }}
       {{- with $root.Values.deployment.imagePullSecrets }}
       imagePullSecrets:
         {{- range . }}
