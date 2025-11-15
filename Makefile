@@ -17,7 +17,8 @@ KUBE_LINTER_CASES := \
 	tests/hook-only.yaml:hooks:hooks \
 	tests/externalsecret-only.yaml:externalsecrets:externalsecret \
 	tests/ingress-custom.yaml:ingress:ingress \
-	tests/external-ingress.yaml:ingress:external-ingress
+	tests/external-ingress.yaml:ingress:external-ingress \
+	tests/rbac.yaml:rbac:rbac
 
 lint-chart:
 	helm lint $(STRICT) -f tests/test01/values.01.yaml ./${CHART_DIR}/${GLOBAL_CHART_NAME}
@@ -30,6 +31,7 @@ lint-chart:
 	helm lint $(STRICT) -f tests/externalsecret-only.yaml ./${CHART_DIR}/${GLOBAL_CHART_NAME}
 	helm lint $(STRICT) -f tests/ingress-custom.yaml ./${CHART_DIR}/${GLOBAL_CHART_NAME}
 	helm lint $(STRICT) -f tests/external-ingress.yaml ./${CHART_DIR}/${GLOBAL_CHART_NAME}
+	helm lint $(STRICT) -f tests/rbac.yaml ./${CHART_DIR}/${GLOBAL_CHART_NAME}
 
 generate-template-mountedcm1:
 	@rm -r generated-manifests/mountedcm1 || true
@@ -38,24 +40,6 @@ generate-template-mountedcm1:
 		-f tests/mountedcm1.yaml \
 		--namespace mountedcm1 \
 		--output-dir generated-manifests/mountedcm1 \
-		--include-crds
-
-generate-template-mountedcm2:
-	@rm -r generated-manifests/mountedcm2 || true
-	@mkdir -p generated-manifests/mountedcm2
-	helm template test-${GLOBAL_CHART_NAME} ./${CHART_DIR}/${GLOBAL_CHART_NAME} \
-		-f tests/mountedcm2.yaml \
-		--namespace mountedcm2 \
-		--output-dir generated-manifests/mountedcm2 \
-		--include-crds
-
-generate-template-test01:
-	@rm -r generated-manifests/01 || true
-	@mkdir -p generated-manifests/01
-	helm template test01-${GLOBAL_CHART_NAME} ./${CHART_DIR}/${GLOBAL_CHART_NAME} \
-		-f tests/test01/values.01.yaml \
-		--namespace test \
-		--output-dir generated-manifests/01 \
 		--include-crds
 
 generate-templates: lint-chart
@@ -110,6 +94,21 @@ generate-templates: lint-chart
 		-f tests/external-ingress.yaml \
 		--namespace ingress \
 		--output-dir generated-manifests/external-ingress \
+		--include-crds
+	helm template test-${GLOBAL_CHART_NAME} ./${CHART_DIR}/${GLOBAL_CHART_NAME} \
+		-f tests/mountedcm2.yaml \
+		--namespace mountedcm2 \
+		--output-dir generated-manifests/mountedcm2 \
+		--include-crds
+	helm template test01-${GLOBAL_CHART_NAME} ./${CHART_DIR}/${GLOBAL_CHART_NAME} \
+		-f tests/test01/values.01.yaml \
+		--namespace test \
+		--output-dir generated-manifests/01 \
+		--include-crds
+	helm template test-rbac-${GLOBAL_CHART_NAME} ./${CHART_DIR}/${GLOBAL_CHART_NAME} \
+		-f tests/rbac.yaml \
+		--namespace rbac \
+		--output-dir generated-manifests/rbac \
 		--include-crds
 
 helm-install-${GLOBAL_CHART_NAME}-01:

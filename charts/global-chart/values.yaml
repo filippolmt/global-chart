@@ -189,3 +189,19 @@ hooks: {}
 
 # -- ExternalSecrets definitions for secret management
 externalSecrets: {}
+
+# create multiple service accounts, roles and rolebindings
+
+rbacs:
+  # -- List of RBAC role definitions. When a serviceAccount is defined, a RoleBinding targeting that ServiceAccount is generated automatically.
+  roles:
+    # - name: custom-role
+    #   serviceAccount:
+    #     name: custom-sa
+    #     automount: true
+    #     annotations:
+    #       key: value
+    #   rules:
+    #     - apiGroups: [""]
+    #       resources: ["pods"]
+    #       verbs: ["get", "list"]
