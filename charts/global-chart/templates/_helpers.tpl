@@ -2,7 +2,9 @@
 Expand the name of the chart.
 */}}
 {{- define "global-chart.name" -}}
-{{- default .Chart.Name .Values.deployment.nameOverride | trunc 63 | trimSuffix "-" }}
+{{- $suffix := default "" .deploymentNameSuffix -}}
+{{- $base := default .Chart.Name .Values.deployment.nameOverride -}}
+{{- printf "%s%s" $base $suffix | trunc 63 | trimSuffix "-" -}}
 {{- end }}
 
 {{/*
@@ -11,14 +13,15 @@ We truncate at 63 chars because some Kubernetes name fields are limited to this 
 If release name contains chart name it will be used as a full name.
 */}}
 {{- define "global-chart.fullname" -}}
+{{- $suffix := default "" .deploymentNameSuffix -}}
 {{- if .Values.deployment.fullnameOverride }}
-{{- .Values.deployment.fullnameOverride | trunc 63 | trimSuffix "-" }}
+{{- printf "%s%s" .Values.deployment.fullnameOverride $suffix | trunc 63 | trimSuffix "-" }}
 {{- else }}
 {{- $name := default .Chart.Name .Values.deployment.nameOverride }}
 {{- if contains $name .Release.Name }}
-{{- .Release.Name | trunc 63 | trimSuffix "-" }}
+{{- printf "%s%s" .Release.Name $suffix | trunc 63 | trimSuffix "-" }}
 {{- else }}
-{{- printf "%s-%s" .Release.Name $name | trunc 63 | trimSuffix "-" }}
+{{- printf "%s-%s%s" .Release.Name $name $suffix | trunc 63 | trimSuffix "-" }}
 {{- end }}
 {{- end }}
 {{- end }}
@@ -64,6 +67,97 @@ Create the name of the service account to use
 {{- default (include "global-chart.fullname" .) .Values.deployment.serviceAccount.name }}
 {{- else }}
 {{- default "default" .Values.deployment.serviceAccount.name }}
+{{- end }}
+{{- end }}
+
+{{/*
+Ensure deployment suffixes are DNS-compatible, lowercase, and prefixed with '-'.
+*/}}
+{{- define "global-chart.sanitizeSuffix" -}}
+{{- $suffix := printf "%v" (default "" .) -}}
+{{- if not $suffix }}
+{{- "" -}}
+{{- else -}}
+{{- $normalized := $suffix | lower | regexReplaceAll "[^a-z0-9-]+" "-" | regexReplaceAll "-+" "-" | trimAll "-" -}}
+{{- if $normalized -}}
+{{- printf "-%s" $normalized -}}
+{{- else -}}
+{{- "" -}}
+{{- end -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+Iterate through the base deployment and any additional named deployments,
+rendering the provided template for each merged context.
+*/}}
+{{- define "global-chart.renderForDeployments" -}}
+{{- $root := .root -}}
+{{- $template := .template -}}
+{{- if not $root }}
+  {{- fail "global-chart.renderForDeployments requires the root context" -}}
+{{- end }}
+{{- if not $template }}
+  {{- fail "global-chart.renderForDeployments requires a template name" -}}
+{{- end }}
+{{- $contexts := list -}}
+{{- $baseValues := deepCopy $root.Values -}}
+{{- if not $baseValues }}
+  {{- $baseValues = dict -}}
+{{- end }}
+{{- $baseDeployment := default (dict) (deepCopy $root.Values.deployment) -}}
+{{- $_ := set $baseValues "deployment" $baseDeployment -}}
+{{- $baseCtx := dict -}}
+{{- $_ := set $baseCtx "Chart" $root.Chart -}}
+{{- $_ = set $baseCtx "Release" $root.Release -}}
+{{- $_ = set $baseCtx "Capabilities" $root.Capabilities -}}
+{{- $_ = set $baseCtx "Files" $root.Files -}}
+{{- $_ = set $baseCtx "Template" $root.Template -}}
+{{- $_ = set $baseCtx "Subcharts" $root.Subcharts -}}
+{{- if hasKey $root "Namespace" }}
+  {{- $_ = set $baseCtx "Namespace" $root.Namespace -}}
+{{- end }}
+{{- $_ = set $baseCtx "Values" $baseValues -}}
+{{- $_ = set $baseCtx "deploymentNameSuffix" "" -}}
+{{- $contexts = append $contexts $baseCtx -}}
+{{- $additional := default (dict) $root.Values.deployments -}}
+{{- if $additional }}
+  {{- $keys := sortAlpha (keys $additional) -}}
+  {{- range $i, $name := $keys }}
+    {{- $overrides := index $additional $name -}}
+    {{- $merged := default (dict) (deepCopy $root.Values.deployment) -}}
+    {{- if $overrides }}
+      {{- $merged = mustMergeOverwrite $merged (deepCopy $overrides) -}}
+    {{- end }}
+    {{- $valuesCopy := deepCopy $root.Values -}}
+    {{- if not $valuesCopy }}
+      {{- $valuesCopy = dict -}}
+    {{- end }}
+    {{- $_ = set $valuesCopy "deployment" $merged -}}
+    {{- $ctx := dict -}}
+    {{- $_ = set $ctx "Chart" $root.Chart -}}
+    {{- $_ = set $ctx "Release" $root.Release -}}
+    {{- $_ = set $ctx "Capabilities" $root.Capabilities -}}
+    {{- $_ = set $ctx "Files" $root.Files -}}
+    {{- $_ = set $ctx "Template" $root.Template -}}
+    {{- $_ = set $ctx "Subcharts" $root.Subcharts -}}
+    {{- if hasKey $root "Namespace" }}
+      {{- $_ = set $ctx "Namespace" $root.Namespace -}}
+    {{- end }}
+    {{- $_ = set $ctx "Values" $valuesCopy -}}
+    {{- $_ = set $ctx "deploymentNameSuffix" (include "global-chart.sanitizeSuffix" $name) -}}
+    {{- $contexts = append $contexts $ctx -}}
+  {{- end }}
+{{- end }}
+{{- $manifests := list -}}
+{{- range $context := $contexts }}
+  {{- $content := trim (include $template $context) -}}
+  {{- if $content }}
+    {{- $manifests = append $manifests $content -}}
+  {{- end }}
+{{- end }}
+{{- if gt (len $manifests) 0 }}
+{{- join "\n---\n" $manifests -}}
 {{- end }}
 {{- end }}
 

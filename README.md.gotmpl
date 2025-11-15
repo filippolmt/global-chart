@@ -161,6 +161,31 @@ secret:
   host: example.com
 ```
 
+#### Multiple Deployments
+
+Use the `deployments` map to spin up additional workloads derived from the base `deployment` block. Each key becomes a stable suffix
+that is appended to generated resource names so every Deployment/Service pair stays unique.
+
+```yaml
+deployment:
+  enabled: true
+  image:
+    repository: nginx
+    tag: "1.25.3"
+
+deployments:
+  api:
+    enabled: true
+    replicaCount: 3
+    service:
+      port: 8080
+  metrics:
+    enabled: true
+    service:
+      port: 9090
+      targetPort: metrics
+```
+
 #### CronJobs
 
 ```yaml
