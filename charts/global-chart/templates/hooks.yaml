@@ -9,8 +9,11 @@
 {{- $commandSAMap := (and (hasKey $command "serviceAccount") (kindIs "map" $command.serviceAccount)) | ternary $command.serviceAccount (dict) -}}
 {{- $customSANamed := or $command.serviceAccountName (and (hasKey $commandSAMap "name") $commandSAMap.name) -}}
 {{- $inhSAEff := and (not $customSANamed) $inhSA $root.Values.deployment.enabled -}}
-{{- $saCreate := or (and (hasKey $command "serviceAccount") (hasKey $command.serviceAccount "create") $command.serviceAccount.create) $root.Values.deployment.serviceAccount.create -}}
-{{- if and (not $inhSAEff) (or $saCreate (not $command.serviceAccountName)) }}
+{{- $saCreate := $root.Values.deployment.serviceAccount.create -}}
+{{- if hasKey $commandSAMap "create" -}}
+  {{- $saCreate = $commandSAMap.create -}}
+{{- end -}}
+{{- if and (not $inhSAEff) (or $saCreate (not $customSANamed)) }}
 ---
 apiVersion: v1
 kind: ServiceAccount
