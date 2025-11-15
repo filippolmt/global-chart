@@ -121,6 +121,14 @@ spec:
         args:
           {{- toYaml $command.args | nindent 10 }}
         {{- end }}
+        {{- $hookResources := $root.Values.deployment.resources -}}
+        {{- if hasKey $command "resources" -}}
+          {{- $hookResources = $command.resources -}}
+        {{- end -}}
+        {{- if $hookResources }}
+        resources:
+          {{- toYaml $hookResources | nindent 10 }}
+        {{- end }}
         {{- if or $root.Values.deployment.configMap $root.Values.deployment.envFromConfigMaps $root.Values.deployment.secret $root.Values.deployment.envFromSecrets }}
         envFrom:
           {{- if $root.Values.deployment.configMap }}
