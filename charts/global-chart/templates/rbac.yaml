@@ -1,12 +1,15 @@
 {{- $root := . }}
+{{- $fullname := include "global-chart.fullname" $root }}
 {{- if $root.Values.rbacs.roles }}
 {{- range $index, $role := $root.Values.rbacs.roles }}
-{{- $roleName := default (printf "%s-role-%d" $root.Release.Name $index) $role.name }}
+{{- $defaultRoleName := printf "%s-role-%d" $fullname $index | trunc 63 | trimSuffix "-" }}
+{{- $roleName := default $defaultRoleName $role.name }}
 {{- $sa := $role.serviceAccount }}
 {{- $saName := "" }}
 {{- $saCreate := false }}
 {{- if $sa }}
-{{- $saName = default (printf "%s-sa" $roleName) $sa.name }}
+{{- $defaultSaName := printf "%s-sa" $roleName | trunc 63 | trimSuffix "-" }}
+{{- $saName = default $defaultSaName $sa.name }}
 {{- $saCreate = true }}
 {{- if hasKey $sa "create" }}
   {{- $saCreate = $sa.create }}
@@ -48,10 +51,11 @@ rules:
 {{- if hasSuffix "-role" $roleName }}
   {{- $bindingBase = trimSuffix "-role" $roleName }}
 {{- end }}
+{{- $roleBindingName := printf "%s-rolebinding" $bindingBase | trunc 63 | trimSuffix "-" }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: {{ printf "%s-rolebinding" $bindingBase }}
+  name: {{ $roleBindingName }}
   namespace: {{ $root.Release.Namespace | quote }}
   labels:
     {{- include "global-chart.labels" $root | nindent 4 }}
