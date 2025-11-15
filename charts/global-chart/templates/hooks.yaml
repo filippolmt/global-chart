@@ -14,6 +14,17 @@
 {{- if hasKey $commandSAMap "create" -}}
   {{- $saCreate = $commandSAMap.create -}}
 {{- end -}}
+{{- $saAutomount := true -}}
+{{- if hasKey $command "automountServiceAccountToken" -}}
+  {{- $saAutomount = $command.automountServiceAccountToken -}}
+{{- end -}}
+{{- if hasKey $commandSAMap "automountServiceAccountToken" -}}
+  {{- $saAutomount = $commandSAMap.automountServiceAccountToken -}}
+{{- end -}}
+{{- $saAnnotations := $command.serviceAccountAnnotations -}}
+{{- if hasKey $commandSAMap "annotations" -}}
+  {{- $saAnnotations = $commandSAMap.annotations -}}
+{{- end -}}
 {{- if and (not $inhSAEff) (or $saCreate (not $customSANamed)) }}
 ---
 apiVersion: v1
@@ -23,11 +34,11 @@ metadata:
   namespace: {{ $root.Release.Namespace | quote }}
   labels:
     {{- include "global-chart.hookLabels" $root | nindent 4 }}
-  {{- with $command.serviceAccountAnnotations }}
+  {{- with $saAnnotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}
-automountServiceAccountToken: {{ default true $command.automountServiceAccountToken }}
+automountServiceAccountToken: {{ $saAutomount }}
 {{- end }}
 ---
 apiVersion: batch/v1
