@@ -149,6 +149,10 @@ hooks:
       args: ["-c", 'echo "ciao"']
       imagePullPolicy: Always
       weight: 20
+      resources:
+        requests:
+          cpu: 500m
+          memory: 512Mi
       affinity: &affinity
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
