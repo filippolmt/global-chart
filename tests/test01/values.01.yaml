@@ -122,6 +122,25 @@ deployment:
         - name: myvolume
           mountPath: /myvolume
 
+rbacs:
+  roles:
+    - name: "scale-down-role"
+      serviceAccount:
+        name: "scale-down-sa"
+        automount: true
+      rules:
+        - apiGroups: [""]
+          resources: ["deployments"]
+          verbs: ["get", "list", "watch", "update", "patch"]
+    - name: "existing-role"
+      serviceAccount:
+        name: "external-sa"
+        create: false
+      rules:
+        - apiGroups: ["apps"]
+          resources: ["deployments/scale"]
+          verbs: ["patch"]
+
 hooks:
   post-install:
     db-seed-import:
@@ -148,6 +167,11 @@ hooks:
       nodeSelector: &nodeSelector
         kubernetes.io/e2e-az-name: e2e-az1
   pre-upgrade:
+    scale-down:
+      command: ["sh", "-c"]
+      args: ["echo", "ciao"]
+      weight: 5
+      serviceAccountName: scale-down-sa
     deploy:
       command: ["sh", "-c"]
       args: ["echo", "ciao"]
