@@ -1,0 +1,35 @@
+deployment:
+  enabled: false
+
+rbacs:
+  roles:
+    - name: "scale-down-role"
+      serviceAccount:
+        name: "scale-down-sa"
+        automount: true
+      rules:
+        - apiGroups: [""]
+          resources: ["deployments"]
+          verbs: ["get", "list", "watch", "update", "patch"]
+    - name: "existing-role"
+      serviceAccount:
+        name: "external-sa"
+        create: false
+      rules:
+        - apiGroups: ["apps"]
+          resources: ["deployments/scale"]
+          verbs: ["patch"]
+hooks:
+  pre-upgrade:
+    scale-down:
+      weight: 1
+      image:
+        repository: registry.k8s.io/kubectl
+        tag: latest
+      serviceAccountName: "scale-down-sa"
+      command:
+        - /bin/sh
+        - -c
+      args:
+        - |
+          kubectl scale deployment nginx --replicas=0
