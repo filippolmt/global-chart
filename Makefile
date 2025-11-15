@@ -33,15 +33,6 @@ lint-chart:
 	helm lint $(STRICT) -f tests/external-ingress.yaml ./${CHART_DIR}/${GLOBAL_CHART_NAME}
 	helm lint $(STRICT) -f tests/rbac.yaml ./${CHART_DIR}/${GLOBAL_CHART_NAME}
 
-generate-template-mountedcm1:
-	@rm -r generated-manifests/mountedcm1 || true
-	@mkdir -p generated-manifests/mountedcm1
-	helm template test-${GLOBAL_CHART_NAME} ./${CHART_DIR}/${GLOBAL_CHART_NAME} \
-		-f tests/mountedcm1.yaml \
-		--namespace mountedcm1 \
-		--output-dir generated-manifests/mountedcm1 \
-		--include-crds
-
 generate-templates: lint-chart
 	@rm -r generated-manifests || true
 	@mkdir -p generated-manifests

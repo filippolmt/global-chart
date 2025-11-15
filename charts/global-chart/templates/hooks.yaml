@@ -6,22 +6,42 @@
 {{- $inheritRaw := default (dict) $command.inheritFromDeployment -}}
 {{- $inherit := (kindIs "map" $inheritRaw) | ternary $inheritRaw (dict) -}}
 {{- $inhSA := (hasKey $inherit "serviceAccount") | ternary ($inherit.serviceAccount) true -}}
-{{- $inhSAEff := and $inhSA $root.Values.deployment.enabled -}}
-{{- $saCreate := or (and (hasKey $command "serviceAccount") (hasKey $command.serviceAccount "create") $command.serviceAccount.create) $root.Values.deployment.serviceAccount.create -}}
-{{- if and (not $inhSAEff) (or $saCreate (not $command.serviceAccountName)) }}
+{{- $commandSAMap := (and (hasKey $command "serviceAccount") (kindIs "map" $command.serviceAccount)) | ternary $command.serviceAccount (dict) -}}
+{{- $commandSAExplicitName := coalesce $command.serviceAccountName $commandSAMap.name -}}
+{{- $customSANamed := not (empty $commandSAExplicitName) -}}
+{{- $inhSAEff := and (not $customSANamed) $inhSA $root.Values.deployment.enabled -}}
+{{- $saCreate := $root.Values.deployment.serviceAccount.create -}}
+{{- if hasKey $commandSAMap "create" -}}
+  {{- $saCreate = $commandSAMap.create -}}
+{{- end -}}
+{{- $saAutomount := true -}}
+{{- if hasKey $command "automountServiceAccountToken" -}}
+  {{- $saAutomount = $command.automountServiceAccountToken -}}
+{{- end -}}
+{{- if hasKey $commandSAMap "automountServiceAccountToken" -}}
+  {{- $saAutomount = $commandSAMap.automountServiceAccountToken -}}
+{{- end -}}
+{{- if hasKey $commandSAMap "automount" -}}
+  {{- $saAutomount = $commandSAMap.automount -}}
+{{- end -}}
+{{- $saAnnotations := $command.serviceAccountAnnotations -}}
+{{- if hasKey $commandSAMap "annotations" -}}
+  {{- $saAnnotations = $commandSAMap.annotations -}}
+{{- end -}}
+{{- if and (not $inhSAEff) (or $saCreate (not $customSANamed)) }}
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: {{ default (include "global-chart.hookfullname" (merge (dict "hookname" $hookType "jobname" $name) $root)) $command.serviceAccountName }}
+  name: {{ default (include "global-chart.hookfullname" (merge (dict "hookname" $hookType "jobname" $name) $root)) $commandSAExplicitName }}
   namespace: {{ $root.Release.Namespace | quote }}
   labels:
     {{- include "global-chart.hookLabels" $root | nindent 4 }}
-  {{- with $command.serviceAccountAnnotations }}
+  {{- with $saAnnotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}
-automountServiceAccountToken: {{ default true $command.automountServiceAccountToken }}
+automountServiceAccountToken: {{ $saAutomount }}
 {{- end }}
 ---
 apiVersion: batch/v1
@@ -41,7 +61,7 @@ spec:
       labels:
         {{- include "global-chart.hookLabels" $root | nindent 8 }}
     spec:
-      serviceAccountName: {{ if $inhSAEff }}{{ include "global-chart.serviceAccountName" $root | quote }}{{ else }}{{ default (include "global-chart.hookfullname" (merge (dict "hookname" $hookType "jobname" $name) $root)) $command.serviceAccountName | quote }}{{ end }}
+      serviceAccountName: {{ if $inhSAEff }}{{ include "global-chart.serviceAccountName" $root | quote }}{{ else }}{{ default (include "global-chart.hookfullname" (merge (dict "hookname" $hookType "jobname" $name) $root)) $commandSAExplicitName | quote }}{{ end }}
       {{- with $root.Values.deployment.imagePullSecrets }}
       imagePullSecrets:
         {{- range . }}
