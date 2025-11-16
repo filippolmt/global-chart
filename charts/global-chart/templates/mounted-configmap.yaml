@@ -1,3 +1,4 @@
+{{- define "global-chart.partial.mountedConfigMap" -}}
 {{- $root := . -}}
 {{- $mountedConfigFiles := .Values.deployment.mountedConfigFiles -}}
 {{- if and $mountedConfigFiles .Values.deployment.enabled }}
@@ -16,7 +17,7 @@ data:
   {{ $f.filename }}: |
     {{- $content := required (printf "mountedConfigFiles.files[%d] (%s): 'content' is required" $i $f.name) $f.content -}}
     {{- $content | nindent 4 -}}
-  {{- end }}
+    {{- end }}
   {{- end }}
 
   {{- if $mountedConfigFiles.bundles }}
@@ -37,3 +38,5 @@ data:
     {{- end }}
   {{- end }}
 {{- end }}
+{{- end }}
+{{- include "global-chart.renderForDeployments" (dict "root" . "template" "global-chart.partial.mountedConfigMap") }}
