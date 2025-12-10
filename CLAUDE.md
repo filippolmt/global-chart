@@ -62,7 +62,7 @@ charts/global-chart/
 │   ├── hpa.yaml            # HPAs (per-deployment)
 │   ├── ingress.yaml        # Ingress (routes to specific deployments)
 │   ├── cronjob.yaml        # CronJobs (root-level or inside deployments)
-│   ├── hooks.yaml          # Helm hook Jobs (root-level or inside deployments)
+│   ├── hook.yaml           # Helm hook Jobs (root-level or inside deployments)
 │   ├── externalsecret.yaml # ExternalSecret CRDs
 │   └── rbac.yaml           # Roles and RoleBindings
 ```
