@@ -1,22 +1,25 @@
 {{- $root := . }}
-{{- $dep  := $root.Values.deployment }}
-{{- $hpa  := $dep.autoscaling }}
-{{- $cpu  := int $hpa.targetCPUUtilizationPercentage }}
-{{- $mem  := int $hpa.targetMemoryUtilizationPercentage }}
+{{- range $name, $deploy := .Values.deployments }}
+{{- if $deploy }}
+{{- $hpa := $deploy.autoscaling }}
+{{- $cpu := int $hpa.targetCPUUtilizationPercentage }}
+{{- $mem := int $hpa.targetMemoryUtilizationPercentage }}
 {{- $hasMetric := or (gt $cpu 0) (gt $mem 0) }}
-
-{{- if and $dep.enabled $hpa.enabled $hasMetric }}
+{{- if and $hpa.enabled $hasMetric }}
+{{- $depFullname := include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $name) }}
+{{- $labelCtx := dict "root" $root "deploymentName" $name }}
+---
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: {{ include "global-chart.fullname" $root }}
+  name: {{ $depFullname }}
   labels:
-    {{- include "global-chart.labels" $root | nindent 4 }}
+    {{- include "global-chart.deploymentLabels" $labelCtx | nindent 4 }}
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: {{ include "global-chart.fullname" $root }}
+    name: {{ $depFullname }}
   minReplicas: {{ $hpa.minReplicas }}
   maxReplicas: {{ $hpa.maxReplicas }}
   metrics:
@@ -36,7 +39,6 @@ spec:
           type: Utilization
           averageUtilization: {{ $mem }}
     {{- end }}
-
   {{- with $hpa.behavior }}
   behavior:
     {{- with .scaleUp }}
@@ -48,4 +50,6 @@ spec:
       {{- toYaml . | nindent 6 }}
     {{- end }}
   {{- end }}
+{{- end }}
+{{- end }}
 {{- end }}

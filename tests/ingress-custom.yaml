@@ -1,10 +1,10 @@
-deployment:
-  enabled: true
-  image:
-    repository: nginx
-    tag: "1.25"
-  autoscaling:
-    enabled: false
+deployments:
+  main:
+    image:
+      repository: nginx
+      tag: "1.25"
+    autoscaling:
+      enabled: false
 ingress:
   enabled: true
   className: "nginx"
@@ -16,6 +16,7 @@ ingress:
       secretName: app-tls
   hosts:
     - host: app.example.com
+      deployment: main
       paths:
         - path: /
           pathType: Prefix

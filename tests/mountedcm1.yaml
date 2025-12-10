@@ -1,94 +1,94 @@
-deployment:
-  enabled: true
-  image:
-    repository: nginx
-    tag: "1.27.2"
-    pullPolicy: IfNotPresent
+deployments:
+  main:
+    image:
+      repository: nginx
+      tag: "1.27.2"
+      pullPolicy: IfNotPresent
 
-  volumes:
-    - name: myvolume
-      type: secret
-      secret:
-        secretName: mysql-0-secret
-    - name: myvolume2
-      type: configMap
-      configMap:
-        name: mysql-0-config
-    - name: myvolume3
-      type: persistentVolumeClaim
-      persistentVolumeClaim:
-        claimName: mypvc
-  volumeMounts:
-    - name: myvolume
-      mountPath: /etc/secret
-    - name: myvolume2
-      mountPath: /etc/config
-    - name: myvolume3
-      mountPath: /etc/pvc
+    volumes:
+      - name: myvolume
+        type: secret
+        secret:
+          secretName: mysql-0-secret
+      - name: myvolume2
+        type: configMap
+        configMap:
+          name: mysql-0-config
+      - name: myvolume3
+        type: persistentVolumeClaim
+        persistentVolumeClaim:
+          claimName: mypvc
+    volumeMounts:
+      - name: myvolume
+        mountPath: /etc/secret
+      - name: myvolume2
+        mountPath: /etc/config
+      - name: myvolume3
+        mountPath: /etc/pvc
 
-  mountedConfigFiles:
-    bundles:
-      - mountDir: /etc/nginx/conf.d
-        files:
-          - name: nginx-static
-            relPath: default.conf
-            content: |
-              server {
-                listen 80;
-                server_name _;
+    mountedConfigFiles:
+      bundles:
+        - mountDir: /etc/nginx/conf.d
+          files:
+            - name: nginx-static
+              relPath: default.conf
+              content: |
+                server {
+                  listen 80;
+                  server_name _;
 
-                root /usr/share/nginx/html;
-                index index.html;
+                  root /usr/share/nginx/html;
+                  index index.html;
 
-                location / {
-                  try_files $uri $uri/ =404;
+                  location / {
+                    try_files $uri $uri/ =404;
+                  }
+
+                  # Healthcheck usato dai probes
+                  location = /healthz {
+                    access_log off;
+                    return 200 "healthy\n";
+                  }
+
+                  gzip on;
+                  gzip_types text/css application/javascript application/json;
                 }
+            - name: extra-logs
+              relPath: log.conf
+              content: |
+                # esempio di log custom
+                log_format minimal '$remote_addr - $status "$request"';
+                access_log /var/log/nginx/access.log minimal;
+        - mountDir: /tmp/more-nginx
+          files:
+            - name: more-logs
+              relPath: more-logs.conf
+              content: |
+                # altro esempio di log custom
+                log_format main '$remote_addr - $remote_user [$time_local] "$request" '
+                                '$status $body_bytes_sent "$http_referer" '
+                                '"$http_user_agent" "$http_x_forwarded_for"';
+                access_log /var/log/nginx/access.log main;
 
-                # Healthcheck usato dai probes
-                location = /healthz {
-                  access_log off;
-                  return 200 "healthy\n";
-                }
-
-                gzip on;
-                gzip_types text/css application/javascript application/json;
-              }
-          - name: extra-logs
-            relPath: log.conf
-            content: |
-              # esempio di log custom
-              log_format minimal '$remote_addr - $status "$request"';
-              access_log /var/log/nginx/access.log minimal;
-      - mountDir: /tmp/more-nginx
-        files:
-          - name: more-logs
-            relPath: more-logs.conf
-            content: |
-              # altro esempio di log custom
-              log_format main '$remote_addr - $remote_user [$time_local] "$request" '
-                              '$status $body_bytes_sent "$http_referer" '
-                              '"$http_user_agent" "$http_x_forwarded_for"';
-              access_log /var/log/nginx/access.log main;
-
-  service:
-    type: ClusterIP
-    portName: http
-    port: 80
-    targetPort: http
-
-  # Probe sull’endpoint di health
-  readinessProbe:
-    httpGet:
-      path: /healthz
+    service:
+      type: ClusterIP
+      portName: http
       port: 80
-    initialDelaySeconds: 2
-    periodSeconds: 5
-  livenessProbe:
-    httpGet:
-      path: /healthz
-      port: 80
-    initialDelaySeconds: 5
-    periodSeconds: 10
+      targetPort: http
+
+    # Probe sull'endpoint di health
+    readinessProbe:
+      httpGet:
+        path: /healthz
+        port: 80
+      initialDelaySeconds: 2
+      periodSeconds: 5
+    livenessProbe:
+      httpGet:
+        path: /healthz
+        port: 80
+      initialDelaySeconds: 5
+      periodSeconds: 10
 
 hooks:
   post-install:
@@ -117,18 +117,19 @@ hooks:
         kubernetes.io/e2e-az-name: e2e-az1
   pre-upgrade:
     deploy:
-      inheritFromDeployment:
-        volumeMounts: false
-        volumes: true
-        mountedConfigFiles: false
-        serviceAccount: false
+      fromDeployment: main
       command: ["sh", "-c"]
-      # serviceAccountName: test-mountedcm1-global-chart
       args: ["echo", "ciao"]
       weight: 10
       deletePolicy: before-hook-creation
       imagePullPolicy: Always
+      volumes:
+        - name: myvolume
+          type: secret
+          secret:
+            secretName: mysql-0-secret
     s3fs:
+      fromDeployment: main
       command: ["bin/sh", "-c"]
       args: ["echo", "ciao"]
       weight: 20
@@ -142,11 +143,7 @@ cronJobs:
     tolerations: []
     annotations: {}
     schedule: "00 12 * * 1-5"
-    inheritFromDeployment:
-      serviceAccount: false
-      volumeMounts: false
-      volumes: true
-      mountedConfigFiles: false
+    fromDeployment: main
     serviceAccountName:
     successfulJobsHistoryLimit: 2
     failedJobsHistoryLimit: 2
@@ -161,13 +158,16 @@ cronJobs:
     envFromSecrets:
       - mysql-0-secret
       - mongodb-0-secret
+    volumes:
+      - name: myvolume
+        type: secret
+        secret:
+          secretName: mysql-0-secret
   testcron:
     schedule: "00 12 * * 1-5"
+    fromDeployment: main
     command: ["sh", "-c"]
     args: ["echo", "ciao"]
-    inheritFromDeployment:
-      serviceAccount: false
-    # serviceAccountName: test-mountedcm1-global-chart
     affinity: *affinity
     tolerations: *tolerations
     nodeSelector: *nodeSelector

@@ -2,7 +2,7 @@
 Expand the name of the chart.
 */}}
 {{- define "global-chart.name" -}}
-{{- default .Chart.Name .Values.deployment.nameOverride | trunc 63 | trimSuffix "-" }}
+{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
@@ -11,10 +11,10 @@ We truncate at 63 chars because some Kubernetes name fields are limited to this 
 If release name contains chart name it will be used as a full name.
 */}}
 {{- define "global-chart.fullname" -}}
-{{- if .Values.deployment.fullnameOverride }}
-{{- .Values.deployment.fullnameOverride | trunc 63 | trimSuffix "-" }}
+{{- if .Values.fullnameOverride }}
+{{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
 {{- else }}
-{{- $name := default .Chart.Name .Values.deployment.nameOverride }}
+{{- $name := default .Chart.Name .Values.nameOverride }}
 {{- if contains $name .Release.Name }}
 {{- .Release.Name | trunc 63 | trimSuffix "-" }}
 {{- else }}
@@ -31,7 +31,7 @@ Create chart name and version as used by the chart label.
 {{- end }}
 
 {{/*
-Common labels
+Common labels (for non-deployment resources like Ingress)
 */}}
 {{- define "global-chart.labels" -}}
 helm.sh/chart: {{ include "global-chart.chart" . }}
@@ -40,11 +40,58 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end }}
 
 {{/*
-Selector labels
+Selector labels (base, without component)
 */}}
 {{- define "global-chart.selectorLabels" -}}
 app.kubernetes.io/name: {{ include "global-chart.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}
+
+{{/*
+Create a deployment-specific fully qualified name.
+Usage: {{ include "global-chart.deploymentFullname" (dict "root" . "deploymentName" $name) }}
+*/}}
+{{- define "global-chart.deploymentFullname" -}}
+{{- $root := .root -}}
+{{- $name := .deploymentName -}}
+{{- $baseName := include "global-chart.fullname" $root -}}
+{{- printf "%s-%s" $baseName $name | trunc 63 | trimSuffix "-" -}}
+{{- end }}
+
+{{/*
+Selector labels for a specific deployment (includes deployment name for uniqueness).
+Usage: {{ include "global-chart.deploymentSelectorLabels" (dict "root" . "deploymentName" $name) }}
+*/}}
+{{- define "global-chart.deploymentSelectorLabels" -}}
+app.kubernetes.io/name: {{ include "global-chart.name" .root }}
+app.kubernetes.io/instance: {{ .root.Release.Name }}
+app.kubernetes.io/component: {{ .deploymentName }}
+{{- end }}
+
+{{/*
+Common labels for a specific deployment.
+Usage: {{ include "global-chart.deploymentLabels" (dict "root" . "deploymentName" $name) }}
+*/}}
+{{- define "global-chart.deploymentLabels" -}}
+helm.sh/chart: {{ include "global-chart.chart" .root }}
+{{ include "global-chart.deploymentSelectorLabels" . }}
+app.kubernetes.io/managed-by: {{ .root.Release.Service }}
+{{- end }}
+
+{{/*
+Create the name of the service account for a specific deployment.
+Usage: {{ include "global-chart.deploymentServiceAccountName" (dict "root" . "deploymentName" $name "deployment" $deploy) }}
+*/}}
+{{- define "global-chart.deploymentServiceAccountName" -}}
+{{- $root := .root -}}
+{{- $name := .deploymentName -}}
+{{- $deploy := .deployment -}}
+{{- $sa := default (dict) $deploy.serviceAccount -}}
+{{- if $sa.create -}}
+{{- default (include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $name)) $sa.name -}}
+{{- else -}}
+{{- default "default" $sa.name -}}
+{{- end -}}
 {{- end }}
 
 {{/*
@@ -54,17 +101,6 @@ Hook-specific labels: do not include selectorLabels so hooks don't match Deploym
 helm.sh/chart: {{ include "global-chart.chart" . }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 app.kubernetes.io/component: hook
-{{- end }}
-
-{{/*
-Create the name of the service account to use
-*/}}
-{{- define "global-chart.serviceAccountName" -}}
-{{- if .Values.deployment.serviceAccount.create }}
-{{- default (include "global-chart.fullname" .) .Values.deployment.serviceAccount.name }}
-{{- else }}
-{{- default "default" .Values.deployment.serviceAccount.name }}
-{{- end }}
 {{- end }}
 
 {{- define "global-chart.hookfullname" -}}
@@ -122,9 +158,9 @@ Resolve an image pull policy from optional overrides, image map values, and a fa
     {{- $policy = printf "%v" $ctx.fallback | trim -}}
   {{- end }}
 {{- end }}
-{{- if $policy }}
-  {{- $policy -}}
-{{- else }}
-  IfNotPresent
-{{- end }}
+{{- if $policy -}}
+{{- $policy -}}
+{{- else -}}
+IfNotPresent
+{{- end -}}
 {{- end }}

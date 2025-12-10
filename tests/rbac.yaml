@@ -1,5 +1,5 @@
-deployment:
-  enabled: false
+# RBAC and hooks only - no deployments
+deployments: {}
 
 rbacs:
   roles:

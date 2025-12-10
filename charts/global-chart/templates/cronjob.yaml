@@ -1,19 +1,41 @@
-{{- if .Values.cronJobs }}
+{{/*
+  CronJobs can be defined in two places:
+  1. Root level: .Values.cronJobs (standalone, optional fromDeployment for image)
+  2. Inside deployments: .Values.deployments.<name>.cronJobs (inherits image, configMap, secret, SA from deployment)
+*/}}
+
 {{- $root := . }}
+
+{{/* ====== PART 1: Root-level cronJobs ====== */}}
+{{- if .Values.cronJobs }}
 {{- range $name, $job := .Values.cronJobs }}
 {{- if $job }}
+{{- $fullname := include "global-chart.fullname" $root }}
+{{- $jobFullname := printf "%s-%s" $fullname $name | trunc 63 | trimSuffix "-" }}
 
-{{- $inheritRaw := default (dict) $job.inheritFromDeployment -}}
-{{- $inherit := (kindIs "map" $inheritRaw) | ternary $inheritRaw (dict) -}}
-{{- $inhSA := (hasKey $inherit "serviceAccount") | ternary ($inherit.serviceAccount) true -}}
-{{- $inhSAEff := and $inhSA $root.Values.deployment.enabled -}}
-{{- $saCreate := or (and (hasKey $job "serviceAccount") (hasKey $job.serviceAccount "create") $job.serviceAccount.create) $root.Values.deployment.serviceAccount.create -}}
-{{- if and (not $inhSAEff) (or $saCreate (not $job.serviceAccountName)) }}
+{{- /* Resolve image: explicit > fromDeployment > error */ -}}
+{{- $jobImage := "" }}
+{{- if hasKey $job "image" }}
+  {{- $jobImage = include "global-chart.imageString" $job.image -}}
+{{- else if $job.fromDeployment }}
+  {{- $depName := $job.fromDeployment -}}
+  {{- $deploy := index $root.Values.deployments $depName -}}
+  {{- if not $deploy -}}
+    {{- fail (printf "cronJobs.%s.fromDeployment references deployment '%s' which does not exist in .Values.deployments" $name $depName) -}}
+  {{- end -}}
+  {{- $jobImage = include "global-chart.imageString" $deploy.image -}}
+{{- end }}
+{{- $imageRef := required (printf "image is required for cronJobs.%s (set cronJobs.%s.image or cronJobs.%s.fromDeployment)" $name $name $name) $jobImage }}
+
+{{- /* ServiceAccount - create own or use explicit name */ -}}
+{{- $saCreate := and (hasKey $job "serviceAccount") (hasKey $job.serviceAccount "create") $job.serviceAccount.create }}
+{{- $saName := default $jobFullname $job.serviceAccountName }}
+{{- if $saCreate }}
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: {{ default (printf "%s-%s" (include "global-chart.fullname" $root) $name) $job.serviceAccountName }}
+  name: {{ $saName }}
   namespace: {{ $root.Release.Namespace | quote }}
   labels:
     {{- include "global-chart.labels" $root | nindent 4 }}
@@ -27,7 +49,9 @@ automountServiceAccountToken: {{ default true $job.automountServiceAccountToken 
 apiVersion: batch/v1
 kind: CronJob
 metadata:
-  name: {{ printf "%s-%s" (include "global-chart.fullname" $root) $name }}
+  name: {{ $jobFullname }}
+  labels:
+    {{- include "global-chart.labels" $root | nindent 4 }}
   {{- if $job.annotations }}
   annotations:
     {{- toYaml $job.annotations | nindent 4 }}
@@ -41,20 +65,24 @@ spec:
     spec:
       template:
         spec:
+          {{- with $job.imagePullSecrets }}
+          imagePullSecrets:
+            {{- range . }}
+              {{- if kindIs "string" . }}
+            - name: {{ . | quote }}
+              {{- else if hasKey . "name" }}
+            - name: {{ .name | quote }}
+              {{- end }}
+            {{- end }}
+          {{- end }}
           {{- if $job.initContainers }}
           initContainers:
             {{- toYaml $job.initContainers | nindent 12 }}
           {{- end }}
-          {{- $jobImage := "" }}
-          {{- if hasKey $job "image" }}
-            {{- $jobImage = include "global-chart.imageString" $job.image -}}
-          {{- end }}
-          {{- $depImage := include "global-chart.imageString" $root.Values.deployment.image }}
-          {{- $imageRef := required (printf "image is required for cronJobs.%s (set cronJobs.%s.image or deployment.image)" $name $name) (default $depImage $jobImage) }}
           containers:
           - name: {{ $name }}
             image: {{ $imageRef | quote }}
-            imagePullPolicy: {{ include "global-chart.imagePullPolicy" (dict "override" $job.imagePullPolicy "image" $job.image "fallback" $root.Values.deployment.image.pullPolicy) | quote }}
+            imagePullPolicy: {{ include "global-chart.imagePullPolicy" (dict "override" $job.imagePullPolicy "image" $job.image) | quote }}
             {{- if $job.command }}
             command:
               {{- toYaml $job.command | nindent 14 }}
@@ -74,6 +102,10 @@ spec:
                   name: {{ $sec | quote }}
               {{- end }}
             {{- end }}
+            {{- if $job.env }}
+            env:
+              {{- toYaml $job.env | nindent 14 }}
+            {{- end }}
             {{- if $job.resources }}
             resources:
               {{- toYaml $job.resources | nindent 14 }}
@@ -83,44 +115,12 @@ spec:
                 cpu: 100m
                 memory: 128Mi
             {{- end }}
-            {{- $inheritRaw := default (dict) $job.inheritFromDeployment -}}
-            {{- $inherit := (kindIs "map" $inheritRaw) | ternary $inheritRaw (dict) -}}
-            {{- $inhVM  := (hasKey $inherit "volumeMounts")       | ternary ($inherit.volumeMounts)       true -}}
-            {{- $inhV   := (hasKey $inherit "volumes")            | ternary ($inherit.volumes)            true -}}
-            {{- $inhMCF := (hasKey $inherit "mountedConfigFiles") | ternary ($inherit.mountedConfigFiles) true -}}
-            {{- $inhVMEff  := and $inhVM  $root.Values.deployment.enabled -}}
-            {{- $inhVEff   := and $inhV   $root.Values.deployment.enabled -}}
-            {{- $inhMCFEff := and $inhMCF $root.Values.deployment.enabled -}}
-            {{- $hasJobVM := hasKey $job "volumeMounts" -}}
-            {{- $hasJobV  := hasKey $job "volumes" -}}
-            {{- $vm := $hasJobVM | ternary $job.volumeMounts (and $inhVMEff  $root.Values.deployment.volumeMounts) -}}
-            {{- $v  := $hasJobV  | ternary $job.volumes      (and $inhVEff  $root.Values.deployment.volumes) -}}
-            {{- $dep := dict "volumeMounts" $vm "volumes" $v -}}
-            {{- $mountedConfigFiles := $root.Values.deployment.mountedConfigFiles -}}
-            {{- if or $dep.volumeMounts (and $inhMCFEff $mountedConfigFiles (or $mountedConfigFiles.files $mountedConfigFiles.bundles)) }}
+            {{- with $job.volumeMounts }}
             volumeMounts:
-              {{- with $dep.volumeMounts }}
               {{- toYaml . | nindent 14 }}
-              {{- end }}
-              {{- if and $inhMCFEff $mountedConfigFiles $mountedConfigFiles.files }}
-              {{- range $i, $f := $mountedConfigFiles.files }}
-              - name: md-cm-file-{{ $f.name }}
-                mountPath: {{ $f.targetPath }}
-                subPath: {{ $f.filename }}
-                readOnly: true
-              {{- end }}
-              {{- end }}
-              {{- if and $inhMCFEff $mountedConfigFiles $mountedConfigFiles.bundles }}
-              {{- range $bi, $b := $mountedConfigFiles.bundles }}
-              - name: md-cm-bundle-{{ $bi }}
-                mountPath: {{ $b.mountDir }}
-                readOnly: true
-              {{- end }}
-              {{- end }}
             {{- end }}
-          {{- if or $dep.volumes (and $inhMCFEff $mountedConfigFiles (or $mountedConfigFiles.files $mountedConfigFiles.bundles)) }}
+          {{- with $job.volumes }}
           volumes:
-            {{- with $dep.volumes }}
             {{- range . }}
             - name: {{ .name }}
               {{- if eq .type "emptyDir" }}
@@ -139,43 +139,272 @@ spec:
                 claimName: {{ default .persistentVolumeClaim.claimName .persistentVolumeClaim.name | quote }}
               {{- end }}
             {{- end }}
-            {{- end }}
-            {{- if and $inhMCFEff $mountedConfigFiles $mountedConfigFiles.files }}
-            {{- range $i, $f := $mountedConfigFiles.files }}
-            - name: md-cm-file-{{ $f.name }}
-              configMap:
-                name: {{ include "global-chart.fullname" $root }}-md-cm-{{ $f.name }}
-            {{- end }}
-            {{- end }}
-            {{- if and $inhMCFEff $mountedConfigFiles $mountedConfigFiles.bundles }}
-            {{- range $bi, $b := $mountedConfigFiles.bundles }}
-            - name: md-cm-bundle-{{ $bi }}
-              projected:
-                sources:
-                {{- range $fi, $f := $b.files }}
-                  - configMap:
-                      name: {{ include "global-chart.fullname" $root }}-md-cm-{{ $f.name }}
-                      items:
-                        - key: {{ $f.relPath | base }}
-                          path: {{ $f.relPath }}
-                {{- end }}
-            {{- end }}
-            {{- end }}
           {{- end }}
-          serviceAccountName: {{ if $inhSAEff }}{{ include "global-chart.serviceAccountName" $root | quote }}{{ else }}{{ default (printf "%s-%s" (include "global-chart.fullname" $root) $name) $job.serviceAccountName | quote }}{{ end }}
-          {{- if or $job.nodeSelector $root.Values.deployment.nodeSelector }}
+          serviceAccountName: {{ $saName | quote }}
+          {{- with $job.nodeSelector }}
           nodeSelector:
-            {{- toYaml (default $root.Values.deployment.nodeSelector $job.nodeSelector) | nindent 12 }}
+            {{- toYaml . | nindent 12 }}
           {{- end }}
-          {{- if or $job.affinity $root.Values.deployment.affinity }}
+          {{- with $job.affinity }}
           affinity:
-            {{- toYaml (default $root.Values.deployment.affinity $job.affinity) | nindent 12 }}
+            {{- toYaml . | nindent 12 }}
           {{- end }}
-          {{- if or $job.tolerations $root.Values.deployment.tolerations }}
+          {{- with $job.tolerations }}
           tolerations:
-            {{- toYaml (default $root.Values.deployment.tolerations $job.tolerations) | nindent 12 }}
+            {{- toYaml . | nindent 12 }}
           {{- end }}
           restartPolicy: {{ default "Never" $job.restartPolicy | quote }}
+{{- end }}
+{{- end }}
+{{- end }}
+
+{{/* ====== PART 2: Deployment-level cronJobs (inherit from deployment) ====== */}}
+{{- range $deployName, $deploy := .Values.deployments }}
+{{- if and $deploy $deploy.cronJobs }}
+{{- range $name, $job := $deploy.cronJobs }}
+{{- if $job }}
+
+{{- /* Build cronjob fullname with deployment name for uniqueness */ -}}
+{{- $jobFullname := printf "%s-%s-%s" (include "global-chart.fullname" $root) $deployName $name | trunc 63 | trimSuffix "-" }}
+
+{{- /* Resolve image: explicit in cronjob > inherited from deployment */ -}}
+{{- $jobImage := "" }}
+{{- if hasKey $job "image" }}
+  {{- $jobImage = include "global-chart.imageString" $job.image -}}
+{{- else }}
+  {{- $jobImage = include "global-chart.imageString" $deploy.image -}}
+{{- end }}
+{{- $imageRef := required (printf "image is required for deployments.%s.cronJobs.%s" $deployName $name) $jobImage }}
+
+{{- /* ServiceAccount: explicit > inherited from deployment > default */ -}}
+{{- $deploySA := default (dict) $deploy.serviceAccount -}}
+{{- $jobSAMap := (and (hasKey $job "serviceAccount") (kindIs "map" $job.serviceAccount)) | ternary $job.serviceAccount (dict) -}}
+{{- $jobSAExplicitName := coalesce $job.serviceAccountName $jobSAMap.name -}}
+
+{{- /* Use deployment's SA name if it exists, otherwise cronjob's own SA */ -}}
+{{- $deploymentSAName := "" -}}
+{{- if $deploySA.create -}}
+  {{- $deploymentSAName = include "global-chart.deploymentServiceAccountName" (dict "root" $root "deploymentName" $deployName "deployment" $deploy) -}}
+{{- end -}}
+
+{{- $saName := "" -}}
+{{- $saCreate := false -}}
+{{- if $jobSAExplicitName -}}
+  {{- $saName = $jobSAExplicitName -}}
+{{- else if $deploymentSAName -}}
+  {{- /* Inherit from deployment's service account */ -}}
+  {{- $saName = $deploymentSAName -}}
+{{- else -}}
+  {{- /* Create cronjob-specific SA */ -}}
+  {{- $saName = $jobFullname -}}
+  {{- $saCreate = true -}}
+{{- end -}}
+
+{{- /* Override saCreate if explicitly set in job */ -}}
+{{- if hasKey $jobSAMap "create" -}}
+  {{- $saCreate = $jobSAMap.create -}}
+  {{- if $saCreate -}}
+    {{- $saName = default $jobFullname $jobSAMap.name -}}
+  {{- end -}}
+{{- end -}}
+
+{{- $saAutomount := true -}}
+{{- if hasKey $job "automountServiceAccountToken" -}}
+  {{- $saAutomount = $job.automountServiceAccountToken -}}
+{{- end -}}
+{{- if hasKey $jobSAMap "automount" -}}
+  {{- $saAutomount = $jobSAMap.automount -}}
+{{- end -}}
+{{- $saAnnotations := $job.serviceAccountAnnotations -}}
+{{- if hasKey $jobSAMap "annotations" -}}
+  {{- $saAnnotations = $jobSAMap.annotations -}}
+{{- end -}}
+
+{{- /* Create SA only if needed (not using deployment's or explicit existing) */ -}}
+{{- if $saCreate }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $saName }}
+  namespace: {{ $root.Release.Namespace | quote }}
+  labels:
+    {{- include "global-chart.labels" $root | nindent 4 }}
+    app.kubernetes.io/component: {{ $deployName }}
+  {{- with $saAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+automountServiceAccountToken: {{ $saAutomount }}
+{{- end }}
+
+{{- /* Resolve inherited envFrom from deployment's configMap and secret */ -}}
+{{- $deployFullname := include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $deployName) -}}
+{{- $hasDeployConfigMap := and $deploy.configMap (gt (len $deploy.configMap) 0) -}}
+{{- $hasDeploySecret := and $deploy.secret (gt (len $deploy.secret) 0) -}}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ $jobFullname }}
+  labels:
+    {{- include "global-chart.labels" $root | nindent 4 }}
+    app.kubernetes.io/component: {{ $deployName }}
+  {{- if $job.annotations }}
+  annotations:
+    {{- toYaml $job.annotations | nindent 4 }}
+  {{- end }}
+spec:
+  schedule: {{ $job.schedule | quote }}
+  concurrencyPolicy: {{ default "Forbid" $job.concurrencyPolicy | quote }}
+  successfulJobsHistoryLimit: {{ default 2 $job.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ default 2 $job.failedJobsHistoryLimit }}
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          {{- /* ImagePullSecrets: explicit > inherited from deployment */ -}}
+          {{- $imagePullSecrets := $job.imagePullSecrets -}}
+          {{- if not $imagePullSecrets -}}
+            {{- $imagePullSecrets = $deploy.imagePullSecrets -}}
+          {{- end -}}
+          {{- with $imagePullSecrets }}
+          imagePullSecrets:
+            {{- range . }}
+              {{- if kindIs "string" . }}
+            - name: {{ . | quote }}
+              {{- else if hasKey . "name" }}
+            - name: {{ .name | quote }}
+              {{- end }}
+            {{- end }}
+          {{- end }}
+          {{- if $job.initContainers }}
+          initContainers:
+            {{- toYaml $job.initContainers | nindent 12 }}
+          {{- end }}
+          containers:
+          - name: {{ $name }}
+            image: {{ $imageRef | quote }}
+            imagePullPolicy: {{ include "global-chart.imagePullPolicy" (dict "override" $job.imagePullPolicy "image" (default $deploy.image $job.image)) | quote }}
+            {{- if $job.command }}
+            command:
+              {{- toYaml $job.command | nindent 14 }}
+            {{- end }}
+            {{- if $job.args }}
+            args:
+              {{- toYaml $job.args | nindent 14 }}
+            {{- end }}
+            {{- /* EnvFrom: deployment's configMap/secret + explicit envFromConfigMaps/envFromSecrets + deployment's envFromConfigMaps/envFromSecrets */ -}}
+            {{- $hasEnvFrom := or $hasDeployConfigMap $hasDeploySecret $job.envFromConfigMaps $job.envFromSecrets $deploy.envFromConfigMaps $deploy.envFromSecrets -}}
+            {{- if $hasEnvFrom }}
+            envFrom:
+              {{- /* Deployment's generated ConfigMap */ -}}
+              {{- if $hasDeployConfigMap }}
+              - configMapRef:
+                  name: {{ $deployFullname | quote }}
+              {{- end }}
+              {{- /* Deployment's generated Secret */ -}}
+              {{- if $hasDeploySecret }}
+              - secretRef:
+                  name: {{ $deployFullname | quote }}
+              {{- end }}
+              {{- /* Deployment's external ConfigMaps */ -}}
+              {{- range $cm := $deploy.envFromConfigMaps }}
+              - configMapRef:
+                  name: {{ $cm | quote }}
+              {{- end }}
+              {{- /* Deployment's external Secrets */ -}}
+              {{- range $sec := $deploy.envFromSecrets }}
+              - secretRef:
+                  name: {{ $sec | quote }}
+              {{- end }}
+              {{- /* CronJob's explicit external ConfigMaps */ -}}
+              {{- range $cm := $job.envFromConfigMaps }}
+              - configMapRef:
+                  name: {{ $cm | quote }}
+              {{- end }}
+              {{- /* CronJob's explicit external Secrets */ -}}
+              {{- range $sec := $job.envFromSecrets }}
+              - secretRef:
+                  name: {{ $sec | quote }}
+              {{- end }}
+            {{- end }}
+            {{- /* Env: deployment's additionalEnvs + cronjob's env */ -}}
+            {{- $envVars := list -}}
+            {{- if $deploy.additionalEnvs -}}
+              {{- $envVars = $deploy.additionalEnvs -}}
+            {{- end -}}
+            {{- if $job.env -}}
+              {{- $envVars = concat $envVars $job.env -}}
+            {{- end -}}
+            {{- if $envVars }}
+            env:
+              {{- toYaml $envVars | nindent 14 }}
+            {{- end }}
+            {{- if $job.resources }}
+            resources:
+              {{- toYaml $job.resources | nindent 14 }}
+            {{- else }}
+            resources:
+              requests:
+                cpu: 100m
+                memory: 128Mi
+            {{- end }}
+            {{- with $job.volumeMounts }}
+            volumeMounts:
+              {{- toYaml . | nindent 14 }}
+            {{- end }}
+          {{- with $job.volumes }}
+          volumes:
+            {{- range . }}
+            - name: {{ .name }}
+              {{- if eq .type "emptyDir" }}
+              emptyDir: {}
+              {{- end }}
+              {{- if eq .type "configMap" }}
+              configMap:
+                name: {{ .configMap.name | quote }}
+              {{- end }}
+              {{- if eq .type "secret" }}
+              secret:
+                secretName: {{ default .secret.secretName .secret.name | quote }}
+              {{- end }}
+              {{- if eq .type "persistentVolumeClaim" }}
+              persistentVolumeClaim:
+                claimName: {{ default .persistentVolumeClaim.claimName .persistentVolumeClaim.name | quote }}
+              {{- end }}
+            {{- end }}
+          {{- end }}
+          serviceAccountName: {{ $saName | quote }}
+          {{- /* NodeSelector: explicit > inherited from deployment */ -}}
+          {{- $nodeSelector := $job.nodeSelector -}}
+          {{- if not $nodeSelector -}}
+            {{- $nodeSelector = $deploy.nodeSelector -}}
+          {{- end -}}
+          {{- with $nodeSelector }}
+          nodeSelector:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- /* Affinity: explicit > inherited from deployment */ -}}
+          {{- $affinity := $job.affinity -}}
+          {{- if not $affinity -}}
+            {{- $affinity = $deploy.affinity -}}
+          {{- end -}}
+          {{- with $affinity }}
+          affinity:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- /* Tolerations: explicit > inherited from deployment */ -}}
+          {{- $tolerations := $job.tolerations -}}
+          {{- if not $tolerations -}}
+            {{- $tolerations = $deploy.tolerations -}}
+          {{- end -}}
+          {{- with $tolerations }}
+          tolerations:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          restartPolicy: {{ default "Never" $job.restartPolicy | quote }}
+{{ end }}
 {{- end }}
 {{- end }}
 {{- end }}

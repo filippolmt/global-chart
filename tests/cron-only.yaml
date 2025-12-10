@@ -1,5 +1,5 @@
-deployment:
-  enabled: false
+# CronJobs only - no deployments
+deployments: {}
 cronJobs:
   nightly:
     schedule: "0 3 * * *"

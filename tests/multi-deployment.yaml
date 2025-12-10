@@ -1,0 +1,422 @@
+# Comprehensive multi-deployment test
+# Tests all features with multiple independent deployments
+
+deployments:
+  # Frontend deployment - full featured
+  frontend:
+    replicaCount: 3
+    image:
+      repository: nginx
+      tag: "1.25"
+      pullPolicy: IfNotPresent
+
+    serviceAccount:
+      create: true
+      automount: true
+      annotations:
+        eks.amazonaws.com/role-arn: arn:aws:iam::123456789:role/frontend-role
+
+    service:
+      enabled: true
+      type: ClusterIP
+      port: 80
+      targetPort: 8080
+      portName: http
+
+    configMap:
+      FRONTEND_ENV: production
+      API_URL: http://backend:3000
+      CACHE_TTL: "3600"
+
+    secret:
+      SESSION_SECRET: supersecret123
+      COOKIE_KEY: cookiekey456
+
+    autoscaling:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 10
+      targetCPUUtilizationPercentage: 70
+
+    livenessProbe:
+      httpGet:
+        path: /health
+        port: http
+      initialDelaySeconds: 10
+
+    readinessProbe:
+      httpGet:
+        path: /ready
+        port: http
+
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+    podAnnotations:
+      prometheus.io/scrape: "true"
+      prometheus.io/port: "8080"
+
+    nodeSelector:
+      node-type: frontend
+
+  # Backend deployment - API service
+  backend:
+    replicaCount: 2
+    image:
+      repository: myapp/backend
+      tag: "v2.1.0"
+
+    serviceAccount:
+      create: true
+      name: backend-sa
+
+    service:
+      enabled: true
+      type: ClusterIP
+      port: 3000
+      targetPort: 3000
+      portName: api
+
+    configMap:
+      DB_HOST: postgres.db.svc
+      DB_PORT: "5432"
+      DB_NAME: myapp
+      REDIS_HOST: redis.cache.svc
+      LOG_LEVEL: info
+
+    secret:
+      DB_PASSWORD: dbpass123
+      DB_USER: dbuser
+      API_KEY: apikey789
+
+    autoscaling:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 20
+      targetCPUUtilizationPercentage: 60
+      targetMemoryUtilizationPercentage: 80
+
+    livenessProbe:
+      httpGet:
+        path: /api/health
+        port: api
+      periodSeconds: 10
+
+    readinessProbe:
+      httpGet:
+        path: /api/ready
+        port: api
+
+    startupProbe:
+      httpGet:
+        path: /api/health
+        port: api
+      failureThreshold: 30
+      periodSeconds: 10
+
+    resources:
+      requests:
+        cpu: 200m
+        memory: 256Mi
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+
+    envFromConfigMaps:
+      - shared-config
+    envFromSecrets:
+      - shared-secrets
+
+    additionalEnvs:
+      - name: POD_NAME
+        valueFrom:
+          fieldRef:
+            fieldPath: metadata.name
+      - name: POD_NAMESPACE
+        valueFrom:
+          fieldRef:
+            fieldPath: metadata.namespace
+
+    volumes:
+      - name: cache-volume
+        type: emptyDir
+      - name: config-volume
+        type: configMap
+        configMap:
+          name: backend-extra-config
+
+    volumeMounts:
+      - name: cache-volume
+        mountPath: /tmp/cache
+      - name: config-volume
+        mountPath: /etc/app/config
+
+    dnsConfig:
+      nameservers:
+        - 10.0.0.10
+      searches:
+        - svc.cluster.local
+
+  # Worker deployment - background jobs (no service)
+  worker:
+    replicaCount: 1
+    image:
+      repository: myapp/worker
+      tag: "v2.1.0"
+
+    serviceAccount:
+      create: false
+      name: default
+
+    service:
+      enabled: false  # Workers don't need a service
+
+    configMap:
+      QUEUE_URL: redis://redis:6379
+      CONCURRENCY: "5"
+      JOB_TIMEOUT: "300"
+
+    secret:
+      QUEUE_PASSWORD: queuepass
+
+    autoscaling:
+      enabled: false
+
+    resources:
+      requests:
+        cpu: 500m
+        memory: 512Mi
+      limits:
+        cpu: 2000m
+        memory: 2Gi
+
+    podRecreation:
+      enabled: true  # Force pod recreation on each deploy
+
+    tolerations:
+      - key: "workload"
+        operator: "Equal"
+        value: "background"
+        effect: "NoSchedule"
+
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+                - key: workload-type
+                  operator: In
+                  values:
+                    - background
+                    - worker
+
+  # Minimal deployment - tests defaults
+  minimal:
+    image: busybox:latest
+
+# Mounted config files for specific deployments
+mountedConfigFiles:
+  frontend:
+    files:
+      - name: nginx-conf
+        filename: nginx.conf
+        targetPath: /etc/nginx/nginx.conf
+        content: |
+          worker_processes auto;
+          events {
+              worker_connections 1024;
+          }
+          http {
+              server {
+                  listen 8080;
+                  location / {
+                      root /usr/share/nginx/html;
+                  }
+              }
+          }
+
+  backend:
+    files:
+      - name: app-config
+        filename: config.json
+        targetPath: /etc/app/config.json
+        content: |
+          {
+            "logging": {
+              "level": "info",
+              "format": "json"
+            },
+            "features": {
+              "caching": true,
+              "rateLimit": true
+            }
+          }
+    bundles:
+      - mountDir: /etc/app/certs
+        files:
+          - name: tls-cert
+            relPath: tls.crt
+            content: |
+              -----BEGIN CERTIFICATE-----
+              MIIC...
+              -----END CERTIFICATE-----
+          - name: tls-key
+            relPath: tls.key
+            content: |
+              -----BEGIN PRIVATE KEY-----
+              MIIE...
+              -----END PRIVATE KEY-----
+
+# Ingress routing to different deployments
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+
+  tls:
+    - secretName: myapp-tls
+      hosts:
+        - myapp.example.com
+        - api.example.com
+
+  hosts:
+    - host: myapp.example.com
+      deployment: frontend
+      paths:
+        - path: /
+          pathType: Prefix
+
+    - host: api.example.com
+      deployment: backend
+      paths:
+        - path: /api
+          pathType: Prefix
+        - path: /graphql
+          pathType: Exact
+
+    - host: admin.example.com
+      service:
+        name: external-admin-svc
+        port: 8080
+      paths:
+        - path: /
+          pathType: Prefix
+
+# CronJobs using different deployments
+cronJobs:
+  # Uses backend image
+  db-backup:
+    schedule: "0 2 * * *"
+    fromDeployment: backend
+    command: ["sh", "-c"]
+    args: ["pg_dump -h $DB_HOST -U $DB_USER $DB_NAME > /backup/db.sql"]
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+    envFromConfigMaps:
+      - backup-config
+    successfulJobsHistoryLimit: 3
+    failedJobsHistoryLimit: 1
+
+  # Uses worker image
+  queue-cleanup:
+    schedule: "0 */6 * * *"
+    fromDeployment: worker
+    args: ["cleanup", "--older-than", "7d"]
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+
+  # Explicit image (no fromDeployment)
+  report-generator:
+    schedule: "0 8 * * 1"
+    image: myapp/reports:latest
+    command: ["generate-report"]
+    args: ["--weekly", "--email", "team@example.com"]
+    resources:
+      requests:
+        cpu: 200m
+        memory: 512Mi
+
+# Hooks using different deployments
+hooks:
+  pre-install:
+    init-db:
+      fromDeployment: backend
+      command: ["sh", "-c"]
+      args: ["./scripts/init-db.sh"]
+      weight: 5
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+
+  post-install:
+    seed-data:
+      fromDeployment: backend
+      command: ["sh", "-c"]
+      args: ["./scripts/seed-data.sh"]
+      weight: 10
+
+    warm-cache:
+      fromDeployment: frontend
+      command: ["curl", "-s", "http://localhost:8080/warmup"]
+      weight: 20
+
+  pre-upgrade:
+    migrate-db:
+      fromDeployment: backend
+      command: ["./migrate", "up"]
+      weight: 5
+      deletePolicy: before-hook-creation
+
+  post-upgrade:
+    notify:
+      image: curlimages/curl:latest
+      command: ["curl", "-X", "POST"]
+      args: ["-d", '{"text":"Deployment complete"}', "https://hooks.slack.com/xxx"]
+      weight: 100
+
+# RBAC for worker jobs
+rbacs:
+  roles:
+    - name: worker-role
+      serviceAccount:
+        name: worker-sa
+        automount: true
+      rules:
+        - apiGroups: ["batch"]
+          resources: ["jobs"]
+          verbs: ["get", "list", "watch", "create", "delete"]
+        - apiGroups: [""]
+          resources: ["pods", "pods/log"]
+          verbs: ["get", "list", "watch"]
+
+# External secrets for all deployments
+externalSecrets:
+  database-credentials:
+    remote:
+      key: prod/database
+    secretstore:
+      kind: ClusterSecretStore
+      name: vault
+    secretkey: password
+
+  api-keys:
+    remote:
+      key: prod/api-keys
+      conversionStrategy: Default
+    secretstore:
+      kind: ClusterSecretStore
+      name: vault
+    secretkey: stripe-key
+    refreshInterval: "1h"

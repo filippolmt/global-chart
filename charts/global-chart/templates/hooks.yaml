@@ -1,16 +1,37 @@
-{{- if .Values.hooks }}
+{{/*
+  Hooks can be defined in two places:
+  1. Root level: .Values.hooks (standalone, optional fromDeployment for image)
+  2. Inside deployments: .Values.deployments.<name>.hooks (inherits image, configMap, secret, SA from deployment)
+*/}}
+
 {{- $root := . }}
+
+{{/* ====== PART 1: Root-level hooks ====== */}}
+{{- if .Values.hooks }}
 {{- range $hookType, $jobs := .Values.hooks }}
-  {{- range $name, $command := $jobs }}
-    {{- if $command }}
-{{- $inheritRaw := default (dict) $command.inheritFromDeployment -}}
-{{- $inherit := (kindIs "map" $inheritRaw) | ternary $inheritRaw (dict) -}}
-{{- $inhSA := (hasKey $inherit "serviceAccount") | ternary ($inherit.serviceAccount) true -}}
+{{- range $name, $command := $jobs }}
+{{- if $command }}
+{{- $hookFullname := include "global-chart.hookfullname" (merge (dict "hookname" $hookType "jobname" $name) $root) }}
+
+{{- /* Resolve image: explicit > fromDeployment > error */ -}}
+{{- $cmdImage := "" }}
+{{- if hasKey $command "image" }}
+  {{- $cmdImage = include "global-chart.imageString" $command.image -}}
+{{- else if $command.fromDeployment }}
+  {{- $depName := $command.fromDeployment -}}
+  {{- $deploy := index $root.Values.deployments $depName -}}
+  {{- if not $deploy -}}
+    {{- fail (printf "hooks.%s.%s.fromDeployment references deployment '%s' which does not exist in .Values.deployments" $hookType $name $depName) -}}
+  {{- end -}}
+  {{- $cmdImage = include "global-chart.imageString" $deploy.image -}}
+{{- end }}
+{{- $imageRef := required (printf "image is required for hooks.%s.%s (set hooks.%s.%s.image or hooks.%s.%s.fromDeployment)" $hookType $name $hookType $name $hookType $name) $cmdImage }}
+
+{{- /* ServiceAccount handling */ -}}
 {{- $commandSAMap := (and (hasKey $command "serviceAccount") (kindIs "map" $command.serviceAccount)) | ternary $command.serviceAccount (dict) -}}
 {{- $commandSAExplicitName := coalesce $command.serviceAccountName $commandSAMap.name -}}
-{{- $customSANamed := not (empty $commandSAExplicitName) -}}
-{{- $inhSAEff := and (not $customSANamed) $inhSA $root.Values.deployment.enabled -}}
-{{- $saCreate := $root.Values.deployment.serviceAccount.create -}}
+{{- $saName := default $hookFullname $commandSAExplicitName -}}
+{{- $saCreate := false -}}
 {{- if hasKey $commandSAMap "create" -}}
   {{- $saCreate = $commandSAMap.create -}}
 {{- end -}}
@@ -28,26 +49,30 @@
 {{- if hasKey $commandSAMap "annotations" -}}
   {{- $saAnnotations = $commandSAMap.annotations -}}
 {{- end -}}
-{{- if and (not $inhSAEff) (or $saCreate (not $customSANamed)) }}
+
+{{- if or $saCreate (not $commandSAExplicitName) }}
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: {{ default (include "global-chart.hookfullname" (merge (dict "hookname" $hookType "jobname" $name) $root)) $commandSAExplicitName }}
+  name: {{ $saName }}
   namespace: {{ $root.Release.Namespace | quote }}
   labels:
     {{- include "global-chart.hookLabels" $root | nindent 4 }}
-  {{- with $saAnnotations }}
   annotations:
+    "helm.sh/hook": {{ $hookType | quote }}
+    "helm.sh/hook-weight": {{ default "5" $command.weight | quote }}
+    "helm.sh/hook-delete-policy": {{ default "before-hook-creation" $command.deletePolicy | quote }}
+    {{- with $saAnnotations }}
     {{- toYaml . | nindent 4 }}
-  {{- end }}
+    {{- end }}
 automountServiceAccountToken: {{ $saAutomount }}
 {{- end }}
 ---
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "global-chart.hookfullname" (merge (dict "hookname" $hookType "jobname" $name) $root) }}
+  name: {{ $hookFullname }}
   labels:
     {{- include "global-chart.hookLabels" $root | nindent 4 }}
   annotations:
@@ -57,62 +82,30 @@ metadata:
 spec:
   template:
     metadata:
-      name: {{ include "global-chart.hookfullname" (merge (dict "hookname" $hookType "jobname" $name) $root) }}
+      name: {{ $hookFullname }}
       labels:
         {{- include "global-chart.hookLabels" $root | nindent 8 }}
     spec:
-      serviceAccountName: {{ if $inhSAEff }}{{ include "global-chart.serviceAccountName" $root | quote }}{{ else }}{{ default (include "global-chart.hookfullname" (merge (dict "hookname" $hookType "jobname" $name) $root)) $commandSAExplicitName | quote }}{{ end }}
-      {{- with $root.Values.deployment.imagePullSecrets }}
+      serviceAccountName: {{ $saName | quote }}
+      {{- with $command.imagePullSecrets }}
       imagePullSecrets:
         {{- range . }}
           {{- if kindIs "string" . }}
         - name: {{ . | quote }}
           {{- else if hasKey . "name" }}
         - name: {{ .name | quote }}
-          {{- else }}
-          {{- fail "imagePullSecrets must be a list of strings or objects with a 'name' key." }}
           {{- end }}
         {{- end }}
       {{- end }}
-      {{- if $root.Values.deployment.hostAliases }}
+      {{- with $command.hostAliases }}
       hostAliases:
-        {{- toYaml $root.Values.deployment.hostAliases | nindent 8 }}
-      {{- end }}
-      {{- if or $root.Values.deployment.dnsConfig.nameservers $root.Values.deployment.dnsConfig.searches $root.Values.deployment.dnsConfig.options }}
-      dnsConfig:
-        {{- if $root.Values.deployment.dnsConfig.nameservers }}
-        nameservers:
-          {{- range $root.Values.deployment.dnsConfig.nameservers }}
-          - {{ . }}
-          {{- end }}
-        {{- end }}
-        {{- if $root.Values.deployment.dnsConfig.searches }}
-        searches:
-          {{- range $root.Values.deployment.dnsConfig.searches }}
-          - {{ . }}
-          {{- end }}
-        {{- end }}
-        {{- if $root.Values.deployment.dnsConfig.options }}
-        options:
-          {{- range $root.Values.deployment.dnsConfig.options }}
-          - name: {{ .name }}
-            {{- if .value }}
-            value: {{ .value | quote }}
-            {{- end }}
-          {{- end }}
-        {{- end }}
+        {{- toYaml . | nindent 8 }}
       {{- end }}
       restartPolicy: {{ default "Never" $command.restartPolicy | quote }}
       containers:
-      - name: {{ include "global-chart.hookfullname" (merge (dict "hookname" $hookType "jobname" $name) $root) }}
-        {{- $cmdImage := "" }}
-        {{- if hasKey $command "image" }}
-          {{- $cmdImage = include "global-chart.imageString" $command.image -}}
-        {{- end }}
-        {{- $depImage := include "global-chart.imageString" $root.Values.deployment.image }}
-        {{- $imageRef := required (printf "image is required for hooks.%s.%s (set hooks.%s.%s.image or deployment.image)" $hookType $name $hookType $name) (default $depImage $cmdImage) }}
+      - name: {{ $hookFullname }}
         image: {{ $imageRef | quote }}
-        imagePullPolicy: {{ include "global-chart.imagePullPolicy" (dict "override" $command.imagePullPolicy "image" $command.image "fallback" $root.Values.deployment.image.pullPolicy) | quote }}
+        imagePullPolicy: {{ include "global-chart.imagePullPolicy" (dict "override" $command.imagePullPolicy "image" $command.image) | quote }}
         {{- if $command.command }}
         command:
           {{- toYaml $command.command | nindent 10 }}
@@ -121,79 +114,36 @@ spec:
         args:
           {{- toYaml $command.args | nindent 10 }}
         {{- end }}
-        {{- $hookResources := $root.Values.deployment.resources -}}
-        {{- if hasKey $command "resources" -}}
-          {{- $hookResources = $command.resources -}}
-        {{- end -}}
-        {{- if $hookResources }}
+        {{- if $command.resources }}
         resources:
-          {{- toYaml $hookResources | nindent 10 }}
+          {{- toYaml $command.resources | nindent 10 }}
+        {{- else }}
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
         {{- end }}
-        {{- if or $root.Values.deployment.configMap $root.Values.deployment.envFromConfigMaps $root.Values.deployment.secret $root.Values.deployment.envFromSecrets }}
+        {{- if or $command.envFromConfigMaps $command.envFromSecrets }}
         envFrom:
-          {{- if $root.Values.deployment.configMap }}
-          - configMapRef:
-              name: {{ template "global-chart.fullname" $root }}
-          {{- end }}
-          {{- range $cm := $root.Values.deployment.envFromConfigMaps }}
+          {{- range $cm := $command.envFromConfigMaps }}
           - configMapRef:
               name: {{ $cm | quote }}
           {{- end }}
-          {{- if $root.Values.deployment.secret }}
-          - secretRef:
-              name: {{ template "global-chart.fullname" $root }}
-          {{- end }}
-          {{- range $sec := $root.Values.deployment.envFromSecrets }}
+          {{- range $sec := $command.envFromSecrets }}
           - secretRef:
               name: {{ $sec | quote }}
           {{- end }}
         {{- end }}
-        {{- if $root.Values.deployment.additionalEnvs }}
+        {{- if $command.env }}
         env:
-          {{- range $env := $root.Values.deployment.additionalEnvs }}
-          - name: {{ $env.name | quote }}
-            valueFrom:
-              {{- toYaml $env.valueFrom | nindent 14 }}
-          {{- end }}
+          {{- toYaml $command.env | nindent 10 }}
         {{- end }}
-        {{- $inheritRaw := default (dict) $command.inheritFromDeployment -}}
-        {{- $inherit := (kindIs "map" $inheritRaw) | ternary $inheritRaw (dict) -}}
-        {{- $inhVM  := (hasKey $inherit "volumeMounts")       | ternary ($inherit.volumeMounts)       true -}}
-        {{- $inhV   := (hasKey $inherit "volumes")            | ternary ($inherit.volumes)            true -}}
-        {{- $inhMCF := (hasKey $inherit "mountedConfigFiles") | ternary ($inherit.mountedConfigFiles) true -}}
-        {{- $inhVMEff  := and $inhVM  $root.Values.deployment.enabled -}}
-        {{- $inhVEff   := and $inhV   $root.Values.deployment.enabled -}}
-        {{- $inhMCFEff := and $inhMCF $root.Values.deployment.enabled -}}
-        {{- $hasCmdVM := hasKey $command "volumeMounts" -}}
-        {{- $hasCmdV  := hasKey $command "volumes" -}}
-        {{- $vm := $hasCmdVM | ternary $command.volumeMounts (and $inhVMEff  $root.Values.deployment.volumeMounts) -}}
-        {{- $v  := $hasCmdV  | ternary $command.volumes      (and $inhVEff  $root.Values.deployment.volumes) -}}
-        {{- $dep := dict "volumeMounts" $vm "volumes" $v -}}
-        {{- $mountedConfigFiles := $root.Values.deployment.mountedConfigFiles -}}
-        {{- if or $dep.volumeMounts (and $inhMCFEff $mountedConfigFiles (or $mountedConfigFiles.files $mountedConfigFiles.bundles)) }}
+        {{- with $command.volumeMounts }}
         volumeMounts:
-          {{- with $dep.volumeMounts }}
           {{- toYaml . | nindent 10 }}
-          {{- end }}
-          {{- if and $inhMCFEff $mountedConfigFiles $mountedConfigFiles.files }}
-          {{- range $i, $f := $mountedConfigFiles.files }}
-          - name: md-cm-file-{{ $f.name }}
-            mountPath: {{ $f.targetPath }}
-            subPath: {{ $f.filename }}
-            readOnly: true
-          {{- end }}
-          {{- end }}
-          {{- if and $inhMCFEff $mountedConfigFiles $mountedConfigFiles.bundles }}
-          {{- range $bi, $b := $mountedConfigFiles.bundles }}
-          - name: md-cm-bundle-{{ $bi }}
-            mountPath: {{ $b.mountDir }}
-            readOnly: true
-          {{- end }}
-          {{- end }}
         {{- end }}
-      {{- if or $dep.volumes (and $inhMCFEff $mountedConfigFiles (or $mountedConfigFiles.files $mountedConfigFiles.bundles)) }}
+      {{- with $command.volumes }}
       volumes:
-        {{- with $dep.volumes }}
         {{- range . }}
         - name: {{ .name }}
           {{- if eq .type "emptyDir" }}
@@ -212,42 +162,283 @@ spec:
             claimName: {{ default .persistentVolumeClaim.claimName .persistentVolumeClaim.name | quote }}
           {{- end }}
         {{- end }}
-        {{- end }}
-        {{- if and $inhMCFEff $mountedConfigFiles $mountedConfigFiles.files }}
-        {{- range $i, $f := $mountedConfigFiles.files }}
-        - name: md-cm-file-{{ $f.name }}
-          configMap:
-            name: {{ include "global-chart.fullname" $root }}-md-cm-{{ $f.name }}
-        {{- end }}
-        {{- end }}
-        {{- if and $inhMCFEff $mountedConfigFiles $mountedConfigFiles.bundles }}
-        {{- range $bi, $b := $mountedConfigFiles.bundles }}
-        - name: md-cm-bundle-{{ $bi }}
-          projected:
-            sources:
-            {{- range $fi, $f := $b.files }}
-              - configMap:
-                  name: {{ include "global-chart.fullname" $root }}-md-cm-{{ $f.name }}
-                  items:
-                    - key: {{ $f.relPath | base }}
-                      path: {{ $f.relPath }}
-            {{- end }}
-        {{- end }}
-        {{- end }}
       {{- end }}
-      {{- if or $command.nodeSelector $root.Values.deployment.nodeSelector }}
+      {{- with $command.nodeSelector }}
       nodeSelector:
-        {{- toYaml (default $root.Values.deployment.nodeSelector $command.nodeSelector) | nindent 8 }}
+        {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- if or $command.affinity $root.Values.deployment.affinity }}
+      {{- with $command.affinity }}
       affinity:
-        {{- toYaml (default $root.Values.deployment.affinity $command.affinity) | nindent 8 }}
+        {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- if or $command.tolerations $root.Values.deployment.tolerations }}
+      {{- with $command.tolerations }}
       tolerations:
-        {{- toYaml (default $root.Values.deployment.tolerations $command.tolerations) | nindent 8 }}
+        {{- toYaml . | nindent 8 }}
       {{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+
+{{/* ====== PART 2: Deployment-level hooks (inherit from deployment) ====== */}}
+{{- range $deployName, $deploy := .Values.deployments }}
+{{- if and $deploy $deploy.hooks }}
+{{- range $hookType, $jobs := $deploy.hooks }}
+{{- range $name, $command := $jobs }}
+{{- if $command }}
+
+{{- /* Build hook fullname with deployment name for uniqueness */ -}}
+{{- $hookFullname := printf "%s-%s-%s-%s" (include "global-chart.fullname" $root) $deployName $hookType $name | trunc 62 | trimSuffix "-" }}
+
+{{- /* Resolve image: explicit in hook > inherited from deployment */ -}}
+{{- $cmdImage := "" }}
+{{- if hasKey $command "image" }}
+  {{- $cmdImage = include "global-chart.imageString" $command.image -}}
+{{- else }}
+  {{- $cmdImage = include "global-chart.imageString" $deploy.image -}}
+{{- end }}
+{{- $imageRef := required (printf "image is required for deployments.%s.hooks.%s.%s" $deployName $hookType $name) $cmdImage }}
+
+{{- /* ServiceAccount: explicit > inherited from deployment > default */ -}}
+{{- $deploySA := default (dict) $deploy.serviceAccount -}}
+{{- $commandSAMap := (and (hasKey $command "serviceAccount") (kindIs "map" $command.serviceAccount)) | ternary $command.serviceAccount (dict) -}}
+{{- $commandSAExplicitName := coalesce $command.serviceAccountName $commandSAMap.name -}}
+
+{{- /* Use deployment's SA name if it exists, otherwise hook's own SA */ -}}
+{{- $deploymentSAName := "" -}}
+{{- if $deploySA.create -}}
+  {{- $deploymentSAName = include "global-chart.deploymentServiceAccountName" (dict "root" $root "deploymentName" $deployName "deployment" $deploy) -}}
+{{- end -}}
+
+{{- $saName := "" -}}
+{{- $saCreate := false -}}
+{{- if $commandSAExplicitName -}}
+  {{- $saName = $commandSAExplicitName -}}
+{{- else if $deploymentSAName -}}
+  {{- /* Inherit from deployment's service account */ -}}
+  {{- $saName = $deploymentSAName -}}
+{{- else -}}
+  {{- /* Create hook-specific SA */ -}}
+  {{- $saName = $hookFullname -}}
+  {{- $saCreate = true -}}
+{{- end -}}
+
+{{- /* Override saCreate if explicitly set in command */ -}}
+{{- if hasKey $commandSAMap "create" -}}
+  {{- $saCreate = $commandSAMap.create -}}
+  {{- if $saCreate -}}
+    {{- $saName = default $hookFullname $commandSAMap.name -}}
+  {{- end -}}
+{{- end -}}
+
+{{- $saAutomount := true -}}
+{{- if hasKey $command "automountServiceAccountToken" -}}
+  {{- $saAutomount = $command.automountServiceAccountToken -}}
+{{- end -}}
+{{- if hasKey $commandSAMap "automountServiceAccountToken" -}}
+  {{- $saAutomount = $commandSAMap.automountServiceAccountToken -}}
+{{- end -}}
+{{- if hasKey $commandSAMap "automount" -}}
+  {{- $saAutomount = $commandSAMap.automount -}}
+{{- end -}}
+{{- $saAnnotations := $command.serviceAccountAnnotations -}}
+{{- if hasKey $commandSAMap "annotations" -}}
+  {{- $saAnnotations = $commandSAMap.annotations -}}
+{{- end -}}
+
+{{- /* Create SA only if needed (not using deployment's or explicit existing) */ -}}
+{{- if $saCreate }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $saName }}
+  namespace: {{ $root.Release.Namespace | quote }}
+  labels:
+    {{- include "global-chart.hookLabels" $root | nindent 4 }}
+    app.kubernetes.io/component: {{ $deployName }}
+  annotations:
+    "helm.sh/hook": {{ $hookType | quote }}
+    "helm.sh/hook-weight": {{ default "5" $command.weight | quote }}
+    "helm.sh/hook-delete-policy": {{ default "before-hook-creation" $command.deletePolicy | quote }}
+    {{- with $saAnnotations }}
+    {{- toYaml . | nindent 4 }}
     {{- end }}
-  {{- end }}
+automountServiceAccountToken: {{ $saAutomount }}
+{{- end }}
+
+{{- /* Resolve inherited envFrom from deployment's configMap and secret */ -}}
+{{- $deployFullname := include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $deployName) -}}
+{{- $hasDeployConfigMap := and $deploy.configMap (gt (len $deploy.configMap) 0) -}}
+{{- $hasDeploySecret := and $deploy.secret (gt (len $deploy.secret) 0) -}}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ $hookFullname }}
+  labels:
+    {{- include "global-chart.hookLabels" $root | nindent 4 }}
+    app.kubernetes.io/component: {{ $deployName }}
+  annotations:
+    "helm.sh/hook": {{ $hookType | quote }}
+    "helm.sh/hook-weight": {{ default "10" $command.weight | quote }}
+    "helm.sh/hook-delete-policy": {{ default "before-hook-creation" $command.deletePolicy | quote }}
+spec:
+  template:
+    metadata:
+      name: {{ $hookFullname }}
+      labels:
+        {{- include "global-chart.hookLabels" $root | nindent 8 }}
+        app.kubernetes.io/component: {{ $deployName }}
+    spec:
+      serviceAccountName: {{ $saName | quote }}
+      {{- /* ImagePullSecrets: explicit > inherited from deployment */ -}}
+      {{- $imagePullSecrets := $command.imagePullSecrets -}}
+      {{- if not $imagePullSecrets -}}
+        {{- $imagePullSecrets = $deploy.imagePullSecrets -}}
+      {{- end -}}
+      {{- with $imagePullSecrets }}
+      imagePullSecrets:
+        {{- range . }}
+          {{- if kindIs "string" . }}
+        - name: {{ . | quote }}
+          {{- else if hasKey . "name" }}
+        - name: {{ .name | quote }}
+          {{- end }}
+        {{- end }}
+      {{- end }}
+      {{- /* HostAliases: explicit > inherited from deployment */ -}}
+      {{- $hostAliases := $command.hostAliases -}}
+      {{- if not $hostAliases -}}
+        {{- $hostAliases = $deploy.hostAliases -}}
+      {{- end -}}
+      {{- with $hostAliases }}
+      hostAliases:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      restartPolicy: {{ default "Never" $command.restartPolicy | quote }}
+      containers:
+      - name: {{ $name }}
+        image: {{ $imageRef | quote }}
+        imagePullPolicy: {{ include "global-chart.imagePullPolicy" (dict "override" $command.imagePullPolicy "image" (default $deploy.image $command.image)) | quote }}
+        {{- if $command.command }}
+        command:
+          {{- toYaml $command.command | nindent 10 }}
+        {{- end }}
+        {{- if $command.args }}
+        args:
+          {{- toYaml $command.args | nindent 10 }}
+        {{- end }}
+        {{- if $command.resources }}
+        resources:
+          {{- toYaml $command.resources | nindent 10 }}
+        {{- else }}
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        {{- end }}
+        {{- /* EnvFrom: deployment's configMap/secret + explicit envFromConfigMaps/envFromSecrets + deployment's envFromConfigMaps/envFromSecrets */ -}}
+        {{- $hasEnvFrom := or $hasDeployConfigMap $hasDeploySecret $command.envFromConfigMaps $command.envFromSecrets $deploy.envFromConfigMaps $deploy.envFromSecrets -}}
+        {{- if $hasEnvFrom }}
+        envFrom:
+          {{- /* Deployment's generated ConfigMap */ -}}
+          {{- if $hasDeployConfigMap }}
+          - configMapRef:
+              name: {{ $deployFullname | quote }}
+          {{- end }}
+          {{- /* Deployment's generated Secret */ -}}
+          {{- if $hasDeploySecret }}
+          - secretRef:
+              name: {{ $deployFullname | quote }}
+          {{- end }}
+          {{- /* Deployment's external ConfigMaps */ -}}
+          {{- range $cm := $deploy.envFromConfigMaps }}
+          - configMapRef:
+              name: {{ $cm | quote }}
+          {{- end }}
+          {{- /* Deployment's external Secrets */ -}}
+          {{- range $sec := $deploy.envFromSecrets }}
+          - secretRef:
+              name: {{ $sec | quote }}
+          {{- end }}
+          {{- /* Hook's explicit external ConfigMaps */ -}}
+          {{- range $cm := $command.envFromConfigMaps }}
+          - configMapRef:
+              name: {{ $cm | quote }}
+          {{- end }}
+          {{- /* Hook's explicit external Secrets */ -}}
+          {{- range $sec := $command.envFromSecrets }}
+          - secretRef:
+              name: {{ $sec | quote }}
+          {{- end }}
+        {{- end }}
+        {{- /* Env: deployment's additionalEnvs + hook's env */ -}}
+        {{- $envVars := list -}}
+        {{- if $deploy.additionalEnvs -}}
+          {{- $envVars = $deploy.additionalEnvs -}}
+        {{- end -}}
+        {{- if $command.env -}}
+          {{- $envVars = concat $envVars $command.env -}}
+        {{- end -}}
+        {{- if $envVars }}
+        env:
+          {{- toYaml $envVars | nindent 10 }}
+        {{- end }}
+        {{- with $command.volumeMounts }}
+        volumeMounts:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+      {{- with $command.volumes }}
+      volumes:
+        {{- range . }}
+        - name: {{ .name }}
+          {{- if eq .type "emptyDir" }}
+          emptyDir: {}
+          {{- end }}
+          {{- if eq .type "configMap" }}
+          configMap:
+            name: {{ .configMap.name | quote }}
+          {{- end }}
+          {{- if eq .type "secret" }}
+          secret:
+            secretName: {{ default .secret.secretName .secret.name | quote }}
+          {{- end }}
+          {{- if eq .type "persistentVolumeClaim" }}
+          persistentVolumeClaim:
+            claimName: {{ default .persistentVolumeClaim.claimName .persistentVolumeClaim.name | quote }}
+          {{- end }}
+        {{- end }}
+      {{- end }}
+      {{- /* NodeSelector: explicit > inherited from deployment */ -}}
+      {{- $nodeSelector := $command.nodeSelector -}}
+      {{- if not $nodeSelector -}}
+        {{- $nodeSelector = $deploy.nodeSelector -}}
+      {{- end -}}
+      {{- with $nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- /* Affinity: explicit > inherited from deployment */ -}}
+      {{- $affinity := $command.affinity -}}
+      {{- if not $affinity -}}
+        {{- $affinity = $deploy.affinity -}}
+      {{- end -}}
+      {{- with $affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- /* Tolerations: explicit > inherited from deployment */ -}}
+      {{- $tolerations := $command.tolerations -}}
+      {{- if not $tolerations -}}
+        {{- $tolerations = $deploy.tolerations -}}
+      {{- end -}}
+      {{- with $tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{ end }}
+{{- end }}
+{{- end }}
 {{- end }}
 {{- end }}

@@ -1,126 +1,126 @@
-deployment:
-  enabled: true
-  image:
-    repository: nginx
-    pullPolicy: IfNotPresent
-    tag: "1.23.3"
-  autoscaling:
-    enabled: true
-    minReplicas: 2
-    maxReplicas: 10
-    targetCPUUtilizationPercentage: 80
-    behavior:
-      scaleUp:
-        stabilizationWindowSeconds: 60
-        policies:
-          - type: Percent
-            value: 20
-            periodSeconds: 60
-      scaleDown:
-        stabilizationWindowSeconds: 60
-        policies:
-          - type: Percent
-            value: 20
-            periodSeconds: 60
-  secret:
-    password: AQ23sdsd
-    username: admin
-    host: example.com
+deployments:
+  main:
+    image:
+      repository: nginx
+      pullPolicy: IfNotPresent
+      tag: "1.23.3"
+    autoscaling:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 10
+      targetCPUUtilizationPercentage: 80
+      behavior:
+        scaleUp:
+          stabilizationWindowSeconds: 60
+          policies:
+            - type: Percent
+              value: 20
+              periodSeconds: 60
+        scaleDown:
+          stabilizationWindowSeconds: 60
+          policies:
+            - type: Percent
+              value: 20
+              periodSeconds: 60
+    secret:
+      password: AQ23sdsd
+      username: admin
+      host: example.com
 
-  configMap:
-    BOOLEAN: true
-    PORT: 5432
-    HOST: 10.10.10.10
-    username: admin
-    environment: production
-    host: example.com
+    configMap:
+      BOOLEAN: true
+      PORT: 5432
+      HOST: 10.10.10.10
+      username: admin
+      environment: production
+      host: example.com
 
-  volumes:
-    - name: myvolume
-      type: secret
-      secret:
-        secretName: mysql-0-secret
-    - name: myvolume2
-      type: configMap
-      configMap:
-        name: mysql-0-config
-    - name: myvolume3
-      type: persistentVolumeClaim
-      persistentVolumeClaim:
-        claimName: mypvc
-  volumeMounts:
-    - name: myvolume
-      mountPath: /etc/secret
-    - name: myvolume2
-      mountPath: /etc/config
-    - name: myvolume3
-      mountPath: /etc/pvc
+    volumes:
+      - name: myvolume
+        type: secret
+        secret:
+          secretName: mysql-0-secret
+      - name: myvolume2
+        type: configMap
+        configMap:
+          name: mysql-0-config
+      - name: myvolume3
+        type: persistentVolumeClaim
+        persistentVolumeClaim:
+          claimName: mypvc
+    volumeMounts:
+      - name: myvolume
+        mountPath: /etc/secret
+      - name: myvolume2
+        mountPath: /etc/config
+      - name: myvolume3
+        mountPath: /etc/pvc
 
-  hostAliases: []
-  dnsConfig:
-    nameservers:
-      - 10.1.2.3
-      - 10.1.2.4
-    searches:
-      - example.net
-    options:
-      - name: ndots
-        value: "2"
-      - name: edns0
+    hostAliases: []
+    dnsConfig:
+      nameservers:
+        - 10.1.2.3
+        - 10.1.2.4
+      searches:
+        - example.net
+      options:
+        - name: ndots
+          value: "2"
+        - name: edns0
 
-  envFromConfigMaps:
-    - mysql-0-config
-    - mongodb-0-config
+    envFromConfigMaps:
+      - mysql-0-config
+      - mongodb-0-config
 
-  envFromSecrets:
-    - mysql-0-secret
-    - mongodb-0-secret
+    envFromSecrets:
+      - mysql-0-secret
+      - mongodb-0-secret
 
-  livenessProbe:
-    httpGet:
-      path: /
-      port: http
+    livenessProbe:
+      httpGet:
+        path: /
+        port: http
 
-  readinessProbe:
-    httpGet:
-      path: /
-      port: http
+    readinessProbe:
+      httpGet:
+        path: /
+        port: http
 
-  startupProbe:
-    httpGet:
-      path: /
-      port: http
-    failureThreshold: 30
-    periodSeconds: 10
-    initialDelaySeconds: 10
-    timeoutSeconds: 5
+    startupProbe:
+      httpGet:
+        path: /
+        port: http
+      failureThreshold: 30
+      periodSeconds: 10
+      initialDelaySeconds: 10
+      timeoutSeconds: 5
 
-  additionalEnvs:
-    - name: NEWPASS
-      valueFrom:
-        secretKeyRef:
-          name: additional-env-secret
-          key: test
-    - name: NEWCONFIG
-      valueFrom:
-        configMapKeyRef:
-          name: additional-env-config
-          key: test
+    additionalEnvs:
+      - name: NEWPASS
+        valueFrom:
+          secretKeyRef:
+            name: additional-env-secret
+            key: test
+      - name: NEWCONFIG
+        valueFrom:
+          configMapKeyRef:
+            name: additional-env-config
+            key: test
 
-  extraInitContainers:
-    - name: init-myservice
-      image: busybox:1.28
-      command: ["sh", "-c", "echo The init container is running; sleep 5"]
-      volumeMounts:
-        - name: myvolume
-          mountPath: /myvolume
-  extraContainers:
-    - name: sidecar-myservice
-      image: busybox:1.28
-      command: ["sh", "-c", "echo The sidecar container is running; sleep 5"]
-      volumeMounts:
-        - name: myvolume
-          mountPath: /myvolume
+    extraInitContainers:
+      - name: init-myservice
+        image: busybox:1.28
+        command: ["sh", "-c", "echo The init container is running; sleep 5"]
+        volumeMounts:
+          - name: myvolume
+            mountPath: /myvolume
+    extraContainers:
+      - name: sidecar-myservice
+        image: busybox:1.28
+        command: ["sh", "-c", "echo The sidecar container is running; sleep 5"]
+        volumeMounts:
+          - name: myvolume
+            mountPath: /myvolume
 
 rbacs:
   roles:
@@ -172,17 +172,20 @@ hooks:
         kubernetes.io/e2e-az-name: e2e-az1
   pre-upgrade:
     scale-down:
+      fromDeployment: main
       command: ["sh", "-c"]
       args: ["echo", "ciao"]
       weight: 5
       serviceAccountName: scale-down-sa
     deploy:
+      fromDeployment: main
       command: ["sh", "-c"]
       args: ["echo", "ciao"]
       weight: 10
       deletePolicy: before-hook-creation
       imagePullPolicy: Always
     s3fs:
+      fromDeployment: main
       command: ["bin/sh", "-c"]
       args: ["echo", "ciao"]
       weight: 20
@@ -196,6 +199,7 @@ cronJobs:
     tolerations: []
     annotations: {}
     schedule: "00 12 * * 1-5"
+    fromDeployment: main
     serviceAccountName:
     successfulJobsHistoryLimit: 2
     failedJobsHistoryLimit: 2
@@ -212,6 +216,7 @@ cronJobs:
       - mongodb-0-secret
   testcron:
     schedule: "00 12 * * 1-5"
+    fromDeployment: main
     command: ["sh", "-c"]
     args: ["echo", "ciao"]
     affinity: *affinity
@@ -252,9 +257,7 @@ ingress:
 
   hosts:
     - host: chart-example.local
-      service:
-        name: "" # default: fullname
-        port: 0 # default: deployment.service.port
+      deployment: main
       paths:
         - path: /
           pathType: ImplementationSpecific

@@ -1,17 +1,23 @@
-{{- if and .Values.deployment.enabled .Values.deployment.configMap }}
+{{- $root := . }}
+{{- range $name, $deploy := .Values.deployments }}
+{{- if and $deploy $deploy.configMap }}
+{{- $depFullname := include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $name) }}
+{{- $labelCtx := dict "root" $root "deploymentName" $name }}
+---
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ include "global-chart.fullname" . }}
+  name: {{ $depFullname }}
   labels:
-    {{- include "global-chart.labels" . | nindent 4 }}
+    {{- include "global-chart.deploymentLabels" $labelCtx | nindent 4 }}
 data:
-{{- range $key, $value := .Values.deployment.configMap }}
+{{- range $key, $value := $deploy.configMap }}
   {{- if or (kindIs "map" $value) (kindIs "slice" $value) }}
   {{ $key }}:
     {{- toYaml $value | nindent 4 }}
   {{- else }}
   {{ $key }}: {{ toString $value | quote }}
   {{- end }}
+{{- end }}
 {{- end }}
 {{- end }}
