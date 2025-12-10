@@ -1,4 +1,4 @@
-deployment:
-  enabled: false
+# Empty deployments - chart renders nothing
+deployments: {}
 ingress:
   enabled: false

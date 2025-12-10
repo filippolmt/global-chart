@@ -1,0 +1,155 @@
+# Test: Hooks and CronJobs inside deployments
+# Tests that hooks and cronJobs defined inside deployments inherit:
+# - image
+# - configMap (envFrom)
+# - secret (envFrom)
+# - serviceAccount
+# - nodeSelector, tolerations, affinity
+# - imagePullSecrets, hostAliases
+# - envFromConfigMaps, envFromSecrets, additionalEnvs
+
+deployments:
+  # Backend deployment with hooks and cronJobs inside
+  backend:
+    replicaCount: 2
+    image:
+      repository: myapp/backend
+      tag: "v2.0.0"
+      pullPolicy: IfNotPresent
+
+    imagePullSecrets:
+      - name: registry-secret
+
+    serviceAccount:
+      create: true
+      name: backend-sa
+      annotations:
+        eks.amazonaws.com/role-arn: arn:aws:iam::123456789:role/backend-role
+
+    service:
+      port: 3000
+
+    configMap:
+      DB_HOST: postgres.db.svc
+      DB_PORT: "5432"
+      DB_NAME: myapp
+      LOG_LEVEL: info
+
+    secret:
+      DB_PASSWORD: supersecret123
+      API_KEY: apikey456
+
+    envFromConfigMaps:
+      - shared-config
+    envFromSecrets:
+      - shared-secrets
+
+    additionalEnvs:
+      - name: POD_NAME
+        valueFrom:
+          fieldRef:
+            fieldPath: metadata.name
+
+    nodeSelector:
+      node-type: backend
+
+    tolerations:
+      - key: "workload"
+        operator: "Equal"
+        value: "backend"
+        effect: "NoSchedule"
+
+    # Hooks inside deployment - inherit everything from parent
+    hooks:
+      pre-upgrade:
+        migrate:
+          command: ["./migrate", "up"]
+          weight: "5"
+          deletePolicy: before-hook-creation
+          # Additional env only for this hook
+          env:
+            - name: MIGRATION_DRY_RUN
+              value: "false"
+
+      post-upgrade:
+        warm-cache:
+          command: ["./warm-cache.sh"]
+          weight: "10"
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+
+    # CronJobs inside deployment - inherit everything from parent
+    cronJobs:
+      db-backup:
+        schedule: "0 2 * * *"
+        command: ["./backup.sh"]
+        args: ["--full"]
+        successfulJobsHistoryLimit: 3
+        failedJobsHistoryLimit: 1
+
+      cleanup:
+        schedule: "0 4 * * *"
+        command: ["./cleanup.sh"]
+        args: ["--older-than", "7d"]
+        # Override resources for this specific cronjob
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+
+  # Worker deployment with different config
+  worker:
+    replicaCount: 1
+    image: myapp/worker:v2.0.0
+
+    serviceAccount:
+      create: true
+
+    service:
+      enabled: false
+
+    configMap:
+      QUEUE_URL: redis://redis:6379
+      CONCURRENCY: "5"
+
+    secret:
+      QUEUE_PASSWORD: queuepass
+
+    tolerations:
+      - key: "workload"
+        operator: "Equal"
+        value: "worker"
+        effect: "NoSchedule"
+
+    # Worker hooks
+    hooks:
+      post-install:
+        init-queues:
+          command: ["./init-queues.sh"]
+          weight: "5"
+
+    # Worker cronjobs
+    cronJobs:
+      queue-cleanup:
+        schedule: "0 */6 * * *"
+        command: ["./queue-cleanup.sh"]
+        args: ["--stale"]
+
+# Root-level hooks (standalone, must specify image or fromDeployment)
+hooks:
+  post-upgrade:
+    notify:
+      image: curlimages/curl:latest
+      command: ["curl", "-X", "POST"]
+      args: ["-d", '{"text":"Deployment complete"}', "https://hooks.slack.com/xxx"]
+      weight: "100"
+
+# Root-level cronJobs (standalone, must specify image or fromDeployment)
+cronJobs:
+  report-generator:
+    schedule: "0 8 * * 1"
+    image: myapp/reports:latest
+    command: ["generate-report"]
+    args: ["--weekly"]

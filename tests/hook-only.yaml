@@ -1,5 +1,5 @@
-deployment:
-  enabled: false
+# Hooks only - no deployments
+deployments: {}
 hooks:
   post-install:
     init-db:

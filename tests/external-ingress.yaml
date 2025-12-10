@@ -1,5 +1,5 @@
-deployment:
-  enabled: false
+# Ingress only (no deployments) - points to external service
+deployments: {}
 ingress:
   enabled: true
   className: "nginx"

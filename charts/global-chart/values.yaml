@@ -1,152 +1,160 @@
 # Default values for global-chart.
-# -- Deployment configuration
-deployment:
-  # -- (bool) Enable/disable the deployment of the application
-  enabled: false
 
-  # -- (int) Number of replicas to deploy, default is 2
-  replicaCount: 2
+# -- Override the chart name
+nameOverride: ""
+# -- Override the chart fullname
+fullnameOverride: ""
 
-  # -- Image configuration
-  image:
-    # -- Image repository (e.g., nginx)
-    repository: ""
-    # -- Image pull policy: Always, IfNotPresent, or Never
-    pullPolicy: IfNotPresent
-    # -- Image tag (e.g., "1.23.3")
-    tag: ""
+# -- Multiple deployments configuration (map of named deployments)
+# @default -- `{}` (empty map)
+deployments: {}
+  # Example deployment configuration:
+  # main:
+  #   # -- (int) Number of replicas to deploy
+  #   replicaCount: 2
+  #
+  #   # -- Image configuration (can be string like "nginx:1.23" or object)
+  #   image:
+  #     # -- Image repository (e.g., nginx)
+  #     repository: nginx
+  #     # -- Image pull policy: Always, IfNotPresent, or Never
+  #     pullPolicy: IfNotPresent
+  #     # -- Image tag (e.g., "1.23.3")
+  #     tag: "1.23"
+  #
+  #   # -- List of imagePullSecrets for private registries
+  #   imagePullSecrets: []
+  #
+  #   # -- ServiceAccount creation and mounting
+  #   serviceAccount:
+  #     # -- Create a ServiceAccount
+  #     create: true
+  #     # -- Automount the ServiceAccount credentials
+  #     automount: true
+  #     # -- Annotations to add to the ServiceAccount
+  #     annotations: {}
+  #     # -- Use an existing ServiceAccount name
+  #     name: ""
+  #
+  #   # -- Pod annotations
+  #   podAnnotations: {}
+  #   # -- Pod labels
+  #   podLabels: {}
+  #
+  #   # -- Pod-level security context (e.g., fsGroup)
+  #   podSecurityContext: {}
+  #
+  #   # -- Container-level security context (e.g., runAsUser)
+  #   securityContext: {}
+  #
+  #   # -- Service that front-ends the Deployment
+  #   service:
+  #     # -- Enable or disable the Service (default: true)
+  #     enabled: true
+  #     # -- Service port name
+  #     portName: http
+  #     # -- Service type: ClusterIP, NodePort, or LoadBalancer
+  #     type: ClusterIP
+  #     # -- Port exposed by the Service
+  #     port: 80
+  #     # -- Target port on the pod
+  #     targetPort: http
+  #     # -- Protocol for the service port (TCP|UDP)
+  #     protocol: TCP
+  #
+  #   # -- Resource requests & limits for pods
+  #   resources:
+  #     requests:
+  #       memory: "64Mi"
+  #       cpu: "100m"
+  #
+  #   # -- Liveness probe configuration
+  #   livenessProbe: {}
+  #
+  #   # -- Readiness probe configuration
+  #   readinessProbe: {}
+  #
+  #   # -- Startup probe configuration
+  #   startupProbe: {}
+  #
+  #   # -- Horizontal Pod Autoscaling configuration
+  #   autoscaling:
+  #     enabled: false
+  #     minReplicas: 2
+  #     maxReplicas: 10
+  #     targetCPUUtilizationPercentage: ""
+  #     targetMemoryUtilizationPercentage: ""
+  #     behavior:
+  #       scaleUp: {}
+  #       scaleDown: {}
+  #
+  #   # -- Pod volumes: Secret, ConfigMap, PVC, etc.
+  #   volumes: []
+  #
+  #   # -- Container volumeMounts for the above volumes
+  #   volumeMounts: []
+  #
+  #   # -- Node selector constraints for pod placement
+  #   nodeSelector: {}
+  #
+  #   # -- Pod tolerations
+  #   tolerations: []
+  #
+  #   # -- Pod affinity/anti-affinity rules
+  #   affinity: {}
+  #
+  #   # -- Secret key/value for envFrom injection (creates a Secret)
+  #   secret: {}
+  #
+  #   # -- ConfigMap key/value for envFrom injection (creates a ConfigMap)
+  #   configMap: {}
+  #
+  #   # -- hostAliases entries for pods
+  #   hostAliases: []
+  #
+  #   # -- DNS settings for pods
+  #   dnsConfig:
+  #     nameservers: []
+  #     searches: []
+  #     options: []
+  #
+  #   # -- Import existing ConfigMaps as envFrom
+  #   envFromConfigMaps: []
+  #   # -- Import existing Secrets as envFrom
+  #   envFromSecrets: []
+  #   # -- Additional environment variables
+  #   additionalEnvs: []
+  #
+  #   # -- Extra initContainers
+  #   extraInitContainers: []
+  #   # -- Extra sidecar containers
+  #   extraContainers: []
+  #
+  #   # -- Recreate pods on config change (with pullPolicy=Always)
+  #   podRecreation:
+  #     enabled: false
+  #
+  #   # -- Dynamic ConfigMaps to create from inline content or file bundles
+  #   mountedConfigFiles:
+  #     files: []
+  #     bundles: []
+  #
+  #   # -- Hooks defined inside deployment (inherit image, configMap, secret, SA)
+  #   hooks:
+  #     post-upgrade:
+  #       migrate:
+  #         command: ["./migrate.sh"]
+  #         # Inherits: image, configMap, secret, serviceAccount, nodeSelector, tolerations, affinity
+  #         # Can override with explicit values if needed
+  #
+  #   # -- CronJobs defined inside deployment (inherit image, configMap, secret, SA)
+  #   cronJobs:
+  #     backup:
+  #       schedule: "0 2 * * *"
+  #       command: ["./backup.sh"]
+  #       # Inherits: image, configMap, secret, serviceAccount, nodeSelector, tolerations, affinity
+  #       # Can override with explicit values if needed
 
-  # -- List of imagePullSecrets for private registries
-  imagePullSecrets: []
-
-  # -- Override the chart name
-  nameOverride: ""
-  # -- Override the chart fullname
-  fullnameOverride: ""
-
-  # -- ServiceAccount creation and mounting
-  serviceAccount:
-    # -- Create a ServiceAccount
-    create: true
-    # -- Automount the ServiceAccount credentials
-    automount: true
-    # -- Annotations to add to the ServiceAccount
-    annotations: {}
-    # -- Use an existing ServiceAccount name
-    name: ""
-
-  # -- Pod annotations
-  podAnnotations: {}
-  # -- Pod labels
-  podLabels: {}
-
-  # -- Pod-level security context (e.g., fsGroup)
-  podSecurityContext: {}
-
-  # -- Container-level security context (e.g., runAsUser)
-  securityContext: {}
-
-  # -- Service that front-ends the Deployment
-  service:
-    # -- Service port name
-    portName: http
-    # -- Service type: ClusterIP, NodePort, or LoadBalancer
-    type: ClusterIP
-    # -- Port exposed by the Service
-    port: 80
-    # -- Target port on the pod
-    targetPort: http
-    # -- Protocol for the service port (TCP|UDP)
-    protocol: TCP
-
-  # -- Resource requests & limits for pods
-  resources:
-    requests:
-      # -- Memory request
-      memory: "64Mi"
-      # -- CPU request
-      cpu: "100m"
-
-  # -- Liveness probe configuration
-  livenessProbe: {}
-
-  # -- Readiness probe configuration
-  readinessProbe: {}
-
-  # -- Horizontal Pod Autoscaling configuration
-  autoscaling:
-    # -- Enable HPA (only when at least one target metric is set)
-    enabled: false
-    # -- Minimum replicas for HPA
-    minReplicas: 2
-    # -- Maximum replicas for HPA
-    maxReplicas: 10
-    # -- Target average CPU utilization (%) (optional)
-    targetCPUUtilizationPercentage: ""
-    # -- Target average memory utilization (%) (optional)
-    targetMemoryUtilizationPercentage: ""
-    # -- Optional HPA behavior settings
-    behavior:
-      # -- scaleUp parameters passed through directly to HPA.behavior.scaleUp
-      scaleUp: {}
-      # -- scaleDown parameters passed through directly to HPA.behavior.scaleDown
-      scaleDown: {}
-
-  # -- Pod volumes: Secret, ConfigMap, PVC, etc.
-  volumes: []
-
-  # -- Container volumeMounts for the above volumes
-  volumeMounts: []
-
-  # -- Node selector constraints for pod placement
-  nodeSelector: {}
-
-  # -- Pod tolerations
-  tolerations: []
-
-  # -- Pod affinity/anti-affinity rules
-  affinity: {}
-
-  # -- Global Secret key/value for envFrom injection
-  secret: {}
-
-  # -- Global ConfigMap key/value for envFrom injection
-  configMap: {}
-
-  # -- hostAliases entries for pods
-  hostAliases: []
-
-  # -- DNS settings for pods
-  dnsConfig:
-    # -- Custom nameservers
-    nameservers: []
-    # -- DNS search domains
-    searches: []
-    # -- DNS options (name/value)
-    options: []
-
-  # -- Import existing ConfigMaps as envFrom
-  envFromConfigMaps: []
-  # -- Import existing Secrets as envFrom
-  envFromSecrets: []
-  # -- Additional environment variables
-  additionalEnvs: []
-
-  # -- Extra initContainers
-  extraInitContainers: []
-  # -- Extra sidecar containers
-  extraContainers: []
-
-  # -- Recreate pods on config change (with pullPolicy=Always)
-  podRecreation:
-    enabled: false
-
-  # -- Dynamic ConfigMaps to create from inline content or file bundles
-  mountedConfigFiles:
-    # -- List of individual config files to create as ConfigMaps
-    files: []
-    # -- List of config file bundles (multiple files in one ConfigMap)
-    bundles: []
 # -- Ingress configuration
 ingress:
   # -- Enable or disable Ingress
@@ -161,37 +169,78 @@ ingress:
   # -- Definitions for each host rule
   hosts:
     - host: chart-example.local
-      # -- Service backend name (default: chart fullname)
+      # -- Name of the deployment to route traffic to (required unless service.name is set)
+      deployment: ""
+      # -- Service backend override (use instead of deployment for external services)
       service:
+        # -- Explicit service name (overrides deployment reference)
         name: ""
-        # -- Service backend port (default: deployment.service.port)
+        # -- Service port (default: deployment's service.port or 80)
         port: 0
       # -- HTTP path definitions for this host
       paths:
         - path: /
           pathType: ImplementationSpecific
 
+    # Example with deployment reference:
     # - host: api.example.local
-    #   service:
-    #     name: my-api-svc
-    #     port: 8080
+    #   deployment: backend  # Routes to deployments.backend's service
     #   paths:
     #     - path: /v1
     #       pathType: Prefix
-    #     - path: /health
-    #       pathType: Exact
+    #
+    # Example with external service:
+    # - host: external.example.local
+    #   service:
+    #     name: my-external-svc
+    #     port: 8080
+    #   paths:
+    #     - path: /
+    #       pathType: Prefix
 
-# -- CronJobs configuration (map of named cronJobs)
+# -- CronJobs configuration (map of named cronJobs). Can also be defined inside deployments to inherit image, configMap, secret, SA.
 cronJobs: {}
+  # Example:
+  # cleanup:
+  #   schedule: "0 2 * * *"
+  #   # Image can be explicit:
+  #   image:
+  #     repository: myapp
+  #     tag: v1.0
+  #   # Or reference a deployment's image:
+  #   # fromDeployment: main
+  #   command: ["/bin/sh", "-c"]
+  #   args: ["./cleanup.sh"]
+  #   resources:
+  #     requests:
+  #       cpu: 100m
+  #       memory: 128Mi
+  #   # Optional: create dedicated ServiceAccount
+  #   serviceAccount:
+  #     create: true
+  #   # Or use existing:
+  #   # serviceAccountName: existing-sa
 
-# -- Hook jobs for chart lifecycle (install/upgrade)
+# -- Hook jobs for chart lifecycle (install/upgrade). Can also be defined inside deployments to inherit image, configMap, secret, SA.
 hooks: {}
+  # Example:
+  # post-install:
+  #   migrate:
+  #     # Image can be explicit:
+  #     image:
+  #       repository: myapp
+  #       tag: v1.0
+  #     # Or reference a deployment's image:
+  #     # fromDeployment: main
+  #     command: ["/bin/sh", "-c"]
+  #     args: ["./migrate.sh"]
+  #     weight: "10"
+  #     deletePolicy: before-hook-creation
 
 # -- ExternalSecrets definitions for secret management
 externalSecrets: {}
 
-# create multiple service accounts, roles and rolebindings
-
+# -- RBAC configuration: create multiple service accounts, roles and rolebindings
 rbacs:
   # -- Set serviceAccount.create to false to bind to an existing account without creating it.
   roles: []

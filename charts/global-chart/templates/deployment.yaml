@@ -1,38 +1,44 @@
-{{- if .Values.deployment.enabled }}
 {{- $root := . }}
-{{- $dep := .Values.deployment }}
-
+{{- range $name, $deploy := .Values.deployments }}
+{{- if $deploy }}
+{{- $depFullname := include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $name) }}
+{{- $labelCtx := dict "root" $root "deploymentName" $name }}
+{{- $autoscaling := default (dict) $deploy.autoscaling }}
+{{- $podRecreation := default (dict) $deploy.podRecreation }}
+{{- $dnsConfig := default (dict) $deploy.dnsConfig }}
+{{- $svc := default (dict) $deploy.service }}
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "global-chart.fullname" $root }}
+  name: {{ $depFullname }}
   labels:
-    {{- include "global-chart.labels" $root | nindent 4 }}
+    {{- include "global-chart.deploymentLabels" $labelCtx | nindent 4 }}
 spec:
-  {{- if not $dep.autoscaling.enabled }}
-  replicas: {{ $dep.replicaCount | default 2 }}
+  {{- if not $autoscaling.enabled }}
+  replicas: {{ $deploy.replicaCount | default 2 }}
   {{- end }}
   selector:
     matchLabels:
-      {{- include "global-chart.selectorLabels" $root | nindent 6 }}
+      {{- include "global-chart.deploymentSelectorLabels" $labelCtx | nindent 6 }}
   template:
     metadata:
       annotations:
-        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") $root | sha256sum }}
-        checksum/mounted-config-files: {{ toYaml .Values.deployment.mountedConfigFiles | sha256sum }}
-        {{- if $dep.podRecreation.enabled }}
+        checksum/config: {{ toYaml $deploy.configMap | sha256sum }}
+        checksum/mounted-config-files: {{ toYaml $deploy.mountedConfigFiles | sha256sum }}
+        {{- if $podRecreation.enabled }}
         timestamp: "{{ now | date "20060102150405" }}"
         {{- end }}
-        {{- with $dep.podAnnotations }}
+        {{- with $deploy.podAnnotations }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
       labels:
-        {{- include "global-chart.labels" $root | nindent 8 }}
-        {{- with $dep.podLabels }}
+        {{- include "global-chart.deploymentLabels" $labelCtx | nindent 8 }}
+        {{- with $deploy.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
     spec:
-      {{- with $dep.imagePullSecrets }}
+      {{- with $deploy.imagePullSecrets }}
       imagePullSecrets:
         {{- range . }}
           {{- if kindIs "string" . }}
@@ -44,27 +50,27 @@ spec:
           {{- end }}
         {{- end }}
       {{- end }}
-      {{- if $dep.hostAliases }}
+      {{- if $deploy.hostAliases }}
       hostAliases:
-        {{- toYaml $dep.hostAliases | nindent 8 }}
+        {{- toYaml $deploy.hostAliases | nindent 8 }}
       {{- end }}
-      {{- if or $dep.dnsConfig.nameservers $dep.dnsConfig.searches $dep.dnsConfig.options }}
+      {{- if or $dnsConfig.nameservers $dnsConfig.searches $dnsConfig.options }}
       dnsConfig:
-        {{- if $dep.dnsConfig.nameservers }}
+        {{- if $dnsConfig.nameservers }}
         nameservers:
-          {{- range $dep.dnsConfig.nameservers }}
+          {{- range $dnsConfig.nameservers }}
           - {{ . }}
           {{- end }}
         {{- end }}
-        {{- if $dep.dnsConfig.searches }}
+        {{- if $dnsConfig.searches }}
         searches:
-          {{- range $dep.dnsConfig.searches }}
+          {{- range $dnsConfig.searches }}
           - {{ . }}
           {{- end }}
         {{- end }}
-        {{- if $dep.dnsConfig.options }}
+        {{- if $dnsConfig.options }}
         options:
-          {{- range $dep.dnsConfig.options }}
+          {{- range $dnsConfig.options }}
           - name: {{ .name }}
             {{- if .value }}
             value: {{ .value | quote }}
@@ -72,72 +78,72 @@ spec:
           {{- end }}
         {{- end }}
       {{- end }}
-      serviceAccountName: {{ include "global-chart.serviceAccountName" $root }}
-      {{- if $dep.podSecurityContext }}
+      serviceAccountName: {{ include "global-chart.deploymentServiceAccountName" (dict "root" $root "deploymentName" $name "deployment" $deploy) }}
+      {{- if $deploy.podSecurityContext }}
       securityContext:
-        {{- toYaml $dep.podSecurityContext | nindent 8 }}
+        {{- toYaml $deploy.podSecurityContext | nindent 8 }}
       {{- end }}
-      {{- with $dep.extraInitContainers }}
+      {{- with $deploy.extraInitContainers }}
       initContainers:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       containers:
-        - name: {{ include "global-chart.fullname" $root }}
-          {{- if and (kindIs "map" $dep.image) $dep.image.repository (not (or $dep.image.tag $dep.image.digest)) }}
-          {{- fail "deployment.image requires either a tag or digest when repository is provided" }}
+        - name: {{ $depFullname }}
+          {{- if and (kindIs "map" $deploy.image) $deploy.image.repository (not (or $deploy.image.tag $deploy.image.digest)) }}
+          {{- fail (printf "deployments.%s.image requires either a tag or digest when repository is provided" $name) }}
           {{- end }}
-          {{- $depImageRef := include "global-chart.imageString" $dep.image }}
-          image: {{ required "deployment.image must define a repository with tag/digest or be a full image reference" $depImageRef | quote }}
-          imagePullPolicy: {{ include "global-chart.imagePullPolicy" (dict "image" $dep.image) }}
+          {{- $depImageRef := include "global-chart.imageString" $deploy.image }}
+          image: {{ required (printf "deployments.%s.image must define a repository with tag/digest or be a full image reference" $name) $depImageRef | quote }}
+          imagePullPolicy: {{ include "global-chart.imagePullPolicy" (dict "image" $deploy.image) }}
           ports:
-            - name: {{ $dep.service.portName | default "http" }}
-              containerPort: {{ $dep.service.port | default 80 }}
-              protocol: {{ ($dep.service.protocol | default "TCP") | upper }}
-          {{- if $dep.livenessProbe }}
+            - name: {{ $svc.portName | default "http" }}
+              containerPort: {{ $svc.port | default 80 }}
+              protocol: {{ ($svc.protocol | default "TCP") | upper }}
+          {{- if $deploy.livenessProbe }}
           livenessProbe:
-            {{- toYaml $dep.livenessProbe | nindent 12 }}
+            {{- toYaml $deploy.livenessProbe | nindent 12 }}
           {{- end }}
-          {{- if $dep.readinessProbe }}
+          {{- if $deploy.readinessProbe }}
           readinessProbe:
-            {{- toYaml $dep.readinessProbe | nindent 12 }}
+            {{- toYaml $deploy.readinessProbe | nindent 12 }}
           {{- end }}
-          {{- if $dep.startupProbe }}
+          {{- if $deploy.startupProbe }}
           startupProbe:
-            {{- toYaml $dep.startupProbe | nindent 12 }}
+            {{- toYaml $deploy.startupProbe | nindent 12 }}
           {{- end }}
           resources:
-            {{- toYaml $dep.resources | nindent 12 }}
-          {{- if or $dep.configMap $dep.envFromConfigMaps $dep.secret $dep.envFromSecrets }}
+            {{- toYaml $deploy.resources | nindent 12 }}
+          {{- if or $deploy.configMap $deploy.envFromConfigMaps $deploy.secret $deploy.envFromSecrets }}
           envFrom:
-            {{- if $dep.configMap }}
+            {{- if $deploy.configMap }}
             - configMapRef:
-                name: {{ include "global-chart.fullname" $root | quote }}
+                name: {{ $depFullname | quote }}
             {{- end }}
-            {{- range $cm := $dep.envFromConfigMaps }}
+            {{- range $cm := $deploy.envFromConfigMaps }}
             - configMapRef:
                 name: {{ $cm | quote }}
             {{- end }}
-            {{- if $dep.secret }}
+            {{- if $deploy.secret }}
             - secretRef:
-                name: {{ include "global-chart.fullname" $root | quote }}
+                name: {{ $depFullname | quote }}
             {{- end }}
-            {{- range $sec := $dep.envFromSecrets }}
+            {{- range $sec := $deploy.envFromSecrets }}
             - secretRef:
                 name: {{ $sec | quote }}
             {{- end }}
           {{- end }}
-          {{- if $dep.additionalEnvs }}
+          {{- if $deploy.additionalEnvs }}
           env:
-            {{- range $env := $dep.additionalEnvs }}
+            {{- range $env := $deploy.additionalEnvs }}
             - name: {{ $env.name | quote }}
               valueFrom:
                 {{- toYaml $env.valueFrom | nindent 16 }}
             {{- end }}
           {{- end }}
-          {{- $mountedConfigFiles := .Values.deployment.mountedConfigFiles }}
-          {{- if or $dep.volumeMounts (and $mountedConfigFiles (or $mountedConfigFiles.files $mountedConfigFiles.bundles)) }}
+          {{- $mountedConfigFiles := $deploy.mountedConfigFiles }}
+          {{- if or $deploy.volumeMounts (and $mountedConfigFiles (or $mountedConfigFiles.files $mountedConfigFiles.bundles)) }}
           volumeMounts:
-            {{- with $dep.volumeMounts }}
+            {{- with $deploy.volumeMounts }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
             {{- if and $mountedConfigFiles $mountedConfigFiles.files }}
@@ -156,8 +162,8 @@ spec:
             {{- end }}
             {{- end }}
           {{- end }}
-      {{- $mountedConfigFiles := .Values.deployment.mountedConfigFiles }}
-      {{- $userVolumes := default (list) $dep.volumes }}
+      {{- $mountedConfigFiles := $deploy.mountedConfigFiles }}
+      {{- $userVolumes := default (list) $deploy.volumes }}
       {{- $hasUserVolumes := gt (len $userVolumes) 0 }}
       {{- $hasMcfFiles := and $mountedConfigFiles (gt (len (default (list) $mountedConfigFiles.files)) 0) }}
       {{- $hasMcfBundles := and $mountedConfigFiles (gt (len (default (list) $mountedConfigFiles.bundles)) 0) }}
@@ -185,7 +191,7 @@ spec:
         {{- range $i, $f := $mountedConfigFiles.files }}
         - name: md-cm-file-{{ $f.name }}
           configMap:
-            name: {{ include "global-chart.fullname" $root }}-md-cm-{{ $f.name }}
+            name: {{ $depFullname }}-md-cm-{{ $f.name }}
         {{- end }}
         {{- end }}
         {{- if $hasMcfBundles }}
@@ -195,7 +201,7 @@ spec:
             sources:
             {{- range $fi, $f := $b.files }}
               - configMap:
-                  name: {{ include "global-chart.fullname" $root }}-md-cm-{{ $f.name }}
+                  name: {{ $depFullname }}-md-cm-{{ $f.name }}
                   items:
                     - key: {{ $f.relPath | base }}
                       path: {{ $f.relPath }}
@@ -203,16 +209,17 @@ spec:
         {{- end }}
         {{- end }}
       {{- end }}
-      {{- with $dep.nodeSelector }}
+      {{- with $deploy.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with $dep.affinity }}
+      {{- with $deploy.affinity }}
       affinity:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with $dep.tolerations }}
+      {{- with $deploy.tolerations }}
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+{{- end }}
 {{- end }}

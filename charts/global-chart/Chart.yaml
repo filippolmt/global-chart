@@ -15,4 +15,26 @@ type: application
 # This is the chart version. This version number should be incremented each time you make changes
 # to the chart and its templates, including the app version.
 # Versions are expected to follow Semantic Versioning (https://semver.org/)
-version: 0.12.0
+version: 1.0.0
+
+# Project URLs
+home: https://github.com/filippomerante/global-chart
+sources:
+  - https://github.com/filippomerante/global-chart
+
+# Chart maintainers
+maintainers:
+  - name: Filippo Merante Caparrotta
+
+# Search keywords
+keywords:
+  - deployment
+  - service
+  - ingress
+  - cronjob
+  - hooks
+  - kubernetes
+  - multi-deployment
+
+# Minimum Kubernetes version
+kubeVersion: ">=1.19.0-0"

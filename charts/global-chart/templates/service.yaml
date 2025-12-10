@@ -1,17 +1,30 @@
-{{- if .Values.deployment.enabled }}
+{{- $root := . }}
+{{- range $name, $deploy := .Values.deployments }}
+{{- if $deploy }}
+{{- $svc := default (dict) $deploy.service }}
+{{- $svcEnabled := true }}
+{{- if and (hasKey $svc "enabled") (not $svc.enabled) }}
+{{- $svcEnabled = false }}
+{{- end }}
+{{- if $svcEnabled }}
+{{- $depFullname := include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $name) }}
+{{- $labelCtx := dict "root" $root "deploymentName" $name }}
+---
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "global-chart.fullname" . }}
+  name: {{ $depFullname }}
   labels:
-    {{- include "global-chart.labels" . | nindent 4 }}
+    {{- include "global-chart.deploymentLabels" $labelCtx | nindent 4 }}
 spec:
-  type: {{ .Values.deployment.service.type | default "ClusterIP" }}
+  type: {{ $svc.type | default "ClusterIP" }}
   ports:
-    - port: {{ .Values.deployment.service.port | default 80 }}
-      targetPort: {{ .Values.deployment.service.targetPort | default "http" }}
-      protocol: {{ (.Values.deployment.service.protocol | default "TCP") | upper }}
-      name: {{ .Values.deployment.service.portName | default "http" }}
+    - port: {{ $svc.port | default 80 }}
+      targetPort: {{ $svc.targetPort | default "http" }}
+      protocol: {{ ($svc.protocol | default "TCP") | upper }}
+      name: {{ $svc.portName | default "http" }}
   selector:
-    {{- include "global-chart.selectorLabels" . | nindent 4 }}
+    {{- include "global-chart.deploymentSelectorLabels" $labelCtx | nindent 4 }}
+{{- end }}
+{{- end }}
 {{- end }}

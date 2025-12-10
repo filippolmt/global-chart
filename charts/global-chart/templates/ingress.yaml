@@ -1,8 +1,7 @@
 {{- if .Values.ingress.enabled }}
-{{- $root       := . }}
-{{- $ing        := $root.Values.ingress }}
-{{- $depSvcPort := $root.Values.deployment.service.port }}
-{{- $fullName   := include "global-chart.fullname" $root }}
+{{- $root := . }}
+{{- $ing := $root.Values.ingress }}
+{{- $fullName := include "global-chart.fullname" $root }}
 
 {{- /* ingressClass compatibility for K8s <1.18 */}}
 {{- if and $ing.className (not (semverCompare ">=1.18-0" $root.Capabilities.KubeVersion.GitVersion)) }}
@@ -45,11 +44,29 @@ spec:
   {{- end }}
   rules:
     {{- range $hostEntry := $ing.hosts }}
-      {{- $svcMap := dict "name" $fullName "port" $depSvcPort }}
-      {{- if and (hasKey $hostEntry "service") $hostEntry.service }}
-        {{- $_ := set $svcMap "name" (default $fullName $hostEntry.service.name) }}
-        {{- $_ := set $svcMap "port" (default $depSvcPort $hostEntry.service.port) }}
+      {{- /* Resolve service name and port */ -}}
+      {{- $svcName := "" -}}
+      {{- $svcPort := 80 -}}
+
+      {{- /* Priority 1: Explicit service override */ -}}
+      {{- if and (hasKey $hostEntry "service") $hostEntry.service $hostEntry.service.name -}}
+        {{- $svcName = $hostEntry.service.name -}}
+        {{- $svcPort = default 80 $hostEntry.service.port -}}
+      {{- /* Priority 2: Deployment reference */ -}}
+      {{- else if $hostEntry.deployment -}}
+        {{- $depName := $hostEntry.deployment -}}
+        {{- $deploy := index $root.Values.deployments $depName -}}
+        {{- if not $deploy -}}
+          {{- fail (printf "ingress host '%s' references deployment '%s' which does not exist in .Values.deployments" $hostEntry.host $depName) -}}
+        {{- end -}}
+        {{- $svcName = include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $depName) -}}
+        {{- $depSvc := default (dict) $deploy.service -}}
+        {{- $svcPort = default 80 $depSvc.port -}}
+      {{- /* Priority 3: Error - must specify deployment or service */ -}}
+      {{- else -}}
+        {{- fail (printf "ingress host '%s' must specify either 'deployment' (name of a deployment) or 'service.name' (explicit service name)" $hostEntry.host) -}}
       {{- end }}
+
     - host: {{ $hostEntry.host | quote }}
       http:
         paths:
@@ -61,12 +78,12 @@ spec:
             backend:
               {{- if semverCompare ">=1.19-0" $root.Capabilities.KubeVersion.GitVersion }}
               service:
-                name: {{ $svcMap.name }}
+                name: {{ $svcName }}
                 port:
-                  number: {{ $svcMap.port }}
+                  number: {{ $svcPort }}
               {{- else }}
-              serviceName: {{ $svcMap.name }}
-              servicePort: {{ $svcMap.port }}
+              serviceName: {{ $svcName }}
+              servicePort: {{ $svcPort }}
               {{- end }}
           {{- end }}
     {{- end }}

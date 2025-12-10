@@ -1,20 +1,26 @@
 # Global Helm Chart
 
-Reusable Helm chart providing configurable building blocks—Deployments, Services, Ingress, Jobs, ExternalSecrets, and more—for broadly adaptable Kubernetes applications.  
-The chart is intentionally opinionated around a single `deployment` root while exposing switches to render only the pieces you need (for example: CronJobs or hook Jobs without a Deployment, or an Ingress that targets an external service).
+Reusable Helm chart providing configurable building blocks—Deployments, Services, Ingress, Jobs, ExternalSecrets, and more—for broadly adaptable Kubernetes applications.
+The chart supports **multiple deployments** in a single release, each with independent configuration. CronJobs and Hooks can be defined at root level or inside deployments to inherit their configuration.
 
 ## Chart scope at a glance
 
-- **Deployment primitives**  
+- **Multi-deployment support**
+  Define multiple independent deployments under `deployments.*`. Each gets its own Service, ConfigMap, Secret, ServiceAccount, and HPA.
+- **Deployment primitives**
   Image can be a string (`nginx:1.25`) or a map (`repository/tag/digest`). Probes, resources, autoscaling (HPA), scheduling constraints, extra containers/init containers, pod recreation bumps, and ConfigMap/Secret `envFrom` are all configurable.
-- **Networking**  
-  First-class Service configuration plus optional Ingress with TLS, class annotations, and compatibility layers for older Kubernetes versions. DNS options and host aliases can be defined globally.
-- **Configuration distribution**  
+- **Networking**
+  First-class Service configuration plus optional Ingress with TLS, class annotations, and routes to specific deployments. DNS options and host aliases can be defined per-deployment.
+- **Configuration distribution**
   Inline ConfigMap/Secret data, mounted config files (single file) or bundles (projected lists of files), and volume templates (configMap/secret/emptyDir/PVC) are supported.
-- **Lifecycle and batch**  
-  Helm hook jobs (`hooks.*`) and CronJobs (`cronJobs.*`) inherit settings from the main deployment by default but can opt out or override per-item (volumes, service account, envs, etc.).
-- **Secret management**  
+- **Lifecycle and batch**
+  Helm hook jobs and CronJobs can be defined in two ways:
+  - **Root level** (`hooks.*`, `cronJobs.*`): Standalone, use `fromDeployment` to copy image from a deployment
+  - **Inside deployments** (`deployments.*.hooks`, `deployments.*.cronJobs`): Inherit image, configMap, secret, serviceAccount, nodeSelector, tolerations, affinity, and more from the parent deployment
+- **Secret management**
   ExternalSecret resources with required field validation to avoid silent misconfigurations.
+- **RBAC**
+  Create Roles, ServiceAccounts, and RoleBindings for fine-grained access control.
 
 ## Prerequisites
 
@@ -35,9 +41,55 @@ helm upgrade --install my-release global-chart/global-chart \
   --values path/to/values.yaml
 ```
 
+## Example: Multi-deployment with inherited hooks/cronJobs
+
+```yaml
+deployments:
+  backend:
+    image: myapp/backend:v2.0
+    replicaCount: 2
+    configMap:
+      DB_HOST: postgres.db.svc
+    secret:
+      DB_PASSWORD: supersecret
+    serviceAccount:
+      create: true
+    # Hooks inside deployment - inherit image, configMap, secret, SA
+    hooks:
+      pre-upgrade:
+        migrate:
+          command: ["./migrate.sh"]
+    # CronJobs inside deployment - inherit everything from parent
+    cronJobs:
+      backup:
+        schedule: "0 2 * * *"
+        command: ["./backup.sh"]
+
+  worker:
+    image: myapp/worker:v2.0
+    service:
+      enabled: false # Workers don't need a service
+
+# Root-level hooks (standalone, must specify image or fromDeployment)
+hooks:
+  post-upgrade:
+    notify:
+      image: curlimages/curl:latest
+      command: ["curl", "-X", "POST", "https://hooks.slack.com/..."]
+
+# Ingress routes to specific deployments
+ingress:
+  enabled: true
+  hosts:
+    - host: api.example.com
+      deployment: backend
+      paths:
+        - path: /
+```
+
 ## Local development
 
-This repository ships with helper targets that exercise every supported scenario (deployment, mounted config files, hooks, cron jobs, external secrets, ingress variations).
+This repository ships with helper targets that exercise every supported scenario (multi-deployment, mounted config files, hooks, cron jobs, external secrets, ingress variations).
 
 ```bash
 # Run helm lint across all test value files
@@ -53,26 +105,40 @@ CI runs the same commands through the `Helm CI` GitHub workflow to keep the char
 
 All configuration lives under `charts/global-chart/values.yaml`. Highlights:
 
-- `deployment` – controls the core workload. Set `enabled: true` when you need a Deployment. When `enabled: false`, the chart can still render hooks, CronJobs, Ingress, or ExternalSecrets if those sections are populated.
+- `deployments` – map of named deployments. Each deployment generates its own Deployment, Service, ConfigMap, Secret, ServiceAccount, and HPA.
   - `image` can be `{ repository, tag, digest, pullPolicy }` or a single string.
-  - `mountedConfigFiles` has two modes: `files` (one ConfigMap per file) or `bundles` (projected sets of files). The main Deployment automatically mounts them when supplied.
-  - `autoscaling.enabled` with CPU/memory targets generates an HPA (`templates/hpa.yaml`).
-- `cronJobs` – map keyed by job name. Each job inherits volumes, envs, service account, mounted configs when desired (see `inheritFromDeployment` flags).
-- `hooks` – map of hook types (post-install/pre-upgrade/etc.) to job definitions. Additional volumes/envs behave like cronJobs.
+  - `service.enabled: false` skips Service creation (useful for workers).
+  - `hooks` and `cronJobs` defined inside a deployment inherit image, configMap, secret, serviceAccount, and scheduling constraints.
+- `cronJobs` – root-level map keyed by job name. Use `fromDeployment` to copy image from a deployment, or specify `image` explicitly.
+- `hooks` – root-level map of hook types (post-install/pre-upgrade/etc.) to job definitions. Use `fromDeployment` or `image`.
 - `externalSecrets` – map keyed by logical name. Each entry must define `secretkey`, `remote.key`, and `secretstore.{kind,name}`.
-- `ingress` – even if the deployment is disabled, you can target an external service via `hosts[].service` overrides.
+- `ingress` – routes to specific deployments via `hosts[].deployment`, or to external services via `hosts[].service`.
+- `rbacs` – create Roles, ServiceAccounts, and RoleBindings.
+
+## Test scenarios
 
 See the `tests/` directory for concrete examples:
 
-- `test01/values.01.yaml` – full kitchen-sink deployment (autoscaling, volumes, secrets, hooks, cron jobs, ingress, ExternalSecrets).
-- `values.02.yaml` – deployment with existing service account and config-map volume.
-- `values.03.yaml` – chart disabled (sanity check for no output).
-- `mountedcm*.yaml` – rich mounted config scenarios.
-- `cron-only.yaml`, `hook-only.yaml`, `externalsecret-only.yaml`, `ingress-custom.yaml`, `external-ingress.yaml` – isolated resources without a Deployment.
+| File                             | Description                                                                               |
+| -------------------------------- | ----------------------------------------------------------------------------------------- |
+| `test01/values.01.yaml`          | Full kitchen-sink (autoscaling, volumes, secrets, hooks, crons, ingress, ExternalSecrets) |
+| `values.02.yaml`                 | Deployment with existing service account                                                  |
+| `values.03.yaml`                 | Chart disabled (no output)                                                                |
+| `multi-deployment.yaml`          | Multi-deployment test (frontend, backend, worker, minimal)                                |
+| `deployment-hooks-cronjobs.yaml` | Hooks/CronJobs inside deployments (inheritance test)                                      |
+| `mountedcm*.yaml`                | Mounted config file scenarios                                                             |
+| `cron-only.yaml`                 | CronJobs without Deployment                                                               |
+| `hook-only.yaml`                 | Hooks without Deployment                                                                  |
+| `externalsecret-only.yaml`       | ExternalSecrets only                                                                      |
+| `ingress-custom.yaml`            | Ingress with deployment reference                                                         |
+| `external-ingress.yaml`          | Ingress pointing to external service                                                      |
+| `rbac.yaml`                      | RBAC with roles and service accounts                                                      |
+| `service-disabled.yaml`          | Deployment with service disabled                                                          |
+| `raw-deployment.yaml`            | Deployment with raw image string                                                          |
 
 ## Testing & CI
 
-Run `make lint-chart` locally to execute `helm lint --strict` across every scenario.  
+Run `make lint-chart` locally to execute `helm lint --strict` across every scenario.
 `make generate-templates` produces manifests in `generated-manifests/<scenario>/` for manual inspection.
 
 The GitHub Action defined in `.github/workflows/helm-ci.yml` executes the same targets on pushes and pull requests, and uploads the generated manifests as an artifact for traceability.

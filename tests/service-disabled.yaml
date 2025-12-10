@@ -1,10 +1,12 @@
-deployment:
-  enabled: true
-  image:
-    repository: busybox
-    tag: latest
-  service:
-    type: ClusterIP
-    port: 8080
-    targetPort: 8080
-    protocol: TCP
+# Test deployment with service disabled
+deployments:
+  main:
+    image:
+      repository: busybox
+      tag: latest
+    service:
+      enabled: false
+      type: ClusterIP
+      port: 8080
+      targetPort: 8080
+      protocol: TCP
