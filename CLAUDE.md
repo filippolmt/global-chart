@@ -153,6 +153,10 @@ deployments:
 5. **Hooks/CronJobs inheritance**: Two placement options:
    - **Root level** (`hooks:`, `cronJobs:`): Standalone, use `fromDeployment` to copy image only
    - **Inside deployments** (`deployments.*.hooks`, `deployments.*.cronJobs`): Inherit image, configMap, secret, serviceAccount, envFromConfigMaps, envFromSecrets, additionalEnvs, imagePullSecrets, hostAliases, nodeSelector, tolerations, affinity from parent deployment
+   - **ServiceAccount inheritance**: Hooks inherit SA from deployment in two cases:
+     - `serviceAccount.create: true` - uses the generated SA name
+     - `serviceAccount.create: false` with `name: xxx` - uses the existing SA name
+   - **Override SA per hook**: Use `serviceAccountName: "custom-sa"` in the hook to override inheritance
 
 6. **Service can be disabled**: Set `service.enabled: false` on a deployment to skip Service creation (useful for workers/background jobs).
 
@@ -192,6 +196,7 @@ The `tests/` directory contains value files covering all supported configuration
 | `service-disabled.yaml` | Deployment with service disabled |
 | `raw-deployment.yaml` | Deployment with raw image string |
 | `deployment-hooks-cronjobs.yaml` | **Hooks/CronJobs inside deployments** (inheritance test) |
+| `hooks-sa-inheritance.yaml` | **Hooks SA inheritance** (existing SA, explicit override) |
 
 ## CI/CD
 

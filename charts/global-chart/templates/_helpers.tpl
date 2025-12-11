@@ -96,10 +96,18 @@ Usage: {{ include "global-chart.deploymentServiceAccountName" (dict "root" . "de
 
 {{/*
 Hook-specific labels: do not include selectorLabels so hooks don't match Deployment/HPA selectors.
+Base labels without component (used when component is added separately).
 */}}
 {{- define "global-chart.hookLabels" -}}
 helm.sh/chart: {{ include "global-chart.chart" . }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
+{{- end }}
+
+{{/*
+Hook labels with component for root-level hooks.
+*/}}
+{{- define "global-chart.hookLabelsWithComponent" -}}
+{{ include "global-chart.hookLabels" . }}
 app.kubernetes.io/component: hook
 {{- end }}
 

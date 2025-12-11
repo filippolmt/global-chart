@@ -58,7 +58,7 @@ metadata:
   name: {{ $saName }}
   namespace: {{ $root.Release.Namespace | quote }}
   labels:
-    {{- include "global-chart.hookLabels" $root | nindent 4 }}
+    {{- include "global-chart.hookLabelsWithComponent" $root | nindent 4 }}
   annotations:
     "helm.sh/hook": {{ $hookType | quote }}
     "helm.sh/hook-weight": {{ default "5" $command.weight | quote }}
@@ -74,7 +74,7 @@ kind: Job
 metadata:
   name: {{ $hookFullname }}
   labels:
-    {{- include "global-chart.hookLabels" $root | nindent 4 }}
+    {{- include "global-chart.hookLabelsWithComponent" $root | nindent 4 }}
   annotations:
     "helm.sh/hook": {{ $hookType | quote }}
     "helm.sh/hook-weight": {{ default "10" $command.weight | quote }}
@@ -84,7 +84,7 @@ spec:
     metadata:
       name: {{ $hookFullname }}
       labels:
-        {{- include "global-chart.hookLabels" $root | nindent 8 }}
+        {{- include "global-chart.hookLabelsWithComponent" $root | nindent 8 }}
     spec:
       serviceAccountName: {{ $saName | quote }}
       {{- with $command.imagePullSecrets }}
@@ -199,26 +199,35 @@ spec:
 {{- end }}
 {{- $imageRef := required (printf "image is required for deployments.%s.hooks.%s.%s" $deployName $hookType $name) $cmdImage }}
 
-{{- /* ServiceAccount: explicit > inherited from deployment > default */ -}}
+{{- /* ServiceAccount: explicit in hook > inherited from deployment > create new for hook */ -}}
 {{- $deploySA := default (dict) $deploy.serviceAccount -}}
 {{- $commandSAMap := (and (hasKey $command "serviceAccount") (kindIs "map" $command.serviceAccount)) | ternary $command.serviceAccount (dict) -}}
 {{- $commandSAExplicitName := coalesce $command.serviceAccountName $commandSAMap.name -}}
 
-{{- /* Use deployment's SA name if it exists, otherwise hook's own SA */ -}}
+{{- /*
+  Resolve deployment's SA name:
+  - If deployment has serviceAccount.create=true, use generated or specified name
+  - If deployment has serviceAccount.name but create=false, use that existing name
+  - Otherwise no deployment SA to inherit
+*/ -}}
 {{- $deploymentSAName := "" -}}
 {{- if $deploySA.create -}}
   {{- $deploymentSAName = include "global-chart.deploymentServiceAccountName" (dict "root" $root "deploymentName" $deployName "deployment" $deploy) -}}
+{{- else if $deploySA.name -}}
+  {{- /* Deployment references an existing SA - inherit it */ -}}
+  {{- $deploymentSAName = $deploySA.name -}}
 {{- end -}}
 
 {{- $saName := "" -}}
 {{- $saCreate := false -}}
 {{- if $commandSAExplicitName -}}
+  {{- /* Hook explicitly specifies a SA name - use it */ -}}
   {{- $saName = $commandSAExplicitName -}}
 {{- else if $deploymentSAName -}}
-  {{- /* Inherit from deployment's service account */ -}}
+  {{- /* Inherit from deployment's service account (whether created or existing) */ -}}
   {{- $saName = $deploymentSAName -}}
 {{- else -}}
-  {{- /* Create hook-specific SA */ -}}
+  {{- /* No SA from hook or deployment - create hook-specific SA */ -}}
   {{- $saName = $hookFullname -}}
   {{- $saCreate = true -}}
 {{- end -}}
@@ -256,7 +265,7 @@ metadata:
   namespace: {{ $root.Release.Namespace | quote }}
   labels:
     {{- include "global-chart.hookLabels" $root | nindent 4 }}
-    app.kubernetes.io/component: {{ $deployName }}
+    app.kubernetes.io/component: {{ $deployName }}-hook
   annotations:
     "helm.sh/hook": {{ $hookType | quote }}
     "helm.sh/hook-weight": {{ default "5" $command.weight | quote }}
@@ -278,7 +287,7 @@ metadata:
   name: {{ $hookFullname }}
   labels:
     {{- include "global-chart.hookLabels" $root | nindent 4 }}
-    app.kubernetes.io/component: {{ $deployName }}
+    app.kubernetes.io/component: {{ $deployName }}-hook
   annotations:
     "helm.sh/hook": {{ $hookType | quote }}
     "helm.sh/hook-weight": {{ default "10" $command.weight | quote }}
@@ -289,7 +298,7 @@ spec:
       name: {{ $hookFullname }}
       labels:
         {{- include "global-chart.hookLabels" $root | nindent 8 }}
-        app.kubernetes.io/component: {{ $deployName }}
+        app.kubernetes.io/component: {{ $deployName }}-hook
     spec:
       serviceAccountName: {{ $saName | quote }}
       {{- /* ImagePullSecrets: explicit > inherited from deployment */ -}}
