@@ -25,9 +25,9 @@ deployments: {}
   #   # -- List of imagePullSecrets for private registries
   #   imagePullSecrets: []
   #
-  #   # -- ServiceAccount creation and mounting
+  #   # -- ServiceAccount creation and mounting (created by default)
   #   serviceAccount:
-  #     # -- Create a ServiceAccount
+  #     # -- Create a ServiceAccount (default: true)
   #     create: true
   #     # -- Automount the ServiceAccount credentials
   #     automount: true

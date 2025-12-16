@@ -150,17 +150,19 @@ deployments:
 
 4. **Image specification**: The `image` field accepts either a string (`nginx:1.25`) or a map (`{repository, tag, digest, pullPolicy}`). Helper `global-chart.imageString` handles both.
 
-5. **Hooks/CronJobs inheritance**: Two placement options:
+5. **ServiceAccount default**: Each deployment creates a ServiceAccount by default (`serviceAccount.create` defaults to `true`). To use an existing SA or the Kubernetes `default` SA, explicitly set `serviceAccount.create: false` with an optional `name`.
+
+6. **Hooks/CronJobs inheritance**: Two placement options:
    - **Root level** (`hooks:`, `cronJobs:`): Standalone, use `fromDeployment` to copy image only
    - **Inside deployments** (`deployments.*.hooks`, `deployments.*.cronJobs`): Inherit image, configMap, secret, serviceAccount, envFromConfigMaps, envFromSecrets, additionalEnvs, imagePullSecrets, hostAliases, nodeSelector, tolerations, affinity from parent deployment
    - **ServiceAccount inheritance**: Hooks inherit SA from deployment in two cases:
-     - `serviceAccount.create: true` - uses the generated SA name
+     - `serviceAccount.create: true` (or not specified) - uses the generated SA name
      - `serviceAccount.create: false` with `name: xxx` - uses the existing SA name
    - **Override SA per hook**: Use `serviceAccountName: "custom-sa"` in the hook to override inheritance
 
-6. **Service can be disabled**: Set `service.enabled: false` on a deployment to skip Service creation (useful for workers/background jobs).
+7. **Service can be disabled**: Set `service.enabled: false` on a deployment to skip Service creation (useful for workers/background jobs).
 
-7. **Mounted config files**: Two modes exist:
+8. **Mounted config files**: Two modes exist:
    - `files`: Individual ConfigMaps, one per file
    - `bundles`: Projected sets of multiple files in one ConfigMap
 

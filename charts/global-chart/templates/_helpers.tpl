@@ -87,7 +87,8 @@ Usage: {{ include "global-chart.deploymentServiceAccountName" (dict "root" . "de
 {{- $name := .deploymentName -}}
 {{- $deploy := .deployment -}}
 {{- $sa := default (dict) $deploy.serviceAccount -}}
-{{- if $sa.create -}}
+{{- $create := ternary $sa.create true (hasKey $sa "create") -}}{{/* Default to create=true unless explicitly set to false */}}
+{{- if $create -}}
 {{- default (include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $name)) $sa.name -}}
 {{- else -}}
 {{- default "default" $sa.name -}}
