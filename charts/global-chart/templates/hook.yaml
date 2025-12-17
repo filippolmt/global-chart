@@ -188,7 +188,7 @@ spec:
 {{- if $command }}
 
 {{- /* Build hook fullname with deployment name for uniqueness */ -}}
-{{- $hookFullname := printf "%s-%s-%s-%s" (include "global-chart.fullname" $root) $deployName $hookType $name | trunc 62 | trimSuffix "-" }}
+{{- $hookFullname := printf "%s-%s-%s-%s" (include "global-chart.fullname" $root) $deployName $hookType $name | trunc 63 | trimSuffix "-" }}
 
 {{- /* Resolve image: explicit in hook > inherited from deployment */ -}}
 {{- $cmdImage := "" }}

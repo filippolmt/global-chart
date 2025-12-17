@@ -11,7 +11,8 @@
 {{- range $name, $job := .Values.cronJobs }}
 {{- if $job }}
 {{- $fullname := include "global-chart.fullname" $root }}
-{{- $jobFullname := printf "%s-%s" $fullname $name | trunc 63 | trimSuffix "-" }}
+{{- /* CronJob names limited to 52 chars (Jobs add 11-char timestamp suffix) */ -}}
+{{- $jobFullname := printf "%s-%s" $fullname $name | trunc 52 | trimSuffix "-" }}
 
 {{- /* Resolve image: explicit > fromDeployment > error */ -}}
 {{- $jobImage := "" }}
@@ -165,7 +166,8 @@ spec:
 {{- if $job }}
 
 {{- /* Build cronjob fullname with deployment name for uniqueness */ -}}
-{{- $jobFullname := printf "%s-%s-%s" (include "global-chart.fullname" $root) $deployName $name | trunc 63 | trimSuffix "-" }}
+{{- /* CronJob names limited to 52 chars (Jobs add 11-char timestamp suffix) */ -}}
+{{- $jobFullname := printf "%s-%s-%s" (include "global-chart.fullname" $root) $deployName $name | trunc 52 | trimSuffix "-" }}
 
 {{- /* Resolve image: explicit in cronjob > inherited from deployment */ -}}
 {{- $jobImage := "" }}

@@ -114,7 +114,7 @@ app.kubernetes.io/component: hook
 
 {{- define "global-chart.hookfullname" -}}
 {{- $fullname := (include "global-chart.fullname" .) }}
-{{- printf "%s-%s-%s" $fullname .hookname .jobname | trunc 62 | trimSuffix "-" -}}
+{{- printf "%s-%s-%s" $fullname .hookname .jobname | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
 {{/*

@@ -168,15 +168,17 @@ deployments:
 
 ### Resource Naming Convention
 
-| Resource | Pattern |
-|----------|---------|
-| Deployment, Service, SA, ConfigMap, Secret, HPA | `{release}-{chart}-{deploymentName}` |
-| Mounted ConfigMap | `{release}-{chart}-{deploymentName}-md-cm-{name}` |
-| Ingress | `{release}-{chart}` |
-| CronJob (root level) | `{release}-{chart}-{cronjobName}` |
-| CronJob (inside deployment) | `{release}-{chart}-{deploymentName}-{cronjobName}` |
-| Hook Job (root level) | `{release}-{chart}-{hookType}-{jobName}` |
-| Hook Job (inside deployment) | `{release}-{chart}-{deploymentName}-{hookType}-{jobName}` |
+| Resource | Pattern | Max Length |
+|----------|---------|------------|
+| Deployment, Service, SA, ConfigMap, Secret, HPA | `{release}-{chart}-{deploymentName}` | 63 chars |
+| Mounted ConfigMap | `{release}-{chart}-{deploymentName}-md-cm-{name}` | 63 chars |
+| Ingress | `{release}-{chart}` | 63 chars |
+| CronJob (root level) | `{release}-{chart}-{cronjobName}` | **52 chars** |
+| CronJob (inside deployment) | `{release}-{chart}-{deploymentName}-{cronjobName}` | **52 chars** |
+| Hook Job (root level) | `{release}-{chart}-{hookType}-{jobName}` | 63 chars |
+| Hook Job (inside deployment) | `{release}-{chart}-{deploymentName}-{hookType}-{jobName}` | 63 chars |
+
+> **Note**: CronJob names are limited to 52 characters because Kubernetes appends an 11-character timestamp suffix when creating Jobs from CronJobs (total Job name limit is 63 characters).
 
 ### Test Scenarios
 
