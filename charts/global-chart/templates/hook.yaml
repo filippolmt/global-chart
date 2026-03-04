@@ -101,6 +101,10 @@ spec:
       hostAliases:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- with $command.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       restartPolicy: {{ default "Never" $command.restartPolicy | quote }}
       containers:
       - name: {{ $hookFullname }}
@@ -113,6 +117,10 @@ spec:
         {{- if $command.args }}
         args:
           {{- toYaml $command.args | nindent 10 }}
+        {{- end }}
+        {{- with $command.securityContext }}
+        securityContext:
+          {{- toYaml . | nindent 10 }}
         {{- end }}
         {{- if $command.resources }}
         resources:
@@ -274,8 +282,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
 automountServiceAccountToken: {{ $saAutomount }}
-{{- end }}
-
+{{ end }}
 {{- /* Resolve inherited envFrom from deployment's configMap and secret */ -}}
 {{- $deployFullname := include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $deployName) -}}
 {{- $hasDeployConfigMap := and $deploy.configMap (gt (len $deploy.configMap) 0) -}}
@@ -317,12 +324,15 @@ spec:
         {{- end }}
       {{- end }}
       {{- /* HostAliases: explicit > inherited from deployment */ -}}
-      {{- $hostAliases := $command.hostAliases -}}
-      {{- if not $hostAliases -}}
-        {{- $hostAliases = $deploy.hostAliases -}}
-      {{- end -}}
+      {{- $hostAliases := ternary $command.hostAliases $deploy.hostAliases (hasKey $command "hostAliases") -}}
       {{- with $hostAliases }}
       hostAliases:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- /* PodSecurityContext: explicit > inherited from deployment */ -}}
+      {{- $podSecCtx := ternary $command.podSecurityContext $deploy.podSecurityContext (hasKey $command "podSecurityContext") -}}
+      {{- with $podSecCtx }}
+      securityContext:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       restartPolicy: {{ default "Never" $command.restartPolicy | quote }}
@@ -337,6 +347,12 @@ spec:
         {{- if $command.args }}
         args:
           {{- toYaml $command.args | nindent 10 }}
+        {{- end }}
+        {{- /* Container securityContext: explicit > inherited from deployment */ -}}
+        {{- $secCtx := ternary $command.securityContext $deploy.securityContext (hasKey $command "securityContext") -}}
+        {{- with $secCtx }}
+        securityContext:
+          {{- toYaml . | nindent 10 }}
         {{- end }}
         {{- if $command.resources }}
         resources:

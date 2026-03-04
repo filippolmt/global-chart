@@ -1,0 +1,106 @@
+suite: service template tests
+templates:
+  - templates/service.yaml
+tests:
+  # ====== Service disabled ======
+  - it: should not render service when disabled
+    set:
+      deployments:
+        worker:
+          image: nginx:1.25
+          service:
+            enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  # ====== Service enabled by default ======
+  - it: should render service by default
+    release:
+      name: myrel
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          service:
+            port: 8080
+            targetPort: 8080
+            type: ClusterIP
+    asserts:
+      - isKind:
+          of: Service
+      - equal:
+          path: spec.type
+          value: ClusterIP
+      - equal:
+          path: spec.ports[0].port
+          value: 8080
+      - equal:
+          path: spec.ports[0].targetPort
+          value: 8080
+
+  # ====== Service naming ======
+  - it: should name service after deployment
+    release:
+      name: myrel
+    set:
+      deployments:
+        api:
+          image: nginx:1.25
+    asserts:
+      - equal:
+          path: metadata.name
+          value: myrel-global-chart-api
+
+  # ====== Service selector labels ======
+  - it: should include component in selector labels
+    set:
+      deployments:
+        backend:
+          image: nginx:1.25
+    asserts:
+      - isSubset:
+          path: spec.selector
+          content:
+            app.kubernetes.io/component: backend
+
+  # ====== Default port ======
+  - it: should use default port 80 when not specified
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+    asserts:
+      - equal:
+          path: spec.ports[0].port
+          value: 80
+
+  # ====== Multiple deployments create multiple services ======
+  - it: should create service for each deployment
+    set:
+      deployments:
+        frontend:
+          image: nginx:1.25
+          service:
+            port: 80
+        backend:
+          image: myapp:v1
+          service:
+            port: 3000
+    asserts:
+      - hasDocuments:
+          count: 2
+
+  # ====== Port name ======
+  - it: should use custom port name
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          service:
+            portName: api
+            port: 3000
+    asserts:
+      - equal:
+          path: spec.ports[0].name
+          value: api

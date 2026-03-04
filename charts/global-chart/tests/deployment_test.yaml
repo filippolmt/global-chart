@@ -1,0 +1,329 @@
+suite: deployment template tests
+templates:
+  - templates/deployment.yaml
+tests:
+  # ====== extraContainers (Bug Fix #1) ======
+  - it: should render extraContainers as sidecar
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          extraContainers:
+            - name: sidecar
+              image: busybox:1.28
+              command: ["sh", "-c", "echo sidecar"]
+    asserts:
+      - contains:
+          path: spec.template.spec.containers
+          content:
+            name: sidecar
+            image: busybox:1.28
+            command: ["sh", "-c", "echo sidecar"]
+
+  - it: should not render extraContainers when not set
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+    asserts:
+      - lengthEqual:
+          path: spec.template.spec.containers
+          count: 1
+
+  # ====== securityContext container-level (Bug Fix #2) ======
+  - it: should render container-level securityContext
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          securityContext:
+            runAsUser: 1000
+            runAsNonRoot: true
+            readOnlyRootFilesystem: true
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.runAsUser
+          value: 1000
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.runAsNonRoot
+          value: true
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.readOnlyRootFilesystem
+          value: true
+
+  - it: should not render container securityContext when not set
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+    asserts:
+      - isNull:
+          path: spec.template.spec.containers[0].securityContext
+
+  # ====== additionalEnvs (Bug Fix #3) ======
+  - it: should render additionalEnvs with valueFrom
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          additionalEnvs:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+
+  - it: should render additionalEnvs with literal value
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          additionalEnvs:
+            - name: MY_VAR
+              value: "hello"
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: MY_VAR
+            value: "hello"
+
+  - it: should render additionalEnvs mixing value and valueFrom
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          additionalEnvs:
+            - name: LITERAL
+              value: "world"
+            - name: FROM_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: my-secret
+                  key: password
+    asserts:
+      - lengthEqual:
+          path: spec.template.spec.containers[0].env
+          count: 2
+
+  # ====== podSecurityContext ======
+  - it: should render podSecurityContext
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          podSecurityContext:
+            fsGroup: 2000
+            runAsGroup: 3000
+    asserts:
+      - equal:
+          path: spec.template.spec.securityContext.fsGroup
+          value: 2000
+      - equal:
+          path: spec.template.spec.securityContext.runAsGroup
+          value: 3000
+
+  # ====== extraInitContainers ======
+  - it: should render extraInitContainers
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          extraInitContainers:
+            - name: init-db
+              image: busybox:1.28
+              command: ["sh", "-c", "echo init"]
+    asserts:
+      - contains:
+          path: spec.template.spec.initContainers
+          content:
+            name: init-db
+            image: busybox:1.28
+            command: ["sh", "-c", "echo init"]
+
+  # ====== image with digest ======
+  - it: should render image with digest
+    set:
+      deployments:
+        main:
+          image:
+            repository: nginx
+            digest: sha256:abc123
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: "nginx@sha256:abc123"
+
+  # ====== resources ======
+  - it: should render resources
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].resources.requests.cpu
+          value: 100m
+      - equal:
+          path: spec.template.spec.containers[0].resources.limits.memory
+          value: 512Mi
+
+  # ====== probes ======
+  - it: should render liveness and readiness probes
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.httpGet.path
+          value: /health
+      - equal:
+          path: spec.template.spec.containers[0].readinessProbe.httpGet.path
+          value: /ready
+
+  # ====== envFrom ======
+  - it: should render envFrom with configMap and secret
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          configMap:
+            KEY: value
+          secret:
+            PASSWORD: secret
+          envFromConfigMaps:
+            - external-cm
+          envFromSecrets:
+            - external-secret
+    asserts:
+      - isNotNull:
+          path: spec.template.spec.containers[0].envFrom
+
+  # ====== replicas with autoscaling ======
+  - it: should not set replicas when autoscaling is enabled
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          autoscaling:
+            enabled: true
+            minReplicas: 2
+            maxReplicas: 10
+    asserts:
+      - isNull:
+          path: spec.replicas
+
+  - it: should set replicas when autoscaling is disabled
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          replicaCount: 3
+    asserts:
+      - equal:
+          path: spec.replicas
+          value: 3
+
+  # ====== deployment naming ======
+  - it: should name deployment correctly
+    release:
+      name: myrelease
+    set:
+      deployments:
+        api:
+          image: nginx:1.25
+    asserts:
+      - equal:
+          path: metadata.name
+          value: myrelease-global-chart-api
+
+  # ====== selector labels include component ======
+  - it: should include component in selector labels
+    set:
+      deployments:
+        web:
+          image: nginx:1.25
+    asserts:
+      - isSubset:
+          path: spec.selector.matchLabels
+          content:
+            app.kubernetes.io/component: web
+
+  # ====== nodeSelector, tolerations, affinity ======
+  - it: should render nodeSelector
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          nodeSelector:
+            disktype: ssd
+    asserts:
+      - equal:
+          path: spec.template.spec.nodeSelector.disktype
+          value: ssd
+
+  - it: should render tolerations
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          tolerations:
+            - key: "dedicated"
+              operator: "Equal"
+              value: "special"
+              effect: "NoSchedule"
+    asserts:
+      - contains:
+          path: spec.template.spec.tolerations
+          content:
+            key: "dedicated"
+            operator: "Equal"
+            value: "special"
+            effect: "NoSchedule"
+
+  # ====== volumeMounts ======
+  - it: should render volumeMounts and volumes
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          volumes:
+            - name: data
+              type: emptyDir
+          volumeMounts:
+            - name: data
+              mountPath: /data
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: data
+            mountPath: /data
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: data
+            emptyDir: {}

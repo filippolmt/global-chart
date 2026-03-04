@@ -1,9 +1,9 @@
 {{- $root := . }}
 {{- range $name, $deploy := .Values.deployments }}
 {{- if $deploy }}
-{{- $hpa := $deploy.autoscaling }}
-{{- $cpu := int $hpa.targetCPUUtilizationPercentage }}
-{{- $mem := int $hpa.targetMemoryUtilizationPercentage }}
+{{- $hpa := default (dict) $deploy.autoscaling }}
+{{- $cpu := int (default 0 $hpa.targetCPUUtilizationPercentage) }}
+{{- $mem := int (default 0 $hpa.targetMemoryUtilizationPercentage) }}
 {{- $hasMetric := or (gt $cpu 0) (gt $mem 0) }}
 {{- if and $hpa.enabled $hasMetric }}
 {{- $depFullname := include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $name) }}

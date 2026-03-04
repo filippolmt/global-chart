@@ -9,13 +9,14 @@ GENERATED_DIR := generated-manifests
 KUBE_LINTER_VERSION := $(shell if [ "$(shell uname -m)" = "x86_64" ]; then echo "latest-alpine-amd64"; else echo "latest-alpine-arm64"; fi)
 KUBE_LINTER_IMAGE := ghcr.io/stackrox/kube-linter:$(KUBE_LINTER_VERSION)
 HELM_DOCS_IMAGE := jnorwood/helm-docs:latest
+HELM_UNITTEST_IMAGE := helmunittest/helm-unittest:3.19.0-1.0.3
 
 # Test cases: values_file:namespace:slug
 # Used by lint-chart, generate-templates, and kube-linter
 TEST_CASES := \
-	tests/test01/values.01.yaml:test:test01 \
-	tests/values.02.yaml:test:test02 \
-	tests/values.03.yaml:test:test03 \
+	tests/test01/values.01.yaml:test01:test01 \
+	tests/values.02.yaml:test02:test02 \
+	tests/values.03.yaml:test03:test03 \
 	tests/mountedcm1.yaml:mountedcm1:mountedcm1 \
 	tests/mountedcm2.yaml:mountedcm2:mountedcm2 \
 	tests/cron-only.yaml:cron:cron \
@@ -33,25 +34,34 @@ TEST_CASES := \
 # Default target
 .DEFAULT_GOAL := help
 
+# All phony targets
+.PHONY: help all lint-chart unit-test generate-templates \
+	kube-linter-manifests kube-linter generate-docs package \
+	install install-test01 render clean clean-all
+
 # ============================================================================
 # Help
 # ============================================================================
 
-.PHONY: help
 help: ## Show this help message
 	@echo "Usage: make [target]"
 	@echo ""
 	@echo "Targets:"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@echo ""
+	@echo "Examples:"
+	@echo "  make install SCENARIO=test01                                          Install a test scenario"
+	@echo "  make render VALUES=tests/test01/values.01.yaml TEMPLATE=deployment.yaml   Render a single template"
+	@echo ""
+	@echo "Available scenarios:"
+	@for entry in $(TEST_CASES); do slug="$${entry##*:}"; printf "  %s\n" "$$slug"; done
 
 # ============================================================================
 # Main targets
 # ============================================================================
 
-.PHONY: all
-all: lint-chart generate-templates ## Run lint and generate templates
+all: lint-chart unit-test generate-templates ## Run lint, unit tests and generate templates
 
-.PHONY: lint-chart
 lint-chart: ## Lint chart with all test values files
 	@echo "==> Linting chart with all test cases..."
 	@set -e; for entry in $(TEST_CASES); do \
@@ -61,44 +71,42 @@ lint-chart: ## Lint chart with all test values files
 	done
 	@echo "==> All lint checks passed!"
 
-.PHONY: generate-templates
-generate-templates: lint-chart ## Generate templates for all test cases
-	@echo "==> Generating templates..."
-	@rm -rf $(GENERATED_DIR) || true
-	@mkdir -p $(GENERATED_DIR)
+unit-test: ## Run helm-unittest via Docker
+	@echo "==> Running helm unit tests..."
+	@docker run --rm -u $$(id -u):$$(id -g) -v $(CURDIR)/$(CHART_DIR)/$(GLOBAL_CHART_NAME):/apps -w /apps $(HELM_UNITTEST_IMAGE) .
+	@echo "==> All unit tests passed!"
+
+# Internal: generate templates to a given directory
+define _helm_generate
 	@set -e; for entry in $(TEST_CASES); do \
 		values="$${entry%%:*}"; rest="$${entry#*:}"; namespace="$${rest%%:*}"; slug="$${rest##*:}"; \
-		out_dir="$(GENERATED_DIR)/$${slug}"; \
+		out_dir="$(1)/$${slug}"; \
 		echo "    Generating $${slug}"; \
+		mkdir -p "$${out_dir}"; \
 		helm template "test-$${slug}-$(GLOBAL_CHART_NAME)" "./$(CHART_DIR)/$(GLOBAL_CHART_NAME)" \
 			-f "$${values}" \
 			--namespace "$${namespace}" \
 			--output-dir "$${out_dir}" \
 			--include-crds; \
 	done
+endef
+
+generate-templates: lint-chart ## Generate templates for all test cases
+	@echo "==> Generating templates..."
+	@rm -rf $(GENERATED_DIR) || true
+	@mkdir -p $(GENERATED_DIR)
+	$(call _helm_generate,$(GENERATED_DIR))
 	@echo "==> Templates generated in $(GENERATED_DIR)/"
 
 # ============================================================================
 # Kube-linter
 # ============================================================================
 
-.PHONY: kube-linter-manifests
 kube-linter-manifests: ## Generate manifests for kube-linter
 	@echo "==> Generating manifests for kube-linter..."
 	@rm -rf $(GENERATED_DIR)/kube-linter || true
-	@mkdir -p $(GENERATED_DIR)/kube-linter
-	@set -e; for entry in $(TEST_CASES); do \
-		values="$${entry%%:*}"; rest="$${entry#*:}"; namespace="$${rest%%:*}"; slug="$${rest##*:}"; \
-		out_dir="$(GENERATED_DIR)/kube-linter/$${slug}"; \
-		mkdir -p "$${out_dir}"; \
-		helm template "lint-$${slug}-$(GLOBAL_CHART_NAME)" "./$(CHART_DIR)/$(GLOBAL_CHART_NAME)" \
-			-f "$${values}" \
-			--namespace "$${namespace}" \
-			--output-dir "$${out_dir}" \
-			--include-crds; \
-	done
+	$(call _helm_generate,$(GENERATED_DIR)/kube-linter)
 
-.PHONY: kube-linter
 kube-linter: kube-linter-manifests ## Run kube-linter on generated manifests
 	@echo "==> Running kube-linter..."
 	@docker run --rm \
@@ -111,7 +119,6 @@ kube-linter: kube-linter-manifests ## Run kube-linter on generated manifests
 # Documentation
 # ============================================================================
 
-.PHONY: generate-docs
 generate-docs: ## Generate Helm documentation
 	@echo "==> Generating Helm docs..."
 	@docker run --rm --volume "$$(pwd)/$(CHART_DIR)/$(GLOBAL_CHART_NAME):/helm-docs" -u $$(id -u) $(HELM_DOCS_IMAGE) --sort-values-order file
@@ -122,7 +129,6 @@ generate-docs: ## Generate Helm documentation
 # Packaging
 # ============================================================================
 
-.PHONY: package
 package: lint-chart ## Package chart for distribution
 	@echo "==> Packaging chart..."
 	helm package $(CHART_DIR)/$(GLOBAL_CHART_NAME)
@@ -131,67 +137,67 @@ package: lint-chart ## Package chart for distribution
 # Install targets (for local testing)
 # ============================================================================
 
-.PHONY: install-test01
-install-test01: ## Install chart with test01 values
+install: ## Install a test scenario (usage: make install SCENARIO=test01)
+	@if [ -z "$(SCENARIO)" ]; then \
+		echo "Usage: make install SCENARIO=<slug>"; \
+		echo "Available scenarios:"; \
+		for entry in $(TEST_CASES); do \
+			slug="$${entry##*:}"; \
+			echo "  $$slug"; \
+		done; \
+		exit 1; \
+	fi
+	@found=0; for entry in $(TEST_CASES); do \
+		values="$${entry%%:*}"; rest="$${entry#*:}"; namespace="$${rest%%:*}"; slug="$${rest##*:}"; \
+		if [ "$$slug" = "$(SCENARIO)" ]; then \
+			found=1; \
+			echo "==> Installing $$slug (namespace: $$namespace)..."; \
+			helm upgrade --install test ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) \
+				-f "$$values" \
+				--namespace "$$namespace" \
+				--create-namespace; \
+			break; \
+		fi; \
+	done; \
+	if [ $$found -eq 0 ]; then \
+		echo "Error: scenario '$(SCENARIO)' not found"; exit 1; \
+	fi
+
+install-test01: ## Install test01 (has kubectl pre-step; or use: make install SCENARIO=test01)
 	kubectl apply -f tests/test01/test01.yaml || true
 	helm upgrade --install test ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) \
 		-f tests/test01/values.01.yaml \
 		--namespace test01 \
 		--create-namespace
 
-.PHONY: install-test02
-install-test02: ## Install chart with test02 values
-	helm upgrade --install test ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) \
-		-f tests/values.02.yaml \
-		--namespace test02 \
-		--create-namespace
+# ============================================================================
+# Render (single template debugging)
+# ============================================================================
 
-.PHONY: install-test03
-install-test03: ## Install chart with test03 values
-	helm upgrade --install test ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) \
-		-f tests/values.03.yaml \
-		--namespace test03 \
-		--create-namespace
-
-.PHONY: install-mountedcm1
-install-mountedcm1: ## Install chart with mountedcm1 values
-	helm upgrade --install test ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) \
-		-f tests/mountedcm1.yaml \
-		--namespace mountedcm1 \
-		--create-namespace
-
-.PHONY: install-mountedcm2
-install-mountedcm2: ## Install chart with mountedcm2 values
-	helm upgrade --install test ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) \
-		-f tests/mountedcm2.yaml \
-		--namespace mountedcm2 \
-		--create-namespace
-
-.PHONY: install-multi
-install-multi: ## Install chart with multi-deployment values
-	helm upgrade --install test ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) \
-		-f tests/multi-deployment.yaml \
-		--namespace multi \
-		--create-namespace
+render: ## Render a single template (usage: make render VALUES=<file> TEMPLATE=<name>)
+	@if [ -z "$(VALUES)" ] || [ -z "$(TEMPLATE)" ]; then \
+		echo "Usage: make render VALUES=<values-file> TEMPLATE=<template-name>"; \
+		echo "Example: make render VALUES=tests/test01/values.01.yaml TEMPLATE=deployment.yaml"; \
+		exit 1; \
+	fi
+	helm template test-release ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) \
+		-f $(VALUES) \
+		-s templates/$(TEMPLATE)
 
 # ============================================================================
 # Cleanup
 # ============================================================================
 
-.PHONY: clean
 clean: ## Remove generated files
 	@echo "==> Cleaning generated files..."
 	@rm -rf $(GENERATED_DIR)
 	@rm -f *.tgz
 	@echo "==> Clean complete!"
 
-.PHONY: clean-all
 clean-all: clean ## Remove all generated files and uninstall test releases
 	@echo "==> Uninstalling test releases..."
-	-helm uninstall test -n test01 2>/dev/null || true
-	-helm uninstall test -n test02 2>/dev/null || true
-	-helm uninstall test -n test03 2>/dev/null || true
-	-helm uninstall test -n mountedcm1 2>/dev/null || true
-	-helm uninstall test -n mountedcm2 2>/dev/null || true
-	-helm uninstall test -n multi 2>/dev/null || true
+	@for entry in $(TEST_CASES); do \
+		rest="$${entry#*:}"; namespace="$${rest%%:*}"; \
+		helm uninstall test -n "$$namespace" 2>/dev/null || true; \
+	done
 	@echo "==> Clean-all complete!"

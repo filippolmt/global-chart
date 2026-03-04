@@ -141,10 +141,7 @@ Render an image reference from either a plain string or a map with repository/ta
     {{- end }}
   {{- end }}
 {{- else if and (kindIs "map" $img) $img.digest }}
-  {{- $digest := $img.digest | trim -}}
-  {{- if $digest }}
-    {{- fail "image definitions that set a digest must also provide a repository (expected repository@digest)" -}}
-  {{- end }}
+  {{- fail "image definitions that set a digest must also provide a repository (expected repository@digest)" -}}
 {{- end }}
 {{- end }}
 

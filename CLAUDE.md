@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Global-chart is a reusable Helm chart providing configurable Kubernetes building blocks: Deployments, Services, Ingress, CronJobs, Hook Jobs, ExternalSecrets, and RBAC resources.
 
-**Version 1.0.0** introduced multi-deployment support, allowing multiple independent deployments in a single release. Each deployment gets its own resources (Service, ConfigMap, Secret, ServiceAccount, HPA).
+Supports multi-deployment: multiple independent deployments in a single release, each with its own resources (Service, ConfigMap, Secret, ServiceAccount, HPA). Current version: **1.2.0**.
 
 ## Common Commands
 
@@ -17,10 +17,13 @@ make help
 # Lint all test scenarios (runs helm lint --strict)
 make lint-chart
 
+# Run helm-unittest via Docker
+make unit-test
+
 # Generate manifests for visual inspection (outputs to generated-manifests/)
 make generate-templates
 
-# Run both lint and generate
+# Run lint, unit tests and generate
 make all
 
 # Run kube-linter against generated manifests (requires Docker)
@@ -33,10 +36,13 @@ make generate-docs
 make package
 
 # Install test scenarios to a cluster
-make install-test01      # Full kitchen-sink test
-make install-test02      # Deployment with existing SA
-make install-multi       # Multi-deployment test
-make install-mountedcm1  # Mounted config files test
+make install SCENARIO=test01   # Any scenario from TEST_CASES
+make install SCENARIO=test02
+make install SCENARIO=multi-deployment
+make install-test01            # test01 with kubectl pre-step
+
+# Render a single template for debugging
+make render VALUES=tests/test01/values.01.yaml TEMPLATE=deployment.yaml
 
 # Cleanup
 make clean               # Remove generated files
@@ -49,7 +55,7 @@ make clean-all           # Clean + uninstall helm releases
 
 ```
 charts/global-chart/
-├── Chart.yaml              # Chart metadata (version 1.0.0)
+├── Chart.yaml              # Chart metadata (version 1.2.0)
 ├── values.yaml             # Default values with helm-docs annotations
 ├── templates/
 │   ├── _helpers.tpl        # Template functions (fullname, labels, imageString, etc.)
@@ -64,7 +70,23 @@ charts/global-chart/
 │   ├── cronjob.yaml        # CronJobs (root-level or inside deployments)
 │   ├── hook.yaml           # Helm hook Jobs (root-level or inside deployments)
 │   ├── externalsecret.yaml # ExternalSecret CRDs
-│   └── rbac.yaml           # Roles and RoleBindings
+│   ├── rbac.yaml           # Roles and RoleBindings
+│   └── NOTES.txt           # Post-install notes
+├── tests/                  # helm-unittest test files (14 suites, 161 tests)
+│   ├── deployment_test.yaml
+│   ├── cronjob_test.yaml
+│   ├── hook_test.yaml
+│   ├── hpa_test.yaml
+│   ├── ingress_test.yaml
+│   ├── service_test.yaml
+│   ├── serviceaccount_test.yaml
+│   ├── configmap_test.yaml
+│   ├── secret_test.yaml
+│   ├── mounted-configmap_test.yaml
+│   ├── externalsecret_test.yaml
+│   ├── rbac_test.yaml
+│   ├── helpers_test.yaml
+│   └── notes_test.yaml
 ```
 
 ### Multi-Deployment Schema (v1.0.0)
@@ -154,7 +176,7 @@ deployments:
 
 6. **Hooks/CronJobs inheritance**: Two placement options:
    - **Root level** (`hooks:`, `cronJobs:`): Standalone, use `fromDeployment` to copy image only
-   - **Inside deployments** (`deployments.*.hooks`, `deployments.*.cronJobs`): Inherit image, configMap, secret, serviceAccount, envFromConfigMaps, envFromSecrets, additionalEnvs, imagePullSecrets, hostAliases, nodeSelector, tolerations, affinity from parent deployment
+   - **Inside deployments** (`deployments.*.hooks`, `deployments.*.cronJobs`): Inherit image, configMap, secret, serviceAccount, envFromConfigMaps, envFromSecrets, additionalEnvs, imagePullSecrets, hostAliases, podSecurityContext, securityContext, dnsConfig (cronjobs only), nodeSelector, tolerations, affinity from parent deployment
    - **ServiceAccount inheritance**: Hooks inherit SA from deployment in two cases:
      - `serviceAccount.create: true` (or not specified) - uses the generated SA name
      - `serviceAccount.create: false` with `name: xxx` - uses the existing SA name
@@ -180,7 +202,13 @@ deployments:
 
 > **Note**: CronJob names are limited to 52 characters because Kubernetes appends an 11-character timestamp suffix when creating Jobs from CronJobs (total Job name limit is 63 characters).
 
-### Test Scenarios
+### Test Structure
+
+Two separate test directories exist:
+- **`tests/`** (root) - Value files for lint scenarios and manual template rendering (used by `make lint-chart`)
+- **`charts/global-chart/tests/`** - helm-unittest test suites (used by `make unit-test`)
+
+### Test Scenarios (Lint Values)
 
 The `tests/` directory contains value files covering all supported configurations:
 
@@ -206,17 +234,23 @@ The `tests/` directory contains value files covering all supported configuration
 
 GitHub Actions workflow (`.github/workflows/helm-ci.yml`) runs on push/PR:
 1. `make lint-chart` - Lints all test scenarios
-2. `make generate-templates` - Generates manifests
-3. Uploads `generated-manifests/` as artifact
+2. `make unit-test` - Runs helm-unittest suite (161 tests across 14 suites) via Docker
+3. `make generate-templates` - Generates manifests
+4. Uploads `generated-manifests/` as artifact
 
 Release workflow (`.github/workflows/release.yml`) handles chart publishing.
 
 ## Working with This Codebase
 
-- Always run `make lint-chart` after modifying templates or values
+- Always run `make lint-chart` and `make unit-test` after modifying templates or values
 - Use `make generate-templates` to inspect rendered output before committing
+- Unit tests are in `charts/global-chart/tests/` using helm-unittest framework (Docker-based, no local plugin needed)
 - Add new test scenarios to `tests/` and update `TEST_CASES` in Makefile
 - When adding new template helpers, place them in `templates/_helpers.tpl`
 - README auto-generation uses helm-docs; run `make generate-docs` after changing value annotations
 - When accessing nested optional fields in templates, use `$var := default (dict) $parent.field` to avoid nil pointer errors
-- Ricordati sempre di modificare CLOUDE.md quando cambia qualcosa
+- For boolean fields with `default`, never use `default true $var` — Go templates treat `false` as falsy and replace it with the default. Use `hasKey` + `ternary` instead: `hasKey $map "field" | ternary $map.field true`
+- Never mutate `.Values` during rendering (e.g., `set $ing.annotations`). Use `deepCopy` to create a local copy first
+- Every template must have a corresponding `*_test.yaml` in `charts/global-chart/tests/`
+- When adding inheritance to deployment-level hooks/cronjobs, use `hasKey` to distinguish "not set" from "set but empty": `ternary $job.field $deploy.field (hasKey $job "field")`. Never use `if not $job.field` as it treats `{}` and `[]` as falsy and incorrectly inherits
+- Always update CLAUDE.md when architecture, commands, or key patterns change

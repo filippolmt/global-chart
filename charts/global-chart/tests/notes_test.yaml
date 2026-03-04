@@ -1,0 +1,58 @@
+suite: NOTES.txt template tests
+templates:
+  - templates/NOTES.txt
+tests:
+  - it: should render NOTES.txt with deployment info
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+    asserts:
+      - matchRegexRaw:
+          pattern: "Deployments created:"
+      - matchRegexRaw:
+          pattern: "main"
+
+  - it: should list services
+    set:
+      deployments:
+        api:
+          image: nginx:1.25
+          service:
+            port: 3000
+    asserts:
+      - matchRegexRaw:
+          pattern: "Services:"
+
+  - it: should show ingress info when enabled
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+      ingress:
+        enabled: true
+        className: nginx
+        hosts:
+          - host: example.com
+            deployment: main
+            paths:
+              - path: /
+                pathType: Prefix
+    asserts:
+      - matchRegexRaw:
+          pattern: "Ingress is enabled"
+      - matchRegexRaw:
+          pattern: "example.com"
+
+  - it: should show cronjob info
+    set:
+      cronJobs:
+        backup:
+          schedule: "0 2 * * *"
+          image: busybox:latest
+          command: ["echo"]
+    asserts:
+      - matchRegexRaw:
+          pattern: "CronJobs:"
+      - matchRegexRaw:
+          pattern: "backup"

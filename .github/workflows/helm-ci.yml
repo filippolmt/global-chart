@@ -6,7 +6,7 @@ on:
   pull_request:
 
 jobs:
-  lint:
+  lint-and-test:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -19,6 +19,9 @@ jobs:
 
       - name: Lint chart scenarios
         run: make lint-chart
+
+      - name: Run unit tests
+        run: make unit-test
 
       - name: Generate manifests
         run: make generate-templates

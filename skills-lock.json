@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "skills": {
+    "helm-chart-scaffolding": {
+      "source": "wshobson/agents",
+      "sourceType": "github",
+      "computedHash": "244e0c7c25ddf1554c08abb6a22b0fb30048fe4daaebc1d3c399633ad8c331b7"
+    }
+  }
+}

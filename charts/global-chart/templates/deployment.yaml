@@ -95,6 +95,10 @@ spec:
           {{- $depImageRef := include "global-chart.imageString" $deploy.image }}
           image: {{ required (printf "deployments.%s.image must define a repository with tag/digest or be a full image reference" $name) $depImageRef | quote }}
           imagePullPolicy: {{ include "global-chart.imagePullPolicy" (dict "image" $deploy.image) }}
+          {{- with $deploy.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           ports:
             - name: {{ $svc.portName | default "http" }}
               containerPort: {{ $svc.port | default 80 }}
@@ -134,11 +138,7 @@ spec:
           {{- end }}
           {{- if $deploy.additionalEnvs }}
           env:
-            {{- range $env := $deploy.additionalEnvs }}
-            - name: {{ $env.name | quote }}
-              valueFrom:
-                {{- toYaml $env.valueFrom | nindent 16 }}
-            {{- end }}
+            {{- toYaml $deploy.additionalEnvs | nindent 12 }}
           {{- end }}
           {{- $mountedConfigFiles := $deploy.mountedConfigFiles }}
           {{- if or $deploy.volumeMounts (and $mountedConfigFiles (or $mountedConfigFiles.files $mountedConfigFiles.bundles)) }}
@@ -162,6 +162,9 @@ spec:
             {{- end }}
             {{- end }}
           {{- end }}
+      {{- with $deploy.extraContainers }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       {{- $mountedConfigFiles := $deploy.mountedConfigFiles }}
       {{- $userVolumes := default (list) $deploy.volumes }}
       {{- $hasUserVolumes := gt (len $userVolumes) 0 }}

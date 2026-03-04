@@ -1,0 +1,379 @@
+suite: cronjob template tests
+templates:
+  - templates/cronjob.yaml
+tests:
+  # ====== Root-level CronJob naming (52 char truncation) ======
+  - it: should truncate root-level cronjob name to 52 chars
+    release:
+      name: my-very-long-release-name
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+      cronJobs:
+        very-long-cronjob-name-that-exceeds:
+          schedule: "0 2 * * *"
+          fromDeployment: main
+          command: ["echo", "test"]
+    asserts:
+      - isKind:
+          of: CronJob
+        documentIndex: 0
+      - matchRegex:
+          path: metadata.name
+          pattern: "^.{1,52}$"
+
+  # ====== Root-level CronJob basic ======
+  - it: should render root-level cronjob with explicit image
+    set:
+      cronJobs:
+        backup:
+          schedule: "0 2 * * *"
+          image: myapp/backup:v1
+          command: ["./backup.sh"]
+          args: ["--full"]
+    asserts:
+      - isKind:
+          of: CronJob
+      - equal:
+          path: spec.schedule
+          value: "0 2 * * *"
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.containers[0].image
+          value: "myapp/backup:v1"
+
+  # ====== Root-level CronJob with fromDeployment ======
+  - it: should resolve image from fromDeployment
+    set:
+      deployments:
+        api:
+          image:
+            repository: myapp/api
+            tag: "v2.0"
+      cronJobs:
+        cleanup:
+          schedule: "0 4 * * *"
+          fromDeployment: api
+          command: ["./cleanup.sh"]
+    asserts:
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.containers[0].image
+          value: "myapp/api:v2.0"
+
+  # ====== Deployment-level CronJob inheritance ======
+  - it: should inherit image from parent deployment
+    set:
+      deployments:
+        backend:
+          image:
+            repository: myapp/backend
+            tag: "v1.0"
+          configMap:
+            DB_HOST: postgres
+          secret:
+            DB_PASS: secret
+          serviceAccount:
+            create: true
+          nodeSelector:
+            tier: backend
+          tolerations:
+            - key: "dedicated"
+              operator: "Equal"
+              value: "backend"
+              effect: "NoSchedule"
+          cronJobs:
+            db-backup:
+              schedule: "0 2 * * *"
+              command: ["./backup.sh"]
+    asserts:
+      - isKind:
+          of: CronJob
+        documentIndex: 0
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.containers[0].image
+          value: "myapp/backend:v1.0"
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.nodeSelector.tier
+          value: backend
+
+  # ====== Deployment-level CronJob SA inheritance ======
+  - it: should inherit serviceAccount from parent deployment
+    release:
+      name: myrel
+    set:
+      deployments:
+        backend:
+          image: myapp/backend:v1
+          serviceAccount:
+            create: true
+          cronJobs:
+            cleanup:
+              schedule: "0 4 * * *"
+              command: ["./cleanup.sh"]
+    asserts:
+      - isKind:
+          of: CronJob
+        documentIndex: 0
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.serviceAccountName
+          value: "myrel-global-chart-backend"
+
+  # ====== CronJob default resources ======
+  - it: should use default resources when not specified
+    set:
+      cronJobs:
+        simple:
+          schedule: "0 0 * * *"
+          image: busybox:latest
+          command: ["echo", "hello"]
+    asserts:
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.containers[0].resources.requests.cpu
+          value: 100m
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.containers[0].resources.requests.memory
+          value: 128Mi
+
+  # ====== CronJob labels ======
+  - it: should include component label on deployment-level cronjob
+    set:
+      deployments:
+        worker:
+          image: myapp:v1
+          serviceAccount:
+            create: true
+            name: worker-sa
+          cronJobs:
+            task:
+              schedule: "0 * * * *"
+              command: ["./task.sh"]
+              serviceAccountName: worker-sa
+    asserts:
+      - isKind:
+          of: CronJob
+        documentIndex: 0
+      - isSubset:
+          path: metadata.labels
+          content:
+            app.kubernetes.io/component: worker
+        documentIndex: 0
+
+  # ====== Deployment-level CronJob hostAliases inheritance ======
+  - it: should inherit hostAliases from deployment in deployment-level cronjob
+    set:
+      deployments:
+        backend:
+          image: myapp:v1
+          hostAliases:
+            - ip: "127.0.0.1"
+              hostnames:
+                - "foo.local"
+                - "bar.local"
+          cronJobs:
+            cleanup:
+              schedule: "0 4 * * *"
+              command: ["./cleanup.sh"]
+    asserts:
+      - isKind:
+          of: CronJob
+        documentIndex: 1
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.hostAliases[0].ip
+          value: "127.0.0.1"
+        documentIndex: 1
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.hostAliases[0].hostnames[0]
+          value: "foo.local"
+        documentIndex: 1
+
+  - it: should allow cronjob to override inherited hostAliases
+    set:
+      deployments:
+        backend:
+          image: myapp:v1
+          hostAliases:
+            - ip: "127.0.0.1"
+              hostnames:
+                - "foo.local"
+          cronJobs:
+            cleanup:
+              schedule: "0 4 * * *"
+              command: ["./cleanup.sh"]
+              hostAliases:
+                - ip: "10.0.0.1"
+                  hostnames:
+                    - "custom.local"
+    asserts:
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.hostAliases[0].ip
+          value: "10.0.0.1"
+        documentIndex: 1
+
+  # ====== Deployment-level CronJob: explicit empty should NOT inherit ======
+  - it: should not inherit hostAliases when cronjob sets empty list
+    set:
+      deployments:
+        backend:
+          image: myapp:v1
+          hostAliases:
+            - ip: "127.0.0.1"
+              hostnames:
+                - "foo.local"
+          cronJobs:
+            cleanup:
+              schedule: "0 4 * * *"
+              command: ["./cleanup.sh"]
+              hostAliases: []
+    asserts:
+      - isKind:
+          of: CronJob
+        documentIndex: 1
+      - isNull:
+          path: spec.jobTemplate.spec.template.spec.hostAliases
+        documentIndex: 1
+
+  - it: should not inherit podSecurityContext when cronjob sets empty map
+    set:
+      deployments:
+        backend:
+          image: myapp:v1
+          podSecurityContext:
+            runAsUser: 1000
+          cronJobs:
+            cleanup:
+              schedule: "0 4 * * *"
+              command: ["./cleanup.sh"]
+              podSecurityContext: {}
+    asserts:
+      - isKind:
+          of: CronJob
+        documentIndex: 1
+      - isNull:
+          path: spec.jobTemplate.spec.template.spec.securityContext
+        documentIndex: 1
+
+  - it: should not inherit container securityContext when cronjob sets empty map
+    set:
+      deployments:
+        backend:
+          image: myapp:v1
+          securityContext:
+            runAsNonRoot: true
+          cronJobs:
+            cleanup:
+              schedule: "0 4 * * *"
+              command: ["./cleanup.sh"]
+              securityContext: {}
+    asserts:
+      - isKind:
+          of: CronJob
+        documentIndex: 1
+      - isNull:
+          path: spec.jobTemplate.spec.template.spec.containers[0].securityContext
+        documentIndex: 1
+
+  # ====== Root-level CronJob securityContext ======
+  - it: should render podSecurityContext on root-level cronjob
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+      cronJobs:
+        backup:
+          schedule: "0 2 * * *"
+          fromDeployment: main
+          command: ["echo", "backup"]
+          podSecurityContext:
+            runAsUser: 1000
+            fsGroup: 2000
+    asserts:
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.securityContext.runAsUser
+          value: 1000
+        documentIndex: 0
+
+  - it: should render container securityContext on root-level cronjob
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+      cronJobs:
+        backup:
+          schedule: "0 2 * * *"
+          fromDeployment: main
+          command: ["echo", "backup"]
+          securityContext:
+            runAsNonRoot: true
+            readOnlyRootFilesystem: true
+    asserts:
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.containers[0].securityContext.runAsNonRoot
+          value: true
+        documentIndex: 0
+
+  # ====== Deployment-level CronJob securityContext inheritance ======
+  - it: should inherit podSecurityContext from deployment in deployment-level cronjob
+    set:
+      deployments:
+        backend:
+          image: myapp:v1
+          podSecurityContext:
+            runAsUser: 1000
+            fsGroup: 2000
+          cronJobs:
+            cleanup:
+              schedule: "0 4 * * *"
+              command: ["./cleanup.sh"]
+    asserts:
+      - isKind:
+          of: CronJob
+        documentIndex: 1
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.securityContext.runAsUser
+          value: 1000
+        documentIndex: 1
+
+  - it: should inherit container securityContext from deployment in deployment-level cronjob
+    set:
+      deployments:
+        backend:
+          image: myapp:v1
+          securityContext:
+            runAsNonRoot: true
+          cronJobs:
+            cleanup:
+              schedule: "0 4 * * *"
+              command: ["./cleanup.sh"]
+    asserts:
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.containers[0].securityContext.runAsNonRoot
+          value: true
+        documentIndex: 1
+
+  # ====== Deployment-level CronJob dnsConfig inheritance ======
+  - it: should inherit dnsConfig from deployment in deployment-level cronjob
+    set:
+      deployments:
+        backend:
+          image: myapp:v1
+          dnsConfig:
+            nameservers:
+              - "8.8.8.8"
+            searches:
+              - "svc.cluster.local"
+          cronJobs:
+            cleanup:
+              schedule: "0 4 * * *"
+              command: ["./cleanup.sh"]
+    asserts:
+      - isKind:
+          of: CronJob
+        documentIndex: 1
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.dnsConfig.nameservers[0]
+          value: "8.8.8.8"
+        documentIndex: 1
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.dnsConfig.searches[0]
+          value: "svc.cluster.local"
+        documentIndex: 1
