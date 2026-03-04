@@ -1,0 +1,1343 @@
+suite: hook template tests
+templates:
+  - templates/hook.yaml
+tests:
+  # ====== Root-level hook basic ======
+  - it: should render root-level hook with explicit image
+    set:
+      hooks:
+        post-install:
+          migrate:
+            image: myapp:v1
+            command: ["./migrate.sh"]
+    asserts:
+      - isKind:
+          of: ServiceAccount
+        documentIndex: 0
+      - isKind:
+          of: Job
+        documentIndex: 1
+      - equal:
+          path: metadata.annotations["helm.sh/hook"]
+          value: post-install
+        documentIndex: 1
+
+  - it: should render root-level hook with fromDeployment image
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+      hooks:
+        post-upgrade:
+          migrate:
+            fromDeployment: backend
+            command: ["./migrate.sh"]
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: "myapp:v2"
+        documentIndex: 1
+
+  - it: should fail when fromDeployment references non-existent deployment
+    set:
+      deployments:
+        backend:
+          image: myapp:v1
+      hooks:
+        post-install:
+          migrate:
+            fromDeployment: nonexistent
+            command: ["./migrate.sh"]
+    asserts:
+      - failedTemplate:
+          errorMessage: "hooks.post-install.migrate.fromDeployment references deployment 'nonexistent' which does not exist in .Values.deployments"
+
+  # ====== Root-level hook naming ======
+  - it: should name root-level hook using hookfullname pattern
+    set:
+      hooks:
+        post-install:
+          migrate:
+            image: myapp:v1
+            command: ["./migrate.sh"]
+    asserts:
+      - equal:
+          path: metadata.name
+          value: RELEASE-NAME-global-chart-post-install-migrate
+        documentIndex: 1
+
+  # ====== Root-level hook annotations ======
+  - it: should set default hook-weight and delete-policy
+    set:
+      hooks:
+        post-install:
+          migrate:
+            image: myapp:v1
+            command: ["./migrate.sh"]
+    asserts:
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "10"
+        documentIndex: 1
+      - equal:
+          path: metadata.annotations["helm.sh/hook-delete-policy"]
+          value: before-hook-creation
+        documentIndex: 1
+
+  - it: should set default SA hook-weight to 5
+    set:
+      hooks:
+        post-install:
+          migrate:
+            image: myapp:v1
+            command: ["./migrate.sh"]
+    asserts:
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "5"
+        documentIndex: 0
+
+  - it: should use custom weight and deletePolicy
+    set:
+      hooks:
+        pre-install:
+          setup:
+            image: myapp:v1
+            command: ["./setup.sh"]
+            weight: "5"
+            deletePolicy: hook-succeeded
+    asserts:
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "5"
+        documentIndex: 1
+      - equal:
+          path: metadata.annotations["helm.sh/hook-delete-policy"]
+          value: hook-succeeded
+        documentIndex: 1
+
+  # ====== Root-level hook SA annotations ======
+  - it: should set hook type annotation on SA for root-level hook
+    set:
+      hooks:
+        post-install:
+          migrate:
+            image: myapp:v1
+            command: ["./migrate.sh"]
+    asserts:
+      - equal:
+          path: metadata.annotations["helm.sh/hook"]
+          value: post-install
+        documentIndex: 0
+
+  # ====== Root-level hook securityContext ======
+  - it: should render podSecurityContext on root-level hook
+    set:
+      hooks:
+        post-install:
+          migrate:
+            image: myapp:v1
+            command: ["./migrate.sh"]
+            podSecurityContext:
+              runAsUser: 1000
+              fsGroup: 2000
+    asserts:
+      - equal:
+          path: spec.template.spec.securityContext.runAsUser
+          value: 1000
+        documentIndex: 1
+      - equal:
+          path: spec.template.spec.securityContext.fsGroup
+          value: 2000
+        documentIndex: 1
+
+  - it: should render container securityContext on root-level hook
+    set:
+      hooks:
+        post-install:
+          migrate:
+            image: myapp:v1
+            command: ["./migrate.sh"]
+            securityContext:
+              runAsNonRoot: true
+              readOnlyRootFilesystem: true
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.runAsNonRoot
+          value: true
+        documentIndex: 1
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.readOnlyRootFilesystem
+          value: true
+        documentIndex: 1
+
+  - it: should not render securityContext when not set on root-level hook
+    set:
+      hooks:
+        post-install:
+          migrate:
+            image: myapp:v1
+            command: ["./migrate.sh"]
+    asserts:
+      - isNull:
+          path: spec.template.spec.securityContext
+        documentIndex: 1
+      - isNull:
+          path: spec.template.spec.containers[0].securityContext
+        documentIndex: 1
+
+  # ====== Root-level hook hostAliases ======
+  - it: should render hostAliases on root-level hook
+    set:
+      hooks:
+        post-install:
+          migrate:
+            image: myapp:v1
+            command: ["./migrate.sh"]
+            hostAliases:
+              - ip: "127.0.0.1"
+                hostnames:
+                  - "foo.local"
+    asserts:
+      - equal:
+          path: spec.template.spec.hostAliases[0].ip
+          value: "127.0.0.1"
+        documentIndex: 1
+      - equal:
+          path: spec.template.spec.hostAliases[0].hostnames[0]
+          value: "foo.local"
+        documentIndex: 1
+
+  - it: should not render hostAliases when not set on root-level hook
+    set:
+      hooks:
+        post-install:
+          migrate:
+            image: myapp:v1
+            command: ["./migrate.sh"]
+    asserts:
+      - isNull:
+          path: spec.template.spec.hostAliases
+        documentIndex: 1
+
+  # ====== Root-level hook resources ======
+  - it: should use default resources when not specified
+    set:
+      hooks:
+        post-install:
+          migrate:
+            image: myapp:v1
+            command: ["./migrate.sh"]
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].resources.requests.cpu
+          value: 100m
+        documentIndex: 1
+      - equal:
+          path: spec.template.spec.containers[0].resources.requests.memory
+          value: 128Mi
+        documentIndex: 1
+
+  - it: should use custom resources when specified
+    set:
+      hooks:
+        post-install:
+          migrate:
+            image: myapp:v1
+            command: ["./migrate.sh"]
+            resources:
+              requests:
+                cpu: 200m
+                memory: 256Mi
+              limits:
+                cpu: 500m
+                memory: 512Mi
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].resources.requests.cpu
+          value: 200m
+        documentIndex: 1
+      - equal:
+          path: spec.template.spec.containers[0].resources.limits.cpu
+          value: 500m
+        documentIndex: 1
+
+  # ====== Root-level hook restartPolicy ======
+  - it: should default restartPolicy to Never
+    set:
+      hooks:
+        post-install:
+          migrate:
+            image: myapp:v1
+            command: ["./migrate.sh"]
+    asserts:
+      - equal:
+          path: spec.template.spec.restartPolicy
+          value: "Never"
+        documentIndex: 1
+
+  - it: should allow custom restartPolicy
+    set:
+      hooks:
+        post-install:
+          migrate:
+            image: myapp:v1
+            command: ["./migrate.sh"]
+            restartPolicy: OnFailure
+    asserts:
+      - equal:
+          path: spec.template.spec.restartPolicy
+          value: "OnFailure"
+        documentIndex: 1
+
+  # ====== Root-level hook command and args ======
+  - it: should render command and args on root-level hook
+    set:
+      hooks:
+        post-install:
+          migrate:
+            image: myapp:v1
+            command: ["./migrate.sh", "--up"]
+            args: ["--verbose"]
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].command
+          value: ["./migrate.sh", "--up"]
+        documentIndex: 1
+      - equal:
+          path: spec.template.spec.containers[0].args
+          value: ["--verbose"]
+        documentIndex: 1
+
+  # ====== Root-level hook envFrom ======
+  - it: should render envFrom with envFromConfigMaps and envFromSecrets on root-level hook
+    set:
+      hooks:
+        post-install:
+          migrate:
+            image: myapp:v1
+            command: ["./migrate.sh"]
+            envFromConfigMaps:
+              - my-config
+            envFromSecrets:
+              - my-secret
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].envFrom
+          content:
+            configMapRef:
+              name: "my-config"
+        documentIndex: 1
+      - contains:
+          path: spec.template.spec.containers[0].envFrom
+          content:
+            secretRef:
+              name: "my-secret"
+        documentIndex: 1
+
+  # ====== Root-level hook env ======
+  - it: should render env vars on root-level hook
+    set:
+      hooks:
+        post-install:
+          migrate:
+            image: myapp:v1
+            command: ["./migrate.sh"]
+            env:
+              - name: FOO
+                value: bar
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: FOO
+            value: bar
+        documentIndex: 1
+
+  # ====== Root-level hook imagePullSecrets ======
+  - it: should render imagePullSecrets on root-level hook
+    set:
+      hooks:
+        post-install:
+          migrate:
+            image: myapp:v1
+            command: ["./migrate.sh"]
+            imagePullSecrets:
+              - name: my-registry-secret
+    asserts:
+      - contains:
+          path: spec.template.spec.imagePullSecrets
+          content:
+            name: "my-registry-secret"
+        documentIndex: 1
+
+  # ====== Root-level hook nodeSelector, tolerations, affinity ======
+  - it: should render nodeSelector on root-level hook
+    set:
+      hooks:
+        post-install:
+          migrate:
+            image: myapp:v1
+            command: ["./migrate.sh"]
+            nodeSelector:
+              disktype: ssd
+    asserts:
+      - equal:
+          path: spec.template.spec.nodeSelector.disktype
+          value: ssd
+        documentIndex: 1
+
+  - it: should render tolerations on root-level hook
+    set:
+      hooks:
+        post-install:
+          migrate:
+            image: myapp:v1
+            command: ["./migrate.sh"]
+            tolerations:
+              - key: "node-role"
+                operator: "Equal"
+                value: "ci"
+                effect: "NoSchedule"
+    asserts:
+      - contains:
+          path: spec.template.spec.tolerations
+          content:
+            key: "node-role"
+            operator: "Equal"
+            value: "ci"
+            effect: "NoSchedule"
+        documentIndex: 1
+
+  - it: should render affinity on root-level hook
+    set:
+      hooks:
+        post-install:
+          migrate:
+            image: myapp:v1
+            command: ["./migrate.sh"]
+            affinity:
+              nodeAffinity:
+                requiredDuringSchedulingIgnoredDuringExecution:
+                  nodeSelectorTerms:
+                    - matchExpressions:
+                        - key: zone
+                          operator: In
+                          values: ["us-east-1"]
+    asserts:
+      - isNotNull:
+          path: spec.template.spec.affinity.nodeAffinity
+        documentIndex: 1
+
+  # ====== Root-level hook volumes and volumeMounts ======
+  - it: should render volumes and volumeMounts on root-level hook
+    set:
+      hooks:
+        post-install:
+          migrate:
+            image: myapp:v1
+            command: ["./migrate.sh"]
+            volumeMounts:
+              - name: data
+                mountPath: /data
+            volumes:
+              - name: data
+                type: emptyDir
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: data
+            mountPath: /data
+        documentIndex: 1
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: data
+            emptyDir: {}
+        documentIndex: 1
+
+  # ====== Root-level hook with explicit serviceAccountName ======
+  - it: should skip SA creation when serviceAccountName is explicitly set
+    set:
+      hooks:
+        post-install:
+          migrate:
+            image: myapp:v1
+            command: ["./migrate.sh"]
+            serviceAccountName: my-existing-sa
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: Job
+        documentIndex: 0
+      - equal:
+          path: spec.template.spec.serviceAccountName
+          value: "my-existing-sa"
+        documentIndex: 0
+
+  # ====== Root-level hook with no hooks set ======
+  - it: should render nothing when hooks are not set
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  # ====== Root-level hook with image map ======
+  - it: should render root-level hook with image map (repository and tag)
+    set:
+      hooks:
+        post-install:
+          migrate:
+            image:
+              repository: myapp/backend
+              tag: "v2.0.0"
+            command: ["./migrate.sh"]
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: "myapp/backend:v2.0.0"
+        documentIndex: 1
+
+  # ====== Multiple root-level hooks ======
+  - it: should render multiple root-level hooks under same hook type
+    set:
+      hooks:
+        pre-upgrade:
+          job-a:
+            image: myapp:v1
+            command: ["./a.sh"]
+          job-b:
+            image: myapp:v1
+            command: ["./b.sh"]
+    asserts:
+      - hasDocuments:
+          count: 4
+
+  # ====== Deployment-level hooks ======
+  # Note: When deployment has serviceAccount.create: true (explicitly set),
+  # the hook inherits the SA and only produces 1 document (Job at index 0).
+  # When deployment has no SA config, the hook creates its own SA (SA=0, Job=1).
+
+  - it: should render deployment-level hook inheriting image
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          serviceAccount:
+            create: true
+          hooks:
+            post-upgrade:
+              migrate:
+                command: ["./migrate.sh"]
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: Job
+        documentIndex: 0
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: "myapp:v2"
+        documentIndex: 0
+
+  - it: should name deployment-level hook with deployment name included
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          serviceAccount:
+            create: true
+          hooks:
+            post-upgrade:
+              migrate:
+                command: ["./migrate.sh"]
+    asserts:
+      - equal:
+          path: metadata.name
+          value: RELEASE-NAME-global-chart-backend-post-upgrade-migrate
+        documentIndex: 0
+
+  - it: should set component label for deployment-level hook
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          serviceAccount:
+            create: true
+          hooks:
+            post-upgrade:
+              migrate:
+                command: ["./migrate.sh"]
+    asserts:
+      - equal:
+          path: metadata.labels["app.kubernetes.io/component"]
+          value: backend-hook
+        documentIndex: 0
+
+  # ====== Deployment-level hook can override image ======
+  - it: should allow deployment-level hook to override image
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          serviceAccount:
+            create: true
+          hooks:
+            post-upgrade:
+              migrate:
+                image: custom-migrator:latest
+                command: ["./migrate.sh"]
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: "custom-migrator:latest"
+        documentIndex: 0
+
+  # ====== Deployment-level hook SA inheritance ======
+  - it: should inherit SA from deployment when deployment creates SA
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          serviceAccount:
+            create: true
+          hooks:
+            post-upgrade:
+              migrate:
+                command: ["./migrate.sh"]
+    asserts:
+      - hasDocuments:
+          count: 1
+      - matchRegex:
+          path: spec.template.spec.serviceAccountName
+          pattern: ".*backend.*"
+        documentIndex: 0
+
+  - it: should inherit SA from deployment when deployment has existing SA name
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          serviceAccount:
+            create: false
+            name: my-existing-sa
+          hooks:
+            post-upgrade:
+              migrate:
+                command: ["./migrate.sh"]
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: spec.template.spec.serviceAccountName
+          value: "my-existing-sa"
+        documentIndex: 0
+
+  - it: should create hook-specific SA when deployment has no SA
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          serviceAccount:
+            create: false
+          hooks:
+            post-upgrade:
+              migrate:
+                command: ["./migrate.sh"]
+    asserts:
+      - hasDocuments:
+          count: 2
+      - isKind:
+          of: ServiceAccount
+        documentIndex: 0
+      - isKind:
+          of: Job
+        documentIndex: 1
+
+  - it: should allow explicit serviceAccountName override in deployment-level hook
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          serviceAccount:
+            create: true
+          hooks:
+            post-upgrade:
+              migrate:
+                command: ["./migrate.sh"]
+                serviceAccountName: "custom-hook-sa"
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: spec.template.spec.serviceAccountName
+          value: "custom-hook-sa"
+        documentIndex: 0
+
+  # ====== Deployment-level hook: explicit empty should NOT inherit ======
+  - it: should not inherit hostAliases when hook sets empty list
+    set:
+      deployments:
+        backend:
+          image: myapp:v1
+          hostAliases:
+            - ip: "127.0.0.1"
+              hostnames:
+                - "foo.local"
+          hooks:
+            post-install:
+              migrate:
+                command: ["./migrate.sh"]
+                hostAliases: []
+    asserts:
+      - isKind:
+          of: Job
+        documentIndex: 1
+      - isNull:
+          path: spec.template.spec.hostAliases
+        documentIndex: 1
+
+  - it: should not inherit podSecurityContext when hook sets empty map
+    set:
+      deployments:
+        backend:
+          image: myapp:v1
+          podSecurityContext:
+            runAsUser: 1000
+          hooks:
+            post-install:
+              migrate:
+                command: ["./migrate.sh"]
+                podSecurityContext: {}
+    asserts:
+      - isKind:
+          of: Job
+        documentIndex: 1
+      - isNull:
+          path: spec.template.spec.securityContext
+        documentIndex: 1
+
+  - it: should not inherit container securityContext when hook sets empty map
+    set:
+      deployments:
+        backend:
+          image: myapp:v1
+          securityContext:
+            runAsNonRoot: true
+          hooks:
+            post-install:
+              migrate:
+                command: ["./migrate.sh"]
+                securityContext: {}
+    asserts:
+      - isKind:
+          of: Job
+        documentIndex: 1
+      - isNull:
+          path: spec.template.spec.containers[0].securityContext
+        documentIndex: 1
+
+  # ====== Deployment-level hook securityContext inheritance ======
+  - it: should inherit podSecurityContext from deployment in deployment-level hook
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          serviceAccount:
+            create: true
+          podSecurityContext:
+            runAsUser: 1000
+            fsGroup: 2000
+          hooks:
+            post-upgrade:
+              migrate:
+                command: ["./migrate.sh"]
+    asserts:
+      - equal:
+          path: spec.template.spec.securityContext.runAsUser
+          value: 1000
+        documentIndex: 0
+      - equal:
+          path: spec.template.spec.securityContext.fsGroup
+          value: 2000
+        documentIndex: 0
+
+  - it: should inherit container securityContext from deployment in deployment-level hook
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          serviceAccount:
+            create: true
+          securityContext:
+            runAsNonRoot: true
+          hooks:
+            post-upgrade:
+              migrate:
+                command: ["./migrate.sh"]
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.runAsNonRoot
+          value: true
+        documentIndex: 0
+
+  - it: should allow deployment-level hook to override podSecurityContext
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          serviceAccount:
+            create: true
+          podSecurityContext:
+            runAsUser: 1000
+          hooks:
+            post-upgrade:
+              migrate:
+                command: ["./migrate.sh"]
+                podSecurityContext:
+                  runAsUser: 2000
+    asserts:
+      - equal:
+          path: spec.template.spec.securityContext.runAsUser
+          value: 2000
+        documentIndex: 0
+
+  - it: should allow deployment-level hook to override container securityContext
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          serviceAccount:
+            create: true
+          securityContext:
+            runAsNonRoot: true
+          hooks:
+            post-upgrade:
+              migrate:
+                command: ["./migrate.sh"]
+                securityContext:
+                  runAsNonRoot: false
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.runAsNonRoot
+          value: false
+        documentIndex: 0
+
+  # ====== Deployment-level hook hostAliases inheritance ======
+  - it: should inherit hostAliases from deployment in deployment-level hook
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          serviceAccount:
+            create: true
+          hostAliases:
+            - ip: "10.0.0.1"
+              hostnames:
+                - "db.local"
+          hooks:
+            post-upgrade:
+              migrate:
+                command: ["./migrate.sh"]
+    asserts:
+      - equal:
+          path: spec.template.spec.hostAliases[0].ip
+          value: "10.0.0.1"
+        documentIndex: 0
+      - equal:
+          path: spec.template.spec.hostAliases[0].hostnames[0]
+          value: "db.local"
+        documentIndex: 0
+
+  - it: should allow deployment-level hook to override hostAliases
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          serviceAccount:
+            create: true
+          hostAliases:
+            - ip: "10.0.0.1"
+              hostnames:
+                - "db.local"
+          hooks:
+            post-upgrade:
+              migrate:
+                command: ["./migrate.sh"]
+                hostAliases:
+                  - ip: "192.168.1.1"
+                    hostnames:
+                      - "custom.local"
+    asserts:
+      - equal:
+          path: spec.template.spec.hostAliases[0].ip
+          value: "192.168.1.1"
+        documentIndex: 0
+
+  # ====== Deployment-level hook envFrom inheritance ======
+  - it: should inherit envFrom from deployment configMap and secret
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          serviceAccount:
+            create: true
+          configMap:
+            DB_HOST: postgres
+          secret:
+            DB_PASS: secret123
+          hooks:
+            post-upgrade:
+              migrate:
+                command: ["./migrate.sh"]
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].envFrom
+          content:
+            configMapRef:
+              name: RELEASE-NAME-global-chart-backend
+        documentIndex: 0
+      - contains:
+          path: spec.template.spec.containers[0].envFrom
+          content:
+            secretRef:
+              name: RELEASE-NAME-global-chart-backend
+        documentIndex: 0
+
+  - it: should inherit envFromConfigMaps and envFromSecrets from deployment
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          serviceAccount:
+            create: true
+          envFromConfigMaps:
+            - shared-config
+          envFromSecrets:
+            - shared-secrets
+          hooks:
+            post-upgrade:
+              migrate:
+                command: ["./migrate.sh"]
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].envFrom
+          content:
+            configMapRef:
+              name: "shared-config"
+        documentIndex: 0
+      - contains:
+          path: spec.template.spec.containers[0].envFrom
+          content:
+            secretRef:
+              name: "shared-secrets"
+        documentIndex: 0
+
+  # ====== Deployment-level hook additionalEnvs inheritance ======
+  - it: should inherit additionalEnvs from deployment
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          serviceAccount:
+            create: true
+          additionalEnvs:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          hooks:
+            post-upgrade:
+              migrate:
+                command: ["./migrate.sh"]
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+        documentIndex: 0
+
+  - it: should merge deployment additionalEnvs with hook env
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          serviceAccount:
+            create: true
+          additionalEnvs:
+            - name: INHERITED_VAR
+              value: "from-deploy"
+          hooks:
+            post-upgrade:
+              migrate:
+                command: ["./migrate.sh"]
+                env:
+                  - name: HOOK_VAR
+                    value: "from-hook"
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: INHERITED_VAR
+            value: "from-deploy"
+        documentIndex: 0
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: HOOK_VAR
+            value: "from-hook"
+        documentIndex: 0
+
+  # ====== Deployment-level hook nodeSelector inheritance ======
+  - it: should inherit nodeSelector from deployment
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          serviceAccount:
+            create: true
+          nodeSelector:
+            node-type: backend
+          hooks:
+            post-upgrade:
+              migrate:
+                command: ["./migrate.sh"]
+    asserts:
+      - equal:
+          path: spec.template.spec.nodeSelector.node-type
+          value: backend
+        documentIndex: 0
+
+  - it: should allow deployment-level hook to override nodeSelector
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          serviceAccount:
+            create: true
+          nodeSelector:
+            node-type: backend
+          hooks:
+            post-upgrade:
+              migrate:
+                command: ["./migrate.sh"]
+                nodeSelector:
+                  node-type: hook-node
+    asserts:
+      - equal:
+          path: spec.template.spec.nodeSelector.node-type
+          value: hook-node
+        documentIndex: 0
+
+  # ====== Deployment-level hook tolerations inheritance ======
+  - it: should inherit tolerations from deployment
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          serviceAccount:
+            create: true
+          tolerations:
+            - key: "workload"
+              operator: "Equal"
+              value: "backend"
+              effect: "NoSchedule"
+          hooks:
+            post-upgrade:
+              migrate:
+                command: ["./migrate.sh"]
+    asserts:
+      - contains:
+          path: spec.template.spec.tolerations
+          content:
+            key: "workload"
+            operator: "Equal"
+            value: "backend"
+            effect: "NoSchedule"
+        documentIndex: 0
+
+  - it: should allow deployment-level hook to override tolerations
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          serviceAccount:
+            create: true
+          tolerations:
+            - key: "workload"
+              operator: "Equal"
+              value: "backend"
+              effect: "NoSchedule"
+          hooks:
+            post-upgrade:
+              migrate:
+                command: ["./migrate.sh"]
+                tolerations:
+                  - key: "hook-toleration"
+                    operator: "Exists"
+                    effect: "NoSchedule"
+    asserts:
+      - contains:
+          path: spec.template.spec.tolerations
+          content:
+            key: "hook-toleration"
+            operator: "Exists"
+            effect: "NoSchedule"
+        documentIndex: 0
+
+  # ====== Deployment-level hook affinity inheritance ======
+  - it: should inherit affinity from deployment
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          serviceAccount:
+            create: true
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                  - matchExpressions:
+                      - key: zone
+                        operator: In
+                        values: ["us-east-1"]
+          hooks:
+            post-upgrade:
+              migrate:
+                command: ["./migrate.sh"]
+    asserts:
+      - isNotNull:
+          path: spec.template.spec.affinity.nodeAffinity
+        documentIndex: 0
+
+  - it: should allow deployment-level hook to override affinity
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          serviceAccount:
+            create: true
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                  - matchExpressions:
+                      - key: zone
+                        operator: In
+                        values: ["us-east-1"]
+          hooks:
+            post-upgrade:
+              migrate:
+                command: ["./migrate.sh"]
+                affinity:
+                  nodeAffinity:
+                    requiredDuringSchedulingIgnoredDuringExecution:
+                      nodeSelectorTerms:
+                        - matchExpressions:
+                            - key: zone
+                              operator: In
+                              values: ["eu-west-1"]
+    asserts:
+      - isNotNull:
+          path: spec.template.spec.affinity.nodeAffinity
+        documentIndex: 0
+
+  # ====== Deployment-level hook imagePullSecrets inheritance ======
+  - it: should inherit imagePullSecrets from deployment
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          serviceAccount:
+            create: true
+          imagePullSecrets:
+            - name: registry-secret
+          hooks:
+            post-upgrade:
+              migrate:
+                command: ["./migrate.sh"]
+    asserts:
+      - contains:
+          path: spec.template.spec.imagePullSecrets
+          content:
+            name: "registry-secret"
+        documentIndex: 0
+
+  - it: should allow deployment-level hook to override imagePullSecrets
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          serviceAccount:
+            create: true
+          imagePullSecrets:
+            - name: registry-secret
+          hooks:
+            post-upgrade:
+              migrate:
+                command: ["./migrate.sh"]
+                imagePullSecrets:
+                  - name: hook-registry-secret
+    asserts:
+      - contains:
+          path: spec.template.spec.imagePullSecrets
+          content:
+            name: "hook-registry-secret"
+        documentIndex: 0
+
+  # ====== Deployment-level hook default resources ======
+  - it: should use default resources on deployment-level hook when not specified
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          serviceAccount:
+            create: true
+          hooks:
+            post-upgrade:
+              migrate:
+                command: ["./migrate.sh"]
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].resources.requests.cpu
+          value: 100m
+        documentIndex: 0
+      - equal:
+          path: spec.template.spec.containers[0].resources.requests.memory
+          value: 128Mi
+        documentIndex: 0
+
+  - it: should use custom resources on deployment-level hook when specified
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          serviceAccount:
+            create: true
+          hooks:
+            post-upgrade:
+              migrate:
+                command: ["./migrate.sh"]
+                resources:
+                  requests:
+                    cpu: 500m
+                    memory: 512Mi
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].resources.requests.cpu
+          value: 500m
+        documentIndex: 0
+
+  # ====== Deployment-level hook default annotations ======
+  - it: should set correct annotations on deployment-level hook
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          serviceAccount:
+            create: true
+          hooks:
+            post-upgrade:
+              migrate:
+                command: ["./migrate.sh"]
+    asserts:
+      - equal:
+          path: metadata.annotations["helm.sh/hook"]
+          value: post-upgrade
+        documentIndex: 0
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "10"
+        documentIndex: 0
+      - equal:
+          path: metadata.annotations["helm.sh/hook-delete-policy"]
+          value: before-hook-creation
+        documentIndex: 0
+
+  - it: should use custom weight and deletePolicy on deployment-level hook
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          serviceAccount:
+            create: true
+          hooks:
+            pre-upgrade:
+              migrate:
+                command: ["./migrate.sh"]
+                weight: "3"
+                deletePolicy: hook-succeeded
+    asserts:
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "3"
+        documentIndex: 0
+      - equal:
+          path: metadata.annotations["helm.sh/hook-delete-policy"]
+          value: hook-succeeded
+        documentIndex: 0
+
+  # ====== Deployment-level hook restartPolicy ======
+  - it: should default restartPolicy to Never on deployment-level hook
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          serviceAccount:
+            create: true
+          hooks:
+            post-upgrade:
+              migrate:
+                command: ["./migrate.sh"]
+    asserts:
+      - equal:
+          path: spec.template.spec.restartPolicy
+          value: "Never"
+        documentIndex: 0
+
+  # ====== Container name for deployment-level hook ======
+  - it: should use job name as container name for deployment-level hook
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          serviceAccount:
+            create: true
+          hooks:
+            post-upgrade:
+              migrate:
+                command: ["./migrate.sh"]
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].name
+          value: migrate
+        documentIndex: 0
+
+  # ====== Mixed: root-level and deployment-level hooks ======
+  - it: should render both root-level and deployment-level hooks
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          serviceAccount:
+            create: true
+          hooks:
+            post-upgrade:
+              db-migrate:
+                command: ["./migrate.sh"]
+      hooks:
+        post-install:
+          notify:
+            image: curlimages/curl:latest
+            command: ["curl"]
+    asserts:
+      - hasDocuments:
+          count: 3

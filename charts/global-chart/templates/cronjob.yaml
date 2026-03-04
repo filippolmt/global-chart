@@ -76,6 +76,10 @@ spec:
               {{- end }}
             {{- end }}
           {{- end }}
+          {{- with $job.podSecurityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           {{- if $job.initContainers }}
           initContainers:
             {{- toYaml $job.initContainers | nindent 12 }}
@@ -91,6 +95,10 @@ spec:
             {{- if $job.args }}
             args:
               {{- toYaml $job.args | nindent 14 }}
+            {{- end }}
+            {{- with $job.securityContext }}
+            securityContext:
+              {{- toYaml . | nindent 14 }}
             {{- end }}
             {{- if or $job.envFromConfigMaps $job.envFromSecrets }}
             envFrom:
@@ -238,7 +246,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 automountServiceAccountToken: {{ $saAutomount }}
-{{- end }}
+{{ end -}}
 
 {{- /* Resolve inherited envFrom from deployment's configMap and secret */ -}}
 {{- $deployFullname := include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $deployName) -}}
@@ -280,6 +288,49 @@ spec:
               {{- end }}
             {{- end }}
           {{- end }}
+          {{- /* HostAliases: explicit > inherited from deployment */ -}}
+          {{- $hostAliases := ternary $job.hostAliases $deploy.hostAliases (hasKey $job "hostAliases") -}}
+          {{- with $hostAliases }}
+          hostAliases:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- /* PodSecurityContext: explicit > inherited from deployment */ -}}
+          {{- $podSecCtx := ternary $job.podSecurityContext $deploy.podSecurityContext (hasKey $job "podSecurityContext") -}}
+          {{- with $podSecCtx }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- /* DnsConfig: explicit > inherited from deployment */ -}}
+          {{- $dnsConfig := dict -}}
+          {{- if hasKey $job "dnsConfig" -}}
+            {{- $dnsConfig = default (dict) $job.dnsConfig -}}
+          {{- else -}}
+            {{- $dnsConfig = default (dict) $deploy.dnsConfig -}}
+          {{- end -}}
+          {{- if or $dnsConfig.nameservers $dnsConfig.searches $dnsConfig.options }}
+          dnsConfig:
+            {{- if $dnsConfig.nameservers }}
+            nameservers:
+              {{- range $dnsConfig.nameservers }}
+              - {{ . }}
+              {{- end }}
+            {{- end }}
+            {{- if $dnsConfig.searches }}
+            searches:
+              {{- range $dnsConfig.searches }}
+              - {{ . }}
+              {{- end }}
+            {{- end }}
+            {{- if $dnsConfig.options }}
+            options:
+              {{- range $dnsConfig.options }}
+              - name: {{ .name }}
+                {{- if .value }}
+                value: {{ .value | quote }}
+                {{- end }}
+              {{- end }}
+            {{- end }}
+          {{- end }}
           {{- if $job.initContainers }}
           initContainers:
             {{- toYaml $job.initContainers | nindent 12 }}
@@ -295,6 +346,12 @@ spec:
             {{- if $job.args }}
             args:
               {{- toYaml $job.args | nindent 14 }}
+            {{- end }}
+            {{- /* Container securityContext: explicit > inherited from deployment */ -}}
+            {{- $secCtx := ternary $job.securityContext $deploy.securityContext (hasKey $job "securityContext") -}}
+            {{- with $secCtx }}
+            securityContext:
+              {{- toYaml . | nindent 14 }}
             {{- end }}
             {{- /* EnvFrom: deployment's configMap/secret + explicit envFromConfigMaps/envFromSecrets + deployment's envFromConfigMaps/envFromSecrets */ -}}
             {{- $hasEnvFrom := or $hasDeployConfigMap $hasDeploySecret $job.envFromConfigMaps $job.envFromSecrets $deploy.envFromConfigMaps $deploy.envFromSecrets -}}

@@ -1,0 +1,182 @@
+suite: ingress template tests
+templates:
+  - templates/ingress.yaml
+tests:
+  # ====== Ingress with deployment reference ======
+  - it: should render ingress with deployment backend
+    release:
+      name: myrel
+    set:
+      deployments:
+        frontend:
+          image: nginx:1.25
+          service:
+            port: 8080
+      ingress:
+        enabled: true
+        className: nginx
+        hosts:
+          - host: example.com
+            deployment: frontend
+            paths:
+              - path: /
+                pathType: Prefix
+    asserts:
+      - isKind:
+          of: Ingress
+      - equal:
+          path: spec.ingressClassName
+          value: "nginx"
+      - equal:
+          path: spec.rules[0].host
+          value: "example.com"
+      - equal:
+          path: spec.rules[0].http.paths[0].backend.service.name
+          value: myrel-global-chart-frontend
+      - equal:
+          path: spec.rules[0].http.paths[0].backend.service.port.number
+          value: 8080
+
+  # ====== Ingress disabled ======
+  - it: should not render when disabled
+    set:
+      ingress:
+        enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  # ====== Ingress with external service ======
+  - it: should render ingress with external service
+    set:
+      ingress:
+        enabled: true
+        className: nginx
+        hosts:
+          - host: external.example.com
+            service:
+              name: my-external-svc
+              port: 9090
+            paths:
+              - path: /
+                pathType: Prefix
+    asserts:
+      - equal:
+          path: spec.rules[0].http.paths[0].backend.service.name
+          value: my-external-svc
+      - equal:
+          path: spec.rules[0].http.paths[0].backend.service.port.number
+          value: 9090
+
+  # ====== Ingress annotations ======
+  - it: should render annotations
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+      ingress:
+        enabled: true
+        className: nginx
+        annotations:
+          nginx.ingress.kubernetes.io/ssl-redirect: "true"
+        hosts:
+          - host: example.com
+            deployment: main
+            paths:
+              - path: /
+                pathType: Prefix
+    asserts:
+      - isSubset:
+          path: metadata.annotations
+          content:
+            nginx.ingress.kubernetes.io/ssl-redirect: "true"
+
+  # ====== Ingress TLS ======
+  - it: should render TLS configuration
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+      ingress:
+        enabled: true
+        className: nginx
+        tls:
+          - secretName: tls-secret
+            hosts:
+              - example.com
+        hosts:
+          - host: example.com
+            deployment: main
+            paths:
+              - path: /
+                pathType: Prefix
+    asserts:
+      - equal:
+          path: spec.tls[0].secretName
+          value: "tls-secret"
+      - contains:
+          path: spec.tls[0].hosts
+          content: "example.com"
+
+  # ====== Multiple hosts ======
+  - it: should render multiple hosts with different deployments
+    release:
+      name: myrel
+    set:
+      deployments:
+        frontend:
+          image: nginx:1.25
+          service:
+            port: 80
+        api:
+          image: myapp:v1
+          service:
+            port: 3000
+      ingress:
+        enabled: true
+        className: nginx
+        hosts:
+          - host: www.example.com
+            deployment: frontend
+            paths:
+              - path: /
+                pathType: Prefix
+          - host: api.example.com
+            deployment: api
+            paths:
+              - path: /api
+                pathType: Prefix
+    asserts:
+      - equal:
+          path: spec.rules[0].host
+          value: "www.example.com"
+      - equal:
+          path: spec.rules[0].http.paths[0].backend.service.name
+          value: myrel-global-chart-frontend
+      - equal:
+          path: spec.rules[1].host
+          value: "api.example.com"
+      - equal:
+          path: spec.rules[1].http.paths[0].backend.service.name
+          value: myrel-global-chart-api
+
+  # ====== Ingress annotations nil safety ======
+  - it: should render ingress without annotations defined
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          service:
+            port: 80
+      ingress:
+        enabled: true
+        className: nginx
+        hosts:
+          - host: example.com
+            deployment: main
+            paths:
+              - path: /
+                pathType: Prefix
+    asserts:
+      - isKind:
+          of: Ingress

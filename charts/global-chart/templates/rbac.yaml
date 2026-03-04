@@ -27,9 +27,7 @@ metadata:
   annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}
-{{- if hasKey $sa "automount" }}
-automountServiceAccountToken: {{ $sa.automount }}
-{{- end }}
+automountServiceAccountToken: {{ hasKey $sa "automount" | ternary $sa.automount true }}
 ---
 {{- end }}
 apiVersion: rbac.authorization.k8s.io/v1

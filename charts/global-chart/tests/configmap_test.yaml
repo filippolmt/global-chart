@@ -1,0 +1,75 @@
+suite: configmap template tests
+templates:
+  - templates/configmap.yaml
+tests:
+  - it: should not render configmap when not defined
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should render configmap with string values
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          configMap:
+            APP_ENV: production
+            LOG_LEVEL: info
+    asserts:
+      - isKind:
+          of: ConfigMap
+      - equal:
+          path: data.APP_ENV
+          value: "production"
+      - equal:
+          path: data.LOG_LEVEL
+          value: "info"
+
+  - it: should render configmap with correct name
+    set:
+      deployments:
+        backend:
+          image: nginx:1.25
+          configMap:
+            KEY: value
+    asserts:
+      - matchRegex:
+          path: metadata.name
+          pattern: ".*backend.*"
+
+  - it: should render configmap with numeric values as strings
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          configMap:
+            PORT: 8080
+            ENABLED: true
+    asserts:
+      - isKind:
+          of: ConfigMap
+      - equal:
+          path: data.PORT
+          value: "8080"
+      - equal:
+          path: data.ENABLED
+          value: "true"
+
+  - it: should render multiple configmaps for multiple deployments
+    set:
+      deployments:
+        frontend:
+          image: nginx:1.25
+          configMap:
+            KEY1: val1
+        backend:
+          image: myapp:v1
+          configMap:
+            KEY2: val2
+    asserts:
+      - hasDocuments:
+          count: 2

@@ -16,7 +16,7 @@ The chart supports **multiple deployments** in a single release, each with indep
 - **Lifecycle and batch**
   Helm hook jobs and CronJobs can be defined in two ways:
   - **Root level** (`hooks.*`, `cronJobs.*`): Standalone, use `fromDeployment` to copy image from a deployment
-  - **Inside deployments** (`deployments.*.hooks`, `deployments.*.cronJobs`): Inherit image, configMap, secret, serviceAccount, nodeSelector, tolerations, affinity, and more from the parent deployment
+  - **Inside deployments** (`deployments.*.hooks`, `deployments.*.cronJobs`): Inherit image, configMap, secret, serviceAccount, hostAliases, podSecurityContext, securityContext, dnsConfig (cronJobs), nodeSelector, tolerations, affinity, and more from the parent deployment
 - **Secret management**
   ExternalSecret resources with required field validation to avoid silent misconfigurations.
 - **RBAC**
@@ -95,8 +95,20 @@ This repository ships with helper targets that exercise every supported scenario
 # Run helm lint across all test value files
 make lint-chart
 
+# Run helm-unittest via Docker (161 tests across 14 suites)
+make unit-test
+
 # Render manifests for visual inspection in generated-manifests/
 make generate-templates
+
+# Run everything (lint + unit tests + generate)
+make all
+
+# Install a test scenario to a cluster
+make install SCENARIO=test01
+
+# Render a single template for debugging
+make render VALUES=tests/test01/values.01.yaml TEMPLATE=deployment.yaml
 ```
 
 CI runs the same commands through the `Helm CI` GitHub workflow to keep the chart healthy on each push/PR.
@@ -108,7 +120,7 @@ All configuration lives under `charts/global-chart/values.yaml`. Highlights:
 - `deployments` – map of named deployments. Each deployment generates its own Deployment, Service, ConfigMap, Secret, ServiceAccount, and HPA.
   - `image` can be `{ repository, tag, digest, pullPolicy }` or a single string.
   - `service.enabled: false` skips Service creation (useful for workers).
-  - `hooks` and `cronJobs` defined inside a deployment inherit image, configMap, secret, serviceAccount, and scheduling constraints.
+  - `hooks` and `cronJobs` defined inside a deployment inherit image, configMap, secret, serviceAccount, hostAliases, podSecurityContext, securityContext, dnsConfig (cronJobs), and scheduling constraints.
 - `cronJobs` – root-level map keyed by job name. Use `fromDeployment` to copy image from a deployment, or specify `image` explicitly.
 - `hooks` – root-level map of hook types (post-install/pre-upgrade/etc.) to job definitions. Use `fromDeployment` or `image`.
 - `externalSecrets` – map keyed by logical name. Each entry must define `secretkey`, `remote.key`, and `secretstore.{kind,name}`.
@@ -135,13 +147,16 @@ See the `tests/` directory for concrete examples:
 | `rbac.yaml`                      | RBAC with roles and service accounts                                                      |
 | `service-disabled.yaml`          | Deployment with service disabled                                                          |
 | `raw-deployment.yaml`            | Deployment with raw image string                                                          |
+| `hooks-sa-inheritance.yaml`      | Hooks SA inheritance (existing SA, explicit override)                                     |
 
 ## Testing & CI
 
-Run `make lint-chart` locally to execute `helm lint --strict` across every scenario.
-`make generate-templates` produces manifests in `generated-manifests/<scenario>/` for manual inspection.
+The chart has two layers of testing:
 
-The GitHub Action defined in `.github/workflows/helm-ci.yml` executes the same targets on pushes and pull requests, and uploads the generated manifests as an artifact for traceability.
+- **Lint scenarios** (`make lint-chart`): Runs `helm lint --strict` across 16 value files in `tests/`, catching schema and rendering errors.
+- **Unit tests** (`make unit-test`): Runs 161 helm-unittest tests across 14 suites in `charts/global-chart/tests/`, verifying rendered output for every template (deployment, service, ingress, cronjob, hook, hpa, serviceaccount, configmap, secret, mounted-configmap, externalsecret, rbac, helpers, NOTES.txt).
+
+The GitHub Action defined in `.github/workflows/helm-ci.yml` executes lint, unit tests, and template generation on pushes and pull requests, uploading manifests as an artifact for traceability.
 
 ## Useful references
 

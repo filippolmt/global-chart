@@ -1,0 +1,72 @@
+suite: mounted-configmap template tests
+templates:
+  - templates/mounted-configmap.yaml
+tests:
+  - it: should not render when mountedConfigFiles not defined
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should render configmap for individual file
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          mountedConfigFiles:
+            files:
+              - name: app-config
+                filename: config.yaml
+                targetPath: /etc/config/config.yaml
+                content: |
+                  server:
+                    port: 8080
+    asserts:
+      - isKind:
+          of: ConfigMap
+      - matchRegex:
+          path: metadata.name
+          pattern: ".*md-cm-app-config"
+      - isNotEmpty:
+          path: data["config.yaml"]
+
+  - it: should render multiple configmaps for multiple files
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          mountedConfigFiles:
+            files:
+              - name: config1
+                filename: a.yaml
+                targetPath: /etc/a.yaml
+                content: "content1"
+              - name: config2
+                filename: b.yaml
+                targetPath: /etc/b.yaml
+                content: "content2"
+    asserts:
+      - hasDocuments:
+          count: 2
+
+  - it: should render configmaps for bundle files
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          mountedConfigFiles:
+            bundles:
+              - mountDir: /etc/config
+                files:
+                  - name: bundled-file
+                    relPath: sub/config.yaml
+                    content: "bundled content"
+    asserts:
+      - isKind:
+          of: ConfigMap
+      - matchRegex:
+          path: metadata.name
+          pattern: ".*md-cm-bundled-file"

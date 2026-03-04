@@ -2,11 +2,12 @@
 {{- $root := . }}
 {{- $ing := $root.Values.ingress }}
 {{- $fullName := include "global-chart.fullname" $root }}
+{{- $annotations := deepCopy (default (dict) $ing.annotations) }}
 
 {{- /* ingressClass compatibility for K8s <1.18 */}}
 {{- if and $ing.className (not (semverCompare ">=1.18-0" $root.Capabilities.KubeVersion.GitVersion)) }}
-  {{- if not (hasKey $ing.annotations "kubernetes.io/ingress.class") }}
-    {{- $_ := set $ing.annotations "kubernetes.io/ingress.class" $ing.className }}
+  {{- if not (hasKey $annotations "kubernetes.io/ingress.class") }}
+    {{- $_ := set $annotations "kubernetes.io/ingress.class" $ing.className }}
   {{- end }}
 {{- end }}
 
@@ -23,7 +24,7 @@ metadata:
   name: {{ $fullName }}
   labels:
     {{- include "global-chart.labels" $root | nindent 4 }}
-  {{- with $ing.annotations }}
+  {{- with $annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}

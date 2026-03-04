@@ -1,0 +1,63 @@
+suite: rbac template tests
+templates:
+  - templates/rbac.yaml
+tests:
+  - it: should default automountServiceAccountToken to true when automount not specified
+    set:
+      rbacs:
+        roles:
+          - name: test-role
+            serviceAccount:
+              create: true
+              name: test-sa
+            rules:
+              - apiGroups: [""]
+                resources: ["pods"]
+                verbs: ["get"]
+    asserts:
+      - equal:
+          path: automountServiceAccountToken
+          value: true
+        documentIndex: 0
+
+  - it: should respect automount false when explicitly set
+    set:
+      rbacs:
+        roles:
+          - name: test-role
+            serviceAccount:
+              create: true
+              name: test-sa
+              automount: false
+            rules:
+              - apiGroups: [""]
+                resources: ["pods"]
+                verbs: ["get"]
+    asserts:
+      - equal:
+          path: automountServiceAccountToken
+          value: false
+        documentIndex: 0
+
+  - it: should create Role and RoleBinding
+    set:
+      rbacs:
+        roles:
+          - name: test-role
+            serviceAccount:
+              create: true
+              name: test-sa
+            rules:
+              - apiGroups: [""]
+                resources: ["pods"]
+                verbs: ["get", "list"]
+    asserts:
+      - isKind:
+          of: ServiceAccount
+        documentIndex: 0
+      - isKind:
+          of: Role
+        documentIndex: 1
+      - isKind:
+          of: RoleBinding
+        documentIndex: 2

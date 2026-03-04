@@ -1,0 +1,49 @@
+Thank you for installing {{ include "global-chart.fullname" . }}!
+
+{{- if .Values.deployments }}
+
+Deployments created:
+{{- range $name, $deploy := .Values.deployments }}
+{{- if $deploy }}
+  - {{ $name }}
+{{- end }}
+{{- end }}
+{{- end }}
+
+{{- $svcList := list }}
+{{- range $name, $deploy := .Values.deployments }}
+{{- if $deploy }}
+{{- $svc := default (dict) $deploy.service }}
+{{- $enabled := ternary $svc.enabled true (hasKey $svc "enabled") }}
+{{- if $enabled }}
+{{- $svcList = append $svcList $name }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- if $svcList }}
+
+Services:
+{{- range $svcList }}
+  - {{ . }}
+{{- end }}
+{{- end }}
+
+{{- if and .Values.ingress .Values.ingress.enabled }}
+
+Ingress is enabled:
+{{- range .Values.ingress.hosts }}
+  - {{ .host }}
+{{- end }}
+{{- end }}
+
+{{- if .Values.cronJobs }}
+
+CronJobs:
+{{- range $name, $cron := .Values.cronJobs }}
+{{- if $cron }}
+  - {{ $name }} ({{ $cron.schedule }})
+{{- end }}
+{{- end }}
+{{- end }}
+
+For more information, visit: {{ .Chart.Home }}

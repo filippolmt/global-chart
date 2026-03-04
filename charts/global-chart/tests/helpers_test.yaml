@@ -1,0 +1,114 @@
+suite: helper template tests
+templates:
+  - templates/deployment.yaml
+tests:
+  # ====== imageString: string format ======
+  - it: should render image from string
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: "nginx:1.25"
+
+  # ====== imageString: map with tag ======
+  - it: should render image from map with repository and tag
+    set:
+      deployments:
+        main:
+          image:
+            repository: myapp/api
+            tag: "v2.0"
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: "myapp/api:v2.0"
+
+  # ====== imageString: map with digest ======
+  - it: should render image from map with repository and digest
+    set:
+      deployments:
+        main:
+          image:
+            repository: myapp/api
+            digest: "sha256:abcdef1234567890"
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: "myapp/api@sha256:abcdef1234567890"
+
+  # ====== imageString: digest-only should fail ======
+  - it: should fail when digest is set without repository
+    set:
+      deployments:
+        main:
+          image:
+            digest: "sha256:abcdef1234567890"
+    asserts:
+      - failedTemplate:
+          errorMessage: "image definitions that set a digest must also provide a repository (expected repository@digest)"
+
+  # ====== fullname ======
+  - it: should generate correct fullname
+    release:
+      name: myrelease
+    set:
+      deployments:
+        api:
+          image: nginx:1.25
+    asserts:
+      - equal:
+          path: metadata.name
+          value: myrelease-global-chart-api
+
+  # ====== nameOverride ======
+  - it: should use nameOverride in deployment name
+    release:
+      name: myrelease
+    set:
+      nameOverride: custom
+      deployments:
+        api:
+          image: nginx:1.25
+    asserts:
+      - equal:
+          path: metadata.name
+          value: myrelease-custom-api
+
+  # ====== fullnameOverride ======
+  - it: should use fullnameOverride in deployment name
+    set:
+      fullnameOverride: myoverride
+      deployments:
+        api:
+          image: nginx:1.25
+    asserts:
+      - equal:
+          path: metadata.name
+          value: myoverride-api
+
+  # ====== imagePullPolicy defaults ======
+  - it: should default imagePullPolicy to IfNotPresent
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].imagePullPolicy
+          value: IfNotPresent
+
+  - it: should use pullPolicy from image map
+    set:
+      deployments:
+        main:
+          image:
+            repository: nginx
+            tag: "1.25"
+            pullPolicy: Always
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].imagePullPolicy
+          value: Always

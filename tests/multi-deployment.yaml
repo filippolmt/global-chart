@@ -219,58 +219,72 @@ deployments:
   minimal:
     image: busybox:latest
 
-# Mounted config files for specific deployments
-mountedConfigFiles:
-  frontend:
-    files:
-      - name: nginx-conf
-        filename: nginx.conf
-        targetPath: /etc/nginx/nginx.conf
-        content: |
-          worker_processes auto;
-          events {
-              worker_connections 1024;
-          }
-          http {
-              server {
-                  listen 8080;
-                  location / {
-                      root /usr/share/nginx/html;
-                  }
-              }
-          }
-
-  backend:
-    files:
-      - name: app-config
-        filename: config.json
-        targetPath: /etc/app/config.json
-        content: |
-          {
-            "logging": {
-              "level": "info",
-              "format": "json"
-            },
-            "features": {
-              "caching": true,
-              "rateLimit": true
+  # Frontend with mounted config files
+  frontend-mcf:
+    replicaCount: 1
+    image:
+      repository: nginx
+      tag: "1.25"
+    service:
+      port: 80
+    mountedConfigFiles:
+      files:
+        - name: nginx-conf
+          filename: nginx.conf
+          targetPath: /etc/nginx/nginx.conf
+          content: |
+            worker_processes auto;
+            events {
+                worker_connections 1024;
             }
-          }
-    bundles:
-      - mountDir: /etc/app/certs
-        files:
-          - name: tls-cert
-            relPath: tls.crt
-            content: |
-              -----BEGIN CERTIFICATE-----
-              MIIC...
-              -----END CERTIFICATE-----
-          - name: tls-key
-            relPath: tls.key
-            content: |
-              -----BEGIN PRIVATE KEY-----
-              MIIE...
-              -----END PRIVATE KEY-----
+            http {
+                server {
+                    listen 8080;
+                    location / {
+                        root /usr/share/nginx/html;
+                    }
+                }
+            }
+
+  # Backend with mounted config files and bundles
+  backend-mcf:
+    replicaCount: 1
+    image:
+      repository: myapp/backend
+      tag: "v2.1.0"
+    service:
+      port: 3000
+    mountedConfigFiles:
+      files:
+        - name: app-config
+          filename: config.json
+          targetPath: /etc/app/config.json
+          content: |
+            {
+              "logging": {
+                "level": "info",
+                "format": "json"
+              },
+              "features": {
+                "caching": true,
+                "rateLimit": true
+              }
+            }
+      bundles:
+        - mountDir: /etc/app/certs
+          files:
+            - name: tls-cert
+              relPath: tls.crt
+              content: |
+                -----BEGIN CERTIFICATE-----
+                MIIC...
+                -----END CERTIFICATE-----
+            - name: tls-key
+              relPath: tls.key
+              content: |
+                -----BEGIN PRIVATE KEY-----
+                MIIE...
+                -----END PRIVATE KEY-----
 
 # Ingress routing to different deployments
 ingress:
