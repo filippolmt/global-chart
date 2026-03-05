@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Global-chart is a reusable Helm chart providing configurable Kubernetes building blocks: Deployments, Services, Ingress, CronJobs, Hook Jobs, ExternalSecrets, and RBAC resources.
 
-Supports multi-deployment: multiple independent deployments in a single release, each with its own resources (Service, ConfigMap, Secret, ServiceAccount, HPA). Current version: **1.2.0**.
+Supports multi-deployment: multiple independent deployments in a single release, each with its own resources (Service, ConfigMap, Secret, ServiceAccount, HPA). Current version: **1.2.1**.
 
 ## Common Commands
 
@@ -72,7 +72,7 @@ charts/global-chart/
 │   ├── externalsecret.yaml # ExternalSecret CRDs
 │   ├── rbac.yaml           # Roles and RoleBindings
 │   └── NOTES.txt           # Post-install notes
-├── tests/                  # helm-unittest test files (14 suites, 161 tests)
+├── tests/                  # helm-unittest test files (14 suites, 174 tests)
 │   ├── deployment_test.yaml
 │   ├── cronjob_test.yaml
 │   ├── hook_test.yaml
@@ -234,7 +234,7 @@ The `tests/` directory contains value files covering all supported configuration
 
 GitHub Actions workflow (`.github/workflows/helm-ci.yml`) runs on push/PR:
 1. `make lint-chart` - Lints all test scenarios
-2. `make unit-test` - Runs helm-unittest suite (161 tests across 14 suites) via Docker
+2. `make unit-test` - Runs helm-unittest suite (174 tests across 14 suites) via Docker
 3. `make generate-templates` - Generates manifests
 4. Uploads `generated-manifests/` as artifact
 

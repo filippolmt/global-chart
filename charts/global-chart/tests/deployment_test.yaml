@@ -2,6 +2,36 @@ suite: deployment template tests
 templates:
   - templates/deployment.yaml
 tests:
+  # ====== enabled flag ======
+  - it: should not render deployment when enabled is false
+    set:
+      deployments:
+        main:
+          enabled: false
+          image: nginx:1.25
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should render deployment when enabled is true
+    set:
+      deployments:
+        main:
+          enabled: true
+          image: nginx:1.25
+    asserts:
+      - hasDocuments:
+          count: 1
+
+  - it: should render deployment when enabled is not set (default true)
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+    asserts:
+      - hasDocuments:
+          count: 1
+
   # ====== extraContainers (Bug Fix #1) ======
   - it: should render extraContainers as sidecar
     set:

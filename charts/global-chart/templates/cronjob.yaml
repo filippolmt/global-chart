@@ -169,7 +169,8 @@ spec:
 
 {{/* ====== PART 2: Deployment-level cronJobs (inherit from deployment) ====== */}}
 {{- range $deployName, $deploy := .Values.deployments }}
-{{- if and $deploy $deploy.cronJobs }}
+{{- if $deploy }}
+{{- if and (eq (include "global-chart.deploymentEnabled" (dict "deploy" $deploy)) "true") $deploy.cronJobs }}
 {{- range $name, $job := $deploy.cronJobs }}
 {{- if $job }}
 
@@ -464,6 +465,7 @@ spec:
           {{- end }}
           restartPolicy: {{ default "Never" $job.restartPolicy | quote }}
 {{ end }}
+{{- end }}
 {{- end }}
 {{- end }}
 {{- end }}

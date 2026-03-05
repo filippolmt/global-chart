@@ -2,6 +2,19 @@ suite: configmap template tests
 templates:
   - templates/configmap.yaml
 tests:
+  # ====== Deployment enabled flag ======
+  - it: should not render configmap when deployment enabled is false
+    set:
+      deployments:
+        main:
+          enabled: false
+          image: nginx:1.25
+          configMap:
+            APP_ENV: production
+    asserts:
+      - hasDocuments:
+          count: 0
+
   - it: should not render configmap when not defined
     set:
       deployments:

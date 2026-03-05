@@ -5,7 +5,9 @@ Thank you for installing {{ include "global-chart.fullname" . }}!
 Deployments created:
 {{- range $name, $deploy := .Values.deployments }}
 {{- if $deploy }}
+{{- if eq (include "global-chart.deploymentEnabled" (dict "deploy" $deploy)) "true" }}
   - {{ $name }}
+{{- end }}
 {{- end }}
 {{- end }}
 {{- end }}
@@ -13,10 +15,12 @@ Deployments created:
 {{- $svcList := list }}
 {{- range $name, $deploy := .Values.deployments }}
 {{- if $deploy }}
+{{- if eq (include "global-chart.deploymentEnabled" (dict "deploy" $deploy)) "true" }}
 {{- $svc := default (dict) $deploy.service }}
 {{- $enabled := ternary $svc.enabled true (hasKey $svc "enabled") }}
 {{- if $enabled }}
 {{- $svcList = append $svcList $name }}
+{{- end }}
 {{- end }}
 {{- end }}
 {{- end }}

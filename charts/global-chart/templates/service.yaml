@@ -1,6 +1,7 @@
 {{- $root := . }}
 {{- range $name, $deploy := .Values.deployments }}
 {{- if $deploy }}
+{{- if eq (include "global-chart.deploymentEnabled" (dict "deploy" $deploy)) "true" }}
 {{- $svc := default (dict) $deploy.service }}
 {{- $svcEnabled := true }}
 {{- if and (hasKey $svc "enabled") (not $svc.enabled) }}
@@ -25,6 +26,7 @@ spec:
       name: {{ $svc.portName | default "http" }}
   selector:
     {{- include "global-chart.deploymentSelectorLabels" $labelCtx | nindent 4 }}
+{{- end }}
 {{- end }}
 {{- end }}
 {{- end }}

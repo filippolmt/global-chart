@@ -190,7 +190,8 @@ spec:
 
 {{/* ====== PART 2: Deployment-level hooks (inherit from deployment) ====== */}}
 {{- range $deployName, $deploy := .Values.deployments }}
-{{- if and $deploy $deploy.hooks }}
+{{- if $deploy }}
+{{- if and (eq (include "global-chart.deploymentEnabled" (dict "deploy" $deploy)) "true") $deploy.hooks }}
 {{- range $hookType, $jobs := $deploy.hooks }}
 {{- range $name, $command := $jobs }}
 {{- if $command }}
@@ -463,6 +464,7 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
 {{ end }}
+{{- end }}
 {{- end }}
 {{- end }}
 {{- end }}

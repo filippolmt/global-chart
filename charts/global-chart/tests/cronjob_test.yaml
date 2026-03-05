@@ -60,6 +60,21 @@ tests:
           path: spec.jobTemplate.spec.template.spec.containers[0].image
           value: "myapp/api:v2.0"
 
+  # ====== Deployment enabled flag ======
+  - it: should not render deployment-level cronjob when deployment enabled is false
+    set:
+      deployments:
+        backend:
+          enabled: false
+          image: myapp:v2
+          cronJobs:
+            cleanup:
+              schedule: "0 4 * * *"
+              command: ["./cleanup.sh"]
+    asserts:
+      - hasDocuments:
+          count: 0
+
   # ====== Deployment-level CronJob inheritance ======
   - it: should inherit image from parent deployment
     set:

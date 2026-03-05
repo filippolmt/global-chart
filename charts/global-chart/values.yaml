@@ -5,11 +5,14 @@ nameOverride: ""
 # -- Override the chart fullname
 fullnameOverride: ""
 
-# -- Multiple deployments configuration (map of named deployments)
+# -- Multiple deployments configuration (map of named deployments). Each deployment supports an `enabled` field (bool, default `true`) to skip rendering of the Deployment and all its sub-resources (Service, ConfigMap, Secret, ServiceAccount, HPA, mounted ConfigMaps, CronJobs, Hooks). An Ingress that references a disabled deployment will fail with a clear error.
 # @default -- `{}` (empty map)
 deployments: {}
   # Example deployment configuration:
   # main:
+  #   # -- (bool) Enable or disable this deployment and all its sub-resources (Service, ConfigMap, Secret, SA, HPA). Default: true
+  #   enabled: true
+  #
   #   # -- (int) Number of replicas to deploy
   #   replicaCount: 2
   #

@@ -160,6 +160,26 @@ tests:
           path: spec.rules[1].http.paths[0].backend.service.name
           value: myrel-global-chart-api
 
+  # ====== Ingress fails when referencing disabled deployment ======
+  - it: should fail when ingress references a disabled deployment
+    set:
+      deployments:
+        frontend:
+          enabled: false
+          image: nginx:1.25
+      ingress:
+        enabled: true
+        className: nginx
+        hosts:
+          - host: example.com
+            deployment: frontend
+            paths:
+              - path: /
+                pathType: Prefix
+    asserts:
+      - failedTemplate:
+          errorMessage: "ingress host 'example.com' references deployment 'frontend' which has enabled: false (its Service will not be created)"
+
   # ====== Ingress annotations nil safety ======
   - it: should render ingress without annotations defined
     set:

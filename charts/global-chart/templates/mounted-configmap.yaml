@@ -1,6 +1,7 @@
 {{- $root := . -}}
 {{- range $name, $deploy := .Values.deployments }}
 {{- if $deploy }}
+{{- if eq (include "global-chart.deploymentEnabled" (dict "deploy" $deploy)) "true" }}
 {{- $mountedConfigFiles := $deploy.mountedConfigFiles -}}
 {{- if $mountedConfigFiles }}
 {{- $depFullname := include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $name) }}
@@ -40,6 +41,7 @@ data:
 {{- end }}
 {{- end }}
 
+{{- end }}
 {{- end }}
 {{- end }}
 {{- end }}

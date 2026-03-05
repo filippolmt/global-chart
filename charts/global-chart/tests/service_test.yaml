@@ -2,6 +2,17 @@ suite: service template tests
 templates:
   - templates/service.yaml
 tests:
+  # ====== Deployment enabled flag ======
+  - it: should not render service when deployment enabled is false
+    set:
+      deployments:
+        main:
+          enabled: false
+          image: nginx:1.25
+    asserts:
+      - hasDocuments:
+          count: 0
+
   # ====== Service disabled ======
   - it: should not render service when disabled
     set:
