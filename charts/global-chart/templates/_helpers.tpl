@@ -79,6 +79,15 @@ app.kubernetes.io/managed-by: {{ .root.Release.Service }}
 {{- end }}
 
 {{/*
+Check if a deployment is enabled. Defaults to true if the field is not set.
+Usage: {{ include "global-chart.deploymentEnabled" (dict "deploy" $deploy) }}
+Returns the string "true" or "false".
+*/}}
+{{- define "global-chart.deploymentEnabled" -}}
+{{- ternary .deploy.enabled true (hasKey .deploy "enabled") -}}
+{{- end }}
+
+{{/*
 Create the name of the service account for a specific deployment.
 Usage: {{ include "global-chart.deploymentServiceAccountName" (dict "root" . "deploymentName" $name "deployment" $deploy) }}
 */}}

@@ -1,6 +1,7 @@
 {{- $root := . }}
 {{- range $name, $deploy := .Values.deployments }}
-{{- if and $deploy $deploy.configMap }}
+{{- if $deploy }}
+{{- if and (eq (include "global-chart.deploymentEnabled" (dict "deploy" $deploy)) "true") $deploy.configMap }}
 {{- $depFullname := include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $name) }}
 {{- $labelCtx := dict "root" $root "deploymentName" $name }}
 ---
@@ -18,6 +19,7 @@ data:
   {{- else }}
   {{ $key }}: {{ toString $value | quote }}
   {{- end }}
+{{- end }}
 {{- end }}
 {{- end }}
 {{- end }}

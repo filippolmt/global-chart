@@ -1,6 +1,7 @@
 {{- $root := . }}
 {{- range $name, $deploy := .Values.deployments }}
 {{- if $deploy }}
+{{- if eq (include "global-chart.deploymentEnabled" (dict "deploy" $deploy)) "true" }}
 {{- $depFullname := include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $name) }}
 {{- $labelCtx := dict "root" $root "deploymentName" $name }}
 {{- $autoscaling := default (dict) $deploy.autoscaling }}
@@ -224,5 +225,6 @@ spec:
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+{{- end }}
 {{- end }}
 {{- end }}

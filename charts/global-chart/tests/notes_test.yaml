@@ -2,6 +2,17 @@ suite: NOTES.txt template tests
 templates:
   - templates/NOTES.txt
 tests:
+  # ====== Deployment enabled flag ======
+  - it: should not list disabled deployment in NOTES
+    set:
+      deployments:
+        main:
+          enabled: false
+          image: nginx:1.25
+    asserts:
+      - notMatchRegexRaw:
+          pattern: "main"
+
   - it: should render NOTES.txt with deployment info
     set:
       deployments:

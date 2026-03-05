@@ -518,6 +518,21 @@ tests:
       - hasDocuments:
           count: 4
 
+  # ====== Deployment enabled flag ======
+  - it: should not render deployment-level hook when deployment enabled is false
+    set:
+      deployments:
+        backend:
+          enabled: false
+          image: myapp:v2
+          hooks:
+            pre-upgrade:
+              migrate:
+                command: ["./migrate.sh"]
+    asserts:
+      - hasDocuments:
+          count: 0
+
   # ====== Deployment-level hooks ======
   # Note: When deployment has serviceAccount.create: true (explicitly set),
   # the hook inherits the SA and only produces 1 document (Job at index 0).

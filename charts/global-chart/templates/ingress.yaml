@@ -60,6 +60,9 @@ spec:
         {{- if not $deploy -}}
           {{- fail (printf "ingress host '%s' references deployment '%s' which does not exist in .Values.deployments" $hostEntry.host $depName) -}}
         {{- end -}}
+        {{- if ne (include "global-chart.deploymentEnabled" (dict "deploy" $deploy)) "true" -}}
+          {{- fail (printf "ingress host '%s' references deployment '%s' which has enabled: false (its Service will not be created)" $hostEntry.host $depName) -}}
+        {{- end -}}
         {{- $svcName = include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $depName) -}}
         {{- $depSvc := default (dict) $deploy.service -}}
         {{- $svcPort = default 80 $depSvc.port -}}

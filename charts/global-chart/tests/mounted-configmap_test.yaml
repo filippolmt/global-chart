@@ -2,6 +2,23 @@ suite: mounted-configmap template tests
 templates:
   - templates/mounted-configmap.yaml
 tests:
+  # ====== Deployment enabled flag ======
+  - it: should not render mounted-configmap when deployment enabled is false
+    set:
+      deployments:
+        main:
+          enabled: false
+          image: nginx:1.25
+          mountedConfigFiles:
+            files:
+              - name: myconfig
+                filename: config.yaml
+                targetPath: /etc/config/config.yaml
+                content: "key: value"
+    asserts:
+      - hasDocuments:
+          count: 0
+
   - it: should not render when mountedConfigFiles not defined
     set:
       deployments:
