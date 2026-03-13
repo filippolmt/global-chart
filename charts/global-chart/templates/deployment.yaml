@@ -19,6 +19,16 @@ spec:
   {{- if not $autoscaling.enabled }}
   replicas: {{ $deploy.replicaCount | default 2 }}
   {{- end }}
+  {{- with $deploy.strategy }}
+  strategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- if hasKey $deploy "revisionHistoryLimit" }}
+  revisionHistoryLimit: {{ $deploy.revisionHistoryLimit }}
+  {{- end }}
+  {{- if hasKey $deploy "progressDeadlineSeconds" }}
+  progressDeadlineSeconds: {{ $deploy.progressDeadlineSeconds }}
+  {{- end }}
   selector:
     matchLabels:
       {{- include "global-chart.deploymentSelectorLabels" $labelCtx | nindent 6 }}
@@ -26,6 +36,7 @@ spec:
     metadata:
       annotations:
         checksum/config: {{ toYaml $deploy.configMap | sha256sum }}
+        checksum/secret: {{ toYaml $deploy.secret | sha256sum }}
         checksum/mounted-config-files: {{ toYaml $deploy.mountedConfigFiles | sha256sum }}
         {{- if $podRecreation.enabled }}
         timestamp: "{{ now | date "20060102150405" }}"
@@ -39,45 +50,21 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
     spec:
-      {{- with $deploy.imagePullSecrets }}
-      imagePullSecrets:
-        {{- range . }}
-          {{- if kindIs "string" . }}
-        - name: {{ . | quote }}
-          {{- else if hasKey . "name" }}
-        - name: {{ .name | quote }}
-          {{- else }}
-          {{ fail "imagePullSecrets must be a list of strings or objects with a 'name' key." }}
-          {{- end }}
-        {{- end }}
+      {{- /* ImagePullSecrets: deployment-level > global */ -}}
+      {{- $imagePullSecrets := $deploy.imagePullSecrets -}}
+      {{- if not $imagePullSecrets -}}
+        {{- $global := default (dict) $root.Values.global -}}
+        {{- $imagePullSecrets = $global.imagePullSecrets -}}
+      {{- end -}}
+      {{- with (include "global-chart.renderImagePullSecrets" $imagePullSecrets) }}
+{{- . | nindent 6 }}
       {{- end }}
       {{- if $deploy.hostAliases }}
       hostAliases:
         {{- toYaml $deploy.hostAliases | nindent 8 }}
       {{- end }}
-      {{- if or $dnsConfig.nameservers $dnsConfig.searches $dnsConfig.options }}
-      dnsConfig:
-        {{- if $dnsConfig.nameservers }}
-        nameservers:
-          {{- range $dnsConfig.nameservers }}
-          - {{ . }}
-          {{- end }}
-        {{- end }}
-        {{- if $dnsConfig.searches }}
-        searches:
-          {{- range $dnsConfig.searches }}
-          - {{ . }}
-          {{- end }}
-        {{- end }}
-        {{- if $dnsConfig.options }}
-        options:
-          {{- range $dnsConfig.options }}
-          - name: {{ .name }}
-            {{- if .value }}
-            value: {{ .value | quote }}
-            {{- end }}
-          {{- end }}
-        {{- end }}
+      {{- with (include "global-chart.renderDnsConfig" $dnsConfig) }}
+{{- . | nindent 6 }}
       {{- end }}
       serviceAccountName: {{ include "global-chart.deploymentServiceAccountName" (dict "root" $root "deploymentName" $name "deployment" $deploy) }}
       {{- if $deploy.podSecurityContext }}
@@ -93,7 +80,7 @@ spec:
           {{- if and (kindIs "map" $deploy.image) $deploy.image.repository (not (or $deploy.image.tag $deploy.image.digest)) }}
           {{- fail (printf "deployments.%s.image requires either a tag or digest when repository is provided" $name) }}
           {{- end }}
-          {{- $depImageRef := include "global-chart.imageString" $deploy.image }}
+          {{- $depImageRef := include "global-chart.imageString" (dict "image" $deploy.image "global" $root.Values.global) }}
           image: {{ required (printf "deployments.%s.image must define a repository with tag/digest or be a full image reference" $name) $depImageRef | quote }}
           imagePullPolicy: {{ include "global-chart.imagePullPolicy" (dict "image" $deploy.image) }}
           {{- with $deploy.securityContext }}
@@ -116,8 +103,10 @@ spec:
           startupProbe:
             {{- toYaml $deploy.startupProbe | nindent 12 }}
           {{- end }}
+          {{- with $deploy.resources }}
           resources:
-            {{- toYaml $deploy.resources | nindent 12 }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           {{- if or $deploy.configMap $deploy.envFromConfigMaps $deploy.secret $deploy.envFromSecrets }}
           envFrom:
             {{- if $deploy.configMap }}
@@ -174,22 +163,7 @@ spec:
       {{- if or $hasUserVolumes (or $hasMcfFiles $hasMcfBundles) }}
       volumes:
         {{- range $userVolumes }}
-        - name: {{ .name }}
-          {{- if eq .type "emptyDir" }}
-          emptyDir: {}
-          {{- end }}
-          {{- if eq .type "configMap" }}
-          configMap:
-            name: {{ .configMap.name | quote }}
-          {{- end }}
-          {{- if eq .type "secret" }}
-          secret:
-            secretName: {{ default .secret.secretName .secret.name | quote }}
-          {{- end }}
-          {{- if eq .type "persistentVolumeClaim" }}
-          persistentVolumeClaim:
-            claimName: {{ default .persistentVolumeClaim.claimName .persistentVolumeClaim.name | quote }}
-          {{- end }}
+        {{- include "global-chart.renderVolume" . | nindent 8 }}
         {{- end }}
         {{- if $hasMcfFiles }}
         {{- range $i, $f := $mountedConfigFiles.files }}
@@ -223,6 +197,10 @@ spec:
       {{- end }}
       {{- with $deploy.tolerations }}
       tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $deploy.topologySpreadConstraints }}
+      topologySpreadConstraints:
         {{- toYaml . | nindent 8 }}
       {{- end }}
 {{- end }}

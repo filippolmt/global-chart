@@ -17,14 +17,14 @@
 {{- /* Resolve image: explicit > fromDeployment > error */ -}}
 {{- $jobImage := "" }}
 {{- if hasKey $job "image" }}
-  {{- $jobImage = include "global-chart.imageString" $job.image -}}
+  {{- $jobImage = include "global-chart.imageString" (dict "image" $job.image "global" $root.Values.global) -}}
 {{- else if $job.fromDeployment }}
   {{- $depName := $job.fromDeployment -}}
   {{- $deploy := index $root.Values.deployments $depName -}}
   {{- if not $deploy -}}
     {{- fail (printf "cronJobs.%s.fromDeployment references deployment '%s' which does not exist in .Values.deployments" $name $depName) -}}
   {{- end -}}
-  {{- $jobImage = include "global-chart.imageString" $deploy.image -}}
+  {{- $jobImage = include "global-chart.imageString" (dict "image" $deploy.image "global" $root.Values.global) -}}
 {{- end }}
 {{- $imageRef := required (printf "image is required for cronJobs.%s (set cronJobs.%s.image or cronJobs.%s.fromDeployment)" $name $name $name) $jobImage }}
 
@@ -66,19 +66,25 @@ spec:
     spec:
       template:
         spec:
-          {{- with $job.imagePullSecrets }}
-          imagePullSecrets:
-            {{- range . }}
-              {{- if kindIs "string" . }}
-            - name: {{ . | quote }}
-              {{- else if hasKey . "name" }}
-            - name: {{ .name | quote }}
-              {{- end }}
-            {{- end }}
+          {{- /* ImagePullSecrets: job-level > global */ -}}
+          {{- $cronImagePullSecrets := $job.imagePullSecrets -}}
+          {{- if not $cronImagePullSecrets -}}
+            {{- $global := default (dict) $root.Values.global -}}
+            {{- $cronImagePullSecrets = $global.imagePullSecrets -}}
+          {{- end -}}
+          {{- with (include "global-chart.renderImagePullSecrets" $cronImagePullSecrets) }}
+{{- . | nindent 10 }}
+          {{- end }}
+          {{- with $job.hostAliases }}
+          hostAliases:
+            {{- toYaml . | nindent 12 }}
           {{- end }}
           {{- with $job.podSecurityContext }}
           securityContext:
             {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with (include "global-chart.renderDnsConfig" $job.dnsConfig) }}
+{{- . | nindent 10 }}
           {{- end }}
           {{- if $job.initContainers }}
           initContainers:
@@ -115,14 +121,8 @@ spec:
             env:
               {{- toYaml $job.env | nindent 14 }}
             {{- end }}
-            {{- if $job.resources }}
-            resources:
-              {{- toYaml $job.resources | nindent 14 }}
-            {{- else }}
-            resources:
-              requests:
-                cpu: 100m
-                memory: 128Mi
+            {{- with (include "global-chart.renderResources" (dict "resources" $job.resources "defaults" $root.Values.defaults)) }}
+{{- . | nindent 12 }}
             {{- end }}
             {{- with $job.volumeMounts }}
             volumeMounts:
@@ -131,22 +131,7 @@ spec:
           {{- with $job.volumes }}
           volumes:
             {{- range . }}
-            - name: {{ .name }}
-              {{- if eq .type "emptyDir" }}
-              emptyDir: {}
-              {{- end }}
-              {{- if eq .type "configMap" }}
-              configMap:
-                name: {{ .configMap.name | quote }}
-              {{- end }}
-              {{- if eq .type "secret" }}
-              secret:
-                secretName: {{ default .secret.secretName .secret.name | quote }}
-              {{- end }}
-              {{- if eq .type "persistentVolumeClaim" }}
-              persistentVolumeClaim:
-                claimName: {{ default .persistentVolumeClaim.claimName .persistentVolumeClaim.name | quote }}
-              {{- end }}
+            {{- include "global-chart.renderVolume" . | nindent 12 }}
             {{- end }}
           {{- end }}
           serviceAccountName: {{ $saName | quote }}
@@ -181,9 +166,9 @@ spec:
 {{- /* Resolve image: explicit in cronjob > inherited from deployment */ -}}
 {{- $jobImage := "" }}
 {{- if hasKey $job "image" }}
-  {{- $jobImage = include "global-chart.imageString" $job.image -}}
+  {{- $jobImage = include "global-chart.imageString" (dict "image" $job.image "global" $root.Values.global) -}}
 {{- else }}
-  {{- $jobImage = include "global-chart.imageString" $deploy.image -}}
+  {{- $jobImage = include "global-chart.imageString" (dict "image" $deploy.image "global" $root.Values.global) -}}
 {{- end }}
 {{- $imageRef := required (printf "image is required for deployments.%s.cronJobs.%s" $deployName $name) $jobImage }}
 
@@ -274,20 +259,14 @@ spec:
     spec:
       template:
         spec:
-          {{- /* ImagePullSecrets: explicit > inherited from deployment */ -}}
-          {{- $imagePullSecrets := $job.imagePullSecrets -}}
+          {{- /* ImagePullSecrets: explicit > inherited from deployment > global */ -}}
+          {{- $imagePullSecrets := ternary $job.imagePullSecrets $deploy.imagePullSecrets (hasKey $job "imagePullSecrets") -}}
           {{- if not $imagePullSecrets -}}
-            {{- $imagePullSecrets = $deploy.imagePullSecrets -}}
+            {{- $global := default (dict) $root.Values.global -}}
+            {{- $imagePullSecrets = $global.imagePullSecrets -}}
           {{- end -}}
-          {{- with $imagePullSecrets }}
-          imagePullSecrets:
-            {{- range . }}
-              {{- if kindIs "string" . }}
-            - name: {{ . | quote }}
-              {{- else if hasKey . "name" }}
-            - name: {{ .name | quote }}
-              {{- end }}
-            {{- end }}
+          {{- with (include "global-chart.renderImagePullSecrets" $imagePullSecrets) }}
+{{- . | nindent 10 }}
           {{- end }}
           {{- /* HostAliases: explicit > inherited from deployment */ -}}
           {{- $hostAliases := ternary $job.hostAliases $deploy.hostAliases (hasKey $job "hostAliases") -}}
@@ -308,29 +287,8 @@ spec:
           {{- else -}}
             {{- $dnsConfig = default (dict) $deploy.dnsConfig -}}
           {{- end -}}
-          {{- if or $dnsConfig.nameservers $dnsConfig.searches $dnsConfig.options }}
-          dnsConfig:
-            {{- if $dnsConfig.nameservers }}
-            nameservers:
-              {{- range $dnsConfig.nameservers }}
-              - {{ . }}
-              {{- end }}
-            {{- end }}
-            {{- if $dnsConfig.searches }}
-            searches:
-              {{- range $dnsConfig.searches }}
-              - {{ . }}
-              {{- end }}
-            {{- end }}
-            {{- if $dnsConfig.options }}
-            options:
-              {{- range $dnsConfig.options }}
-              - name: {{ .name }}
-                {{- if .value }}
-                value: {{ .value | quote }}
-                {{- end }}
-              {{- end }}
-            {{- end }}
+          {{- with (include "global-chart.renderDnsConfig" $dnsConfig) }}
+{{- . | nindent 10 }}
           {{- end }}
           {{- if $job.initContainers }}
           initContainers:
@@ -401,14 +359,8 @@ spec:
             env:
               {{- toYaml $envVars | nindent 14 }}
             {{- end }}
-            {{- if $job.resources }}
-            resources:
-              {{- toYaml $job.resources | nindent 14 }}
-            {{- else }}
-            resources:
-              requests:
-                cpu: 100m
-                memory: 128Mi
+            {{- with (include "global-chart.renderResources" (dict "resources" $job.resources "defaults" $root.Values.defaults)) }}
+{{- . | nindent 12 }}
             {{- end }}
             {{- with $job.volumeMounts }}
             volumeMounts:
@@ -417,48 +369,24 @@ spec:
           {{- with $job.volumes }}
           volumes:
             {{- range . }}
-            - name: {{ .name }}
-              {{- if eq .type "emptyDir" }}
-              emptyDir: {}
-              {{- end }}
-              {{- if eq .type "configMap" }}
-              configMap:
-                name: {{ .configMap.name | quote }}
-              {{- end }}
-              {{- if eq .type "secret" }}
-              secret:
-                secretName: {{ default .secret.secretName .secret.name | quote }}
-              {{- end }}
-              {{- if eq .type "persistentVolumeClaim" }}
-              persistentVolumeClaim:
-                claimName: {{ default .persistentVolumeClaim.claimName .persistentVolumeClaim.name | quote }}
-              {{- end }}
+            {{- include "global-chart.renderVolume" . | nindent 12 }}
             {{- end }}
           {{- end }}
           serviceAccountName: {{ $saName | quote }}
           {{- /* NodeSelector: explicit > inherited from deployment */ -}}
-          {{- $nodeSelector := $job.nodeSelector -}}
-          {{- if not $nodeSelector -}}
-            {{- $nodeSelector = $deploy.nodeSelector -}}
-          {{- end -}}
+          {{- $nodeSelector := ternary $job.nodeSelector $deploy.nodeSelector (hasKey $job "nodeSelector") -}}
           {{- with $nodeSelector }}
           nodeSelector:
             {{- toYaml . | nindent 12 }}
           {{- end }}
           {{- /* Affinity: explicit > inherited from deployment */ -}}
-          {{- $affinity := $job.affinity -}}
-          {{- if not $affinity -}}
-            {{- $affinity = $deploy.affinity -}}
-          {{- end -}}
+          {{- $affinity := ternary $job.affinity $deploy.affinity (hasKey $job "affinity") -}}
           {{- with $affinity }}
           affinity:
             {{- toYaml . | nindent 12 }}
           {{- end }}
           {{- /* Tolerations: explicit > inherited from deployment */ -}}
-          {{- $tolerations := $job.tolerations -}}
-          {{- if not $tolerations -}}
-            {{- $tolerations = $deploy.tolerations -}}
-          {{- end -}}
+          {{- $tolerations := ternary $job.tolerations $deploy.tolerations (hasKey $job "tolerations") -}}
           {{- with $tolerations }}
           tolerations:
             {{- toYaml . | nindent 12 }}

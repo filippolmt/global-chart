@@ -1,0 +1,107 @@
+suite: pdb template tests
+templates:
+  - templates/pdb.yaml
+tests:
+  - it: should not render PDB by default
+    set:
+      deployments:
+        main:
+          image: "nginx:1.25"
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should render PDB with minAvailable
+    set:
+      deployments:
+        main:
+          image: "nginx:1.25"
+          pdb:
+            enabled: true
+            minAvailable: 1
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: apiVersion
+          value: policy/v1
+      - equal:
+          path: kind
+          value: PodDisruptionBudget
+      - equal:
+          path: spec.minAvailable
+          value: 1
+      - notExists:
+          path: spec.maxUnavailable
+
+  - it: should render PDB with maxUnavailable
+    set:
+      deployments:
+        main:
+          image: "nginx:1.25"
+          pdb:
+            enabled: true
+            maxUnavailable: 1
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: spec.maxUnavailable
+          value: 1
+      - notExists:
+          path: spec.minAvailable
+
+  - it: should not render PDB when enabled is false
+    set:
+      deployments:
+        main:
+          image: "nginx:1.25"
+          pdb:
+            enabled: false
+            minAvailable: 1
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should use correct selector labels
+    set:
+      deployments:
+        main:
+          image: "nginx:1.25"
+          pdb:
+            enabled: true
+            minAvailable: 1
+    asserts:
+      - equal:
+          path: spec.selector.matchLabels["app.kubernetes.io/component"]
+          value: main
+
+  - it: should render PDB for multiple deployments
+    set:
+      deployments:
+        frontend:
+          image: "nginx:1.25"
+          pdb:
+            enabled: true
+            minAvailable: 1
+        backend:
+          image: "myapp:v1"
+          pdb:
+            enabled: true
+            maxUnavailable: 1
+    asserts:
+      - hasDocuments:
+          count: 2
+
+  - it: should not render PDB for disabled deployment
+    set:
+      deployments:
+        main:
+          enabled: false
+          image: "nginx:1.25"
+          pdb:
+            enabled: true
+            minAvailable: 1
+    asserts:
+      - hasDocuments:
+          count: 0

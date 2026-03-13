@@ -21,8 +21,8 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: {{ $depFullname }}
-  minReplicas: {{ $hpa.minReplicas }}
-  maxReplicas: {{ $hpa.maxReplicas }}
+  minReplicas: {{ required (printf "deployments.%s.autoscaling.minReplicas is required when HPA is enabled" $name) $hpa.minReplicas }}
+  maxReplicas: {{ required (printf "deployments.%s.autoscaling.maxReplicas is required when HPA is enabled" $name) $hpa.maxReplicas }}
   metrics:
     {{- if gt $cpu 0 }}
     - type: Resource

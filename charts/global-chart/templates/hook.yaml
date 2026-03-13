@@ -16,14 +16,14 @@
 {{- /* Resolve image: explicit > fromDeployment > error */ -}}
 {{- $cmdImage := "" }}
 {{- if hasKey $command "image" }}
-  {{- $cmdImage = include "global-chart.imageString" $command.image -}}
+  {{- $cmdImage = include "global-chart.imageString" (dict "image" $command.image "global" $root.Values.global) -}}
 {{- else if $command.fromDeployment }}
   {{- $depName := $command.fromDeployment -}}
   {{- $deploy := index $root.Values.deployments $depName -}}
   {{- if not $deploy -}}
     {{- fail (printf "hooks.%s.%s.fromDeployment references deployment '%s' which does not exist in .Values.deployments" $hookType $name $depName) -}}
   {{- end -}}
-  {{- $cmdImage = include "global-chart.imageString" $deploy.image -}}
+  {{- $cmdImage = include "global-chart.imageString" (dict "image" $deploy.image "global" $root.Values.global) -}}
 {{- end }}
 {{- $imageRef := required (printf "image is required for hooks.%s.%s (set hooks.%s.%s.image or hooks.%s.%s.fromDeployment)" $hookType $name $hookType $name $hookType $name) $cmdImage }}
 
@@ -87,15 +87,14 @@ spec:
         {{- include "global-chart.hookLabelsWithComponent" $root | nindent 8 }}
     spec:
       serviceAccountName: {{ $saName | quote }}
-      {{- with $command.imagePullSecrets }}
-      imagePullSecrets:
-        {{- range . }}
-          {{- if kindIs "string" . }}
-        - name: {{ . | quote }}
-          {{- else if hasKey . "name" }}
-        - name: {{ .name | quote }}
-          {{- end }}
-        {{- end }}
+      {{- /* ImagePullSecrets: hook-level > global */ -}}
+      {{- $hookImagePullSecrets := $command.imagePullSecrets -}}
+      {{- if not $hookImagePullSecrets -}}
+        {{- $global := default (dict) $root.Values.global -}}
+        {{- $hookImagePullSecrets = $global.imagePullSecrets -}}
+      {{- end -}}
+      {{- with (include "global-chart.renderImagePullSecrets" $hookImagePullSecrets) }}
+{{- . | nindent 6 }}
       {{- end }}
       {{- with $command.hostAliases }}
       hostAliases:
@@ -104,6 +103,9 @@ spec:
       {{- with $command.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with (include "global-chart.renderDnsConfig" $command.dnsConfig) }}
+{{- . | nindent 6 }}
       {{- end }}
       restartPolicy: {{ default "Never" $command.restartPolicy | quote }}
       containers:
@@ -122,14 +124,8 @@ spec:
         securityContext:
           {{- toYaml . | nindent 10 }}
         {{- end }}
-        {{- if $command.resources }}
-        resources:
-          {{- toYaml $command.resources | nindent 10 }}
-        {{- else }}
-        resources:
-          requests:
-            cpu: 100m
-            memory: 128Mi
+        {{- with (include "global-chart.renderResources" (dict "resources" $command.resources "defaults" $root.Values.defaults)) }}
+{{- . | nindent 8 }}
         {{- end }}
         {{- if or $command.envFromConfigMaps $command.envFromSecrets }}
         envFrom:
@@ -153,22 +149,7 @@ spec:
       {{- with $command.volumes }}
       volumes:
         {{- range . }}
-        - name: {{ .name }}
-          {{- if eq .type "emptyDir" }}
-          emptyDir: {}
-          {{- end }}
-          {{- if eq .type "configMap" }}
-          configMap:
-            name: {{ .configMap.name | quote }}
-          {{- end }}
-          {{- if eq .type "secret" }}
-          secret:
-            secretName: {{ default .secret.secretName .secret.name | quote }}
-          {{- end }}
-          {{- if eq .type "persistentVolumeClaim" }}
-          persistentVolumeClaim:
-            claimName: {{ default .persistentVolumeClaim.claimName .persistentVolumeClaim.name | quote }}
-          {{- end }}
+        {{- include "global-chart.renderVolume" . | nindent 8 }}
         {{- end }}
       {{- end }}
       {{- with $command.nodeSelector }}
@@ -202,9 +183,9 @@ spec:
 {{- /* Resolve image: explicit in hook > inherited from deployment */ -}}
 {{- $cmdImage := "" }}
 {{- if hasKey $command "image" }}
-  {{- $cmdImage = include "global-chart.imageString" $command.image -}}
+  {{- $cmdImage = include "global-chart.imageString" (dict "image" $command.image "global" $root.Values.global) -}}
 {{- else }}
-  {{- $cmdImage = include "global-chart.imageString" $deploy.image -}}
+  {{- $cmdImage = include "global-chart.imageString" (dict "image" $deploy.image "global" $root.Values.global) -}}
 {{- end }}
 {{- $imageRef := required (printf "image is required for deployments.%s.hooks.%s.%s" $deployName $hookType $name) $cmdImage }}
 
@@ -309,20 +290,14 @@ spec:
         app.kubernetes.io/component: {{ $deployName }}-hook
     spec:
       serviceAccountName: {{ $saName | quote }}
-      {{- /* ImagePullSecrets: explicit > inherited from deployment */ -}}
-      {{- $imagePullSecrets := $command.imagePullSecrets -}}
+      {{- /* ImagePullSecrets: explicit > inherited from deployment > global */ -}}
+      {{- $imagePullSecrets := ternary $command.imagePullSecrets $deploy.imagePullSecrets (hasKey $command "imagePullSecrets") -}}
       {{- if not $imagePullSecrets -}}
-        {{- $imagePullSecrets = $deploy.imagePullSecrets -}}
+        {{- $global := default (dict) $root.Values.global -}}
+        {{- $imagePullSecrets = $global.imagePullSecrets -}}
       {{- end -}}
-      {{- with $imagePullSecrets }}
-      imagePullSecrets:
-        {{- range . }}
-          {{- if kindIs "string" . }}
-        - name: {{ . | quote }}
-          {{- else if hasKey . "name" }}
-        - name: {{ .name | quote }}
-          {{- end }}
-        {{- end }}
+      {{- with (include "global-chart.renderImagePullSecrets" $imagePullSecrets) }}
+{{- . | nindent 6 }}
       {{- end }}
       {{- /* HostAliases: explicit > inherited from deployment */ -}}
       {{- $hostAliases := ternary $command.hostAliases $deploy.hostAliases (hasKey $command "hostAliases") -}}
@@ -355,14 +330,8 @@ spec:
         securityContext:
           {{- toYaml . | nindent 10 }}
         {{- end }}
-        {{- if $command.resources }}
-        resources:
-          {{- toYaml $command.resources | nindent 10 }}
-        {{- else }}
-        resources:
-          requests:
-            cpu: 100m
-            memory: 128Mi
+        {{- with (include "global-chart.renderResources" (dict "resources" $command.resources "defaults" $root.Values.defaults)) }}
+{{- . | nindent 8 }}
         {{- end }}
         {{- /* EnvFrom: deployment's configMap/secret + explicit envFromConfigMaps/envFromSecrets + deployment's envFromConfigMaps/envFromSecrets */ -}}
         {{- $hasEnvFrom := or $hasDeployConfigMap $hasDeploySecret $command.envFromConfigMaps $command.envFromSecrets $deploy.envFromConfigMaps $deploy.envFromSecrets -}}
@@ -418,47 +387,23 @@ spec:
       {{- with $command.volumes }}
       volumes:
         {{- range . }}
-        - name: {{ .name }}
-          {{- if eq .type "emptyDir" }}
-          emptyDir: {}
-          {{- end }}
-          {{- if eq .type "configMap" }}
-          configMap:
-            name: {{ .configMap.name | quote }}
-          {{- end }}
-          {{- if eq .type "secret" }}
-          secret:
-            secretName: {{ default .secret.secretName .secret.name | quote }}
-          {{- end }}
-          {{- if eq .type "persistentVolumeClaim" }}
-          persistentVolumeClaim:
-            claimName: {{ default .persistentVolumeClaim.claimName .persistentVolumeClaim.name | quote }}
-          {{- end }}
+        {{- include "global-chart.renderVolume" . | nindent 8 }}
         {{- end }}
       {{- end }}
       {{- /* NodeSelector: explicit > inherited from deployment */ -}}
-      {{- $nodeSelector := $command.nodeSelector -}}
-      {{- if not $nodeSelector -}}
-        {{- $nodeSelector = $deploy.nodeSelector -}}
-      {{- end -}}
+      {{- $nodeSelector := ternary $command.nodeSelector $deploy.nodeSelector (hasKey $command "nodeSelector") -}}
       {{- with $nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       {{- /* Affinity: explicit > inherited from deployment */ -}}
-      {{- $affinity := $command.affinity -}}
-      {{- if not $affinity -}}
-        {{- $affinity = $deploy.affinity -}}
-      {{- end -}}
+      {{- $affinity := ternary $command.affinity $deploy.affinity (hasKey $command "affinity") -}}
       {{- with $affinity }}
       affinity:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       {{- /* Tolerations: explicit > inherited from deployment */ -}}
-      {{- $tolerations := $command.tolerations -}}
-      {{- if not $tolerations -}}
-        {{- $tolerations = $deploy.tolerations -}}
-      {{- end -}}
+      {{- $tolerations := ternary $command.tolerations $deploy.tolerations (hasKey $command "tolerations") -}}
       {{- with $tolerations }}
       tolerations:
         {{- toYaml . | nindent 8 }}

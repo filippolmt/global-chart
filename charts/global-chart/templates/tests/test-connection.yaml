@@ -1,0 +1,32 @@
+{{- $root := . }}
+{{- $firstSvc := "" }}
+{{- $firstPort := 80 }}
+{{- range $name, $deploy := .Values.deployments }}
+{{- if and $deploy (not $firstSvc) }}
+{{- if eq (include "global-chart.deploymentEnabled" (dict "deploy" $deploy)) "true" }}
+{{- $svc := default (dict) $deploy.service }}
+{{- $svcEnabled := ternary $svc.enabled true (hasKey $svc "enabled") }}
+{{- if $svcEnabled }}
+{{- $firstSvc = include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $name) }}
+{{- $firstPort = default 80 $svc.port }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- if $firstSvc }}
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "{{ include "global-chart.fullname" $root }}-test-connection"
+  labels:
+    {{- include "global-chart.labels" $root | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+spec:
+  containers:
+    - name: wget
+      image: busybox:1.36
+      command: ['wget']
+      args: ['{{ $firstSvc }}:{{ $firstPort }}', '--timeout=5', '-O', '/dev/null']
+  restartPolicy: Never
+{{- end }}

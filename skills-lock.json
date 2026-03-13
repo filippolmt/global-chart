@@ -4,7 +4,7 @@
     "helm-chart-scaffolding": {
       "source": "wshobson/agents",
       "sourceType": "github",
-      "computedHash": "244e0c7c25ddf1554c08abb6a22b0fb30048fe4daaebc1d3c399633ad8c331b7"
+      "computedHash": "227baa46e7fcf59448b7f670ba504a0dbd6ae0e5d80338c066037e01b2b15755"
     }
   }
 }

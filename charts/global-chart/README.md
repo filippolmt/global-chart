@@ -1,6 +1,6 @@
 # global-chart
 
-![Version: 1.2.1](https://img.shields.io/badge/Version-1.2.1-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 1.2.1](https://img.shields.io/badge/AppVersion-1.2.1-informational?style=flat-square)
+![Version: 1.3.0](https://img.shields.io/badge/Version-1.3.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 1.3.0](https://img.shields.io/badge/AppVersion-1.3.0-informational?style=flat-square)
 
 Reusable Helm chart providing common building blocks—Deployments, Services, Ingress, Jobs, and more—for broadly adaptable Kubernetes applications.
 
@@ -10,7 +10,7 @@ Reusable Helm chart providing common building blocks—Deployments, Services, In
 
 | Name | Email | Url |
 | ---- | ------ | --- |
-| Filippo Merante Caparrotta |  |  |
+| Filippo Merante Caparrotta |  | <https://github.com/filippomerante> |
 
 ## Source Code
 
@@ -24,6 +24,9 @@ Kubernetes: `>=1.19.0-0`
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
+| global | object | `{"imagePullSecrets":[],"imageRegistry":""}` | Global values shared across all deployments, cronJobs, and hooks |
+| global.imageRegistry | string | `""` (no prefix) | Global image registry prefix (e.g., registry.example.com) |
+| global.imagePullSecrets | list | `[]` | Global imagePullSecrets (used when deployment/cronJob/hook doesn't specify its own) |
 | nameOverride | string | `""` | Override the chart name |
 | fullnameOverride | string | `""` | Override the chart fullname |
 | deployments | object | `{}` (empty map) | Multiple deployments configuration (map of named deployments). Each deployment supports an `enabled` field (bool, default `true`) to skip rendering of the Deployment and all its sub-resources (Service, ConfigMap, Secret, ServiceAccount, HPA, mounted ConfigMaps, CronJobs, Hooks). An Ingress that references a disabled deployment will fail with a clear error. |
@@ -41,6 +44,7 @@ Kubernetes: `>=1.19.0-0`
 | cronJobs | object | `{}` | CronJobs configuration (map of named cronJobs). Can also be defined inside deployments to inherit image, configMap, secret, SA. |
 | hooks | object | `{}` | Hook jobs for chart lifecycle (install/upgrade). Can also be defined inside deployments to inherit image, configMap, secret, SA. |
 | externalSecrets | object | `{}` | ExternalSecrets definitions for secret management |
+| defaults | object | `{"resources":{"requests":{"cpu":"100m","memory":"128Mi"}}}` | Default resource settings for CronJobs and Hooks when not specified per-job |
 | rbacs | object | `{"roles":[]}` | RBAC configuration: create multiple service accounts, roles and rolebindings |
 | rbacs.roles | list | `[]` | Set serviceAccount.create to false to bind to an existing account without creating it. |
 
