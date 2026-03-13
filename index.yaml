@@ -2,6 +2,37 @@ apiVersion: v1
 entries:
   global-chart:
   - apiVersion: v2
+    appVersion: 1.3.0
+    created: "2026-03-13T19:58:14.123024008Z"
+    description: Reusable Helm chart providing common building blocks—Deployments,
+      Services, Ingress, Jobs, and more—for broadly adaptable Kubernetes applications.
+    digest: cbc904a8ad256ff4deda69ad5ac66f3a9b440acf5a560b4451ec6678382e22c0
+    home: https://github.com/filippomerante/global-chart
+    icon: https://helm.sh/img/helm.svg
+    keywords:
+    - deployment
+    - service
+    - ingress
+    - cronjob
+    - hooks
+    - kubernetes
+    - multi-deployment
+    - pdb
+    - network-policy
+    - hpa
+    - autoscaling
+    kubeVersion: '>=1.19.0-0'
+    maintainers:
+    - name: Filippo Merante Caparrotta
+      url: https://github.com/filippomerante
+    name: global-chart
+    sources:
+    - https://github.com/filippomerante/global-chart
+    type: application
+    urls:
+    - https://github.com/filippolmt/global-chart/releases/download/global-chart-1.3.0/global-chart-1.3.0.tgz
+    version: 1.3.0
+  - apiVersion: v2
     appVersion: 1.2.1
     created: "2026-03-05T22:32:58.229547353Z"
     description: Reusable Helm chart providing common building blocks—Deployments,
@@ -345,4 +376,4 @@ entries:
     urls:
     - https://github.com/filippolmt/global-chart/releases/download/raw-0.1.0/raw-0.1.0.tgz
     version: 0.1.0
-generated: "2026-03-05T22:32:58.229718324Z"
+generated: "2026-03-13T19:58:14.123241084Z"
