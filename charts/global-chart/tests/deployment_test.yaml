@@ -615,7 +615,7 @@ tests:
           path: spec.template.spec.imagePullSecrets[0].name
           value: "local-regcred"
 
-  - it: should not skip global imageRegistry for string images with slash
+  - it: should skip global imageRegistry when string image already contains a registry
     set:
       global:
         imageRegistry: registry.example.com

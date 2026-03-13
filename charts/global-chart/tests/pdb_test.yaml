@@ -93,6 +93,47 @@ tests:
       - hasDocuments:
           count: 2
 
+  - it: should fail when both minAvailable and maxUnavailable are set
+    set:
+      deployments:
+        main:
+          image: "nginx:1.25"
+          pdb:
+            enabled: true
+            minAvailable: 1
+            maxUnavailable: 1
+    asserts:
+      - failedTemplate:
+          errorMessage: "PDB for deployment 'main': minAvailable and maxUnavailable are mutually exclusive — set only one."
+
+  - it: should fail when neither minAvailable nor maxUnavailable is set
+    set:
+      deployments:
+        main:
+          image: "nginx:1.25"
+          pdb:
+            enabled: true
+    asserts:
+      - failedTemplate:
+          errorMessage: "PDB for deployment 'main': one of minAvailable or maxUnavailable is required when pdb.enabled is true."
+
+  - it: should render PDB with minAvailable 0
+    set:
+      deployments:
+        main:
+          image: "nginx:1.25"
+          pdb:
+            enabled: true
+            minAvailable: 0
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: spec.minAvailable
+          value: 0
+      - notExists:
+          path: spec.maxUnavailable
+
   - it: should not render PDB for disabled deployment
     set:
       deployments:

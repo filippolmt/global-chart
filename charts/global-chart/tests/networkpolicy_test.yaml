@@ -109,6 +109,56 @@ tests:
           path: spec.policyTypes
           content: Egress
 
+  - it: should fail when enabled with no rules and no policyTypes
+    set:
+      deployments:
+        main:
+          image: "nginx:1.25"
+          networkPolicy:
+            enabled: true
+    asserts:
+      - failedTemplate:
+          errorMessage: "NetworkPolicy for deployment 'main': at least one of policyTypes, ingress, or egress must be set when networkPolicy.enabled is true."
+
+  - it: should render explicit policyTypes when provided
+    set:
+      deployments:
+        main:
+          image: "nginx:1.25"
+          networkPolicy:
+            enabled: true
+            policyTypes:
+              - Ingress
+              - Egress
+            ingress:
+              - from:
+                  - podSelector: {}
+    asserts:
+      - hasDocuments:
+          count: 1
+      - contains:
+          path: spec.policyTypes
+          content: Ingress
+      - contains:
+          path: spec.policyTypes
+          content: Egress
+
+  - it: should render policyTypes for default deny with explicit policyTypes
+    set:
+      deployments:
+        main:
+          image: "nginx:1.25"
+          networkPolicy:
+            enabled: true
+            policyTypes:
+              - Ingress
+    asserts:
+      - hasDocuments:
+          count: 1
+      - contains:
+          path: spec.policyTypes
+          content: Ingress
+
   - it: should not render NetworkPolicy when enabled is false
     set:
       deployments:

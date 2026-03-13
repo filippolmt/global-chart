@@ -134,7 +134,9 @@ Render an image reference from either a plain string or a map with repository/ta
 Supports two calling conventions:
   Legacy: {{ include "global-chart.imageString" $deploy.image }}
   New:    {{ include "global-chart.imageString" (dict "image" $deploy.image "global" $root.Values.global) }}
-When global.imageRegistry is set and image uses a map with repository, the registry is prepended.
+When global.imageRegistry is set, the registry is prepended to both string and map images
+unless the first path segment already looks like a registry (contains "." or ":" or equals "localhost").
+Examples: "nginx" → "registry/nginx", "myorg/myapp" → "registry/myorg/myapp", "ghcr.io/org/app" → unchanged.
 */}}
 {{- define "global-chart.imageString" -}}
 {{- $img := . -}}
@@ -189,9 +191,6 @@ When global.imageRegistry is set and image uses a map with repository, the regis
 {{- end }}
 {{- end }}
 
-{{/*
-Resolve an image pull policy from optional overrides, image map values, and a fallback.
-*/}}
 {{/*
 Render a single volume entry. Supports both:
 - Legacy format: { name, type, secret/configMap/persistentVolumeClaim/emptyDir }
@@ -278,13 +277,15 @@ dnsConfig:
 
 {{/*
 Render resources block with defaults fallback.
-Usage: {{ include "global-chart.renderResources" (dict "resources" $job.resources "defaults" $root.Values.defaults) }}
+Usage: {{ include "global-chart.renderResources" (dict "resources" $job.resources "hasResources" (hasKey $job "resources") "defaults" $root.Values.defaults) }}
+When hasResources is true and resources is empty ({}), no resources block is rendered (explicit override to clear defaults).
+When hasResources is false (key absent), defaults.resources is used as fallback.
 */}}
 {{- define "global-chart.renderResources" -}}
 {{- if .resources -}}
 resources:
   {{- toYaml .resources | nindent 2 }}
-{{- else }}
+{{- else if not (default false .hasResources) }}
 {{- $defaultRes := default (dict) (default (dict) .defaults).resources -}}
 {{- with $defaultRes -}}
 resources:
@@ -293,6 +294,10 @@ resources:
 {{- end }}
 {{- end }}
 
+{{/*
+Resolve an image pull policy from optional overrides, image map values, and a fallback.
+Priority: override > image.pullPolicy > fallback > IfNotPresent (default).
+*/}}
 {{- define "global-chart.imagePullPolicy" -}}
 {{- $ctx := . -}}
 {{- $policy := "" -}}

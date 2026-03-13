@@ -50,6 +50,7 @@
   {{- $saAnnotations = $commandSAMap.annotations -}}
 {{- end -}}
 
+{{- /* ServiceAccount uses weight 5 so it exists before the Job (weight 10) */ -}}
 {{- if or $saCreate (not $commandSAExplicitName) }}
 ---
 apiVersion: v1
@@ -126,7 +127,7 @@ spec:
         securityContext:
           {{- toYaml . | nindent 10 }}
         {{- end }}
-        {{- with (include "global-chart.renderResources" (dict "resources" $command.resources "defaults" $root.Values.defaults)) }}
+        {{- with (include "global-chart.renderResources" (dict "resources" $command.resources "hasResources" (hasKey $command "resources") "defaults" $root.Values.defaults)) }}
 {{- . | nindent 8 }}
         {{- end }}
         {{- if or $command.envFromConfigMaps $command.envFromSecrets }}
@@ -247,7 +248,8 @@ spec:
   {{- $saAnnotations = $commandSAMap.annotations -}}
 {{- end -}}
 
-{{- /* Create SA only if needed (not using deployment's or explicit existing) */ -}}
+{{- /* Create SA only if needed (not using deployment's or explicit existing);
+       ServiceAccount uses weight 5 so it exists before the Job (weight 10) */ -}}
 {{- if $saCreate }}
 ---
 apiVersion: v1
@@ -336,7 +338,7 @@ spec:
         securityContext:
           {{- toYaml . | nindent 10 }}
         {{- end }}
-        {{- with (include "global-chart.renderResources" (dict "resources" $command.resources "defaults" $root.Values.defaults)) }}
+        {{- with (include "global-chart.renderResources" (dict "resources" $command.resources "hasResources" (hasKey $command "resources") "defaults" $root.Values.defaults)) }}
 {{- . | nindent 8 }}
         {{- end }}
         {{- /* EnvFrom: deployment's configMap/secret + explicit envFromConfigMaps/envFromSecrets + deployment's envFromConfigMaps/envFromSecrets */ -}}

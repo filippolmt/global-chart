@@ -123,7 +123,7 @@ spec:
             env:
               {{- toYaml $job.env | nindent 14 }}
             {{- end }}
-            {{- with (include "global-chart.renderResources" (dict "resources" $job.resources "defaults" $root.Values.defaults)) }}
+            {{- with (include "global-chart.renderResources" (dict "resources" $job.resources "hasResources" (hasKey $job "resources") "defaults" $root.Values.defaults)) }}
 {{- . | nindent 12 }}
             {{- end }}
             {{- with $job.volumeMounts }}
@@ -365,7 +365,7 @@ spec:
             env:
               {{- toYaml $envVars | nindent 14 }}
             {{- end }}
-            {{- with (include "global-chart.renderResources" (dict "resources" $job.resources "defaults" $root.Values.defaults)) }}
+            {{- with (include "global-chart.renderResources" (dict "resources" $job.resources "hasResources" (hasKey $job "resources") "defaults" $root.Values.defaults)) }}
 {{- . | nindent 12 }}
             {{- end }}
             {{- with $job.volumeMounts }}
