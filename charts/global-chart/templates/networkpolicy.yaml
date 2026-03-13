@@ -17,6 +17,10 @@ spec:
   podSelector:
     matchLabels:
       {{- include "global-chart.deploymentSelectorLabels" $labelCtx | nindent 6 }}
+  {{- if $np.policyTypes }}
+  policyTypes:
+    {{- toYaml $np.policyTypes | nindent 4 }}
+  {{- else if or $np.ingress $np.egress }}
   policyTypes:
     {{- if $np.ingress }}
     - Ingress
@@ -24,6 +28,9 @@ spec:
     {{- if $np.egress }}
     - Egress
     {{- end }}
+  {{- else }}
+  {{- fail (printf "NetworkPolicy for deployment '%s': at least one of policyTypes, ingress, or egress must be set when networkPolicy.enabled is true." $name) }}
+  {{- end }}
   {{- with $np.ingress }}
   ingress:
     {{- toYaml . | nindent 4 }}

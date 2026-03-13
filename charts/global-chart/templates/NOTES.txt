@@ -93,6 +93,8 @@ NetworkPolicies:
 {{- end }}
 {{- end }}
 
+{{- if $svcList }}
 Run 'helm test {{ .Release.Name }}' to verify connectivity.
+{{- end }}
 
 For more information, visit: {{ .Chart.Home }}

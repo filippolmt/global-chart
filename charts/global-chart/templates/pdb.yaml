@@ -14,10 +14,16 @@ metadata:
   labels:
     {{- include "global-chart.deploymentLabels" $labelCtx | nindent 4 }}
 spec:
-  {{- if $pdb.minAvailable }}
+  {{- if and (hasKey $pdb "minAvailable") (hasKey $pdb "maxUnavailable") }}
+  {{- fail (printf "PDB for deployment '%s': minAvailable and maxUnavailable are mutually exclusive — set only one." $name) }}
+  {{- end }}
+  {{- if not (or (hasKey $pdb "minAvailable") (hasKey $pdb "maxUnavailable")) }}
+  {{- fail (printf "PDB for deployment '%s': one of minAvailable or maxUnavailable is required when pdb.enabled is true." $name) }}
+  {{- end }}
+  {{- if hasKey $pdb "minAvailable" }}
   minAvailable: {{ $pdb.minAvailable }}
   {{- end }}
-  {{- if $pdb.maxUnavailable }}
+  {{- if hasKey $pdb "maxUnavailable" }}
   maxUnavailable: {{ $pdb.maxUnavailable }}
   {{- end }}
   selector:

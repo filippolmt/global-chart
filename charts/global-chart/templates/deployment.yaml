@@ -50,9 +50,11 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
     spec:
-      {{- /* ImagePullSecrets: deployment-level > global */ -}}
-      {{- $imagePullSecrets := $deploy.imagePullSecrets -}}
-      {{- if not $imagePullSecrets -}}
+      {{- /* ImagePullSecrets: deployment-level > global (hasKey distinguishes unset from empty) */ -}}
+      {{- $imagePullSecrets := list -}}
+      {{- if hasKey $deploy "imagePullSecrets" -}}
+        {{- $imagePullSecrets = $deploy.imagePullSecrets -}}
+      {{- else -}}
         {{- $global := default (dict) $root.Values.global -}}
         {{- $imagePullSecrets = $global.imagePullSecrets -}}
       {{- end -}}

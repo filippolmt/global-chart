@@ -66,9 +66,11 @@ spec:
     spec:
       template:
         spec:
-          {{- /* ImagePullSecrets: job-level > global */ -}}
-          {{- $cronImagePullSecrets := $job.imagePullSecrets -}}
-          {{- if not $cronImagePullSecrets -}}
+          {{- /* ImagePullSecrets: job-level > global (hasKey distinguishes unset from empty) */ -}}
+          {{- $cronImagePullSecrets := list -}}
+          {{- if hasKey $job "imagePullSecrets" -}}
+            {{- $cronImagePullSecrets = $job.imagePullSecrets -}}
+          {{- else -}}
             {{- $global := default (dict) $root.Values.global -}}
             {{- $cronImagePullSecrets = $global.imagePullSecrets -}}
           {{- end -}}
@@ -259,9 +261,13 @@ spec:
     spec:
       template:
         spec:
-          {{- /* ImagePullSecrets: explicit > inherited from deployment > global */ -}}
-          {{- $imagePullSecrets := ternary $job.imagePullSecrets $deploy.imagePullSecrets (hasKey $job "imagePullSecrets") -}}
-          {{- if not $imagePullSecrets -}}
+          {{- /* ImagePullSecrets: explicit > inherited from deployment > global (hasKey distinguishes unset from empty) */ -}}
+          {{- $imagePullSecrets := list -}}
+          {{- if hasKey $job "imagePullSecrets" -}}
+            {{- $imagePullSecrets = $job.imagePullSecrets -}}
+          {{- else if hasKey $deploy "imagePullSecrets" -}}
+            {{- $imagePullSecrets = $deploy.imagePullSecrets -}}
+          {{- else -}}
             {{- $global := default (dict) $root.Values.global -}}
             {{- $imagePullSecrets = $global.imagePullSecrets -}}
           {{- end -}}

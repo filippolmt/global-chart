@@ -148,7 +148,14 @@ When global.imageRegistry is set and image uses a map with repository, the regis
 {{- if kindIs "string" $img }}
   {{- $trimmed := $img | trim -}}
   {{- if $trimmed }}
-    {{- if and $globalRegistry (not (contains "/" $trimmed)) }}
+    {{- $needsRegistry := true -}}
+    {{- if contains "/" $trimmed -}}
+      {{- $firstSegment := index (splitList "/" $trimmed) 0 -}}
+      {{- if or (contains "." $firstSegment) (contains ":" $firstSegment) (eq $firstSegment "localhost") -}}
+        {{- $needsRegistry = false -}}
+      {{- end -}}
+    {{- end -}}
+    {{- if and $globalRegistry $needsRegistry }}
       {{- printf "%s/%s" $globalRegistry $trimmed -}}
     {{- else }}
       {{- $trimmed -}}
@@ -156,7 +163,14 @@ When global.imageRegistry is set and image uses a map with repository, the regis
   {{- end }}
 {{- else if and (kindIs "map" $img) $img.repository }}
   {{- $repo := $img.repository | trim -}}
-  {{- if and $globalRegistry (not (contains "/" $repo)) }}
+  {{- $needsRegistry := true -}}
+  {{- if contains "/" $repo -}}
+    {{- $firstSegment := index (splitList "/" $repo) 0 -}}
+    {{- if or (contains "." $firstSegment) (contains ":" $firstSegment) (eq $firstSegment "localhost") -}}
+      {{- $needsRegistry = false -}}
+    {{- end -}}
+  {{- end -}}
+  {{- if and $globalRegistry $needsRegistry }}
     {{- $repo = printf "%s/%s" $globalRegistry $repo -}}
   {{- end -}}
   {{- $digest := default "" $img.digest | trim -}}
@@ -199,15 +213,13 @@ Render a single volume entry. Supports both:
   {{- else if eq $vol.type "persistentVolumeClaim" }}
   persistentVolumeClaim:
     claimName: {{ default $vol.persistentVolumeClaim.claimName $vol.persistentVolumeClaim.name | quote }}
+  {{- else }}
+  {{- fail (printf "renderVolume: unknown legacy volume type '%s' for volume '%s'. Supported types: emptyDir, configMap, secret, persistentVolumeClaim. For other volume types, use native Kubernetes volume spec (omit .type)." $vol.type $vol.name) }}
   {{- end }}
 {{- else }}
-  {{- /* Native format: render everything except name as-is */ -}}
-  {{- range $key, $value := $vol }}
-  {{- if ne $key "name" }}
-  {{ $key }}:
-    {{- toYaml $value | nindent 4 }}
-  {{- end }}
-  {{- end }}
+  {{- /* Native format: render everything except name deterministically */ -}}
+  {{- $native := omit $vol "name" -}}
+  {{- toYaml $native | nindent 2 }}
 {{- end }}
 {{- end }}
 

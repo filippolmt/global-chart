@@ -176,7 +176,7 @@ deployments:
 
 3. **Selector labels with component**: Each deployment gets unique selector labels including `app.kubernetes.io/component: {deploymentName}` to ensure pods don't overlap.
 
-4. **Image specification**: The `image` field accepts either a string (`nginx:1.25`) or a map (`{repository, tag, digest, pullPolicy}`). Helper `global-chart.imageString` handles both. Supports `global.imageRegistry` to prepend a shared registry prefix.
+4. **Image specification**: The `image` field accepts either a string (`nginx:1.25`) or a map (`{repository, tag, digest, pullPolicy}`). Helper `global-chart.imageString` handles both. Supports `global.imageRegistry` to prepend a shared registry prefix. Registry detection inspects the first path segment: if it contains `.`, `:`, or is `localhost`, it's treated as a registry and global prefix is skipped. This means `myorg/myapp` correctly gets the global prefix prepended.
 
 5. **ServiceAccount default**: Each deployment creates a ServiceAccount by default (`serviceAccount.create` defaults to `true`). To use an existing SA or the Kubernetes `default` SA, explicitly set `serviceAccount.create: false` with an optional `name`.
 
@@ -195,15 +195,15 @@ deployments:
    - `files`: Individual ConfigMaps, one per file
    - `bundles`: Projected sets of multiple files in one ConfigMap
 
-9. **Global values**: `global.imageRegistry` prepends a shared registry prefix to all images. `global.imagePullSecrets` provides default pull secrets when not set at deployment/job level.
+9. **Global values**: `global.imageRegistry` prepends a shared registry prefix to all images. `global.imagePullSecrets` provides default pull secrets when not set at deployment/job level. The fallback uses `hasKey` so that an explicit `imagePullSecrets: []` disables the global default (empty list is intentional, not "unset").
 
-10. **PodDisruptionBudget**: Set `pdb.enabled: true` with `minAvailable` or `maxUnavailable` per deployment.
+10. **PodDisruptionBudget**: Set `pdb.enabled: true` with `minAvailable` or `maxUnavailable` per deployment. Template validates mutual exclusion (fails if both set) and requires at least one. Uses `hasKey` checks so `0` is a valid value.
 
-11. **NetworkPolicy**: Set `networkPolicy.enabled: true` per deployment with ingress/egress rules and policyTypes.
+11. **NetworkPolicy**: Set `networkPolicy.enabled: true` per deployment with ingress/egress rules and/or explicit `policyTypes`. If `policyTypes` is provided it's used as-is; otherwise it's derived from presence of ingress/egress rules. Template fails if enabled with no rules and no policyTypes (prevents empty `policyTypes:` in manifest).
 
 12. **Deployment strategy**: `strategy` (RollingUpdate/Recreate), `revisionHistoryLimit`, `progressDeadlineSeconds`, `topologySpreadConstraints` per deployment.
 
-13. **Volume spec**: Supports both native Kubernetes volume spec (recommended) and legacy `.type` format for backward compatibility. Helper `global-chart.renderVolume` handles both.
+13. **Volume spec**: Supports both native Kubernetes volume spec (recommended) and legacy `.type` format for backward compatibility. Helper `global-chart.renderVolume` handles both. Native format uses `toYaml` for deterministic key ordering. Unknown legacy `.type` values produce a `fail` with supported types listed.
 
 14. **Default resources**: CronJobs and Hooks use `defaults.resources` from values.yaml when no per-job resources are specified.
 
@@ -220,9 +220,9 @@ deployments:
 | `deploymentEnabled` | Returns `"true"`/`"false"` string; defaults to true |
 | `deploymentServiceAccountName` | Resolves SA name: explicit > generated > `"default"` |
 | `hookLabels`, `hookLabelsWithComponent`, `hookfullname` | Hook-specific labels (no selectorLabels to avoid HPA matching) |
-| `imageString` | Image ref from string or `{repository, tag, digest}`; supports `global.imageRegistry` |
+| `imageString` | Image ref from string or `{repository, tag, digest}`; supports `global.imageRegistry` with smart registry detection (first segment `.`/`:`/`localhost`) |
 | `imagePullPolicy` | Resolves policy: override > image map > fallback > `IfNotPresent` |
-| `renderVolume` | Renders a volume entry; supports both native K8s spec and legacy `.type` format |
+| `renderVolume` | Renders a volume entry; native K8s spec (deterministic via `toYaml`) and legacy `.type` format; fails on unknown legacy types |
 | `renderImagePullSecrets` | Shared: renders `imagePullSecrets:` block from a resolved list; returns empty if nil |
 | `renderDnsConfig` | Shared: renders `dnsConfig:` block from a dict; returns empty if no fields set |
 | `renderResources` | Shared: renders `resources:` with fallback to `defaults.resources`; returns empty if both nil |
@@ -292,6 +292,7 @@ Release workflow (`.github/workflows/release.yml`) handles chart publishing.
 - Never mutate `.Values` during rendering (e.g., `set $ing.annotations`). Use `deepCopy` to create a local copy first
 - Every template must have a corresponding `*_test.yaml` in `charts/global-chart/tests/`
 - When adding inheritance to deployment-level hooks/cronjobs, use `hasKey` to distinguish "not set" from "set but empty": `ternary $job.field $deploy.field (hasKey $job "field")`. Never use `if not $job.field` as it treats `{}` and `[]` as falsy and incorrectly inherits
+- For global fallback chains (e.g., imagePullSecrets: job > deployment > global), always use `hasKey` at each level — never `if not $var`. An explicit empty list (`imagePullSecrets: []`) must prevent fallback to the global value
 - When calling shared helpers that can return empty (`renderImagePullSecrets`, `renderDnsConfig`, `renderResources`), always wrap with `{{- with }}` and use `nindent` to avoid blank lines: `{{- with (include "global-chart.renderFoo" $arg) }}{{- . | nindent N }}{{- end }}`
 - Shared helpers must use `-}}` (trim-right) on the conditional/with line before literal content (e.g., `{{- with . -}}\nimagePullSecrets:`) to avoid a leading newline in the output that `nindent` would turn into a blank line
 - Always update CLAUDE.md when architecture, commands, or key patterns change

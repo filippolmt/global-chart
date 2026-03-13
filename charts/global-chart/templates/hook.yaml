@@ -87,9 +87,11 @@ spec:
         {{- include "global-chart.hookLabelsWithComponent" $root | nindent 8 }}
     spec:
       serviceAccountName: {{ $saName | quote }}
-      {{- /* ImagePullSecrets: hook-level > global */ -}}
-      {{- $hookImagePullSecrets := $command.imagePullSecrets -}}
-      {{- if not $hookImagePullSecrets -}}
+      {{- /* ImagePullSecrets: hook-level > global (hasKey distinguishes unset from empty) */ -}}
+      {{- $hookImagePullSecrets := list -}}
+      {{- if hasKey $command "imagePullSecrets" -}}
+        {{- $hookImagePullSecrets = $command.imagePullSecrets -}}
+      {{- else -}}
         {{- $global := default (dict) $root.Values.global -}}
         {{- $hookImagePullSecrets = $global.imagePullSecrets -}}
       {{- end -}}
@@ -290,9 +292,13 @@ spec:
         app.kubernetes.io/component: {{ $deployName }}-hook
     spec:
       serviceAccountName: {{ $saName | quote }}
-      {{- /* ImagePullSecrets: explicit > inherited from deployment > global */ -}}
-      {{- $imagePullSecrets := ternary $command.imagePullSecrets $deploy.imagePullSecrets (hasKey $command "imagePullSecrets") -}}
-      {{- if not $imagePullSecrets -}}
+      {{- /* ImagePullSecrets: explicit > inherited from deployment > global (hasKey distinguishes unset from empty) */ -}}
+      {{- $imagePullSecrets := list -}}
+      {{- if hasKey $command "imagePullSecrets" -}}
+        {{- $imagePullSecrets = $command.imagePullSecrets -}}
+      {{- else if hasKey $deploy "imagePullSecrets" -}}
+        {{- $imagePullSecrets = $deploy.imagePullSecrets -}}
+      {{- else -}}
         {{- $global := default (dict) $root.Values.global -}}
         {{- $imagePullSecrets = $global.imagePullSecrets -}}
       {{- end -}}
