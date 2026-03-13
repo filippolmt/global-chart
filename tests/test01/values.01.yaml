@@ -48,6 +48,8 @@ deployments:
         type: persistentVolumeClaim
         persistentVolumeClaim:
           claimName: mypvc
+      - name: cache
+        emptyDir: {}
     volumeMounts:
       - name: myvolume
         mountPath: /etc/secret
@@ -56,6 +58,35 @@ deployments:
       - name: myvolume3
         mountPath: /etc/pvc
 
+    strategy:
+      type: RollingUpdate
+      rollingUpdate:
+        maxSurge: 1
+        maxUnavailable: 0
+    revisionHistoryLimit: 5
+    progressDeadlineSeconds: 300
+    topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: topology.kubernetes.io/zone
+        whenUnsatisfiable: DoNotSchedule
+        labelSelector:
+          matchLabels:
+            app.kubernetes.io/component: main
+    pdb:
+      enabled: true
+      minAvailable: 1
+    networkPolicy:
+      enabled: true
+      policyTypes:
+        - Ingress
+      ingress:
+        - from:
+            - namespaceSelector:
+                matchLabels:
+                  kubernetes.io/metadata.name: default
+          ports:
+            - port: 80
+              protocol: TCP
     hostAliases: []
     dnsConfig:
       nameservers:

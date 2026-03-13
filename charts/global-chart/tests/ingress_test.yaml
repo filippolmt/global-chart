@@ -180,6 +180,25 @@ tests:
       - failedTemplate:
           errorMessage: "ingress host 'example.com' references deployment 'frontend' which has enabled: false (its Service will not be created)"
 
+  # ====== Ingress always uses networking.k8s.io/v1 ======
+  - it: should always use networking.k8s.io/v1 apiVersion
+    set:
+      deployments:
+        main:
+          image: "nginx:1.25"
+      ingress:
+        enabled: true
+        hosts:
+          - host: example.com
+            deployment: main
+            paths:
+              - path: /
+                pathType: Prefix
+    asserts:
+      - equal:
+          path: apiVersion
+          value: networking.k8s.io/v1
+
   # ====== Ingress annotations nil safety ======
   - it: should render ingress without annotations defined
     set:

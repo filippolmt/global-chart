@@ -36,6 +36,7 @@ Common labels (for non-deployment resources like Ingress)
 {{- define "global-chart.labels" -}}
 helm.sh/chart: {{ include "global-chart.chart" . }}
 {{ include "global-chart.selectorLabels" . }}
+app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end }}
 
@@ -75,6 +76,7 @@ Usage: {{ include "global-chart.deploymentLabels" (dict "root" . "deploymentName
 {{- define "global-chart.deploymentLabels" -}}
 helm.sh/chart: {{ include "global-chart.chart" .root }}
 {{ include "global-chart.deploymentSelectorLabels" . }}
+app.kubernetes.io/version: {{ .root.Chart.AppVersion | quote }}
 app.kubernetes.io/managed-by: {{ .root.Release.Service }}
 {{- end }}
 
@@ -110,6 +112,7 @@ Base labels without component (used when component is added separately).
 */}}
 {{- define "global-chart.hookLabels" -}}
 helm.sh/chart: {{ include "global-chart.chart" . }}
+app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end }}
 
@@ -128,16 +131,50 @@ app.kubernetes.io/component: hook
 
 {{/*
 Render an image reference from either a plain string or a map with repository/tag/digest.
+Supports two calling conventions:
+  Legacy: {{ include "global-chart.imageString" $deploy.image }}
+  New:    {{ include "global-chart.imageString" (dict "image" $deploy.image "global" $root.Values.global) }}
+When global.imageRegistry is set, the registry is prepended to both string and map images
+unless the first path segment already looks like a registry (contains "." or ":" or equals "localhost").
+Examples: "nginx" → "registry/nginx", "myorg/myapp" → "registry/myorg/myapp", "ghcr.io/org/app" → unchanged.
 */}}
 {{- define "global-chart.imageString" -}}
 {{- $img := . -}}
+{{- $globalRegistry := "" -}}
+{{- if and (kindIs "map" .) (hasKey . "image") -}}
+  {{- /* New dict format */ -}}
+  {{- $img = .image -}}
+  {{- $global := default (dict) .global -}}
+  {{- $globalRegistry = default "" $global.imageRegistry -}}
+{{- end -}}
 {{- if kindIs "string" $img }}
   {{- $trimmed := $img | trim -}}
   {{- if $trimmed }}
-    {{- $trimmed -}}
+    {{- $needsRegistry := true -}}
+    {{- if contains "/" $trimmed -}}
+      {{- $firstSegment := index (splitList "/" $trimmed) 0 -}}
+      {{- if or (contains "." $firstSegment) (contains ":" $firstSegment) (eq $firstSegment "localhost") -}}
+        {{- $needsRegistry = false -}}
+      {{- end -}}
+    {{- end -}}
+    {{- if and $globalRegistry $needsRegistry }}
+      {{- printf "%s/%s" $globalRegistry $trimmed -}}
+    {{- else }}
+      {{- $trimmed -}}
+    {{- end }}
   {{- end }}
 {{- else if and (kindIs "map" $img) $img.repository }}
   {{- $repo := $img.repository | trim -}}
+  {{- $needsRegistry := true -}}
+  {{- if contains "/" $repo -}}
+    {{- $firstSegment := index (splitList "/" $repo) 0 -}}
+    {{- if or (contains "." $firstSegment) (contains ":" $firstSegment) (eq $firstSegment "localhost") -}}
+      {{- $needsRegistry = false -}}
+    {{- end -}}
+  {{- end -}}
+  {{- if and $globalRegistry $needsRegistry }}
+    {{- $repo = printf "%s/%s" $globalRegistry $repo -}}
+  {{- end -}}
   {{- $digest := default "" $img.digest | trim -}}
   {{- $tag := default "" $img.tag | trim -}}
   {{- if $repo }}
@@ -155,7 +192,111 @@ Render an image reference from either a plain string or a map with repository/ta
 {{- end }}
 
 {{/*
+Render a single volume entry. Supports both:
+- Legacy format: { name, type, secret/configMap/persistentVolumeClaim/emptyDir }
+- Native format: { name, <any-k8s-volume-source> } (no .type field)
+*/}}
+{{- define "global-chart.renderVolume" -}}
+{{- $vol := . -}}
+- name: {{ $vol.name }}
+{{- if hasKey $vol "type" }}
+  {{- /* Legacy format: translate .type to native */ -}}
+  {{- if eq $vol.type "emptyDir" }}
+  emptyDir: {}
+  {{- else if eq $vol.type "configMap" }}
+  configMap:
+    name: {{ $vol.configMap.name | quote }}
+  {{- else if eq $vol.type "secret" }}
+  secret:
+    secretName: {{ default $vol.secret.secretName $vol.secret.name | quote }}
+  {{- else if eq $vol.type "persistentVolumeClaim" }}
+  persistentVolumeClaim:
+    claimName: {{ default $vol.persistentVolumeClaim.claimName $vol.persistentVolumeClaim.name | quote }}
+  {{- else }}
+  {{- fail (printf "renderVolume: unknown legacy volume type '%s' for volume '%s'. Supported types: emptyDir, configMap, secret, persistentVolumeClaim. For other volume types, use native Kubernetes volume spec (omit .type)." $vol.type $vol.name) }}
+  {{- end }}
+{{- else }}
+  {{- /* Native format: render everything except name deterministically */ -}}
+  {{- $native := omit $vol "name" -}}
+  {{- toYaml $native | nindent 2 }}
+{{- end }}
+{{- end }}
+
+{{/*
+Render imagePullSecrets block. Accepts a list of strings or objects with "name" key.
+Usage: {{ include "global-chart.renderImagePullSecrets" $listOrNil }}
+Returns empty string if list is nil/empty.
+*/}}
+{{- define "global-chart.renderImagePullSecrets" -}}
+{{- with . -}}
+imagePullSecrets:
+  {{- range . }}
+    {{- if kindIs "string" . }}
+  - name: {{ . | quote }}
+    {{- else if hasKey . "name" }}
+  - name: {{ .name | quote }}
+    {{- else }}
+  {{ fail "imagePullSecrets must be a list of strings or objects with a 'name' key." }}
+    {{- end }}
+  {{- end }}
+{{- end }}
+{{- end }}
+
+{{/*
+Render dnsConfig block from a dnsConfig dict.
+Usage: {{ include "global-chart.renderDnsConfig" $dnsConfigDict }}
+Returns empty string if no nameservers/searches/options are set.
+*/}}
+{{- define "global-chart.renderDnsConfig" -}}
+{{- $dnsConfig := default (dict) . -}}
+{{- if or $dnsConfig.nameservers $dnsConfig.searches $dnsConfig.options -}}
+dnsConfig:
+  {{- if $dnsConfig.nameservers }}
+  nameservers:
+    {{- range $dnsConfig.nameservers }}
+    - {{ . | quote }}
+    {{- end }}
+  {{- end }}
+  {{- if $dnsConfig.searches }}
+  searches:
+    {{- range $dnsConfig.searches }}
+    - {{ . | quote }}
+    {{- end }}
+  {{- end }}
+  {{- if $dnsConfig.options }}
+  options:
+    {{- range $dnsConfig.options }}
+    - name: {{ .name }}
+      {{- if .value }}
+      value: {{ .value | quote }}
+      {{- end }}
+    {{- end }}
+  {{- end }}
+{{- end }}
+{{- end }}
+
+{{/*
+Render resources block with defaults fallback.
+Usage: {{ include "global-chart.renderResources" (dict "resources" $job.resources "hasResources" (hasKey $job "resources") "defaults" $root.Values.defaults) }}
+When hasResources is true and resources is empty ({}), no resources block is rendered (explicit override to clear defaults).
+When hasResources is false (key absent), defaults.resources is used as fallback.
+*/}}
+{{- define "global-chart.renderResources" -}}
+{{- if .resources -}}
+resources:
+  {{- toYaml .resources | nindent 2 }}
+{{- else if not (default false .hasResources) }}
+{{- $defaultRes := default (dict) (default (dict) .defaults).resources -}}
+{{- with $defaultRes -}}
+resources:
+  {{- toYaml . | nindent 2 }}
+{{- end }}
+{{- end }}
+{{- end }}
+
+{{/*
 Resolve an image pull policy from optional overrides, image map values, and a fallback.
+Priority: override > image.pullPolicy > fallback > IfNotPresent (default).
 */}}
 {{- define "global-chart.imagePullPolicy" -}}
 {{- $ctx := . -}}

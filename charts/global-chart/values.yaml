@@ -1,5 +1,14 @@
 # Default values for global-chart.
 
+# -- Global values shared across all deployments, cronJobs, and hooks
+global:
+  # -- Global image registry prefix (e.g., registry.example.com)
+  # @default -- `""` (no prefix)
+  imageRegistry: ""
+  # -- Global imagePullSecrets (used when deployment/cronJob/hook doesn't specify its own)
+  # @default -- `[]`
+  imagePullSecrets: []
+
 # -- Override the chart name
 nameOverride: ""
 # -- Override the chart fullname
@@ -91,8 +100,69 @@ deployments: {}
   #       scaleUp: {}
   #       scaleDown: {}
   #
-  #   # -- Pod volumes: Secret, ConfigMap, PVC, etc.
+  #   # -- Deployment rollout strategy
+  #   strategy:
+  #     type: RollingUpdate
+  #     rollingUpdate:
+  #       maxSurge: 1
+  #       maxUnavailable: 0
+  #
+  #   # -- Number of old ReplicaSets to retain (default: Kubernetes default of 10)
+  #   revisionHistoryLimit: 10
+  #
+  #   # -- Max time in seconds for deployment to make progress before considered failed
+  #   progressDeadlineSeconds: 600
+  #
+  #   # -- Pod topology spread constraints for even pod distribution
+  #   topologySpreadConstraints: []
+  #     # - maxSkew: 1
+  #     #   topologyKey: topology.kubernetes.io/zone
+  #     #   whenUnsatisfiable: DoNotSchedule
+  #     #   labelSelector:
+  #     #     matchLabels:
+  #     #       app: web
+  #
+  #   # -- PodDisruptionBudget configuration
+  #   pdb:
+  #     # -- Enable PDB for this deployment
+  #     enabled: false
+  #     # -- Minimum available pods (integer or percentage)
+  #     minAvailable: 1
+  #     # -- Maximum unavailable pods (alternative to minAvailable)
+  #     # maxUnavailable: 1
+  #
+  #   # -- NetworkPolicy configuration
+  #   networkPolicy:
+  #     # -- Enable NetworkPolicy for this deployment
+  #     enabled: false
+  #     # -- Policy types to enforce (Ingress, Egress, or both)
+  #     policyTypes:
+  #       - Ingress
+  #     # -- Ingress rules (from which sources traffic is allowed)
+  #     ingress: []
+  #       # - from:
+  #       #     - namespaceSelector:
+  #       #         matchLabels:
+  #       #           name: frontend
+  #       #   ports:
+  #       #     - port: 80
+  #       #       protocol: TCP
+  #     # -- Egress rules (to which destinations traffic is allowed)
+  #     egress: []
+  #
+  #   # -- Pod volumes (native K8s spec or legacy .type format)
   #   volumes: []
+  #     # Native format (recommended):
+  #     # - name: data
+  #     #   emptyDir: {}
+  #     # - name: certs
+  #     #   csi:
+  #     #     driver: secrets-store.csi.k8s.io
+  #     # Legacy format (backward compatible):
+  #     # - name: myvolume
+  #     #   type: secret
+  #     #   secret:
+  #     #     secretName: my-secret
   #
   #   # -- Container volumeMounts for the above volumes
   #   volumeMounts: []
@@ -242,6 +312,13 @@ hooks: {}
 
 # -- ExternalSecrets definitions for secret management
 externalSecrets: {}
+
+# -- Default resource settings for CronJobs and Hooks when not specified per-job
+defaults:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
 
 # -- RBAC configuration: create multiple service accounts, roles and rolebindings
 rbacs:

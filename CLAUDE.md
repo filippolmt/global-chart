@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Global-chart is a reusable Helm chart providing configurable Kubernetes building blocks: Deployments, Services, Ingress, CronJobs, Hook Jobs, ExternalSecrets, and RBAC resources.
 
-Supports multi-deployment: multiple independent deployments in a single release, each with its own resources (Service, ConfigMap, Secret, ServiceAccount, HPA). Current version: **1.2.1**.
+Supports multi-deployment: multiple independent deployments in a single release, each with its own resources (Service, ConfigMap, Secret, ServiceAccount, HPA, PDB, NetworkPolicy). Current version: **1.3.0**.
 
 ## Common Commands
 
@@ -55,10 +55,10 @@ make clean-all           # Clean + uninstall helm releases
 
 ```
 charts/global-chart/
-├── Chart.yaml              # Chart metadata (version 1.2.0)
+├── Chart.yaml              # Chart metadata (version 1.3.0)
 ├── values.yaml             # Default values with helm-docs annotations
 ├── templates/
-│   ├── _helpers.tpl        # Template functions (fullname, labels, imageString, etc.)
+│   ├── _helpers.tpl        # Template functions (see Helper Catalog below)
 │   ├── deployment.yaml     # Deployments (iterates over deployments map)
 │   ├── service.yaml        # Services (per-deployment, can be disabled)
 │   ├── serviceaccount.yaml # ServiceAccounts (per-deployment)
@@ -66,13 +66,17 @@ charts/global-chart/
 │   ├── secret.yaml         # Secrets (per-deployment)
 │   ├── mounted-configmap.yaml  # Mounted ConfigMaps (per-deployment)
 │   ├── hpa.yaml            # HPAs (per-deployment)
+│   ├── pdb.yaml            # PodDisruptionBudgets (per-deployment)
+│   ├── networkpolicy.yaml  # NetworkPolicies (per-deployment)
 │   ├── ingress.yaml        # Ingress (routes to specific deployments)
 │   ├── cronjob.yaml        # CronJobs (root-level or inside deployments)
 │   ├── hook.yaml           # Helm hook Jobs (root-level or inside deployments)
 │   ├── externalsecret.yaml # ExternalSecret CRDs
 │   ├── rbac.yaml           # Roles and RoleBindings
-│   └── NOTES.txt           # Post-install notes
-├── tests/                  # helm-unittest test files (14 suites, 174 tests)
+│   ├── NOTES.txt           # Post-install notes
+│   └── tests/
+│       └── test-connection.yaml  # Helm test pod
+├── tests/                  # helm-unittest test files (16 suites, 220 tests)
 │   ├── deployment_test.yaml
 │   ├── cronjob_test.yaml
 │   ├── hook_test.yaml
@@ -86,6 +90,8 @@ charts/global-chart/
 │   ├── externalsecret_test.yaml
 │   ├── rbac_test.yaml
 │   ├── helpers_test.yaml
+│   ├── pdb_test.yaml
+│   ├── networkpolicy_test.yaml
 │   └── notes_test.yaml
 ```
 
@@ -170,13 +176,14 @@ deployments:
 
 3. **Selector labels with component**: Each deployment gets unique selector labels including `app.kubernetes.io/component: {deploymentName}` to ensure pods don't overlap.
 
-4. **Image specification**: The `image` field accepts either a string (`nginx:1.25`) or a map (`{repository, tag, digest, pullPolicy}`). Helper `global-chart.imageString` handles both.
+4. **Image specification**: The `image` field accepts either a string (`nginx:1.25`) or a map (`{repository, tag, digest, pullPolicy}`). Helper `global-chart.imageString` handles both. Supports `global.imageRegistry` to prepend a shared registry prefix. Registry detection inspects the first path segment: if it contains `.`, `:`, or is `localhost`, it's treated as a registry and global prefix is skipped. This means `myorg/myapp` correctly gets the global prefix prepended.
 
 5. **ServiceAccount default**: Each deployment creates a ServiceAccount by default (`serviceAccount.create` defaults to `true`). To use an existing SA or the Kubernetes `default` SA, explicitly set `serviceAccount.create: false` with an optional `name`.
 
 6. **Hooks/CronJobs inheritance**: Two placement options:
    - **Root level** (`hooks:`, `cronJobs:`): Standalone, use `fromDeployment` to copy image only
-   - **Inside deployments** (`deployments.*.hooks`, `deployments.*.cronJobs`): Inherit image, configMap, secret, serviceAccount, envFromConfigMaps, envFromSecrets, additionalEnvs, imagePullSecrets, hostAliases, podSecurityContext, securityContext, dnsConfig (cronjobs only), nodeSelector, tolerations, affinity from parent deployment
+   - **Inside deployments** (`deployments.*.hooks`, `deployments.*.cronJobs`): Inherit image, configMap, secret, serviceAccount, envFromConfigMaps, envFromSecrets, additionalEnvs, imagePullSecrets, hostAliases, podSecurityContext, securityContext, dnsConfig (deployment-level cronjobs only), nodeSelector, tolerations, affinity from parent deployment
+   - **Root-level dnsConfig**: Both root-level cronJobs and hooks accept `dnsConfig` directly (no inheritance, standalone only)
    - **ServiceAccount inheritance**: Hooks inherit SA from deployment in two cases:
      - `serviceAccount.create: true` (or not specified) - uses the generated SA name
      - `serviceAccount.create: false` with `name: xxx` - uses the existing SA name
@@ -187,6 +194,38 @@ deployments:
 8. **Mounted config files**: Two modes exist:
    - `files`: Individual ConfigMaps, one per file
    - `bundles`: Projected sets of multiple files in one ConfigMap
+
+9. **Global values**: `global.imageRegistry` prepends a shared registry prefix to all images. `global.imagePullSecrets` provides default pull secrets when not set at deployment/job level. The fallback uses `hasKey` so that an explicit `imagePullSecrets: []` disables the global default (empty list is intentional, not "unset").
+
+10. **PodDisruptionBudget**: Set `pdb.enabled: true` with `minAvailable` or `maxUnavailable` per deployment. Template validates mutual exclusion (fails if both set) and requires at least one. Uses `hasKey` checks so `0` is a valid value.
+
+11. **NetworkPolicy**: Set `networkPolicy.enabled: true` per deployment with ingress/egress rules and/or explicit `policyTypes`. If `policyTypes` is provided it's used as-is; otherwise it's derived from presence of ingress/egress rules. Template fails if enabled with no rules and no policyTypes (prevents empty `policyTypes:` in manifest).
+
+12. **Deployment strategy**: `strategy` (RollingUpdate/Recreate), `revisionHistoryLimit`, `progressDeadlineSeconds`, `topologySpreadConstraints` per deployment.
+
+13. **Volume spec**: Supports both native Kubernetes volume spec (recommended) and legacy `.type` format for backward compatibility. Helper `global-chart.renderVolume` handles both. Native format uses `toYaml` for deterministic key ordering. Unknown legacy `.type` values produce a `fail` with supported types listed.
+
+14. **Default resources**: CronJobs and Hooks use `defaults.resources` from values.yaml when no per-job resources are specified.
+
+15. **Helm test**: `helm test <release>` runs a connection test against the first enabled service.
+
+### Helper Catalog (`_helpers.tpl`)
+
+| Helper | Purpose |
+|--------|---------|
+| `name`, `fullname`, `chart` | Standard Helm naming |
+| `labels`, `selectorLabels` | Common labels for non-deployment resources (Ingress, ExternalSecret, RBAC) |
+| `deploymentFullname` | `{release}-{chart}-{deploymentName}` (trunc 63) |
+| `deploymentLabels`, `deploymentSelectorLabels` | Labels with `component` for per-deployment resources |
+| `deploymentEnabled` | Returns `"true"`/`"false"` string; defaults to true |
+| `deploymentServiceAccountName` | Resolves SA name: explicit > generated > `"default"` |
+| `hookLabels`, `hookLabelsWithComponent`, `hookfullname` | Hook-specific labels (no selectorLabels to avoid HPA matching) |
+| `imageString` | Image ref from string or `{repository, tag, digest}`; supports `global.imageRegistry` with smart registry detection (first segment `.`/`:`/`localhost`) |
+| `imagePullPolicy` | Resolves policy: override > image map > fallback > `IfNotPresent` |
+| `renderVolume` | Renders a volume entry; native K8s spec (deterministic via `toYaml`) and legacy `.type` format; fails on unknown legacy types |
+| `renderImagePullSecrets` | Shared: renders `imagePullSecrets:` block from a resolved list; returns empty if nil |
+| `renderDnsConfig` | Shared: renders `dnsConfig:` block from a dict; returns empty if no fields set |
+| `renderResources` | Shared: renders `resources:` with fallback to `defaults.resources`; returns empty if both nil |
 
 ### Resource Naming Convention
 
@@ -234,7 +273,7 @@ The `tests/` directory contains value files covering all supported configuration
 
 GitHub Actions workflow (`.github/workflows/helm-ci.yml`) runs on push/PR:
 1. `make lint-chart` - Lints all test scenarios
-2. `make unit-test` - Runs helm-unittest suite (174 tests across 14 suites) via Docker
+2. `make unit-test` - Runs helm-unittest suite (220 tests across 16 suites) via Docker
 3. `make generate-templates` - Generates manifests
 4. Uploads `generated-manifests/` as artifact
 
@@ -253,4 +292,7 @@ Release workflow (`.github/workflows/release.yml`) handles chart publishing.
 - Never mutate `.Values` during rendering (e.g., `set $ing.annotations`). Use `deepCopy` to create a local copy first
 - Every template must have a corresponding `*_test.yaml` in `charts/global-chart/tests/`
 - When adding inheritance to deployment-level hooks/cronjobs, use `hasKey` to distinguish "not set" from "set but empty": `ternary $job.field $deploy.field (hasKey $job "field")`. Never use `if not $job.field` as it treats `{}` and `[]` as falsy and incorrectly inherits
+- For global fallback chains (e.g., imagePullSecrets: job > deployment > global), always use `hasKey` at each level — never `if not $var`. An explicit empty list (`imagePullSecrets: []`) must prevent fallback to the global value
+- When calling shared helpers that can return empty (`renderImagePullSecrets`, `renderDnsConfig`, `renderResources`), always wrap with `{{- with }}` and use `nindent` to avoid blank lines: `{{- with (include "global-chart.renderFoo" $arg) }}{{- . | nindent N }}{{- end }}`
+- Shared helpers must use `-}}` (trim-right) on the conditional/with line before literal content (e.g., `{{- with . -}}\nimagePullSecrets:`) to avoid a leading newline in the output that `nindent` would turn into a blank line
 - Always update CLAUDE.md when architecture, commands, or key patterns change

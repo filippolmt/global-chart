@@ -287,6 +287,96 @@ tests:
           path: spec.jobTemplate.spec.template.spec.containers[0].securityContext
         documentIndex: 1
 
+  # ====== Deployment-level CronJob: explicit empty should NOT inherit (nodeSelector, affinity, tolerations, imagePullSecrets) ======
+  - it: should allow cronjob to override nodeSelector with empty map
+    set:
+      deployments:
+        backend:
+          image: "myapp:v1"
+          nodeSelector:
+            disktype: ssd
+          cronJobs:
+            cleanup:
+              schedule: "0 2 * * *"
+              command: ["./cleanup.sh"]
+              nodeSelector: {}
+    asserts:
+      - isKind:
+          of: CronJob
+        documentIndex: 1
+      - isNull:
+          path: spec.jobTemplate.spec.template.spec.nodeSelector
+        documentIndex: 1
+
+  - it: should allow cronjob to override tolerations with empty list
+    set:
+      deployments:
+        backend:
+          image: "myapp:v1"
+          tolerations:
+            - key: "dedicated"
+              operator: "Equal"
+              value: "backend"
+              effect: "NoSchedule"
+          cronJobs:
+            cleanup:
+              schedule: "0 2 * * *"
+              command: ["./cleanup.sh"]
+              tolerations: []
+    asserts:
+      - isKind:
+          of: CronJob
+        documentIndex: 1
+      - isNull:
+          path: spec.jobTemplate.spec.template.spec.tolerations
+        documentIndex: 1
+
+  - it: should allow cronjob to override affinity with empty map
+    set:
+      deployments:
+        backend:
+          image: "myapp:v1"
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                  - matchExpressions:
+                      - key: zone
+                        operator: In
+                        values: ["us-east-1a"]
+          cronJobs:
+            cleanup:
+              schedule: "0 2 * * *"
+              command: ["./cleanup.sh"]
+              affinity: {}
+    asserts:
+      - isKind:
+          of: CronJob
+        documentIndex: 1
+      - isNull:
+          path: spec.jobTemplate.spec.template.spec.affinity
+        documentIndex: 1
+
+  - it: should allow cronjob to override imagePullSecrets with empty list
+    set:
+      deployments:
+        backend:
+          image: "myapp:v1"
+          imagePullSecrets:
+            - name: regcred
+          cronJobs:
+            cleanup:
+              schedule: "0 2 * * *"
+              command: ["./cleanup.sh"]
+              imagePullSecrets: []
+    asserts:
+      - isKind:
+          of: CronJob
+        documentIndex: 1
+      - isNull:
+          path: spec.jobTemplate.spec.template.spec.imagePullSecrets
+        documentIndex: 1
+
   # ====== Root-level CronJob securityContext ======
   - it: should render podSecurityContext on root-level cronjob
     set:
@@ -392,3 +482,35 @@ tests:
           path: spec.jobTemplate.spec.template.spec.dnsConfig.searches[0]
           value: "svc.cluster.local"
         documentIndex: 1
+
+  # ====== global imagePullSecrets ======
+  - it: should use global.imagePullSecrets when cronjob has none
+    set:
+      global:
+        imagePullSecrets:
+          - name: global-regcred
+      cronJobs:
+        cleanup:
+          schedule: "0 2 * * *"
+          image: "myapp:v1"
+          command: ["./cleanup.sh"]
+    asserts:
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.imagePullSecrets[0].name
+          value: "global-regcred"
+
+  - it: should prepend global.imageRegistry to cronjob image
+    set:
+      global:
+        imageRegistry: registry.example.com
+      cronJobs:
+        cleanup:
+          schedule: "0 2 * * *"
+          image:
+            repository: myapp
+            tag: "v1"
+          command: ["./cleanup.sh"]
+    asserts:
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.containers[0].image
+          value: "registry.example.com/myapp:v1"

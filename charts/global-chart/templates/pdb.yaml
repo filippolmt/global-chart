@@ -1,0 +1,35 @@
+{{- $root := . }}
+{{- range $name, $deploy := .Values.deployments }}
+{{- if $deploy }}
+{{- if eq (include "global-chart.deploymentEnabled" (dict "deploy" $deploy)) "true" }}
+{{- $pdb := default (dict) $deploy.pdb }}
+{{- if $pdb.enabled }}
+{{- $depFullname := include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $name) }}
+{{- $labelCtx := dict "root" $root "deploymentName" $name }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ $depFullname }}
+  labels:
+    {{- include "global-chart.deploymentLabels" $labelCtx | nindent 4 }}
+spec:
+  {{- if and (hasKey $pdb "minAvailable") (hasKey $pdb "maxUnavailable") }}
+  {{- fail (printf "PDB for deployment '%s': minAvailable and maxUnavailable are mutually exclusive — set only one." $name) }}
+  {{- end }}
+  {{- if not (or (hasKey $pdb "minAvailable") (hasKey $pdb "maxUnavailable")) }}
+  {{- fail (printf "PDB for deployment '%s': one of minAvailable or maxUnavailable is required when pdb.enabled is true." $name) }}
+  {{- end }}
+  {{- if hasKey $pdb "minAvailable" }}
+  minAvailable: {{ $pdb.minAvailable }}
+  {{- end }}
+  {{- if hasKey $pdb "maxUnavailable" }}
+  maxUnavailable: {{ $pdb.maxUnavailable }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "global-chart.deploymentSelectorLabels" $labelCtx | nindent 6 }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}

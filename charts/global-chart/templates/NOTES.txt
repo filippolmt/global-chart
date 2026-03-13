@@ -40,6 +40,18 @@ Ingress is enabled:
 {{- end }}
 {{- end }}
 
+{{- if .Values.hooks }}
+
+Hooks:
+{{- range $hookType, $jobs := .Values.hooks }}
+{{- range $name, $cmd := $jobs }}
+{{- if $cmd }}
+  - {{ $hookType }}/{{ $name }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+
 {{- if .Values.cronJobs }}
 
 CronJobs:
@@ -48,6 +60,41 @@ CronJobs:
   - {{ $name }} ({{ $cron.schedule }})
 {{- end }}
 {{- end }}
+{{- end }}
+
+{{- $pdbList := list }}
+{{- $npList := list }}
+{{- range $name, $deploy := .Values.deployments }}
+{{- if $deploy }}
+{{- if eq (include "global-chart.deploymentEnabled" (dict "deploy" $deploy)) "true" }}
+{{- $pdb := default (dict) $deploy.pdb }}
+{{- if $pdb.enabled }}
+{{- $pdbList = append $pdbList $name }}
+{{- end }}
+{{- $np := default (dict) $deploy.networkPolicy }}
+{{- if $np.enabled }}
+{{- $npList = append $npList $name }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- if $pdbList }}
+
+PodDisruptionBudgets:
+{{- range $pdbList }}
+  - {{ . }}
+{{- end }}
+{{- end }}
+{{- if $npList }}
+
+NetworkPolicies:
+{{- range $npList }}
+  - {{ . }}
+{{- end }}
+{{- end }}
+
+{{- if $svcList }}
+Run 'helm test {{ .Release.Name }}' to verify connectivity.
 {{- end }}
 
 For more information, visit: {{ .Chart.Home }}

@@ -357,3 +357,272 @@ tests:
           content:
             name: data
             emptyDir: {}
+
+  # ====== native volume spec ======
+  - it: should render native volume spec (no .type field)
+    set:
+      deployments:
+        main:
+          image: "nginx:1.25"
+          volumes:
+            - name: data
+              hostPath:
+                path: /data
+                type: DirectoryOrCreate
+            - name: downward
+              downwardAPI:
+                items:
+                  - path: labels
+                    fieldRef:
+                      fieldPath: metadata.labels
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: downward
+              mountPath: /etc/podinfo
+    asserts:
+      - equal:
+          path: spec.template.spec.volumes[0].name
+          value: data
+      - equal:
+          path: spec.template.spec.volumes[0].hostPath.path
+          value: /data
+      - equal:
+          path: spec.template.spec.volumes[1].name
+          value: downward
+      - exists:
+          path: spec.template.spec.volumes[1].downwardAPI
+
+  - it: should still render legacy .type volume spec (backward compat)
+    set:
+      deployments:
+        main:
+          image: "nginx:1.25"
+          volumes:
+            - name: myvolume
+              type: secret
+              secret:
+                secretName: my-secret
+            - name: myvolume2
+              type: configMap
+              configMap:
+                name: my-config
+          volumeMounts:
+            - name: myvolume
+              mountPath: /etc/secret
+    asserts:
+      - equal:
+          path: spec.template.spec.volumes[0].name
+          value: myvolume
+      - equal:
+          path: spec.template.spec.volumes[0].secret.secretName
+          value: my-secret
+      - equal:
+          path: spec.template.spec.volumes[1].name
+          value: myvolume2
+      - equal:
+          path: spec.template.spec.volumes[1].configMap.name
+          value: my-config
+
+  # ====== resources handling ======
+  - it: should not render resources key when not specified
+    set:
+      deployments:
+        main:
+          image: "nginx:1.25"
+    asserts:
+      - notExists:
+          path: spec.template.spec.containers[0].resources
+
+  - it: should render resources when specified
+    set:
+      deployments:
+        main:
+          image: "nginx:1.25"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].resources.requests.cpu
+          value: 100m
+
+  # ====== secret checksum ======
+  - it: should include secret checksum in pod annotations
+    set:
+      deployments:
+        main:
+          image: "nginx:1.25"
+          secret:
+            DB_PASSWORD: "s3cret"
+    asserts:
+      - exists:
+          path: spec.template.metadata.annotations.checksum/secret
+
+  # ====== strategy ======
+  - it: should render strategy when configured
+    set:
+      deployments:
+        main:
+          image: "nginx:1.25"
+          strategy:
+            type: RollingUpdate
+            rollingUpdate:
+              maxSurge: 1
+              maxUnavailable: 0
+    asserts:
+      - equal:
+          path: spec.strategy.type
+          value: RollingUpdate
+      - equal:
+          path: spec.strategy.rollingUpdate.maxSurge
+          value: 1
+
+  - it: should not render strategy when not configured
+    set:
+      deployments:
+        main:
+          image: "nginx:1.25"
+    asserts:
+      - notExists:
+          path: spec.strategy
+
+  # ====== revisionHistoryLimit ======
+  - it: should render revisionHistoryLimit when configured
+    set:
+      deployments:
+        main:
+          image: "nginx:1.25"
+          revisionHistoryLimit: 3
+    asserts:
+      - equal:
+          path: spec.revisionHistoryLimit
+          value: 3
+
+  - it: should not render revisionHistoryLimit when not configured
+    set:
+      deployments:
+        main:
+          image: "nginx:1.25"
+    asserts:
+      - notExists:
+          path: spec.revisionHistoryLimit
+
+  # ====== progressDeadlineSeconds ======
+  - it: should render progressDeadlineSeconds when configured
+    set:
+      deployments:
+        main:
+          image: "nginx:1.25"
+          progressDeadlineSeconds: 120
+    asserts:
+      - equal:
+          path: spec.progressDeadlineSeconds
+          value: 120
+
+  - it: should not render progressDeadlineSeconds when not configured
+    set:
+      deployments:
+        main:
+          image: "nginx:1.25"
+    asserts:
+      - notExists:
+          path: spec.progressDeadlineSeconds
+
+  # ====== topologySpreadConstraints ======
+  - it: should render topologySpreadConstraints when configured
+    set:
+      deployments:
+        main:
+          image: "nginx:1.25"
+          topologySpreadConstraints:
+            - maxSkew: 1
+              topologyKey: topology.kubernetes.io/zone
+              whenUnsatisfiable: DoNotSchedule
+              labelSelector:
+                matchLabels:
+                  app: web
+    asserts:
+      - equal:
+          path: spec.template.spec.topologySpreadConstraints[0].maxSkew
+          value: 1
+      - equal:
+          path: spec.template.spec.topologySpreadConstraints[0].topologyKey
+          value: topology.kubernetes.io/zone
+
+  - it: should not render topologySpreadConstraints when not configured
+    set:
+      deployments:
+        main:
+          image: "nginx:1.25"
+    asserts:
+      - notExists:
+          path: spec.template.spec.topologySpreadConstraints
+
+  # ====== global values ======
+  - it: should prepend global.imageRegistry to image
+    set:
+      global:
+        imageRegistry: registry.example.com
+      deployments:
+        main:
+          image:
+            repository: myapp
+            tag: "v1"
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: "registry.example.com/myapp:v1"
+
+  - it: should not prepend imageRegistry when not set
+    set:
+      deployments:
+        main:
+          image:
+            repository: myapp
+            tag: "v1"
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: "myapp:v1"
+
+  - it: should use global.imagePullSecrets when deployment has none
+    set:
+      global:
+        imagePullSecrets:
+          - name: global-regcred
+      deployments:
+        main:
+          image: "nginx:1.25"
+    asserts:
+      - equal:
+          path: spec.template.spec.imagePullSecrets[0].name
+          value: "global-regcred"
+
+  - it: should prefer deployment imagePullSecrets over global
+    set:
+      global:
+        imagePullSecrets:
+          - name: global-regcred
+      deployments:
+        main:
+          image: "nginx:1.25"
+          imagePullSecrets:
+            - name: local-regcred
+    asserts:
+      - equal:
+          path: spec.template.spec.imagePullSecrets[0].name
+          value: "local-regcred"
+
+  - it: should skip global imageRegistry when string image already contains a registry
+    set:
+      global:
+        imageRegistry: registry.example.com
+      deployments:
+        main:
+          image: "docker.io/nginx:1.25"
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: "docker.io/nginx:1.25"

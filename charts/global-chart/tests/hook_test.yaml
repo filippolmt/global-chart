@@ -757,6 +757,95 @@ tests:
           path: spec.template.spec.containers[0].securityContext
         documentIndex: 1
 
+  - it: should not inherit nodeSelector when hook sets empty map
+    set:
+      deployments:
+        backend:
+          image: myapp:v1
+          nodeSelector:
+            disktype: ssd
+          hooks:
+            post-install:
+              migrate:
+                command: ["./migrate.sh"]
+                nodeSelector: {}
+    asserts:
+      - isKind:
+          of: Job
+        documentIndex: 1
+      - isNull:
+          path: spec.template.spec.nodeSelector
+        documentIndex: 1
+
+  - it: should not inherit affinity when hook sets empty map
+    set:
+      deployments:
+        backend:
+          image: myapp:v1
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                  - matchExpressions:
+                      - key: zone
+                        operator: In
+                        values: ["us-east-1"]
+          hooks:
+            post-install:
+              migrate:
+                command: ["./migrate.sh"]
+                affinity: {}
+    asserts:
+      - isKind:
+          of: Job
+        documentIndex: 1
+      - isNull:
+          path: spec.template.spec.affinity
+        documentIndex: 1
+
+  - it: should not inherit tolerations when hook sets empty list
+    set:
+      deployments:
+        backend:
+          image: myapp:v1
+          tolerations:
+            - key: "dedicated"
+              operator: "Equal"
+              value: "backend"
+              effect: "NoSchedule"
+          hooks:
+            post-install:
+              migrate:
+                command: ["./migrate.sh"]
+                tolerations: []
+    asserts:
+      - isKind:
+          of: Job
+        documentIndex: 1
+      - isNull:
+          path: spec.template.spec.tolerations
+        documentIndex: 1
+
+  - it: should not inherit imagePullSecrets when hook sets empty list
+    set:
+      deployments:
+        backend:
+          image: myapp:v1
+          imagePullSecrets:
+            - name: registry-secret
+          hooks:
+            post-install:
+              migrate:
+                command: ["./migrate.sh"]
+                imagePullSecrets: []
+    asserts:
+      - isKind:
+          of: Job
+        documentIndex: 1
+      - isNull:
+          path: spec.template.spec.imagePullSecrets
+        documentIndex: 1
+
   # ====== Deployment-level hook securityContext inheritance ======
   - it: should inherit podSecurityContext from deployment in deployment-level hook
     set:

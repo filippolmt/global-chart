@@ -553,12 +553,6 @@ helm install my-app ./my-app --dry-run --debug
 kubectl get events --sort-by='.lastTimestamp'
 ```
 
-## Reference Files
-
-- `assets/Chart.yaml.template` - Chart metadata template
-- `assets/values.yaml.template` - Values structure template
-- `scripts/validate-chart.sh` - Validation script
-- `references/chart-structure.md` - Detailed chart organization
 
 ## Related Skills
 

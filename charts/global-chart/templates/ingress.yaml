@@ -3,22 +3,7 @@
 {{- $ing := $root.Values.ingress }}
 {{- $fullName := include "global-chart.fullname" $root }}
 {{- $annotations := deepCopy (default (dict) $ing.annotations) }}
-
-{{- /* ingressClass compatibility for K8s <1.18 */}}
-{{- if and $ing.className (not (semverCompare ">=1.18-0" $root.Capabilities.KubeVersion.GitVersion)) }}
-  {{- if not (hasKey $annotations "kubernetes.io/ingress.class") }}
-    {{- $_ := set $annotations "kubernetes.io/ingress.class" $ing.className }}
-  {{- end }}
-{{- end }}
-
-{{- /* apiVersion choice */}}
-{{- if semverCompare ">=1.19-0" $root.Capabilities.KubeVersion.GitVersion }}
 apiVersion: networking.k8s.io/v1
-{{- else if semverCompare ">=1.14-0" $root.Capabilities.KubeVersion.GitVersion }}
-apiVersion: networking.k8s.io/v1beta1
-{{- else }}
-apiVersion: extensions/v1beta1
-{{- end }}
 kind: Ingress
 metadata:
   name: {{ $fullName }}
@@ -29,7 +14,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 spec:
-  {{- if and $ing.className (semverCompare ">=1.18-0" $root.Capabilities.KubeVersion.GitVersion) }}
+  {{- if $ing.className }}
   ingressClassName: {{ $ing.className | quote }}
   {{- end }}
 
@@ -76,19 +61,12 @@ spec:
         paths:
           {{- range $path := $hostEntry.paths }}
           - path: {{ $path.path }}
-            {{- if and $path.pathType (semverCompare ">=1.18-0" $root.Capabilities.KubeVersion.GitVersion) }}
-            pathType: {{ $path.pathType | quote }}
-            {{- end }}
+            pathType: {{ $path.pathType | default "ImplementationSpecific" }}
             backend:
-              {{- if semverCompare ">=1.19-0" $root.Capabilities.KubeVersion.GitVersion }}
               service:
                 name: {{ $svcName }}
                 port:
                   number: {{ $svcPort }}
-              {{- else }}
-              serviceName: {{ $svcName }}
-              servicePort: {{ $svcPort }}
-              {{- end }}
           {{- end }}
     {{- end }}
 {{- end }}
