@@ -9,10 +9,10 @@ Requirements for the quality audit and hardening milestone. Each maps to roadmap
 
 ### Template Logic & Correctness
 
-- [ ] **TMPL-01**: Audit di tutti i `default` calls per verificare che non mascherino valori falsy (false, 0, "", [])
-- [ ] **TMPL-02**: Fix CronJob ServiceAccount inheritance per allinearla al comportamento dei Hooks
-- [ ] **TMPL-03**: Verifica truncation guards su tutti i nomi risorse (63 chars standard, 52 chars CronJobs)
-- [ ] **TMPL-04**: Estrazione helper condiviso per inheritance logic eliminando duplicazione hook.yaml/cronjob.yaml
+- [x] **TMPL-01**: Audit di tutti i `default` calls per verificare che non mascherino valori falsy (false, 0, "", [])
+- [x] **TMPL-02**: Fix CronJob ServiceAccount inheritance per allinearla al comportamento dei Hooks
+- [x] **TMPL-03**: Verifica truncation guards su tutti i nomi risorse (63 chars standard, 52 chars CronJobs)
+- [x] **TMPL-04**: Estrazione helper condiviso per inheritance logic eliminando duplicazione hook.yaml/cronjob.yaml
 
 ### Test Coverage
 
@@ -64,10 +64,10 @@ Deferred to future release. Tracked but not in current roadmap.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| TMPL-01 | Phase 1 | Pending |
-| TMPL-02 | Phase 1 | Pending |
-| TMPL-03 | Phase 1 | Pending |
-| TMPL-04 | Phase 1 | Pending |
+| TMPL-01 | Phase 1 | Complete |
+| TMPL-02 | Phase 1 | Complete |
+| TMPL-03 | Phase 1 | Complete |
+| TMPL-04 | Phase 1 | Complete |
 | TEST-01 | Phase 2 | Pending |
 | TEST-02 | Phase 2 | Pending |
 | TEST-03 | Phase 2 | Pending |

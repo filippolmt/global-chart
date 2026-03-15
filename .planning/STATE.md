@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: planning
-stopped_at: Phase 1 context gathered
-last_updated: "2026-03-15T19:55:09.145Z"
+status: executing
+stopped_at: Completed 01-01-PLAN.md (checkpoint: awaiting user review of AUDIT-REPORT.md)
+last_updated: "2026-03-15T20:15:59.949Z"
 last_activity: 2026-03-15 -- Roadmap created
 progress:
   total_phases: 4
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 3
+  completed_plans: 1
   percent: 0
 ---
 
@@ -26,24 +26,24 @@ See: .planning/PROJECT.md (updated 2026-03-15)
 ## Current Position
 
 Phase: 1 of 4 (Template Logic Audit & Bug Fixes)
-Plan: 0 of 0 in current phase (plans not yet created)
-Status: Ready to plan
-Last activity: 2026-03-15 -- Roadmap created
+Plan: 1 of 3 in current phase (01-01 complete, checkpoint reached)
+Status: Executing -- awaiting user review of AUDIT-REPORT.md
+Last activity: 2026-03-15 -- Completed 01-01 audit report
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [███░░░░░░░] 33%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 0
-- Average duration: -
-- Total execution time: 0 hours
+- Total plans completed: 1
+- Average duration: 3min
+- Total execution time: 0.05 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| - | - | - | - |
+| 01 | 1 | 3min | 3min |
 
 **Recent Trend:**
 - Last 5 plans: -
@@ -61,6 +61,10 @@ Recent decisions affecting current work:
 - Report prima, fix dopo: l'utente vuole approvare le trovate prima di applicare modifiche
 - Audit a 360 gradi across 4 dimensions: template logic + test coverage + K8s best practices + feature gaps
 - Backward compatibility is non-negotiable: no breaking changes to existing consumers in this milestone
+- 01-01: 1 HIGH + 9 MEDIUM falsy-value masking findings; 55+ SAFE calls need no changes
+- 01-01: CronJob SA bug confirmed (missing else if $deploySA.name); 2-line fix
+- 01-01: 2 truncation bugs (mounted-configmap 4 locations, externalsecret 1 location)
+- 01-01: Shared helper scope: 15 fields, deployment-level only, SA creation stays in callers
 
 ### Pending Todos
 
@@ -73,6 +77,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-15T19:55:09.143Z
-Stopped at: Phase 1 context gathered
-Resume file: .planning/phases/01-template-logic-audit-bug-fixes/01-CONTEXT.md
+Last session: 2026-03-15T20:15:24Z
+Stopped at: Completed 01-01-PLAN.md (checkpoint: awaiting user review of AUDIT-REPORT.md)
+Resume file: .planning/phases/01-template-logic-audit-bug-fixes/AUDIT-REPORT.md
