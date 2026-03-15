@@ -514,3 +514,97 @@ tests:
       - equal:
           path: spec.jobTemplate.spec.template.spec.containers[0].image
           value: "registry.example.com/myapp:v1"
+
+  # ====== Regression: falsy-value masking (TMPL-01) ======
+  - it: should render automountServiceAccountToken false when explicitly set on root cronjob
+    set:
+      cronJobs:
+        backup:
+          schedule: "0 2 * * *"
+          image: myapp:v1
+          command: ["./backup.sh"]
+          automountServiceAccountToken: false
+          serviceAccount:
+            create: true
+    asserts:
+      - isKind:
+          of: ServiceAccount
+        documentIndex: 0
+      - equal:
+          path: automountServiceAccountToken
+          value: false
+        documentIndex: 0
+
+  - it: should render successfulJobsHistoryLimit 0 when explicitly set on root cronjob
+    set:
+      cronJobs:
+        backup:
+          schedule: "0 2 * * *"
+          image: myapp:v1
+          command: ["./backup.sh"]
+          successfulJobsHistoryLimit: 0
+    asserts:
+      - equal:
+          path: spec.successfulJobsHistoryLimit
+          value: 0
+
+  - it: should render failedJobsHistoryLimit 0 when explicitly set on root cronjob
+    set:
+      cronJobs:
+        backup:
+          schedule: "0 2 * * *"
+          image: myapp:v1
+          command: ["./backup.sh"]
+          failedJobsHistoryLimit: 0
+    asserts:
+      - equal:
+          path: spec.failedJobsHistoryLimit
+          value: 0
+
+  - it: should render successfulJobsHistoryLimit 0 on deployment-level cronjob
+    set:
+      deployments:
+        backend:
+          image: myapp:v1
+          cronJobs:
+            cleanup:
+              schedule: "0 4 * * *"
+              command: ["./cleanup.sh"]
+              successfulJobsHistoryLimit: 0
+              failedJobsHistoryLimit: 0
+    asserts:
+      - isKind:
+          of: CronJob
+        documentIndex: 1
+      - equal:
+          path: spec.successfulJobsHistoryLimit
+          value: 0
+        documentIndex: 1
+      - equal:
+          path: spec.failedJobsHistoryLimit
+          value: 0
+        documentIndex: 1
+
+  # ====== Regression: CronJob SA inheritance from existing SA (TMPL-02) ======
+  - it: should inherit SA from deployment when deployment has existing SA name
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          serviceAccount:
+            create: false
+            name: existing-sa
+          cronJobs:
+            cleanup:
+              schedule: "0 4 * * *"
+              command: ["./cleanup.sh"]
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: CronJob
+        documentIndex: 0
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.serviceAccountName
+          value: "existing-sa"
+        documentIndex: 0

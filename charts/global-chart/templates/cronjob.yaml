@@ -44,7 +44,11 @@ metadata:
   annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}
-automountServiceAccountToken: {{ default true $job.automountServiceAccountToken }}
+{{- $saAutomount := true -}}
+{{- if hasKey $job "automountServiceAccountToken" -}}
+  {{- $saAutomount = $job.automountServiceAccountToken -}}
+{{- end }}
+automountServiceAccountToken: {{ $saAutomount }}
 {{- end }}
 ---
 apiVersion: batch/v1
@@ -60,8 +64,16 @@ metadata:
 spec:
   schedule: {{ $job.schedule | quote }}
   concurrencyPolicy: {{ default "Forbid" $job.concurrencyPolicy | quote }}
-  successfulJobsHistoryLimit: {{ default 2 $job.successfulJobsHistoryLimit }}
-  failedJobsHistoryLimit: {{ default 2 $job.failedJobsHistoryLimit }}
+{{- if hasKey $job "successfulJobsHistoryLimit" }}
+  successfulJobsHistoryLimit: {{ $job.successfulJobsHistoryLimit }}
+{{- else }}
+  successfulJobsHistoryLimit: 2
+{{- end }}
+{{- if hasKey $job "failedJobsHistoryLimit" }}
+  failedJobsHistoryLimit: {{ $job.failedJobsHistoryLimit }}
+{{- else }}
+  failedJobsHistoryLimit: 2
+{{- end }}
   jobTemplate:
     spec:
       template:
@@ -183,6 +195,9 @@ spec:
 {{- $deploymentSAName := "" -}}
 {{- if $deploySA.create -}}
   {{- $deploymentSAName = include "global-chart.deploymentServiceAccountName" (dict "root" $root "deploymentName" $deployName "deployment" $deploy) -}}
+{{- else if $deploySA.name -}}
+  {{- /* Deployment references an existing SA - inherit it */ -}}
+  {{- $deploymentSAName = $deploySA.name -}}
 {{- end -}}
 
 {{- $saName := "" -}}
@@ -255,8 +270,16 @@ metadata:
 spec:
   schedule: {{ $job.schedule | quote }}
   concurrencyPolicy: {{ default "Forbid" $job.concurrencyPolicy | quote }}
-  successfulJobsHistoryLimit: {{ default 2 $job.successfulJobsHistoryLimit }}
-  failedJobsHistoryLimit: {{ default 2 $job.failedJobsHistoryLimit }}
+{{- if hasKey $job "successfulJobsHistoryLimit" }}
+  successfulJobsHistoryLimit: {{ $job.successfulJobsHistoryLimit }}
+{{- else }}
+  successfulJobsHistoryLimit: 2
+{{- end }}
+{{- if hasKey $job "failedJobsHistoryLimit" }}
+  failedJobsHistoryLimit: {{ $job.failedJobsHistoryLimit }}
+{{- else }}
+  failedJobsHistoryLimit: 2
+{{- end }}
   jobTemplate:
     spec:
       template:

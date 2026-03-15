@@ -1445,3 +1445,70 @@ tests:
     asserts:
       - hasDocuments:
           count: 3
+
+  # ====== Regression: falsy-value masking on hook weight (TMPL-01) ======
+  - it: should render hook-weight 0 on root SA when weight is explicitly 0
+    set:
+      hooks:
+        post-install:
+          migrate:
+            image: myapp:v1
+            command: ["./migrate.sh"]
+            weight: "0"
+    asserts:
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "0"
+        documentIndex: 0
+
+  - it: should render hook-weight 0 on root Job when weight is explicitly 0
+    set:
+      hooks:
+        post-install:
+          migrate:
+            image: myapp:v1
+            command: ["./migrate.sh"]
+            weight: "0"
+    asserts:
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "0"
+        documentIndex: 1
+
+  - it: should render hook-weight 0 on deployment-level hook SA when weight is 0
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          hooks:
+            post-upgrade:
+              migrate:
+                command: ["./migrate.sh"]
+                weight: "0"
+    asserts:
+      - isKind:
+          of: ServiceAccount
+        documentIndex: 0
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "0"
+        documentIndex: 0
+
+  - it: should render hook-weight 0 on deployment-level hook Job when weight is 0
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          hooks:
+            post-upgrade:
+              migrate:
+                command: ["./migrate.sh"]
+                weight: "0"
+    asserts:
+      - isKind:
+          of: Job
+        documentIndex: 1
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "0"
+        documentIndex: 1

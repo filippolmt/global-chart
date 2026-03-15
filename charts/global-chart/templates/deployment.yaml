@@ -17,7 +17,11 @@ metadata:
     {{- include "global-chart.deploymentLabels" $labelCtx | nindent 4 }}
 spec:
   {{- if not $autoscaling.enabled }}
-  replicas: {{ $deploy.replicaCount | default 2 }}
+  {{- if hasKey $deploy "replicaCount" }}
+  replicas: {{ $deploy.replicaCount }}
+  {{- else }}
+  replicas: 2
+  {{- end }}
   {{- end }}
   {{- with $deploy.strategy }}
   strategy:

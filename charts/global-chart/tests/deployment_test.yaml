@@ -626,3 +626,15 @@ tests:
       - equal:
           path: spec.template.spec.containers[0].image
           value: "docker.io/nginx:1.25"
+
+  # ====== Regression: replicaCount 0 falsy-value masking (TMPL-01) ======
+  - it: should render replicas 0 when replicaCount is explicitly 0
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          replicaCount: 0
+    asserts:
+      - equal:
+          path: spec.replicas
+          value: 0
