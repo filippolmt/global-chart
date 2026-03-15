@@ -175,7 +175,7 @@ spec:
         {{- range $i, $f := $mountedConfigFiles.files }}
         - name: md-cm-file-{{ $f.name }}
           configMap:
-            name: {{ $depFullname }}-md-cm-{{ $f.name }}
+            name: {{ printf "%s-md-cm-%s" $depFullname $f.name | trunc 63 | trimSuffix "-" }}
         {{- end }}
         {{- end }}
         {{- if $hasMcfBundles }}
@@ -185,7 +185,7 @@ spec:
             sources:
             {{- range $fi, $f := $b.files }}
               - configMap:
-                  name: {{ $depFullname }}-md-cm-{{ $f.name }}
+                  name: {{ printf "%s-md-cm-%s" $depFullname $f.name | trunc 63 | trimSuffix "-" }}
                   items:
                     - key: {{ $f.relPath | base }}
                       path: {{ $f.relPath }}

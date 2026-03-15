@@ -87,3 +87,45 @@ tests:
       - matchRegex:
           path: metadata.name
           pattern: ".*md-cm-bundled-file"
+
+  # ====== Regression: truncation guard on mounted configmap names (TMPL-03) ======
+  - it: should truncate mounted configmap name to 63 chars for files mode
+    release:
+      name: myrel
+    set:
+      deployments:
+        a]very-long-deployment-name-that-pushes-over:
+          image: nginx:1.25
+          mountedConfigFiles:
+            files:
+              - name: also-a-very-long-config-file-name
+                filename: config.yaml
+                targetPath: /etc/config/config.yaml
+                content: "key: value"
+    asserts:
+      - isKind:
+          of: ConfigMap
+      - matchRegex:
+          path: metadata.name
+          pattern: "^.{1,63}$"
+
+  - it: should truncate mounted configmap name to 63 chars for bundles mode
+    release:
+      name: myrel
+    set:
+      deployments:
+        a-very-long-deployment-name-that-pushes-over:
+          image: nginx:1.25
+          mountedConfigFiles:
+            bundles:
+              - mountDir: /etc/config
+                files:
+                  - name: also-a-very-long-config-file-name
+                    relPath: sub/config.yaml
+                    content: "bundled content"
+    asserts:
+      - isKind:
+          of: ConfigMap
+      - matchRegex:
+          path: metadata.name
+          pattern: "^.{1,63}$"
