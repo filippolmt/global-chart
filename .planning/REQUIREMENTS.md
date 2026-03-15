@@ -64,28 +64,28 @@ Deferred to future release. Tracked but not in current roadmap.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| TMPL-01 | TBD | Pending |
-| TMPL-02 | TBD | Pending |
-| TMPL-03 | TBD | Pending |
-| TMPL-04 | TBD | Pending |
-| TEST-01 | TBD | Pending |
-| TEST-02 | TBD | Pending |
-| TEST-03 | TBD | Pending |
-| TEST-04 | TBD | Pending |
-| K8S-01 | TBD | Pending |
-| K8S-02 | TBD | Pending |
-| K8S-03 | TBD | Pending |
-| K8S-04 | TBD | Pending |
-| CI-01 | TBD | Pending |
-| CI-02 | TBD | Pending |
-| CI-03 | TBD | Pending |
-| CI-04 | TBD | Pending |
+| TMPL-01 | Phase 1 | Pending |
+| TMPL-02 | Phase 1 | Pending |
+| TMPL-03 | Phase 1 | Pending |
+| TMPL-04 | Phase 1 | Pending |
+| TEST-01 | Phase 2 | Pending |
+| TEST-02 | Phase 2 | Pending |
+| TEST-03 | Phase 2 | Pending |
+| TEST-04 | Phase 2 | Pending |
+| K8S-01 | Phase 3 | Pending |
+| K8S-02 | Phase 3 | Pending |
+| K8S-03 | Phase 3 | Pending |
+| K8S-04 | Phase 3 | Pending |
+| CI-01 | Phase 4 | Pending |
+| CI-02 | Phase 4 | Pending |
+| CI-03 | Phase 4 | Pending |
+| CI-04 | Phase 4 | Pending |
 
 **Coverage:**
 - v1 requirements: 16 total
-- Mapped to phases: 0
-- Unmapped: 16 ⚠️
+- Mapped to phases: 16
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-15*
-*Last updated: 2026-03-15 after initial definition*
+*Last updated: 2026-03-15 after roadmap creation*
