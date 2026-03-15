@@ -28,7 +28,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. CronJob SA inheritance behaves identically to Hook SA inheritance -- both support `create: true`, `create: false` with `name`, and per-job `serviceAccountName` override
   3. Resource names at the truncation boundary (63 and 52 chars) render correctly without silent truncation errors
   4. Hook and CronJob templates share a common inheritance helper -- changes to inheritance logic in one are reflected in the other
-**Plans:** 3 plans
+**Plans:** 1/3 plans executed
 
 Plans:
 - [ ] 01-01-PLAN.md — Audit report: catalog all template correctness findings for user approval
@@ -87,7 +87,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Template Logic Audit & Bug Fixes | 0/3 | Planning complete | - |
+| 1. Template Logic Audit & Bug Fixes | 1/3 | In Progress|  |
 | 2. Test Coverage Hardening | 0/0 | Not started | - |
 | 3. Schema & K8s Best Practices | 0/0 | Not started | - |
 | 4. CI Pipeline Hardening | 0/0 | Not started | - |
