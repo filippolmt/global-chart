@@ -2,3 +2,9 @@ generated-manifests
 .DS_Store
 backup
 .planning/
+.claude/agents/gsd-*
+.claude/commands/gsd/
+.claude/get-shit-done/
+.claude/gsd-file-manifest.json
+.claude/hooks/gsd-*
+.claude/package.json
