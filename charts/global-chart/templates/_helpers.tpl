@@ -320,3 +320,182 @@ Priority: override > image.pullPolicy > fallback > IfNotPresent (default).
 IfNotPresent
 {{- end -}}
 {{- end }}
+
+{{/*
+Shared pod spec for deployment-level hooks and cronjobs.
+Renders the pod-level fields (imagePullSecrets through tolerations) and the container spec.
+This eliminates duplicated inheritance logic between hook.yaml and cronjob.yaml.
+
+Parameters (passed as a dict):
+  root             - Root context ($)
+  deployName       - Deployment key name
+  deploy           - Deployment values map
+  jobName          - Job/cronjob name
+  job              - Job values map (the hook command or cronjob)
+  jobFullname      - Pre-computed full name of the job
+  deployFullname   - Pre-computed deployment fullname
+  hasDeployConfigMap - bool: whether deployment has a configMap
+  hasDeploySecret    - bool: whether deployment has a secret
+  includeDnsConfig   - bool: true for cronjobs (inherit from deploy), false for hooks
+  saName           - Pre-resolved service account name
+  includeInitContainers - bool: true for cronjobs, false for hooks
+
+Returns: Rendered YAML string (pod-level fields + container), to be embedded via `include` + `nindent`.
+Scope: Deployment-level only; root-level hooks/cronjobs do NOT use this helper.
+*/}}
+{{- define "global-chart.inheritedJobPodSpec" -}}
+{{- $root := .root -}}
+{{- $deploy := .deploy -}}
+{{- $deployName := .deployName -}}
+{{- $job := .job -}}
+{{- $jobName := .jobName -}}
+{{- $jobFullname := .jobFullname -}}
+{{- $deployFullname := .deployFullname -}}
+{{- $hasDeployConfigMap := .hasDeployConfigMap -}}
+{{- $hasDeploySecret := .hasDeploySecret -}}
+{{- $includeDnsConfig := .includeDnsConfig -}}
+{{- $saName := .saName -}}
+{{- $includeInitContainers := default false .includeInitContainers -}}
+{{- /* ImagePullSecrets: explicit > inherited from deployment > global (hasKey distinguishes unset from empty) */ -}}
+{{- $imagePullSecrets := list -}}
+{{- if hasKey $job "imagePullSecrets" -}}
+  {{- $imagePullSecrets = $job.imagePullSecrets -}}
+{{- else if hasKey $deploy "imagePullSecrets" -}}
+  {{- $imagePullSecrets = $deploy.imagePullSecrets -}}
+{{- else -}}
+  {{- $global := default (dict) $root.Values.global -}}
+  {{- $imagePullSecrets = $global.imagePullSecrets -}}
+{{- end -}}
+{{- $renderedIPS := include "global-chart.renderImagePullSecrets" $imagePullSecrets -}}
+{{- /* HostAliases: explicit > inherited from deployment */ -}}
+{{- $hostAliases := ternary $job.hostAliases $deploy.hostAliases (hasKey $job "hostAliases") -}}
+{{- /* PodSecurityContext: explicit > inherited from deployment */ -}}
+{{- $podSecCtx := ternary $job.podSecurityContext $deploy.podSecurityContext (hasKey $job "podSecurityContext") -}}
+{{- /* DnsConfig: explicit > inherited from deployment (cronjobs only) */ -}}
+{{- $renderedDns := "" -}}
+{{- if $includeDnsConfig -}}
+{{- $dnsConfig := dict -}}
+{{- if hasKey $job "dnsConfig" -}}
+  {{- $dnsConfig = default (dict) $job.dnsConfig -}}
+{{- else -}}
+  {{- $dnsConfig = default (dict) $deploy.dnsConfig -}}
+{{- end -}}
+{{- $renderedDns = include "global-chart.renderDnsConfig" $dnsConfig -}}
+{{- end -}}
+{{- with $renderedIPS }}
+{{ . }}
+{{- end }}
+{{- with $hostAliases }}
+hostAliases:
+  {{- toYaml . | nindent 2 }}
+{{- end }}
+{{- with $podSecCtx }}
+securityContext:
+  {{- toYaml . | nindent 2 }}
+{{- end }}
+{{- with $renderedDns }}
+{{ . }}
+{{- end }}
+{{- if and $includeInitContainers $job.initContainers }}
+initContainers:
+  {{- toYaml $job.initContainers | nindent 2 }}
+{{- end }}
+containers:
+- name: {{ $jobName }}
+  image: {{ .imageRef | quote }}
+  imagePullPolicy: {{ include "global-chart.imagePullPolicy" (dict "override" $job.imagePullPolicy "image" (default $deploy.image $job.image)) | quote }}
+  {{- if $job.command }}
+  command:
+    {{- toYaml $job.command | nindent 4 }}
+  {{- end }}
+  {{- if $job.args }}
+  args:
+    {{- toYaml $job.args | nindent 4 }}
+  {{- end }}
+  {{- /* Container securityContext: explicit > inherited from deployment */ -}}
+  {{- $secCtx := ternary $job.securityContext $deploy.securityContext (hasKey $job "securityContext") -}}
+  {{- with $secCtx }}
+  securityContext:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with (include "global-chart.renderResources" (dict "resources" $job.resources "hasResources" (hasKey $job "resources") "defaults" $root.Values.defaults)) }}
+{{ . | indent 2 }}
+  {{- end }}
+  {{- /* EnvFrom: deployment's configMap/secret + deployment's external refs + job's external refs */ -}}
+  {{- $hasEnvFrom := or $hasDeployConfigMap $hasDeploySecret $job.envFromConfigMaps $job.envFromSecrets $deploy.envFromConfigMaps $deploy.envFromSecrets -}}
+  {{- if $hasEnvFrom }}
+  envFrom:
+    {{- /* Deployment's generated ConfigMap */ -}}
+    {{- if $hasDeployConfigMap }}
+    - configMapRef:
+        name: {{ $deployFullname | quote }}
+    {{- end }}
+    {{- /* Deployment's generated Secret */ -}}
+    {{- if $hasDeploySecret }}
+    - secretRef:
+        name: {{ $deployFullname | quote }}
+    {{- end }}
+    {{- /* Deployment's external ConfigMaps */ -}}
+    {{- range $cm := $deploy.envFromConfigMaps }}
+    - configMapRef:
+        name: {{ $cm | quote }}
+    {{- end }}
+    {{- /* Deployment's external Secrets */ -}}
+    {{- range $sec := $deploy.envFromSecrets }}
+    - secretRef:
+        name: {{ $sec | quote }}
+    {{- end }}
+    {{- /* Job's explicit external ConfigMaps */ -}}
+    {{- range $cm := $job.envFromConfigMaps }}
+    - configMapRef:
+        name: {{ $cm | quote }}
+    {{- end }}
+    {{- /* Job's explicit external Secrets */ -}}
+    {{- range $sec := $job.envFromSecrets }}
+    - secretRef:
+        name: {{ $sec | quote }}
+    {{- end }}
+  {{- end }}
+  {{- /* Env: deployment's additionalEnvs + job's env */ -}}
+  {{- $envVars := list -}}
+  {{- if $deploy.additionalEnvs -}}
+    {{- $envVars = $deploy.additionalEnvs -}}
+  {{- end -}}
+  {{- if $job.env -}}
+    {{- $envVars = concat $envVars $job.env -}}
+  {{- end -}}
+  {{- if $envVars }}
+  env:
+    {{- toYaml $envVars | nindent 4 }}
+  {{- end }}
+  {{- with $job.volumeMounts }}
+  volumeMounts:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- with $job.volumes }}
+volumes:
+  {{- range . }}
+  {{- include "global-chart.renderVolume" . | nindent 2 }}
+  {{- end }}
+{{- end }}
+serviceAccountName: {{ $saName | quote }}
+{{- /* NodeSelector: explicit > inherited from deployment */ -}}
+{{- $nodeSelector := ternary $job.nodeSelector $deploy.nodeSelector (hasKey $job "nodeSelector") -}}
+{{- with $nodeSelector }}
+nodeSelector:
+  {{- toYaml . | nindent 2 }}
+{{- end }}
+{{- /* Affinity: explicit > inherited from deployment */ -}}
+{{- $affinity := ternary $job.affinity $deploy.affinity (hasKey $job "affinity") -}}
+{{- with $affinity }}
+affinity:
+  {{- toYaml . | nindent 2 }}
+{{- end }}
+{{- /* Tolerations: explicit > inherited from deployment */ -}}
+{{- $tolerations := ternary $job.tolerations $deploy.tolerations (hasKey $job "tolerations") -}}
+{{- with $tolerations }}
+tolerations:
+  {{- toYaml . | nindent 2 }}
+{{- end }}
+restartPolicy: {{ default "Never" $job.restartPolicy | quote }}
+{{- end }}
