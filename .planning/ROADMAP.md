@@ -82,9 +82,9 @@ Plans:
 **Plans:** 3 plans
 
 Plans:
-- [ ] 04-01-PLAN.md — Add kubeconform Makefile target and promote kube-linter to CI (TEST-05)
-- [ ] 04-02-PLAN.md — Add global.commonLabels and global.commonAnnotations to all templates (FEAT-03)
-- [ ] 04-03-PLAN.md — Add tests for probes, init containers, and global labels/annotations (FEAT-01, FEAT-02, FEAT-03)
+- [x] 04-01-PLAN.md — Add kubeconform Makefile target and promote kube-linter to CI (TEST-05)
+- [x] 04-02-PLAN.md — Add global.commonLabels and global.commonAnnotations to all templates (FEAT-03)
+- [x] 04-03-PLAN.md — Add tests for probes, init containers, and global labels/annotations (FEAT-01, FEAT-02, FEAT-03)
 
 ### Phase 5: Values Schema
 **Goal**: Chart consumers get immediate, descriptive validation errors for misconfigured values before any template rendering occurs
@@ -94,10 +94,10 @@ Plans:
   1. `helm lint` with an invalid values file (wrong type, missing required field) returns a clear error message referencing the offending field
   2. `values.schema.json` covers top-level keys, deployment required fields, and type constraints for the `deployments` map
   3. IDE autocomplete works for `values.yaml` when the schema is present (tested with VS Code YAML extension)
-**Plans**: TBD
+**Plans:** 1 plan
 
 Plans:
-- [ ] 05-01: TBD
+- [ ] 05-01-PLAN.md — Create values.schema.json with Draft 7 schema and validate against all test scenarios (FEAT-04)
 
 ## Progress
 
@@ -109,5 +109,5 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 | 1. Correctness Fixes | 2/3 | In Progress|  |
 | 2. Test Coverage | 0/3 | Planned | - |
 | 3. Template Deduplication | 0/2 | Not started | - |
-| 4. CI Pipeline & New Features | 0/3 | Planned | - |
-| 5. Values Schema | 0/? | Not started | - |
+| 4. CI Pipeline & New Features | 3/3 | Complete | - |
+| 5. Values Schema | 0/1 | Not started | - |
