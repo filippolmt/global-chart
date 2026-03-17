@@ -37,7 +37,7 @@ spec:
       {{- /* Priority 1: Explicit service override */ -}}
       {{- if and (hasKey $hostEntry "service") $hostEntry.service $hostEntry.service.name -}}
         {{- $svcName = $hostEntry.service.name -}}
-        {{- $svcPort = default 80 $hostEntry.service.port -}}
+        {{- $svcPort = ternary $hostEntry.service.port 80 (hasKey $hostEntry.service "port") -}}
       {{- /* Priority 2: Deployment reference */ -}}
       {{- else if $hostEntry.deployment -}}
         {{- $depName := $hostEntry.deployment -}}
@@ -50,7 +50,7 @@ spec:
         {{- end -}}
         {{- $svcName = include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $depName) -}}
         {{- $depSvc := default (dict) $deploy.service -}}
-        {{- $svcPort = default 80 $depSvc.port -}}
+        {{- $svcPort = ternary $depSvc.port 80 (hasKey $depSvc "port") -}}
       {{- /* Priority 3: Error - must specify deployment or service */ -}}
       {{- else -}}
         {{- fail (printf "ingress host '%s' must specify either 'deployment' (name of a deployment) or 'service.name' (explicit service name)" $hostEntry.host) -}}
@@ -61,7 +61,7 @@ spec:
         paths:
           {{- range $path := $hostEntry.paths }}
           - path: {{ $path.path }}
-            pathType: {{ $path.pathType | default "ImplementationSpecific" }}
+            pathType: {{ ternary $path.pathType "ImplementationSpecific" (hasKey $path "pathType") }}
             backend:
               service:
                 name: {{ $svcName }}

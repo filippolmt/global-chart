@@ -3,13 +3,13 @@
 {{- if $root.Values.rbacs.roles }}
 {{- range $index, $role := $root.Values.rbacs.roles }}
 {{- $defaultRoleName := printf "%s-role-%d" $fullname $index | trunc 63 | trimSuffix "-" }}
-{{- $roleName := default $defaultRoleName $role.name }}
+{{- $roleName := ternary $role.name $defaultRoleName (hasKey $role "name") }}
 {{- $sa := $role.serviceAccount }}
 {{- $saName := "" }}
 {{- $saCreate := false }}
 {{- if $sa }}
 {{- $defaultSaName := printf "%s-sa" $roleName | trunc 63 | trimSuffix "-" }}
-{{- $saName = default $defaultSaName $sa.name }}
+{{- $saName = ternary $sa.name $defaultSaName (hasKey $sa "name") }}
 {{- $saCreate = true }}
 {{- if hasKey $sa "create" }}
   {{- $saCreate = $sa.create }}
