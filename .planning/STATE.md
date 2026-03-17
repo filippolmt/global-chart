@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 01-02-PLAN.md
-last_updated: "2026-03-17T12:35:50.459Z"
-last_activity: 2026-03-17 — Completed 01-02-PLAN.md
+stopped_at: Completed 01-01-PLAN.md
+last_updated: "2026-03-17T12:40:19.000Z"
+last_activity: 2026-03-17 — Completed 01-01-PLAN.md
 progress:
   total_phases: 5
   completed_phases: 0
   total_plans: 3
-  completed_plans: 1
-  percent: 0
+  completed_plans: 2
+  percent: 10
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-03-17)
 ## Current Position
 
 Phase: 1 of 5 (Correctness Fixes)
-Plan: 2 of 3 in current phase
+Plan: 3 of 3 in current phase
 Status: Executing
-Last activity: 2026-03-17 — Completed 01-02-PLAN.md
+Last activity: 2026-03-17 — Completed 01-01-PLAN.md
 
-Progress: [..........] 0%
+Progress: [==........] 10%
 
 ## Performance Metrics
 
@@ -50,6 +50,7 @@ Progress: [..........] 0%
 - Trend: -
 
 *Updated after each plan completion*
+| Phase 01 P01 | 12min | 2 tasks | 4 files |
 | Phase 01 P02 | 6min | 2 tasks | 9 files |
 
 ## Accumulated Context
@@ -63,6 +64,8 @@ Recent decisions affecting current work:
 - [Roadmap]: Tests before refactoring — deduplication is safe only when the test suite catches behavioral regressions
 - [Roadmap]: Combined CI + Features in Phase 4 — coarse granularity compression; both need stable template foundation
 - [Phase 01]: Preserved default (dict) nil-guards in ingress.yaml as they protect against nil maps, not scalar defaults
+- [Phase 01]: Hook prerequisites named {deployFullname}-hook-config/secret (shared per deployment, not per hook command)
+- [Phase 01]: SA hook-weight hardcoded to "5" (not overridable), Job weight defaults to "10" (overridable via command.weight)
 
 ### Pending Todos
 
@@ -74,6 +77,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-17T12:35:50.457Z
-Stopped at: Completed 01-02-PLAN.md
+Last session: 2026-03-17T12:40:19.000Z
+Stopped at: Completed 01-01-PLAN.md
 Resume file: None

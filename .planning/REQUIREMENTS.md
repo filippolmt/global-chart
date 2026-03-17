@@ -7,11 +7,11 @@
 
 ### Bug Fixes
 
-- [ ] **BUG-01**: Fix falsy masking su `successfulJobsHistoryLimit`/`failedJobsHistoryLimit` in cronjob.yaml (0 → 2 bug)
-- [ ] **BUG-02**: Fix falsy masking su root-level CronJob `automountServiceAccountToken` (false → true bug)
+- [x] **BUG-01**: Fix falsy masking su `successfulJobsHistoryLimit`/`failedJobsHistoryLimit` in cronjob.yaml (0 → 2 bug)
+- [x] **BUG-02**: Fix falsy masking su root-level CronJob `automountServiceAccountToken` (false → true bug)
 - [x] **BUG-03**: Audit completo hasKey vs default su tutti i campi booleani/zero-value nel chart
 - [x] **BUG-04**: Ingress deve fare fail se referenzia un deployment con `service.enabled: false`
-- [ ] **BUG-05**: Hook prerequisite Secret/ConfigMap — generare copie hook-annotate con weight basso per pre-upgrade ordering
+- [x] **BUG-05**: Hook prerequisite Secret/ConfigMap — generare copie hook-annotate con weight basso per pre-upgrade ordering
 - [ ] **BUG-06**: Name collision guard — fail se nomi troncati collidono tra deployment/cronjob/hook diversi
 
 ### Test Coverage
@@ -63,11 +63,11 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| BUG-01 | Phase 1 | Pending |
-| BUG-02 | Phase 1 | Pending |
+| BUG-01 | Phase 1 | Complete |
+| BUG-02 | Phase 1 | Complete |
 | BUG-03 | Phase 1 | Complete |
 | BUG-04 | Phase 1 | Complete |
-| BUG-05 | Phase 1 | Pending |
+| BUG-05 | Phase 1 | Complete |
 | BUG-06 | Phase 1 | Pending |
 | TEST-01 | Phase 2 | Pending |
 | TEST-02 | Phase 2 | Pending |

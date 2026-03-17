@@ -30,7 +30,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. `helm template` fails with a clear error when an Ingress host references a deployment that has `service.enabled: false`
   4. Pre-upgrade hooks that need ConfigMap/Secret data get hook-annotated copies with lower weight, ensuring correct ordering
   5. `helm template` fails with a clear error when truncated names would collide between different deployments, cronjobs, or hooks
-**Plans:** 3 plans
+**Plans:** 2/3 plans executed
 
 Plans:
 - [ ] 01-01-PLAN.md — Fix falsy masking in cronjob.yaml and hook.yaml, fix hook prerequisite weights
@@ -104,7 +104,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Correctness Fixes | 0/3 | Planning complete | - |
+| 1. Correctness Fixes | 2/3 | In Progress|  |
 | 2. Test Coverage | 0/? | Not started | - |
 | 3. Template Deduplication | 0/? | Not started | - |
 | 4. CI Pipeline & New Features | 0/? | Not started | - |
