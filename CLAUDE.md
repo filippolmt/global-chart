@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Global-chart is a reusable Helm chart providing configurable Kubernetes building blocks: Deployments, Services, Ingress, CronJobs, Hook Jobs, ExternalSecrets, and RBAC resources.
 
-Supports multi-deployment: multiple independent deployments in a single release, each with its own resources (Service, ConfigMap, Secret, ServiceAccount, HPA, PDB, NetworkPolicy). Current version: **1.3.0**.
+Supports multi-deployment: multiple independent deployments in a single release, each with its own resources (Service, ConfigMap, Secret, ServiceAccount, HPA, PDB, NetworkPolicy). Current version: **1.4.0**.
 
 ## Common Commands
 
@@ -23,11 +23,17 @@ make unit-test
 # Generate manifests for visual inspection (outputs to generated-manifests/)
 make generate-templates
 
-# Run lint, unit tests and generate
+# Run full pipeline: lint, unit tests, bad-values, generate, kubeconform, kube-linter
 make all
+
+# Validate generated manifests against K8s 1.29 schema (requires Docker)
+make kubeconform
 
 # Run kube-linter against generated manifests (requires Docker)
 make kube-linter
+
+# Validate bad-values are rejected by schema
+make validate-bad-values
 
 # Generate helm-docs (requires Docker)
 make generate-docs
@@ -55,10 +61,15 @@ make clean-all           # Clean + uninstall helm releases
 
 ```
 charts/global-chart/
-├── Chart.yaml              # Chart metadata (version 1.3.0)
+├── Chart.yaml              # Chart metadata (version 1.4.0)
 ├── values.yaml             # Default values with helm-docs annotations
+├── values.schema.json      # JSON Schema Draft 7 for validation and IDE autocomplete
 ├── templates/
-│   ├── _helpers.tpl        # Template functions (see Helper Catalog below)
+│   ├── _helpers.tpl        # Core naming/label helpers
+│   ├── _image-helpers.tpl  # imageString, imagePullPolicy helpers
+│   ├── _job-helpers.tpl    # inheritedJobPodSpec shared helper for hooks/cronjobs
+│   ├── _render-helpers.tpl # renderVolume, renderImagePullSecrets, renderDnsConfig, renderResources, renderCommonAnnotations
+│   ├── _validate-helpers.tpl # Name collision detection
 │   ├── deployment.yaml     # Deployments (iterates over deployments map)
 │   ├── service.yaml        # Services (per-deployment, can be disabled)
 │   ├── serviceaccount.yaml # ServiceAccounts (per-deployment)
@@ -73,10 +84,11 @@ charts/global-chart/
 │   ├── hook.yaml           # Helm hook Jobs (root-level or inside deployments)
 │   ├── externalsecret.yaml # ExternalSecret CRDs
 │   ├── rbac.yaml           # Roles and RoleBindings
+│   ├── validate.yaml       # Cross-kind name collision detection (no resources)
 │   ├── NOTES.txt           # Post-install notes
 │   └── tests/
 │       └── test-connection.yaml  # Helm test pod
-├── tests/                  # helm-unittest test files (16 suites, 220 tests)
+├── tests/                  # helm-unittest test files (17 suites, 312 tests)
 │   ├── deployment_test.yaml
 │   ├── cronjob_test.yaml
 │   ├── hook_test.yaml
@@ -92,6 +104,7 @@ charts/global-chart/
 │   ├── helpers_test.yaml
 │   ├── pdb_test.yaml
 │   ├── networkpolicy_test.yaml
+│   ├── validate_test.yaml
 │   └── notes_test.yaml
 ```
 
@@ -209,23 +222,58 @@ deployments:
 
 15. **Helm test**: `helm test <release>` runs a connection test against the first enabled service.
 
-### Helper Catalog (`_helpers.tpl`)
+16. **global.commonLabels / global.commonAnnotations**: Opt-in shared labels/annotations applied to all resource metadata. Labels go through the `labels` helper. Annotations use `renderCommonAnnotations` helper or `merge` with `deepCopy` (e.g., ingress, service).
+
+17. **Hook weight ordering**: SA weight = `jobWeight - 5`, prerequisite ConfigMap/Secret weight = `minJobWeight - 7` (min 0). Guarantees: `prereq < SA < Job`. For default weight=10: prereq=3, SA=5, Job=10.
+
+18. **Name collision detection**: `validate.yaml` calls `validateNameCollisions` to fail at render time if truncation creates duplicate resource names across Deployments, CronJobs, hook Jobs, or hook prerequisites.
+
+19. **JSON Schema validation**: `values.schema.json` (Draft 7) validates input types and structure. Helm enforces it during install/upgrade/lint. Schema does NOT use `required` on `mountedConfigFiles` items (runtime validation by templates instead) to avoid blocking `failedTemplate` negative tests.
+
+### Helper Catalog
+
+Helpers are split across 5 files by domain:
+
+**`_helpers.tpl`** — Core naming and labels:
 
 | Helper | Purpose |
 |--------|---------|
 | `name`, `fullname`, `chart` | Standard Helm naming |
-| `labels`, `selectorLabels` | Common labels for non-deployment resources (Ingress, ExternalSecret, RBAC) |
+| `labels`, `selectorLabels` | Common labels (includes `global.commonLabels`) |
 | `deploymentFullname` | `{release}-{chart}-{deploymentName}` (trunc 63) |
 | `deploymentLabels`, `deploymentSelectorLabels` | Labels with `component` for per-deployment resources |
 | `deploymentEnabled` | Returns `"true"`/`"false"` string; defaults to true |
 | `deploymentServiceAccountName` | Resolves SA name: explicit > generated > `"default"` |
 | `hookLabels`, `hookLabelsWithComponent`, `hookfullname` | Hook-specific labels (no selectorLabels to avoid HPA matching) |
-| `imageString` | Image ref from string or `{repository, tag, digest}`; supports `global.imageRegistry` with smart registry detection (first segment `.`/`:`/`localhost`) |
+
+**`_image-helpers.tpl`** — Image handling:
+
+| Helper | Purpose |
+|--------|---------|
+| `imageString` | Image ref from string or `{repository, tag, digest}`; supports `global.imageRegistry` with registry detection; uses `toString` for numeric tags |
 | `imagePullPolicy` | Resolves policy: override > image map > fallback > `IfNotPresent` |
-| `renderVolume` | Renders a volume entry; native K8s spec (deterministic via `toYaml`) and legacy `.type` format; fails on unknown legacy types |
-| `renderImagePullSecrets` | Shared: renders `imagePullSecrets:` block from a resolved list; returns empty if nil |
-| `renderDnsConfig` | Shared: renders `dnsConfig:` block from a dict; returns empty if no fields set |
-| `renderResources` | Shared: renders `resources:` with fallback to `defaults.resources`; returns empty if both nil |
+
+**`_render-helpers.tpl`** — Shared rendering:
+
+| Helper | Purpose |
+|--------|---------|
+| `renderVolume` | Volume entry; native K8s spec and legacy `.type` format; `required` guard on name; canonical K8s keys take precedence |
+| `renderImagePullSecrets` | `imagePullSecrets:` block from string/object list; empty if nil |
+| `renderDnsConfig` | `dnsConfig:` block; empty if no fields set |
+| `renderResources` | `resources:` with fallback to `defaults.resources`; empty if both nil |
+| `renderCommonAnnotations` | `global.commonAnnotations` block; empty if not set |
+
+**`_job-helpers.tpl`** — Shared pod spec for deployment-level hooks/cronjobs:
+
+| Helper | Purpose |
+|--------|---------|
+| `inheritedJobPodSpec` | Renders complete pod spec with inheritance chains (job > deployment > global) for imagePullSecrets, hostAliases, securityContext, nodeSelector, tolerations, affinity, env, volumes, resources. Parameterized: `inheritDnsConfig` (true for cronjobs, false for hooks), `renderInitContainers` (true for cronjobs, false for hooks) |
+
+**`_validate-helpers.tpl`** — Validation:
+
+| Helper | Purpose |
+|--------|---------|
+| `validateNameCollisions` | Detects truncation-induced name collisions across Deployments, CronJobs, hook Jobs, and hook prerequisite ConfigMaps/Secrets |
 
 ### Resource Naming Convention
 
@@ -268,14 +316,20 @@ The `tests/` directory contains value files covering all supported configuration
 | `raw-deployment.yaml` | Deployment with raw image string |
 | `deployment-hooks-cronjobs.yaml` | **Hooks/CronJobs inside deployments** (inheritance test) |
 | `hooks-sa-inheritance.yaml` | **Hooks SA inheritance** (existing SA, explicit override) |
+| `name-collision.yaml` | Name collision detection test |
+| `bad-values/*.yaml` | Schema rejection tests (invalid image type, missing schedule, unknown key) |
 
 ## CI/CD
 
 GitHub Actions workflow (`.github/workflows/helm-ci.yml`) runs on push/PR:
-1. `make lint-chart` - Lints all test scenarios
-2. `make unit-test` - Runs helm-unittest suite (220 tests across 16 suites) via Docker
-3. `make generate-templates` - Generates manifests
-4. Uploads `generated-manifests/` as artifact
+1. Pre-pull Docker images with retry (3 attempts)
+2. `make lint-chart` — Lints all 17 test scenarios
+3. `make unit-test` — Runs helm-unittest suite (312 tests across 17 suites) via Docker
+4. `make validate-bad-values` — Verifies schema rejects invalid values (3 scenarios)
+5. `make generate-templates` — Generates manifests
+6. `make kubeconform` — Validates manifests against K8s 1.29 schema
+7. `make kube-linter` — Lints manifests with `addAllBuiltIn: true` (28 documented exclusions)
+8. Uploads `generated-manifests/` as artifact
 
 Release workflow (`.github/workflows/release.yml`) handles chart publishing.
 
@@ -285,7 +339,7 @@ Release workflow (`.github/workflows/release.yml`) handles chart publishing.
 - Use `make generate-templates` to inspect rendered output before committing
 - Unit tests are in `charts/global-chart/tests/` using helm-unittest framework (Docker-based, no local plugin needed)
 - Add new test scenarios to `tests/` and update `TEST_CASES` in Makefile
-- When adding new template helpers, place them in `templates/_helpers.tpl`
+- When adding new template helpers, place them in the appropriate domain file: `_helpers.tpl` (naming/labels), `_image-helpers.tpl` (images), `_job-helpers.tpl` (job pod specs), `_render-helpers.tpl` (shared rendering), `_validate-helpers.tpl` (validation)
 - README auto-generation uses helm-docs; run `make generate-docs` after changing value annotations
 - When accessing nested optional fields in templates, use `$var := default (dict) $parent.field` to avoid nil pointer errors
 - For boolean fields with `default`, never use `default true $var` — Go templates treat `false` as falsy and replace it with the default. Use `hasKey` + `ternary` instead: `hasKey $map "field" | ternary $map.field true`
@@ -295,4 +349,7 @@ Release workflow (`.github/workflows/release.yml`) handles chart publishing.
 - For global fallback chains (e.g., imagePullSecrets: job > deployment > global), always use `hasKey` at each level — never `if not $var`. An explicit empty list (`imagePullSecrets: []`) must prevent fallback to the global value
 - When calling shared helpers that can return empty (`renderImagePullSecrets`, `renderDnsConfig`, `renderResources`), always wrap with `{{- with }}` and use `nindent` to avoid blank lines: `{{- with (include "global-chart.renderFoo" $arg) }}{{- . | nindent N }}{{- end }}`
 - Shared helpers must use `-}}` (trim-right) on the conditional/with line before literal content (e.g., `{{- with . -}}\nimagePullSecrets:`) to avoid a leading newline in the output that `nindent` would turn into a blank line
+- When modifying `values.schema.json`, ensure every field the template accesses is declared and every declared field is used by a template. Run `make lint-chart` to verify schema doesn't reject valid test values
+- When adding hook weight logic, remember the ordering invariant: prereq (w-7) < SA (w-5) < Job (w). All weights derive from the effective Job weight
+- When adding `merge` calls on maps from `.Values`, always `deepCopy` the first argument to avoid mutating `.Values`
 - Always update CLAUDE.md when architecture, commands, or key patterns change
