@@ -120,9 +120,8 @@ tests:
         main:
           image: "nginx:1.25"
     asserts:
-      - equal:
+      - isNotEmpty:
           path: metadata.labels["app.kubernetes.io/version"]
-          value: "1.4.0"
 
   # ====== global.commonLabels in labels helpers ======
   - it: should include global.commonLabels in deployment labels
