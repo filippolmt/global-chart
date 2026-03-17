@@ -38,6 +38,10 @@ helm.sh/chart: {{ include "global-chart.chart" . }}
 {{ include "global-chart.selectorLabels" . }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
+{{- $global := default (dict) .Values.global }}
+{{- with $global.commonLabels }}
+{{ toYaml . | trimSuffix "\n" }}
+{{- end }}
 {{- end }}
 
 {{/*
@@ -78,6 +82,10 @@ helm.sh/chart: {{ include "global-chart.chart" .root }}
 {{ include "global-chart.deploymentSelectorLabels" . }}
 app.kubernetes.io/version: {{ .root.Chart.AppVersion | quote }}
 app.kubernetes.io/managed-by: {{ .root.Release.Service }}
+{{- $global := default (dict) .root.Values.global }}
+{{- with $global.commonLabels }}
+{{ toYaml . | trimSuffix "\n" }}
+{{- end }}
 {{- end }}
 
 {{/*
@@ -114,6 +122,10 @@ Base labels without component (used when component is added separately).
 helm.sh/chart: {{ include "global-chart.chart" . }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
+{{- $global := default (dict) .Values.global }}
+{{- with $global.commonLabels }}
+{{ toYaml . | trimSuffix "\n" }}
+{{- end }}
 {{- end }}
 
 {{/*

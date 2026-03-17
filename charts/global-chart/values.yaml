@@ -8,6 +8,12 @@ global:
   # -- Global imagePullSecrets (used when deployment/cronJob/hook doesn't specify its own)
   # @default -- `[]`
   imagePullSecrets: []
+  # -- Global labels applied to metadata.labels of ALL resources (not added to selector labels)
+  # @default -- `{}`
+  commonLabels: {}
+  # -- Global annotations applied to metadata.annotations of ALL resources (including pod templates)
+  # @default -- `{}`
+  commonAnnotations: {}
 
 # -- Override the chart name
 nameOverride: ""

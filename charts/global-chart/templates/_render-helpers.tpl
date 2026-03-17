@@ -104,3 +104,15 @@ resources:
 {{- end }}
 {{- end }}
 {{- end }}
+
+{{/*
+Render global.commonAnnotations block.
+Usage: {{ include "global-chart.renderCommonAnnotations" . }}
+Accepts root context (.). Returns toYaml of global.commonAnnotations, or empty string if not set.
+*/}}
+{{- define "global-chart.renderCommonAnnotations" -}}
+{{- $global := default (dict) .Values.global -}}
+{{- with $global.commonAnnotations -}}
+{{- toYaml . -}}
+{{- end -}}
+{{- end }}
