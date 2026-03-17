@@ -7,8 +7,7 @@ GENERATED_DIR := generated-manifests
 
 # Docker images
 KUBE_LINTER_VERSION := 0.7.1
-KUBE_LINTER_ARCH := $(shell if [ "$(shell uname -m)" = "x86_64" ]; then echo "amd64"; else echo "arm64"; fi)
-KUBE_LINTER_IMAGE := ghcr.io/stackrox/kube-linter:v$(KUBE_LINTER_VERSION)-alpine-$(KUBE_LINTER_ARCH)
+KUBE_LINTER_IMAGE := ghcr.io/stackrox/kube-linter:v$(KUBE_LINTER_VERSION)
 HELM_DOCS_IMAGE := jnorwood/helm-docs:latest
 HELM_UNITTEST_IMAGE := helmunittest/helm-unittest:3.19.0-1.0.3
 KUBECONFORM_VERSION := v0.7.0
