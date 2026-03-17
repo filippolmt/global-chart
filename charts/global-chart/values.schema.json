@@ -104,6 +104,16 @@
             "memory": { "type": ["string", "number"] }
           },
           "additionalProperties": { "type": ["string", "number"] }
+        },
+        "claims": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" }
+            },
+            "required": ["name"]
+          }
         }
       },
       "additionalProperties": false
@@ -216,8 +226,42 @@
     "mountedConfigFiles": {
       "type": "object",
       "properties": {
-        "files": { "type": "array" },
-        "bundles": { "type": "array" }
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "filename": { "type": "string" },
+              "targetPath": { "type": "string" },
+              "mountPath": { "type": "string" },
+              "content": { "type": "string" }
+            },
+            "additionalProperties": false
+          }
+        },
+        "bundles": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "mountDir": { "type": "string" },
+              "files": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": { "type": "string" },
+                    "relPath": { "type": "string" },
+                    "content": { "type": "string" }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            },
+            "additionalProperties": false
+          }
+        }
       }
     },
     "deployment": {
@@ -554,7 +598,19 @@
           "type": "object",
           "additionalProperties": { "type": "string" }
         },
-        "tls": { "type": "array" },
+        "tls": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "hosts": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "secretName": { "type": "string" }
+            }
+          }
+        },
         "hosts": {
           "type": "array",
           "items": {
