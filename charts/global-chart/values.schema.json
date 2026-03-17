@@ -506,7 +506,8 @@
           "properties": {
             "key": { "type": "string" },
             "conversionStrategy": { "type": "string" },
-            "decodingStrategy": { "type": "string" }
+            "decodingStrategy": { "type": "string" },
+            "metadataPolicy": { "type": "string" }
           },
           "additionalProperties": false
         },
@@ -527,7 +528,8 @@
           "type": "object",
           "properties": {
             "creationPolicy": { "type": "string" },
-            "deletionPolicy": { "type": "string" }
+            "deletionPolicy": { "type": "string" },
+            "name": { "type": "string" }
           },
           "additionalProperties": false
         }

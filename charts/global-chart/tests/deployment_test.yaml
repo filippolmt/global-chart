@@ -827,6 +827,20 @@ tests:
           path: spec.selector.matchLabels.team
 
   # ====== Negative tests: fail/required paths ======
+  - it: should render correctly with numeric image tag
+    set:
+      deployments:
+        main:
+          image:
+            repository: myapp/api
+            tag: 1.25
+    asserts:
+      - isKind:
+          of: Deployment
+      - matchRegex:
+          path: spec.template.spec.containers[0].image
+          pattern: "myapp/api:1\\.25"
+
   # NOTE: Deploy-level CronJob/Hook image-required checks (cronjob.yaml:175, hook.yaml:259)
   # are unreachable in practice because deployment.yaml catches missing image first. Skipped.
 
