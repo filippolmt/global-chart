@@ -1783,6 +1783,26 @@ tests:
 
   # ====== Negative tests: fail/required paths ======
 
+  # ====== dnsConfig NOT inherited in deployment-level hooks ======
+  - it: should not inherit dnsConfig from deployment in deployment-level hook
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          dnsConfig:
+            nameservers:
+              - 8.8.8.8
+          hooks:
+            post-upgrade:
+              migrate:
+                command: ["./migrate.sh"]
+    documentIndex: 1
+    asserts:
+      - isKind:
+          of: Job
+      - isNull:
+          path: spec.template.spec.dnsConfig
+
   # ====== restartPolicy null-safe ======
   - it: should default restartPolicy to Never for root-level hook
     set:

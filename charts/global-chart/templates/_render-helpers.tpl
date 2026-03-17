@@ -9,7 +9,7 @@ Render a single volume entry. Supports both:
 */}}
 {{- define "global-chart.renderVolume" -}}
 {{- $vol := . -}}
-- name: {{ $vol.name }}
+- name: {{ required "renderVolume: every volume entry must have a 'name' field" $vol.name }}
 {{- if hasKey $vol "type" }}
   {{- /* Legacy format: translate .type to native */ -}}
   {{- if eq $vol.type "emptyDir" }}

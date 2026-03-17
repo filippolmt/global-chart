@@ -38,7 +38,7 @@ TEST_CASES := \
 .DEFAULT_GOAL := help
 
 # All phony targets
-.PHONY: help all lint-chart unit-test generate-templates \
+.PHONY: help all lint-chart unit-test validate-bad-values generate-templates \
 	kubeconform kube-linter-manifests kube-linter generate-docs package \
 	install install-test01 render clean clean-all
 
@@ -63,7 +63,7 @@ help: ## Show this help message
 # Main targets
 # ============================================================================
 
-all: lint-chart unit-test generate-templates kubeconform kube-linter ## Run lint, unit tests, generate, validate, and lint manifests
+all: lint-chart unit-test validate-bad-values generate-templates kubeconform kube-linter ## Run lint, unit tests, bad-values, generate, validate, and lint manifests
 
 lint-chart: ## Lint chart with all test values files
 	@echo "==> Linting chart with all test cases..."
@@ -78,6 +78,18 @@ unit-test: ## Run helm-unittest via Docker
 	@echo "==> Running helm unit tests..."
 	@docker run --rm -u $$(id -u):$$(id -g) -v $(CURDIR)/$(CHART_DIR)/$(GLOBAL_CHART_NAME):/apps -w /apps $(HELM_UNITTEST_IMAGE) .
 	@echo "==> All unit tests passed!"
+
+validate-bad-values: ## Verify that bad-values files are rejected by schema validation
+	@echo "==> Validating bad-values are correctly rejected..."
+	@set -e; for f in tests/bad-values/*.yaml; do \
+		if helm lint $(STRICT) -f "$$f" ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) >/dev/null 2>&1; then \
+			echo "    FAIL: $$f should have been rejected but was accepted"; \
+			exit 1; \
+		else \
+			echo "    OK: $$f correctly rejected"; \
+		fi; \
+	done
+	@echo "==> All bad-values correctly rejected!"
 
 # Internal: generate templates to a given directory
 define _helm_generate
@@ -142,8 +154,8 @@ kube-linter: kube-linter-manifests ## Run kube-linter on generated manifests
 
 generate-docs: ## Generate Helm documentation
 	@echo "==> Generating Helm docs..."
-	@docker run --rm --volume "$$(pwd)/$(CHART_DIR)/$(GLOBAL_CHART_NAME):/helm-docs" -u $$(id -u) $(HELM_DOCS_IMAGE) --sort-values-order file
-	@docker run --rm --volume "$$(pwd)/$(CHART_DIR)/$(RAW_CHART_NAME):/helm-docs" -u $$(id -u) $(HELM_DOCS_IMAGE) --sort-values-order file
+	@docker run --rm --volume "$(CURDIR)/$(CHART_DIR)/$(GLOBAL_CHART_NAME):/helm-docs" -u $$(id -u) $(HELM_DOCS_IMAGE) --sort-values-order file
+	@docker run --rm --volume "$(CURDIR)/$(CHART_DIR)/$(RAW_CHART_NAME):/helm-docs" -u $$(id -u) $(HELM_DOCS_IMAGE) --sort-values-order file
 	@echo "==> Documentation generated!"
 
 # ============================================================================

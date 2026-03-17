@@ -863,6 +863,20 @@ tests:
       - failedTemplate:
           errorMessage: "deployments.main.image must define a repository with tag/digest or be a full image reference"
 
+  - it: should fail when volume has no name
+    set:
+      deployments:
+        main:
+          image: "nginx:1.25"
+          volumes:
+            - emptyDir: {}
+          volumeMounts:
+            - name: myvol
+              mountPath: /mnt
+    asserts:
+      - failedTemplate:
+          errorPattern: "renderVolume: every volume entry must have a 'name' field"
+
   - it: should fail when volume uses unknown legacy type
     set:
       deployments:

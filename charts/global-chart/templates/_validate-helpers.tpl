@@ -5,7 +5,9 @@ Validation helpers for global-chart.
 {{/*
 Validate that all generated resource names are unique after truncation.
 Checks within each resource kind: Deployments, CronJobs, Jobs (hooks),
-ConfigMaps (including hook prerequisites), and Secrets (including hook prerequisites).
+hook-prerequisite ConfigMaps, and hook-prerequisite Secrets.
+Note: per-deployment resources (Service, SA, ConfigMap, Secret, HPA, PDB, NetworkPolicy)
+share the same name as the Deployment itself and are covered by the deployment name check.
 Called from validate.yaml.
 */}}
 {{- define "global-chart.validateNameCollisions" -}}
