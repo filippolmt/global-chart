@@ -10,6 +10,8 @@ KUBE_LINTER_VERSION := $(shell if [ "$(shell uname -m)" = "x86_64" ]; then echo 
 KUBE_LINTER_IMAGE := ghcr.io/stackrox/kube-linter:$(KUBE_LINTER_VERSION)
 HELM_DOCS_IMAGE := jnorwood/helm-docs:latest
 HELM_UNITTEST_IMAGE := helmunittest/helm-unittest:3.19.0-1.0.3
+KUBECONFORM_VERSION := v0.7.0
+KUBECONFORM_IMAGE := ghcr.io/yannh/kubeconform:$(KUBECONFORM_VERSION)
 
 # Test cases: values_file:namespace:slug
 # Used by lint-chart, generate-templates, and kube-linter
@@ -37,7 +39,7 @@ TEST_CASES := \
 
 # All phony targets
 .PHONY: help all lint-chart unit-test generate-templates \
-	kube-linter-manifests kube-linter generate-docs package \
+	kubeconform kube-linter-manifests kube-linter generate-docs package \
 	install install-test01 render clean clean-all
 
 # ============================================================================
@@ -61,7 +63,7 @@ help: ## Show this help message
 # Main targets
 # ============================================================================
 
-all: lint-chart unit-test generate-templates ## Run lint, unit tests and generate templates
+all: lint-chart unit-test generate-templates kubeconform kube-linter ## Run lint, unit tests, generate, validate, and lint manifests
 
 lint-chart: ## Lint chart with all test values files
 	@echo "==> Linting chart with all test cases..."
@@ -100,6 +102,24 @@ generate-templates: lint-chart ## Generate templates for all test cases
 	@echo "==> Templates generated in $(GENERATED_DIR)/"
 
 # ============================================================================
+# Kubeconform
+# ============================================================================
+
+kubeconform: generate-templates ## Validate generated manifests against K8s 1.29 schema
+	@echo "==> Running kubeconform..."
+	@docker run --rm \
+		-v $(CURDIR):/work \
+		$(KUBECONFORM_IMAGE) \
+		-kubernetes-version 1.29.0 \
+		-strict \
+		-summary \
+		-schema-location default \
+		-schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/external-secrets.io/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
+		-output pretty \
+		/work/$(GENERATED_DIR)
+	@echo "==> Kubeconform validation passed!"
+
+# ============================================================================
 # Kube-linter
 # ============================================================================
 
@@ -111,7 +131,7 @@ kube-linter-manifests: ## Generate manifests for kube-linter
 kube-linter: kube-linter-manifests ## Run kube-linter on generated manifests
 	@echo "==> Running kube-linter..."
 	@docker run --rm \
-		-v $(PWD):/workspace \
+		-v $(CURDIR):/workspace \
 		$(KUBE_LINTER_IMAGE) \
 		lint "/workspace/$(GENERATED_DIR)/kube-linter" \
 		--config "/workspace/.kube-linter-config.yaml"

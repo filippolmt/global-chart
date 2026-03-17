@@ -79,11 +79,12 @@ Plans:
   3. Users can configure liveness, readiness, and startup probes per deployment and they render correctly in the manifest
   4. Users can define a list of init containers per deployment that appear in the rendered pod spec
   5. Setting `global.commonLabels` or `global.commonAnnotations` applies them to every resource in the chart output
-**Plans**: TBD
+**Plans:** 3 plans
 
 Plans:
-- [ ] 04-01: TBD
-- [ ] 04-02: TBD
+- [ ] 04-01-PLAN.md — Add kubeconform Makefile target and promote kube-linter to CI (TEST-05)
+- [ ] 04-02-PLAN.md — Add global.commonLabels and global.commonAnnotations to all templates (FEAT-03)
+- [ ] 04-03-PLAN.md — Add tests for probes, init containers, and global labels/annotations (FEAT-01, FEAT-02, FEAT-03)
 
 ### Phase 5: Values Schema
 **Goal**: Chart consumers get immediate, descriptive validation errors for misconfigured values before any template rendering occurs
@@ -108,5 +109,5 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 | 1. Correctness Fixes | 2/3 | In Progress|  |
 | 2. Test Coverage | 0/3 | Planned | - |
 | 3. Template Deduplication | 0/2 | Not started | - |
-| 4. CI Pipeline & New Features | 0/? | Not started | - |
+| 4. CI Pipeline & New Features | 0/3 | Planned | - |
 | 5. Values Schema | 0/? | Not started | - |
