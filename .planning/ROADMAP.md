@@ -47,11 +47,12 @@ Plans:
   3. Deployment-level Hook inheritance is tested across all seven categories
   4. Deployment fields (strategy, probes, volumes, etc.) have dedicated coverage ensuring no regressions
   5. `make unit-test` passes with zero failures and test count is 243+
-**Plans**: TBD
+**Plans:** 3 plans
 
 Plans:
-- [ ] 02-01: TBD
-- [ ] 02-02: TBD
+- [ ] 02-01-PLAN.md — Negative tests for all fail/required paths across 8 test files (TEST-01)
+- [ ] 02-02-PLAN.md — Collision detection tests for validate.yaml (TEST-01)
+- [ ] 02-03-PLAN.md — Seven-category inheritance gaps for CronJob, Hook, and Deployment (TEST-02, TEST-03, TEST-04)
 
 ### Phase 3: Template Deduplication
 **Goal**: Hook and CronJob templates share a single pod spec helper, eliminating duplicated logic and reducing future maintenance to one location
@@ -62,11 +63,11 @@ Plans:
   2. A shared `global-chart.jobPodSpec` helper renders the pod spec for both hooks and cronjobs
   3. `cronjob.yaml` and `hook.yaml` contain only orchestration logic (iteration, job-type-specific fields), not pod spec rendering
   4. All 243+ existing tests pass without modification after the refactor
-**Plans**: TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] 03-01: TBD
-- [ ] 03-02: TBD
+- [ ] 03-01-PLAN.md — Split _helpers.tpl into domain-specific files (REFAC-02)
+- [ ] 03-02-PLAN.md — Extract shared inheritedJobPodSpec helper, refactor hook.yaml and cronjob.yaml (REFAC-01)
 
 ### Phase 4: CI Pipeline & New Features
 **Goal**: CI catches schema violations and best-practice issues automatically; chart supports probes, init containers, and global labels
@@ -105,7 +106,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Correctness Fixes | 2/3 | In Progress|  |
-| 2. Test Coverage | 0/? | Not started | - |
-| 3. Template Deduplication | 0/? | Not started | - |
+| 2. Test Coverage | 0/3 | Planned | - |
+| 3. Template Deduplication | 0/2 | Not started | - |
 | 4. CI Pipeline & New Features | 0/? | Not started | - |
 | 5. Values Schema | 0/? | Not started | - |
