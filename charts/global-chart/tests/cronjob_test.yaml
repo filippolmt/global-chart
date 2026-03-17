@@ -631,3 +631,26 @@ tests:
       - equal:
           path: spec.jobTemplate.spec.template.spec.restartPolicy
           value: "Never"
+
+  # ====== Negative tests: fail/required paths ======
+
+  - it: should fail when fromDeployment references non-existent deployment
+    set:
+      cronJobs:
+        cleanup:
+          schedule: "0 * * * *"
+          fromDeployment: ghost
+          command: ["./run.sh"]
+    asserts:
+      - failedTemplate:
+          errorPattern: "cronJobs.cleanup.fromDeployment references deployment 'ghost'"
+
+  - it: should fail when root-level cronJob has no image and no fromDeployment
+    set:
+      cronJobs:
+        cleanup:
+          schedule: "0 * * * *"
+          command: ["./run.sh"]
+    asserts:
+      - failedTemplate:
+          errorPattern: "image is required for cronJobs.cleanup"

@@ -1625,3 +1625,15 @@ tests:
           path: metadata.annotations["helm.sh/hook-delete-policy"]
           value: "before-hook-creation"
         documentIndex: 1
+
+  # ====== Negative tests: fail/required paths ======
+
+  - it: should fail when root-level hook has no image and no fromDeployment
+    set:
+      hooks:
+        post-install:
+          migrate:
+            command: ["./run.sh"]
+    asserts:
+      - failedTemplate:
+          errorPattern: "image is required for hooks.post-install.migrate"
