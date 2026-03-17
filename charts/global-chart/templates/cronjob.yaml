@@ -201,7 +201,8 @@ spec:
 
 {{- /* Use deployment's SA name if it exists, otherwise cronjob's own SA */ -}}
 {{- $deploymentSAName := "" -}}
-{{- if $deploySA.create -}}
+{{- $deploySACreate := ternary $deploySA.create true (hasKey $deploySA "create") -}}
+{{- if $deploySACreate -}}
   {{- $deploymentSAName = include "global-chart.deploymentServiceAccountName" (dict "root" $root "deploymentName" $deployName "deployment" $deploy) -}}
 {{- else if $deploySA.name -}}
   {{- /* Deployment references an existing SA - inherit it */ -}}

@@ -67,8 +67,11 @@ metadata:
     {{- with (include "global-chart.renderCommonAnnotations" $root) }}
     {{- . | nindent 4 }}
     {{- end }}
+    {{- $effectiveJobWeight := int (ternary $command.weight 10 (hasKey $command "weight")) }}
+    {{- $saWeight := sub $effectiveJobWeight 5 }}
+    {{- if lt $saWeight 0 }}{{ $saWeight = 0 }}{{ end }}
     "helm.sh/hook": {{ $hookType | quote }}
-    "helm.sh/hook-weight": "5"
+    "helm.sh/hook-weight": {{ $saWeight | quote }}
     "helm.sh/hook-delete-policy": {{ ternary $command.deletePolicy "before-hook-creation" (hasKey $command "deletePolicy") | quote }}
     {{- with $saAnnotations }}
     {{- toYaml . | nindent 4 }}
@@ -286,7 +289,8 @@ data:
   - Otherwise no deployment SA to inherit
 */ -}}
 {{- $deploymentSAName := "" -}}
-{{- if $deploySA.create -}}
+{{- $deploySACreate := ternary $deploySA.create true (hasKey $deploySA "create") -}}
+{{- if $deploySACreate -}}
   {{- $deploymentSAName = include "global-chart.deploymentServiceAccountName" (dict "root" $root "deploymentName" $deployName "deployment" $deploy) -}}
 {{- else if $deploySA.name -}}
   {{- /* Deployment references an existing SA - inherit it */ -}}
@@ -343,11 +347,14 @@ metadata:
     {{- include "global-chart.hookLabels" $root | nindent 4 }}
     app.kubernetes.io/component: {{ $deployName }}-hook
   annotations:
+    {{- $effectiveJobWeight := int (ternary $command.weight 10 (hasKey $command "weight")) }}
+    {{- $saWeight := sub $effectiveJobWeight 5 }}
+    {{- if lt $saWeight 0 }}{{ $saWeight = 0 }}{{ end }}
     {{- with (include "global-chart.renderCommonAnnotations" $root) }}
     {{- . | nindent 4 }}
     {{- end }}
     "helm.sh/hook": {{ $hookType | quote }}
-    "helm.sh/hook-weight": "5"
+    "helm.sh/hook-weight": {{ $saWeight | quote }}
     "helm.sh/hook-delete-policy": {{ ternary $command.deletePolicy "before-hook-creation" (hasKey $command "deletePolicy") | quote }}
     {{- with $saAnnotations }}
     {{- toYaml . | nindent 4 }}

@@ -191,15 +191,15 @@ tests:
     asserts:
       - isKind:
           of: CronJob
-        documentIndex: 1
+        documentIndex: 0
       - equal:
           path: spec.jobTemplate.spec.template.spec.hostAliases[0].ip
           value: "127.0.0.1"
-        documentIndex: 1
+        documentIndex: 0
       - equal:
           path: spec.jobTemplate.spec.template.spec.hostAliases[0].hostnames[0]
           value: "foo.local"
-        documentIndex: 1
+        documentIndex: 0
 
   - it: should allow cronjob to override inherited hostAliases
     set:
@@ -222,7 +222,7 @@ tests:
       - equal:
           path: spec.jobTemplate.spec.template.spec.hostAliases[0].ip
           value: "10.0.0.1"
-        documentIndex: 1
+        documentIndex: 0
 
   # ====== Deployment-level CronJob: explicit empty should NOT inherit ======
   - it: should not inherit hostAliases when cronjob sets empty list
@@ -242,10 +242,10 @@ tests:
     asserts:
       - isKind:
           of: CronJob
-        documentIndex: 1
+        documentIndex: 0
       - isNull:
           path: spec.jobTemplate.spec.template.spec.hostAliases
-        documentIndex: 1
+        documentIndex: 0
 
   - it: should not inherit podSecurityContext when cronjob sets empty map
     set:
@@ -262,10 +262,10 @@ tests:
     asserts:
       - isKind:
           of: CronJob
-        documentIndex: 1
+        documentIndex: 0
       - isNull:
           path: spec.jobTemplate.spec.template.spec.securityContext
-        documentIndex: 1
+        documentIndex: 0
 
   - it: should not inherit container securityContext when cronjob sets empty map
     set:
@@ -282,10 +282,10 @@ tests:
     asserts:
       - isKind:
           of: CronJob
-        documentIndex: 1
+        documentIndex: 0
       - isNull:
           path: spec.jobTemplate.spec.template.spec.containers[0].securityContext
-        documentIndex: 1
+        documentIndex: 0
 
   # ====== Deployment-level CronJob: explicit empty should NOT inherit (nodeSelector, affinity, tolerations, imagePullSecrets) ======
   - it: should allow cronjob to override nodeSelector with empty map
@@ -303,10 +303,10 @@ tests:
     asserts:
       - isKind:
           of: CronJob
-        documentIndex: 1
+        documentIndex: 0
       - isNull:
           path: spec.jobTemplate.spec.template.spec.nodeSelector
-        documentIndex: 1
+        documentIndex: 0
 
   - it: should allow cronjob to override tolerations with empty list
     set:
@@ -326,10 +326,10 @@ tests:
     asserts:
       - isKind:
           of: CronJob
-        documentIndex: 1
+        documentIndex: 0
       - isNull:
           path: spec.jobTemplate.spec.template.spec.tolerations
-        documentIndex: 1
+        documentIndex: 0
 
   - it: should allow cronjob to override affinity with empty map
     set:
@@ -352,10 +352,10 @@ tests:
     asserts:
       - isKind:
           of: CronJob
-        documentIndex: 1
+        documentIndex: 0
       - isNull:
           path: spec.jobTemplate.spec.template.spec.affinity
-        documentIndex: 1
+        documentIndex: 0
 
   - it: should allow cronjob to override imagePullSecrets with empty list
     set:
@@ -372,10 +372,10 @@ tests:
     asserts:
       - isKind:
           of: CronJob
-        documentIndex: 1
+        documentIndex: 0
       - isNull:
           path: spec.jobTemplate.spec.template.spec.imagePullSecrets
-        documentIndex: 1
+        documentIndex: 0
 
   # ====== Root-level CronJob securityContext ======
   - it: should render podSecurityContext on root-level cronjob
@@ -432,11 +432,11 @@ tests:
     asserts:
       - isKind:
           of: CronJob
-        documentIndex: 1
+        documentIndex: 0
       - equal:
           path: spec.jobTemplate.spec.template.spec.securityContext.runAsUser
           value: 1000
-        documentIndex: 1
+        documentIndex: 0
 
   - it: should inherit container securityContext from deployment in deployment-level cronjob
     set:
@@ -453,7 +453,7 @@ tests:
       - equal:
           path: spec.jobTemplate.spec.template.spec.containers[0].securityContext.runAsNonRoot
           value: true
-        documentIndex: 1
+        documentIndex: 0
 
   # ====== Deployment-level CronJob dnsConfig inheritance ======
   - it: should inherit dnsConfig from deployment in deployment-level cronjob
@@ -473,15 +473,15 @@ tests:
     asserts:
       - isKind:
           of: CronJob
-        documentIndex: 1
+        documentIndex: 0
       - equal:
           path: spec.jobTemplate.spec.template.spec.dnsConfig.nameservers[0]
           value: "8.8.8.8"
-        documentIndex: 1
+        documentIndex: 0
       - equal:
           path: spec.jobTemplate.spec.template.spec.dnsConfig.searches[0]
           value: "svc.cluster.local"
-        documentIndex: 1
+        documentIndex: 0
 
   # ====== global imagePullSecrets ======
   - it: should use global.imagePullSecrets when cronjob has none
@@ -571,11 +571,11 @@ tests:
     asserts:
       - isKind:
           of: CronJob
-        documentIndex: 1
+        documentIndex: 0
       - equal:
           path: spec.successfulJobsHistoryLimit
           value: 0
-        documentIndex: 1
+        documentIndex: 0
 
   - it: should render failedJobsHistoryLimit 0 on deployment-level cronjob
     set:
@@ -590,11 +590,11 @@ tests:
     asserts:
       - isKind:
           of: CronJob
-        documentIndex: 1
+        documentIndex: 0
       - equal:
           path: spec.failedJobsHistoryLimit
           value: 0
-        documentIndex: 1
+        documentIndex: 0
 
   - it: should still default successfulJobsHistoryLimit to 2 when not set
     set:
@@ -654,15 +654,15 @@ tests:
     asserts:
       - isKind:
           of: CronJob
-        documentIndex: 1
+        documentIndex: 0
       - equal:
           path: spec.jobTemplate.spec.template.spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].key
           value: zone
-        documentIndex: 1
+        documentIndex: 0
       - equal:
           path: spec.jobTemplate.spec.template.spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].operator
           value: In
-        documentIndex: 1
+        documentIndex: 0
 
   - it: should use cronJob podSecurityContext when both deployment and cronJob set it
     set:
@@ -680,11 +680,11 @@ tests:
     asserts:
       - isKind:
           of: CronJob
-        documentIndex: 1
+        documentIndex: 0
       - equal:
           path: spec.jobTemplate.spec.template.spec.securityContext.runAsUser
           value: 2000
-        documentIndex: 1
+        documentIndex: 0
 
   - it: should use cronJob securityContext when both deployment and cronJob set it
     set:
@@ -702,14 +702,14 @@ tests:
     asserts:
       - isKind:
           of: CronJob
-        documentIndex: 1
+        documentIndex: 0
       - equal:
           path: spec.jobTemplate.spec.template.spec.containers[0].securityContext.readOnlyRootFilesystem
           value: true
-        documentIndex: 1
+        documentIndex: 0
       - isNull:
           path: spec.jobTemplate.spec.template.spec.containers[0].securityContext.runAsNonRoot
-        documentIndex: 1
+        documentIndex: 0
 
   - it: should inherit imagePullSecrets from deployment in deployment-level cronjob
     set:
@@ -725,11 +725,11 @@ tests:
     asserts:
       - isKind:
           of: CronJob
-        documentIndex: 1
+        documentIndex: 0
       - equal:
           path: spec.jobTemplate.spec.template.spec.imagePullSecrets[0].name
           value: deploy-reg
-        documentIndex: 1
+        documentIndex: 0
 
   - it: should use cronJob imagePullSecrets when both deployment and cronJob set it
     set:
@@ -747,11 +747,11 @@ tests:
     asserts:
       - isKind:
           of: CronJob
-        documentIndex: 1
+        documentIndex: 0
       - equal:
           path: spec.jobTemplate.spec.template.spec.imagePullSecrets[0].name
           value: cron-reg
-        documentIndex: 1
+        documentIndex: 0
 
   - it: should render no nodeSelector when neither deployment nor cronjob sets it
     set:
@@ -765,10 +765,10 @@ tests:
     asserts:
       - isKind:
           of: CronJob
-        documentIndex: 1
+        documentIndex: 0
       - isNull:
           path: spec.jobTemplate.spec.template.spec.nodeSelector
-        documentIndex: 1
+        documentIndex: 0
 
   # ====== Negative tests: fail/required paths ======
 

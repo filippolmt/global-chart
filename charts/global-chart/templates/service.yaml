@@ -17,7 +17,7 @@ metadata:
   name: {{ $depFullname }}
   labels:
     {{- include "global-chart.deploymentLabels" $labelCtx | nindent 4 }}
-  {{- $svcAnnotations := default (dict) $svc.annotations }}
+  {{- $svcAnnotations := deepCopy (default (dict) $svc.annotations) }}
   {{- $commonAnnotations := default (dict) (default (dict) $root.Values.global).commonAnnotations }}
   {{- $mergedAnnotations := merge $svcAnnotations $commonAnnotations }}
   {{- with $mergedAnnotations }}
