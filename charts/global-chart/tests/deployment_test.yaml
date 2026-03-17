@@ -639,6 +639,44 @@ tests:
           path: spec.template.spec.containers[0].image
           value: "docker.io/nginx:1.25"
 
+  # ====== Deployment field gap closure ======
+
+  - it: should render affinity when set on deployment
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                  - matchExpressions:
+                      - key: zone
+                        operator: In
+                        values: ["us-east-1a"]
+    asserts:
+      - isNotNull:
+          path: spec.template.spec.affinity.nodeAffinity
+      - equal:
+          path: spec.template.spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].key
+          value: zone
+      - equal:
+          path: spec.template.spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].operator
+          value: In
+
+  - it: should not use global.imagePullSecrets when deployment sets empty list
+    set:
+      global:
+        imagePullSecrets:
+          - name: global-regcred
+      deployments:
+        main:
+          image: nginx:1.25
+          imagePullSecrets: []
+    asserts:
+      - isNull:
+          path: spec.template.spec.imagePullSecrets
+
   # ====== Negative tests: fail/required paths ======
   # NOTE: Deploy-level CronJob/Hook image-required checks (cronjob.yaml:175, hook.yaml:259)
   # are unreachable in practice because deployment.yaml catches missing image first. Skipped.
