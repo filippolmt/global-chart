@@ -137,7 +137,7 @@ containers:
     {{- toYaml $envVars | nindent 4 }}
   {{- end }}
   {{- with (include "global-chart.renderResources" (dict "resources" $job.resources "hasResources" (hasKey $job "resources") "defaults" $root.Values.defaults)) }}
-{{ . | indent 2 }}
+  {{- . | nindent 2 }}
   {{- end }}
   {{- with $job.volumeMounts }}
   volumeMounts:

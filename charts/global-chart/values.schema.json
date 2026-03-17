@@ -42,10 +42,15 @@
         "imagePullSecrets": {
           "type": "array",
           "items": {
-            "type": "object",
-            "properties": { "name": { "type": "string" } },
-            "required": ["name"],
-            "additionalProperties": false
+            "oneOf": [
+              { "type": "string" },
+              {
+                "type": "object",
+                "properties": { "name": { "type": "string" } },
+                "required": ["name"],
+                "additionalProperties": false
+              }
+            ]
           }
         },
         "commonLabels": {
@@ -301,6 +306,10 @@
         "resources": { "$ref": "#/$defs/resources" },
         "serviceAccount": { "$ref": "#/$defs/serviceAccount" },
         "serviceAccountName": { "type": ["string", "null"] },
+        "serviceAccountAnnotations": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
         "imagePullPolicy": {
           "type": "string",
           "enum": ["Always", "IfNotPresent", "Never"]
@@ -314,6 +323,7 @@
         "affinity": { "type": "object" },
         "hostAliases": { "type": "array" },
         "dnsConfig": { "$ref": "#/$defs/dnsConfig" },
+        "env": { "type": "array" },
         "envFromConfigMaps": {
           "type": "array",
           "items": { "type": "string" }
@@ -323,6 +333,7 @@
           "items": { "type": "string" }
         },
         "additionalEnvs": { "type": "array" },
+        "initContainers": { "type": "array" },
         "successfulJobsHistoryLimit": { "type": "integer", "minimum": 0 },
         "failedJobsHistoryLimit": { "type": "integer", "minimum": 0 },
         "annotations": {
@@ -335,7 +346,7 @@
         },
         "automountServiceAccountToken": { "type": "boolean" },
         "volumes": { "type": "array" },
-        "suspend": { "type": "boolean" },
+        "volumeMounts": { "type": "array" },
         "concurrencyPolicy": {
           "type": "string",
           "enum": ["Allow", "Forbid", "Replace"]
@@ -354,7 +365,12 @@
         "command": { "type": "array", "items": { "type": "string" } },
         "args": { "type": "array" },
         "resources": { "$ref": "#/$defs/resources" },
+        "serviceAccount": { "$ref": "#/$defs/serviceAccount" },
         "serviceAccountName": { "type": ["string", "null"] },
+        "serviceAccountAnnotations": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
         "imagePullPolicy": {
           "type": "string",
           "enum": ["Always", "IfNotPresent", "Never"]
@@ -368,6 +384,7 @@
         "affinity": { "type": "object" },
         "hostAliases": { "type": "array" },
         "dnsConfig": { "$ref": "#/$defs/dnsConfig" },
+        "env": { "type": "array" },
         "envFromConfigMaps": {
           "type": "array",
           "items": { "type": "string" }
@@ -377,6 +394,7 @@
           "items": { "type": "string" }
         },
         "additionalEnvs": { "type": "array" },
+        "initContainers": { "type": "array" },
         "successfulJobsHistoryLimit": { "type": "integer", "minimum": 0 },
         "failedJobsHistoryLimit": { "type": "integer", "minimum": 0 },
         "annotations": {
@@ -389,15 +407,14 @@
         },
         "automountServiceAccountToken": { "type": "boolean" },
         "volumes": { "type": "array" },
-        "suspend": { "type": "boolean" },
+        "volumeMounts": { "type": "array" },
         "concurrencyPolicy": {
           "type": "string",
           "enum": ["Allow", "Forbid", "Replace"]
         },
         "restartPolicy": { "type": "string" },
         "podSecurityContext": { "type": "object" },
-        "securityContext": { "type": "object" },
-        "env": { "type": "array" }
+        "securityContext": { "type": "object" }
       }
     },
     "hookJob": {
@@ -410,6 +427,10 @@
         "resources": { "$ref": "#/$defs/resources" },
         "serviceAccount": { "$ref": "#/$defs/serviceAccount" },
         "serviceAccountName": { "type": ["string", "null"] },
+        "serviceAccountAnnotations": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
         "imagePullPolicy": {
           "type": "string",
           "enum": ["Always", "IfNotPresent", "Never"]
@@ -423,6 +444,7 @@
         "affinity": { "type": "object" },
         "hostAliases": { "type": "array" },
         "dnsConfig": { "$ref": "#/$defs/dnsConfig" },
+        "env": { "type": "array" },
         "envFromConfigMaps": {
           "type": "array",
           "items": { "type": "string" }
@@ -444,10 +466,10 @@
         },
         "automountServiceAccountToken": { "type": "boolean" },
         "volumes": { "type": "array" },
+        "volumeMounts": { "type": "array" },
         "restartPolicy": { "type": "string" },
         "podSecurityContext": { "type": "object" },
-        "securityContext": { "type": "object" },
-        "env": { "type": "array" }
+        "securityContext": { "type": "object" }
       }
     },
     "deploymentHookJob": {
@@ -457,7 +479,12 @@
         "command": { "type": "array", "items": { "type": "string" } },
         "args": { "type": "array" },
         "resources": { "$ref": "#/$defs/resources" },
+        "serviceAccount": { "$ref": "#/$defs/serviceAccount" },
         "serviceAccountName": { "type": ["string", "null"] },
+        "serviceAccountAnnotations": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
         "imagePullPolicy": {
           "type": "string",
           "enum": ["Always", "IfNotPresent", "Never"]
@@ -471,6 +498,7 @@
         "affinity": { "type": "object" },
         "hostAliases": { "type": "array" },
         "dnsConfig": { "$ref": "#/$defs/dnsConfig" },
+        "env": { "type": "array" },
         "envFromConfigMaps": {
           "type": "array",
           "items": { "type": "string" }
@@ -492,10 +520,10 @@
         },
         "automountServiceAccountToken": { "type": "boolean" },
         "volumes": { "type": "array" },
+        "volumeMounts": { "type": "array" },
         "restartPolicy": { "type": "string" },
         "podSecurityContext": { "type": "object" },
-        "securityContext": { "type": "object" },
-        "env": { "type": "array" }
+        "securityContext": { "type": "object" }
       }
     },
     "externalSecret": {

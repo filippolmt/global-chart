@@ -203,6 +203,9 @@ spec:
 {{- $deploymentSAName := "" -}}
 {{- if $deploySA.create -}}
   {{- $deploymentSAName = include "global-chart.deploymentServiceAccountName" (dict "root" $root "deploymentName" $deployName "deployment" $deploy) -}}
+{{- else if $deploySA.name -}}
+  {{- /* Deployment references an existing SA - inherit it */ -}}
+  {{- $deploymentSAName = $deploySA.name -}}
 {{- end -}}
 
 {{- $saName := "" -}}

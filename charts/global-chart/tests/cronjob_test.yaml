@@ -808,3 +808,37 @@ tests:
       - equal:
           path: metadata.labels.team
           value: platform
+
+  # ====== Deployment-level CronJob SA inheritance (existing SA) ======
+  - it: should inherit existing SA name from deployment when create=false
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          serviceAccount:
+            create: false
+            name: my-existing-sa
+          cronJobs:
+            cleanup:
+              schedule: "0 4 * * *"
+              command: ["./cleanup.sh"]
+    documentIndex: 0
+    asserts:
+      - isKind:
+          of: CronJob
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.serviceAccountName
+          value: my-existing-sa
+
+  # ====== restartPolicy null-safe ======
+  - it: should default restartPolicy to Never when not set
+    set:
+      cronJobs:
+        backup:
+          schedule: "0 2 * * *"
+          image: busybox:1.36
+          command: ["echo", "backup"]
+    asserts:
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.restartPolicy
+          value: Never

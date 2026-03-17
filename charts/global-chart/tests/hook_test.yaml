@@ -1783,6 +1783,20 @@ tests:
 
   # ====== Negative tests: fail/required paths ======
 
+  # ====== restartPolicy null-safe ======
+  - it: should default restartPolicy to Never for root-level hook
+    set:
+      hooks:
+        post-install:
+          migrate:
+            image: myapp:v2
+            command: ["./migrate.sh"]
+    documentIndex: 1
+    asserts:
+      - equal:
+          path: spec.template.spec.restartPolicy
+          value: Never
+
   - it: should fail when root-level hook has no image and no fromDeployment
     set:
       hooks:
