@@ -33,6 +33,16 @@ spec:
   {{- if hasKey $deploy "progressDeadlineSeconds" }}
   progressDeadlineSeconds: {{ $deploy.progressDeadlineSeconds }}
   {{- end }}
+  {{- with $deploy.strategy }}
+  strategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- if hasKey $deploy "revisionHistoryLimit" }}
+  revisionHistoryLimit: {{ $deploy.revisionHistoryLimit }}
+  {{- end }}
+  {{- if hasKey $deploy "progressDeadlineSeconds" }}
+  progressDeadlineSeconds: {{ $deploy.progressDeadlineSeconds }}
+  {{- end }}
   selector:
     matchLabels:
       {{- include "global-chart.deploymentSelectorLabels" $labelCtx | nindent 6 }}
