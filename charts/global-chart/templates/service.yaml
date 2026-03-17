@@ -17,6 +17,10 @@ metadata:
   name: {{ $depFullname }}
   labels:
     {{- include "global-chart.deploymentLabels" $labelCtx | nindent 4 }}
+  {{- with (include "global-chart.renderCommonAnnotations" $root) }}
+  annotations:
+    {{- . | nindent 4 }}
+  {{- end }}
 spec:
   type: {{ ternary $svc.type "ClusterIP" (hasKey $svc "type") }}
   ports:

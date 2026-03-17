@@ -16,6 +16,10 @@ metadata:
   name: {{ $depFullname }}-md-cm-{{ $f.name }}
   labels:
     {{- include "global-chart.deploymentLabels" $labelCtx | nindent 4 }}
+  {{- with (include "global-chart.renderCommonAnnotations" $root) }}
+  annotations:
+    {{- . | nindent 4 }}
+  {{- end }}
 data:
   {{ $f.filename }}: |
     {{- $content := required (printf "deployments.%s.mountedConfigFiles.files[%d] (%s): 'content' is required" $name $i $f.name) $f.content -}}
@@ -33,6 +37,10 @@ metadata:
   name: {{ $depFullname }}-md-cm-{{ $f.name }}
   labels:
     {{- include "global-chart.deploymentLabels" $labelCtx | nindent 4 }}
+  {{- with (include "global-chart.renderCommonAnnotations" $root) }}
+  annotations:
+    {{- . | nindent 4 }}
+  {{- end }}
 data:
   {{ $f.relPath | base }}: |
     {{- $content := required (printf "deployments.%s.mountedConfigFiles.bundles[%d].files[%d] (%s): 'content' is required" $name $bi $fi $f.name) $f.content -}}

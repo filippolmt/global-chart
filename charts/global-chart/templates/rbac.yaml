@@ -23,9 +23,14 @@ metadata:
   namespace: {{ $root.Release.Namespace | quote }}
   labels:
     {{- include "global-chart.labels" $root | nindent 4 }}
-  {{- with $sa.annotations }}
+  {{- if or (include "global-chart.renderCommonAnnotations" $root) $sa.annotations }}
   annotations:
+    {{- with (include "global-chart.renderCommonAnnotations" $root) }}
+    {{- . | nindent 4 }}
+    {{- end }}
+    {{- with $sa.annotations }}
     {{- toYaml . | nindent 4 }}
+    {{- end }}
   {{- end }}
 automountServiceAccountToken: {{ hasKey $sa "automount" | ternary $sa.automount true }}
 ---
@@ -37,6 +42,10 @@ metadata:
   namespace: {{ $root.Release.Namespace | quote }}
   labels:
     {{- include "global-chart.labels" $root | nindent 4 }}
+  {{- with (include "global-chart.renderCommonAnnotations" $root) }}
+  annotations:
+    {{- . | nindent 4 }}
+  {{- end }}
 rules:
 {{- with $role.rules }}
 {{ toYaml . | indent 2 }}
@@ -57,6 +66,10 @@ metadata:
   namespace: {{ $root.Release.Namespace | quote }}
   labels:
     {{- include "global-chart.labels" $root | nindent 4 }}
+  {{- with (include "global-chart.renderCommonAnnotations" $root) }}
+  annotations:
+    {{- . | nindent 4 }}
+  {{- end }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role

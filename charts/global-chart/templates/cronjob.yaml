@@ -40,9 +40,14 @@ metadata:
   namespace: {{ $root.Release.Namespace | quote }}
   labels:
     {{- include "global-chart.labels" $root | nindent 4 }}
-  {{- with $job.serviceAccountAnnotations }}
+  {{- if or (include "global-chart.renderCommonAnnotations" $root) $job.serviceAccountAnnotations }}
   annotations:
+    {{- with (include "global-chart.renderCommonAnnotations" $root) }}
+    {{- . | nindent 4 }}
+    {{- end }}
+    {{- with $job.serviceAccountAnnotations }}
     {{- toYaml . | nindent 4 }}
+    {{- end }}
   {{- end }}
 automountServiceAccountToken: {{ ternary $job.automountServiceAccountToken true (hasKey $job "automountServiceAccountToken") }}
 {{- end }}
@@ -53,9 +58,14 @@ metadata:
   name: {{ $jobFullname }}
   labels:
     {{- include "global-chart.labels" $root | nindent 4 }}
-  {{- if $job.annotations }}
+  {{- if or (include "global-chart.renderCommonAnnotations" $root) $job.annotations }}
   annotations:
-    {{- toYaml $job.annotations | nindent 4 }}
+    {{- with (include "global-chart.renderCommonAnnotations" $root) }}
+    {{- . | nindent 4 }}
+    {{- end }}
+    {{- with $job.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
   {{- end }}
 spec:
   schedule: {{ $job.schedule | quote }}
@@ -63,8 +73,18 @@ spec:
   successfulJobsHistoryLimit: {{ ternary $job.successfulJobsHistoryLimit 2 (hasKey $job "successfulJobsHistoryLimit") }}
   failedJobsHistoryLimit: {{ ternary $job.failedJobsHistoryLimit 2 (hasKey $job "failedJobsHistoryLimit") }}
   jobTemplate:
+    metadata:
+      {{- with (include "global-chart.renderCommonAnnotations" $root) }}
+      annotations:
+        {{- . | nindent 8 }}
+      {{- end }}
     spec:
       template:
+        metadata:
+          {{- with (include "global-chart.renderCommonAnnotations" $root) }}
+          annotations:
+            {{- . | nindent 12 }}
+          {{- end }}
         spec:
           {{- /* ImagePullSecrets: job-level > global (hasKey distinguishes unset from empty) */ -}}
           {{- $cronImagePullSecrets := list -}}
@@ -229,9 +249,14 @@ metadata:
   labels:
     {{- include "global-chart.labels" $root | nindent 4 }}
     app.kubernetes.io/component: {{ $deployName }}
-  {{- with $saAnnotations }}
+  {{- if or (include "global-chart.renderCommonAnnotations" $root) $saAnnotations }}
   annotations:
+    {{- with (include "global-chart.renderCommonAnnotations" $root) }}
+    {{- . | nindent 4 }}
+    {{- end }}
+    {{- with $saAnnotations }}
     {{- toYaml . | nindent 4 }}
+    {{- end }}
   {{- end }}
 automountServiceAccountToken: {{ $saAutomount }}
 {{ end -}}
@@ -245,9 +270,14 @@ metadata:
   labels:
     {{- include "global-chart.labels" $root | nindent 4 }}
     app.kubernetes.io/component: {{ $deployName }}
-  {{- if $job.annotations }}
+  {{- if or (include "global-chart.renderCommonAnnotations" $root) $job.annotations }}
   annotations:
-    {{- toYaml $job.annotations | nindent 4 }}
+    {{- with (include "global-chart.renderCommonAnnotations" $root) }}
+    {{- . | nindent 4 }}
+    {{- end }}
+    {{- with $job.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
   {{- end }}
 spec:
   schedule: {{ $job.schedule | quote }}
@@ -255,8 +285,18 @@ spec:
   successfulJobsHistoryLimit: {{ ternary $job.successfulJobsHistoryLimit 2 (hasKey $job "successfulJobsHistoryLimit") }}
   failedJobsHistoryLimit: {{ ternary $job.failedJobsHistoryLimit 2 (hasKey $job "failedJobsHistoryLimit") }}
   jobTemplate:
+    metadata:
+      {{- with (include "global-chart.renderCommonAnnotations" $root) }}
+      annotations:
+        {{- . | nindent 8 }}
+      {{- end }}
     spec:
       template:
+        metadata:
+          {{- with (include "global-chart.renderCommonAnnotations" $root) }}
+          annotations:
+            {{- . | nindent 12 }}
+          {{- end }}
         spec:
           {{- $ctx := dict "root" $root "job" $job "deploy" $deploy "saName" $saName "imageRef" $imageRef "containerName" $name "configMapRef" $deployFullname "secretRef" $deployFullname "inheritDnsConfig" true "renderInitContainers" true }}
           {{- include "global-chart.inheritedJobPodSpec" $ctx | trimPrefix "\n" | nindent 10 }}

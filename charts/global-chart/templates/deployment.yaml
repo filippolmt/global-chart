@@ -15,6 +15,10 @@ metadata:
   name: {{ $depFullname }}
   labels:
     {{- include "global-chart.deploymentLabels" $labelCtx | nindent 4 }}
+  {{- with (include "global-chart.renderCommonAnnotations" $root) }}
+  annotations:
+    {{- . | nindent 4 }}
+  {{- end }}
 spec:
   {{- if not $autoscaling.enabled }}
   replicas: {{ ternary $deploy.replicaCount 2 (hasKey $deploy "replicaCount") }}
@@ -35,6 +39,9 @@ spec:
   template:
     metadata:
       annotations:
+        {{- with (include "global-chart.renderCommonAnnotations" $root) }}
+        {{- . | nindent 8 }}
+        {{- end }}
         checksum/config: {{ toYaml $deploy.configMap | sha256sum }}
         checksum/secret: {{ toYaml $deploy.secret | sha256sum }}
         checksum/mounted-config-files: {{ toYaml $deploy.mountedConfigFiles | sha256sum }}

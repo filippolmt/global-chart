@@ -64,6 +64,9 @@ metadata:
   labels:
     {{- include "global-chart.hookLabelsWithComponent" $root | nindent 4 }}
   annotations:
+    {{- with (include "global-chart.renderCommonAnnotations" $root) }}
+    {{- . | nindent 4 }}
+    {{- end }}
     "helm.sh/hook": {{ $hookType | quote }}
     "helm.sh/hook-weight": "5"
     "helm.sh/hook-delete-policy": {{ ternary $command.deletePolicy "before-hook-creation" (hasKey $command "deletePolicy") | quote }}
@@ -80,6 +83,9 @@ metadata:
   labels:
     {{- include "global-chart.hookLabelsWithComponent" $root | nindent 4 }}
   annotations:
+    {{- with (include "global-chart.renderCommonAnnotations" $root) }}
+    {{- . | nindent 4 }}
+    {{- end }}
     "helm.sh/hook": {{ $hookType | quote }}
     "helm.sh/hook-weight": {{ ternary $command.weight "10" (hasKey $command "weight") | quote }}
     "helm.sh/hook-delete-policy": {{ ternary $command.deletePolicy "before-hook-creation" (hasKey $command "deletePolicy") | quote }}
@@ -89,6 +95,10 @@ spec:
       name: {{ $hookFullname }}
       labels:
         {{- include "global-chart.hookLabelsWithComponent" $root | nindent 8 }}
+      {{- with (include "global-chart.renderCommonAnnotations" $root) }}
+      annotations:
+        {{- . | nindent 8 }}
+      {{- end }}
     spec:
       serviceAccountName: {{ $saName | quote }}
       {{- /* ImagePullSecrets: hook-level > global (hasKey distinguishes unset from empty) */ -}}
@@ -204,6 +214,9 @@ metadata:
     {{- include "global-chart.hookLabels" $root | nindent 4 }}
     app.kubernetes.io/component: {{ $deployName }}-hook
   annotations:
+    {{- with (include "global-chart.renderCommonAnnotations" $root) }}
+    {{- . | nindent 4 }}
+    {{- end }}
     "helm.sh/hook": {{ $allHookTypes | quote }}
     "helm.sh/hook-weight": "3"
     "helm.sh/hook-delete-policy": "before-hook-creation"
@@ -227,6 +240,9 @@ metadata:
     {{- include "global-chart.hookLabels" $root | nindent 4 }}
     app.kubernetes.io/component: {{ $deployName }}-hook
   annotations:
+    {{- with (include "global-chart.renderCommonAnnotations" $root) }}
+    {{- . | nindent 4 }}
+    {{- end }}
     "helm.sh/hook": {{ $allHookTypes | quote }}
     "helm.sh/hook-weight": "3"
     "helm.sh/hook-delete-policy": "before-hook-creation"
@@ -327,6 +343,9 @@ metadata:
     {{- include "global-chart.hookLabels" $root | nindent 4 }}
     app.kubernetes.io/component: {{ $deployName }}-hook
   annotations:
+    {{- with (include "global-chart.renderCommonAnnotations" $root) }}
+    {{- . | nindent 4 }}
+    {{- end }}
     "helm.sh/hook": {{ $hookType | quote }}
     "helm.sh/hook-weight": "5"
     "helm.sh/hook-delete-policy": {{ ternary $command.deletePolicy "before-hook-creation" (hasKey $command "deletePolicy") | quote }}
@@ -344,6 +363,9 @@ metadata:
     {{- include "global-chart.hookLabels" $root | nindent 4 }}
     app.kubernetes.io/component: {{ $deployName }}-hook
   annotations:
+    {{- with (include "global-chart.renderCommonAnnotations" $root) }}
+    {{- . | nindent 4 }}
+    {{- end }}
     "helm.sh/hook": {{ $hookType | quote }}
     "helm.sh/hook-weight": {{ ternary $command.weight "10" (hasKey $command "weight") | quote }}
     "helm.sh/hook-delete-policy": {{ ternary $command.deletePolicy "before-hook-creation" (hasKey $command "deletePolicy") | quote }}
@@ -354,6 +376,10 @@ spec:
       labels:
         {{- include "global-chart.hookLabels" $root | nindent 8 }}
         app.kubernetes.io/component: {{ $deployName }}-hook
+      {{- with (include "global-chart.renderCommonAnnotations" $root) }}
+      annotations:
+        {{- . | nindent 8 }}
+      {{- end }}
     spec:
       {{- $configMapRef := printf "%s-hook-config" $deployFullname }}
       {{- $secretRef := printf "%s-hook-secret" $deployFullname }}

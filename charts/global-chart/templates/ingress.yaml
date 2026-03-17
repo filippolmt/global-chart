@@ -3,13 +3,16 @@
 {{- $ing := $root.Values.ingress }}
 {{- $fullName := include "global-chart.fullname" $root }}
 {{- $annotations := deepCopy (default (dict) $ing.annotations) }}
+{{- $global := default (dict) $root.Values.global }}
+{{- $commonAnnotations := default (dict) $global.commonAnnotations }}
+{{- $mergedAnnotations := merge $annotations $commonAnnotations }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: {{ $fullName }}
   labels:
     {{- include "global-chart.labels" $root | nindent 4 }}
-  {{- with $annotations }}
+  {{- with $mergedAnnotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}
