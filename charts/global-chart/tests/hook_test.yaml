@@ -1764,6 +1764,23 @@ tests:
           of: Job
         documentIndex: 3
 
+  # ====== global.commonLabels ======
+  - it: should render global.commonLabels on hook job metadata
+    set:
+      global:
+        commonLabels:
+          team: platform
+      hooks:
+        post-install:
+          migrate:
+            image: myapp:v1
+            command: ["./migrate.sh"]
+    asserts:
+      - equal:
+          path: metadata.labels.team
+          value: platform
+        documentIndex: 1
+
   # ====== Negative tests: fail/required paths ======
 
   - it: should fail when root-level hook has no image and no fromDeployment

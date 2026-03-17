@@ -123,3 +123,32 @@ tests:
       - equal:
           path: metadata.labels["app.kubernetes.io/version"]
           value: "1.3.0"
+
+  # ====== global.commonLabels in labels helpers ======
+  - it: should include global.commonLabels in deployment labels
+    set:
+      global:
+        commonLabels:
+          team: platform
+          env: production
+      deployments:
+        main:
+          image: nginx:1.25
+    asserts:
+      - isSubset:
+          path: metadata.labels
+          content:
+            team: platform
+            env: production
+
+  - it: should not include global.commonLabels in deployment selector labels
+    set:
+      global:
+        commonLabels:
+          team: platform
+      deployments:
+        main:
+          image: nginx:1.25
+    asserts:
+      - notExists:
+          path: spec.selector.matchLabels.team

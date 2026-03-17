@@ -86,3 +86,19 @@ tests:
     asserts:
       - hasDocuments:
           count: 2
+
+  # ====== global.commonLabels ======
+  - it: should render global.commonLabels on configmap metadata
+    set:
+      global:
+        commonLabels:
+          team: platform
+      deployments:
+        main:
+          image: nginx:1.25
+          configMap:
+            APP_ENV: production
+    asserts:
+      - equal:
+          path: metadata.labels.team
+          value: platform

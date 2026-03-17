@@ -115,3 +115,17 @@ tests:
       - equal:
           path: spec.ports[0].name
           value: api
+
+  # ====== global.commonLabels ======
+  - it: should render global.commonLabels on service metadata
+    set:
+      global:
+        commonLabels:
+          team: platform
+      deployments:
+        main:
+          image: nginx:1.25
+    asserts:
+      - equal:
+          path: metadata.labels.team
+          value: platform

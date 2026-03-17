@@ -773,6 +773,59 @@ tests:
       - isNull:
           path: spec.template.spec.imagePullSecrets
 
+  # ====== global.commonLabels / global.commonAnnotations ======
+
+  - it: should render global.commonLabels on deployment metadata
+    set:
+      global:
+        commonLabels:
+          team: platform
+      deployments:
+        main:
+          image: nginx:1.25
+    asserts:
+      - equal:
+          path: metadata.labels.team
+          value: platform
+
+  - it: should render global.commonAnnotations on deployment metadata
+    set:
+      global:
+        commonAnnotations:
+          owner: ops-team
+      deployments:
+        main:
+          image: nginx:1.25
+    asserts:
+      - equal:
+          path: metadata.annotations.owner
+          value: ops-team
+
+  - it: should render global.commonAnnotations on pod template
+    set:
+      global:
+        commonAnnotations:
+          owner: ops-team
+      deployments:
+        main:
+          image: nginx:1.25
+    asserts:
+      - equal:
+          path: spec.template.metadata.annotations.owner
+          value: ops-team
+
+  - it: should not add global.commonLabels to selector matchLabels
+    set:
+      global:
+        commonLabels:
+          team: platform
+      deployments:
+        main:
+          image: nginx:1.25
+    asserts:
+      - notExists:
+          path: spec.selector.matchLabels.team
+
   # ====== Negative tests: fail/required paths ======
   # NOTE: Deploy-level CronJob/Hook image-required checks (cronjob.yaml:175, hook.yaml:259)
   # are unreachable in practice because deployment.yaml catches missing image first. Skipped.

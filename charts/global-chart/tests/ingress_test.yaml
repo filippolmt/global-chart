@@ -309,3 +309,26 @@ tests:
     asserts:
       - failedTemplate:
           errorPattern: "must specify either 'deployment'.*or 'service.name'"
+
+  # ====== global.commonLabels ======
+  - it: should render global.commonLabels on ingress metadata
+    set:
+      global:
+        commonLabels:
+          team: platform
+      deployments:
+        main:
+          image: nginx:1.25
+      ingress:
+        enabled: true
+        className: nginx
+        hosts:
+          - host: example.com
+            deployment: main
+            paths:
+              - path: /
+                pathType: Prefix
+    asserts:
+      - equal:
+          path: metadata.labels.team
+          value: platform

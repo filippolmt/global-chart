@@ -792,3 +792,19 @@ tests:
     asserts:
       - failedTemplate:
           errorPattern: "image is required for cronJobs.cleanup"
+
+  # ====== global.commonLabels ======
+  - it: should render global.commonLabels on cronjob metadata
+    set:
+      global:
+        commonLabels:
+          team: platform
+      cronJobs:
+        backup:
+          schedule: "0 2 * * *"
+          image: busybox:1.36
+          command: ["echo", "backup"]
+    asserts:
+      - equal:
+          path: metadata.labels.team
+          value: platform
