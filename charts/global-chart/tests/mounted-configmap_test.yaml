@@ -94,7 +94,7 @@ tests:
       name: myrel
     set:
       deployments:
-        a]very-long-deployment-name-that-pushes-over:
+        a-very-long-deployment-name-that-pushes-over:
           image: nginx:1.25
           mountedConfigFiles:
             files:
