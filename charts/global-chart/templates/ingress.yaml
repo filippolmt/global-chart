@@ -48,8 +48,11 @@ spec:
         {{- if ne (include "global-chart.deploymentEnabled" (dict "deploy" $deploy)) "true" -}}
           {{- fail (printf "ingress host '%s' references deployment '%s' which has enabled: false (its Service will not be created)" $hostEntry.host $depName) -}}
         {{- end -}}
-        {{- $svcName = include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $depName) -}}
         {{- $depSvc := default (dict) $deploy.service -}}
+        {{- if and (hasKey $depSvc "enabled") (not $depSvc.enabled) -}}
+          {{- fail (printf "Ingress host '%s' references deployment '%s' which has service.enabled: false. Enable the service or remove the ingress rule." $hostEntry.host $depName) -}}
+        {{- end -}}
+        {{- $svcName = include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $depName) -}}
         {{- $svcPort = ternary $depSvc.port 80 (hasKey $depSvc "port") -}}
       {{- /* Priority 3: Error - must specify deployment or service */ -}}
       {{- else -}}
