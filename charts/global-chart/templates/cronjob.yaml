@@ -30,7 +30,7 @@
 
 {{- /* ServiceAccount - create own or use explicit name */ -}}
 {{- $saCreate := and (hasKey $job "serviceAccount") (hasKey $job.serviceAccount "create") $job.serviceAccount.create }}
-{{- $saName := default $jobFullname $job.serviceAccountName }}
+{{- $saName := ternary $job.serviceAccountName $jobFullname (hasKey $job "serviceAccountName") }}
 {{- if $saCreate }}
 ---
 apiVersion: v1
@@ -44,7 +44,7 @@ metadata:
   annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}
-automountServiceAccountToken: {{ default true $job.automountServiceAccountToken }}
+automountServiceAccountToken: {{ ternary $job.automountServiceAccountToken true (hasKey $job "automountServiceAccountToken") }}
 {{- end }}
 ---
 apiVersion: batch/v1
@@ -59,9 +59,9 @@ metadata:
   {{- end }}
 spec:
   schedule: {{ $job.schedule | quote }}
-  concurrencyPolicy: {{ default "Forbid" $job.concurrencyPolicy | quote }}
-  successfulJobsHistoryLimit: {{ default 2 $job.successfulJobsHistoryLimit }}
-  failedJobsHistoryLimit: {{ default 2 $job.failedJobsHistoryLimit }}
+  concurrencyPolicy: {{ ternary $job.concurrencyPolicy "Forbid" (hasKey $job "concurrencyPolicy") | quote }}
+  successfulJobsHistoryLimit: {{ ternary $job.successfulJobsHistoryLimit 2 (hasKey $job "successfulJobsHistoryLimit") }}
+  failedJobsHistoryLimit: {{ ternary $job.failedJobsHistoryLimit 2 (hasKey $job "failedJobsHistoryLimit") }}
   jobTemplate:
     spec:
       template:
@@ -149,7 +149,7 @@ spec:
           tolerations:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-          restartPolicy: {{ default "Never" $job.restartPolicy | quote }}
+          restartPolicy: {{ ternary $job.restartPolicy "Never" (hasKey $job "restartPolicy") | quote }}
 {{- end }}
 {{- end }}
 {{- end }}
@@ -202,7 +202,7 @@ spec:
 {{- if hasKey $jobSAMap "create" -}}
   {{- $saCreate = $jobSAMap.create -}}
   {{- if $saCreate -}}
-    {{- $saName = default $jobFullname $jobSAMap.name -}}
+    {{- $saName = ternary $jobSAMap.name $jobFullname (hasKey $jobSAMap "name") -}}
   {{- end -}}
 {{- end -}}
 
@@ -254,9 +254,9 @@ metadata:
   {{- end }}
 spec:
   schedule: {{ $job.schedule | quote }}
-  concurrencyPolicy: {{ default "Forbid" $job.concurrencyPolicy | quote }}
-  successfulJobsHistoryLimit: {{ default 2 $job.successfulJobsHistoryLimit }}
-  failedJobsHistoryLimit: {{ default 2 $job.failedJobsHistoryLimit }}
+  concurrencyPolicy: {{ ternary $job.concurrencyPolicy "Forbid" (hasKey $job "concurrencyPolicy") | quote }}
+  successfulJobsHistoryLimit: {{ ternary $job.successfulJobsHistoryLimit 2 (hasKey $job "successfulJobsHistoryLimit") }}
+  failedJobsHistoryLimit: {{ ternary $job.failedJobsHistoryLimit 2 (hasKey $job "failedJobsHistoryLimit") }}
   jobTemplate:
     spec:
       template:
@@ -397,7 +397,7 @@ spec:
           tolerations:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-          restartPolicy: {{ default "Never" $job.restartPolicy | quote }}
+          restartPolicy: {{ ternary $job.restartPolicy "Never" (hasKey $job "restartPolicy") | quote }}
 {{ end }}
 {{- end }}
 {{- end }}

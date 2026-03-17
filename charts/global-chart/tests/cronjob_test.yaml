@@ -514,3 +514,120 @@ tests:
       - equal:
           path: spec.jobTemplate.spec.template.spec.containers[0].image
           value: "registry.example.com/myapp:v1"
+
+  # ====== falsy masking fixes ======
+  - it: should render successfulJobsHistoryLimit 0 when explicitly set on root-level cronjob
+    set:
+      cronJobs:
+        cleanup:
+          schedule: "0 4 * * *"
+          image: busybox:1.36
+          command: ["./cleanup.sh"]
+          successfulJobsHistoryLimit: 0
+    asserts:
+      - equal:
+          path: spec.successfulJobsHistoryLimit
+          value: 0
+
+  - it: should render failedJobsHistoryLimit 0 when explicitly set on root-level cronjob
+    set:
+      cronJobs:
+        cleanup:
+          schedule: "0 4 * * *"
+          image: busybox:1.36
+          command: ["./cleanup.sh"]
+          failedJobsHistoryLimit: 0
+    asserts:
+      - equal:
+          path: spec.failedJobsHistoryLimit
+          value: 0
+
+  - it: should render automountServiceAccountToken false on root-level cronjob SA
+    set:
+      cronJobs:
+        cleanup:
+          schedule: "0 4 * * *"
+          image: busybox:1.36
+          command: ["./cleanup.sh"]
+          serviceAccount:
+            create: true
+          automountServiceAccountToken: false
+    asserts:
+      - equal:
+          path: automountServiceAccountToken
+          value: false
+        documentIndex: 0
+
+  - it: should render successfulJobsHistoryLimit 0 on deployment-level cronjob
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          cronJobs:
+            cleanup:
+              schedule: "0 4 * * *"
+              command: ["./cleanup.sh"]
+              successfulJobsHistoryLimit: 0
+    asserts:
+      - isKind:
+          of: CronJob
+        documentIndex: 1
+      - equal:
+          path: spec.successfulJobsHistoryLimit
+          value: 0
+        documentIndex: 1
+
+  - it: should render failedJobsHistoryLimit 0 on deployment-level cronjob
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          cronJobs:
+            cleanup:
+              schedule: "0 4 * * *"
+              command: ["./cleanup.sh"]
+              failedJobsHistoryLimit: 0
+    asserts:
+      - isKind:
+          of: CronJob
+        documentIndex: 1
+      - equal:
+          path: spec.failedJobsHistoryLimit
+          value: 0
+        documentIndex: 1
+
+  - it: should still default successfulJobsHistoryLimit to 2 when not set
+    set:
+      cronJobs:
+        cleanup:
+          schedule: "0 4 * * *"
+          image: busybox:1.36
+          command: ["./cleanup.sh"]
+    asserts:
+      - equal:
+          path: spec.successfulJobsHistoryLimit
+          value: 2
+
+  - it: should still default concurrencyPolicy to Forbid when not set
+    set:
+      cronJobs:
+        cleanup:
+          schedule: "0 4 * * *"
+          image: busybox:1.36
+          command: ["./cleanup.sh"]
+    asserts:
+      - equal:
+          path: spec.concurrencyPolicy
+          value: "Forbid"
+
+  - it: should still default restartPolicy to Never when not set
+    set:
+      cronJobs:
+        cleanup:
+          schedule: "0 4 * * *"
+          image: busybox:1.36
+          command: ["./cleanup.sh"]
+    asserts:
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.restartPolicy
+          value: "Never"
