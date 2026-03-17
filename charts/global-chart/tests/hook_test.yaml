@@ -1626,6 +1626,144 @@ tests:
           value: "before-hook-creation"
         documentIndex: 1
 
+  # ====== Seven-category: default assertions ======
+
+  - it: should render no nodeSelector when neither deployment nor hook sets it
+    set:
+      deployments:
+        backend:
+          image: myapp:v1
+          serviceAccount:
+            create: true
+          hooks:
+            pre-install:
+              migrate:
+                command: ["./migrate.sh"]
+    asserts:
+      - isKind:
+          of: Job
+        documentIndex: 0
+      - isNull:
+          path: spec.template.spec.nodeSelector
+        documentIndex: 0
+
+  # ====== Hook prerequisite partial tests ======
+
+  - it: should not create prerequisite ConfigMap when deployment has no configMap
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          serviceAccount:
+            create: true
+          secret:
+            DB_PASSWORD: secret123
+          hooks:
+            pre-install:
+              migrate:
+                command: ["./migrate.sh"]
+    asserts:
+      # Documents: Secret prereq (0), Job (1) — no ConfigMap prereq
+      - hasDocuments:
+          count: 2
+      - isKind:
+          of: Secret
+        documentIndex: 0
+      - isKind:
+          of: Job
+        documentIndex: 1
+
+  - it: should create only ConfigMap prereq when deployment has configMap but no secret
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          serviceAccount:
+            create: true
+          configMap:
+            DB_HOST: postgres
+          hooks:
+            pre-install:
+              migrate:
+                command: ["./migrate.sh"]
+    asserts:
+      # Documents: ConfigMap prereq (0), Job (1) — no Secret prereq
+      - hasDocuments:
+          count: 2
+      - isKind:
+          of: ConfigMap
+        documentIndex: 0
+      - equal:
+          path: metadata.annotations["helm.sh/hook"]
+          value: "pre-install"
+        documentIndex: 0
+      - isKind:
+          of: Job
+        documentIndex: 1
+
+  - it: should create only Secret prereq when deployment has secret but no configMap
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          serviceAccount:
+            create: true
+          secret:
+            DB_PASSWORD: secret123
+          hooks:
+            pre-install:
+              migrate:
+                command: ["./migrate.sh"]
+    asserts:
+      # Documents: Secret prereq (0), Job (1) — no ConfigMap prereq
+      - hasDocuments:
+          count: 2
+      - isKind:
+          of: Secret
+        documentIndex: 0
+      - equal:
+          path: metadata.annotations["helm.sh/hook"]
+          value: "pre-install"
+        documentIndex: 0
+      - isKind:
+          of: Job
+        documentIndex: 1
+
+  - it: should share single prereq set across multiple hook commands
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          serviceAccount:
+            create: true
+          configMap:
+            DB_HOST: postgres
+          secret:
+            DB_PASSWORD: secret123
+          hooks:
+            pre-install:
+              migrate:
+                command: ["./migrate.sh"]
+              seed:
+                command: ["./seed.sh"]
+    asserts:
+      # Documents: ConfigMap prereq (0), Secret prereq (1), Job migrate (2), Job seed (3)
+      # Only 1 ConfigMap + 1 Secret prereq, NOT 2 each
+      - hasDocuments:
+          count: 4
+      - isKind:
+          of: ConfigMap
+        documentIndex: 0
+      - isKind:
+          of: Secret
+        documentIndex: 1
+      - isKind:
+          of: Job
+        documentIndex: 2
+      - isKind:
+          of: Job
+        documentIndex: 3
+
   # ====== Negative tests: fail/required paths ======
 
   - it: should fail when root-level hook has no image and no fromDeployment

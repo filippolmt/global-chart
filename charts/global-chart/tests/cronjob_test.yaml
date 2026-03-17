@@ -632,6 +632,144 @@ tests:
           path: spec.jobTemplate.spec.template.spec.restartPolicy
           value: "Never"
 
+  # ====== Seven-category inheritance gaps ======
+
+  - it: should inherit affinity from deployment in deployment-level cronjob
+    set:
+      deployments:
+        backend:
+          image: myapp:v1
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                  - matchExpressions:
+                      - key: zone
+                        operator: In
+                        values: ["us-east-1a"]
+          cronJobs:
+            cleanup:
+              schedule: "0 4 * * *"
+              command: ["./cleanup.sh"]
+    asserts:
+      - isKind:
+          of: CronJob
+        documentIndex: 1
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].key
+          value: zone
+        documentIndex: 1
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].operator
+          value: In
+        documentIndex: 1
+
+  - it: should use cronJob podSecurityContext when both deployment and cronJob set it
+    set:
+      deployments:
+        backend:
+          image: myapp:v1
+          podSecurityContext:
+            runAsUser: 1000
+          cronJobs:
+            cleanup:
+              schedule: "0 4 * * *"
+              command: ["./cleanup.sh"]
+              podSecurityContext:
+                runAsUser: 2000
+    asserts:
+      - isKind:
+          of: CronJob
+        documentIndex: 1
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.securityContext.runAsUser
+          value: 2000
+        documentIndex: 1
+
+  - it: should use cronJob securityContext when both deployment and cronJob set it
+    set:
+      deployments:
+        backend:
+          image: myapp:v1
+          securityContext:
+            runAsNonRoot: true
+          cronJobs:
+            cleanup:
+              schedule: "0 4 * * *"
+              command: ["./cleanup.sh"]
+              securityContext:
+                readOnlyRootFilesystem: true
+    asserts:
+      - isKind:
+          of: CronJob
+        documentIndex: 1
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.containers[0].securityContext.readOnlyRootFilesystem
+          value: true
+        documentIndex: 1
+      - isNull:
+          path: spec.jobTemplate.spec.template.spec.containers[0].securityContext.runAsNonRoot
+        documentIndex: 1
+
+  - it: should inherit imagePullSecrets from deployment in deployment-level cronjob
+    set:
+      deployments:
+        backend:
+          image: myapp:v1
+          imagePullSecrets:
+            - name: deploy-reg
+          cronJobs:
+            cleanup:
+              schedule: "0 4 * * *"
+              command: ["./cleanup.sh"]
+    asserts:
+      - isKind:
+          of: CronJob
+        documentIndex: 1
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.imagePullSecrets[0].name
+          value: deploy-reg
+        documentIndex: 1
+
+  - it: should use cronJob imagePullSecrets when both deployment and cronJob set it
+    set:
+      deployments:
+        backend:
+          image: myapp:v1
+          imagePullSecrets:
+            - name: deploy-reg
+          cronJobs:
+            cleanup:
+              schedule: "0 4 * * *"
+              command: ["./cleanup.sh"]
+              imagePullSecrets:
+                - name: cron-reg
+    asserts:
+      - isKind:
+          of: CronJob
+        documentIndex: 1
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.imagePullSecrets[0].name
+          value: cron-reg
+        documentIndex: 1
+
+  - it: should render no nodeSelector when neither deployment nor cronjob sets it
+    set:
+      deployments:
+        backend:
+          image: myapp:v1
+          cronJobs:
+            cleanup:
+              schedule: "0 4 * * *"
+              command: ["./cleanup.sh"]
+    asserts:
+      - isKind:
+          of: CronJob
+        documentIndex: 1
+      - isNull:
+          path: spec.jobTemplate.spec.template.spec.nodeSelector
+        documentIndex: 1
+
   # ====== Negative tests: fail/required paths ======
 
   - it: should fail when fromDeployment references non-existent deployment
