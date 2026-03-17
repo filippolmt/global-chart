@@ -30,7 +30,7 @@
 
 {{- /* ServiceAccount - create own or use explicit name */ -}}
 {{- $saCreate := and (hasKey $job "serviceAccount") (hasKey $job.serviceAccount "create") $job.serviceAccount.create }}
-{{- $saName := ternary $job.serviceAccountName $jobFullname (hasKey $job "serviceAccountName") }}
+{{- $saName := ternary (default $jobFullname $job.serviceAccountName) $jobFullname (hasKey $job "serviceAccountName") }}
 {{- if $saCreate }}
 ---
 apiVersion: v1

@@ -19,10 +19,10 @@ Render a single volume entry. Supports both:
     name: {{ $vol.configMap.name | quote }}
   {{- else if eq $vol.type "secret" }}
   secret:
-    secretName: {{ default $vol.secret.secretName $vol.secret.name | quote }}
+    secretName: {{ default $vol.secret.name $vol.secret.secretName | quote }}
   {{- else if eq $vol.type "persistentVolumeClaim" }}
   persistentVolumeClaim:
-    claimName: {{ default $vol.persistentVolumeClaim.claimName $vol.persistentVolumeClaim.name | quote }}
+    claimName: {{ default $vol.persistentVolumeClaim.name $vol.persistentVolumeClaim.claimName | quote }}
   {{- else }}
   {{- fail (printf "renderVolume: unknown legacy volume type '%s' for volume '%s'. Supported types: emptyDir, configMap, secret, persistentVolumeClaim. For other volume types, use native Kubernetes volume spec (omit .type)." $vol.type $vol.name) }}
   {{- end }}
