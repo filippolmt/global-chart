@@ -95,7 +95,7 @@
             "cpu": { "type": ["string", "number"] },
             "memory": { "type": ["string", "number"] }
           },
-          "additionalProperties": false
+          "additionalProperties": { "type": ["string", "number"] }
         },
         "limits": {
           "type": "object",
@@ -103,7 +103,7 @@
             "cpu": { "type": ["string", "number"] },
             "memory": { "type": ["string", "number"] }
           },
-          "additionalProperties": false
+          "additionalProperties": { "type": ["string", "number"] }
         }
       },
       "additionalProperties": false
@@ -332,15 +332,10 @@
           "type": "array",
           "items": { "type": "string" }
         },
-        "additionalEnvs": { "type": "array" },
         "initContainers": { "type": "array" },
         "successfulJobsHistoryLimit": { "type": "integer", "minimum": 0 },
         "failedJobsHistoryLimit": { "type": "integer", "minimum": 0 },
         "annotations": {
-          "type": "object",
-          "additionalProperties": { "type": "string" }
-        },
-        "podAnnotations": {
           "type": "object",
           "additionalProperties": { "type": "string" }
         },
@@ -401,10 +396,6 @@
           "type": "object",
           "additionalProperties": { "type": "string" }
         },
-        "podAnnotations": {
-          "type": "object",
-          "additionalProperties": { "type": "string" }
-        },
         "automountServiceAccountToken": { "type": "boolean" },
         "volumes": { "type": "array" },
         "volumeMounts": { "type": "array" },
@@ -453,14 +444,9 @@
           "type": "array",
           "items": { "type": "string" }
         },
-        "additionalEnvs": { "type": "array" },
         "weight": { "type": ["string", "integer"] },
         "deletePolicy": { "type": "string" },
         "annotations": {
-          "type": "object",
-          "additionalProperties": { "type": "string" }
-        },
-        "podAnnotations": {
           "type": "object",
           "additionalProperties": { "type": "string" }
         },
@@ -511,10 +497,6 @@
         "weight": { "type": ["string", "integer"] },
         "deletePolicy": { "type": "string" },
         "annotations": {
-          "type": "object",
-          "additionalProperties": { "type": "string" }
-        },
-        "podAnnotations": {
           "type": "object",
           "additionalProperties": { "type": "string" }
         },
