@@ -615,6 +615,18 @@ tests:
           path: spec.template.spec.imagePullSecrets[0].name
           value: "local-regcred"
 
+  # ====== falsy-safe replicaCount (hasKey) ======
+  - it: should render replicaCount 0 when explicitly set
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          replicaCount: 0
+    asserts:
+      - equal:
+          path: spec.replicas
+          value: 0
+
   - it: should skip global imageRegistry when string image already contains a registry
     set:
       global:
