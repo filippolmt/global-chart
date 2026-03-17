@@ -61,6 +61,7 @@
     },
     "image": {
       "oneOf": [
+        { "type": "null" },
         {
           "type": "string",
           "description": "Full image string, e.g. nginx:1.25"
@@ -220,15 +221,7 @@
         "enabled": { "type": "boolean" },
         "replicaCount": { "type": "integer", "minimum": 0 },
         "image": { "$ref": "#/$defs/image" },
-        "imagePullSecrets": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": { "name": { "type": "string" } },
-            "required": ["name"],
-            "additionalProperties": false
-          }
-        },
+        "imagePullSecrets": { "type": "array" },
         "serviceAccount": { "$ref": "#/$defs/serviceAccount" },
         "podAnnotations": {
           "type": "object",
@@ -507,11 +500,9 @@
     },
     "externalSecret": {
       "type": "object",
-      "required": ["remote", "secretstore", "secretkey"],
       "properties": {
         "remote": {
           "type": "object",
-          "required": ["key"],
           "properties": {
             "key": { "type": "string" },
             "conversionStrategy": { "type": "string" },
@@ -521,7 +512,6 @@
         },
         "secretstore": {
           "type": "object",
-          "required": ["kind", "name"],
           "properties": {
             "kind": {
               "type": "string",
