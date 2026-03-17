@@ -200,12 +200,28 @@ spec:
 {{- /* Aggregate ALL hook types for prerequisite resources (sorted for deterministic output) */ -}}
 {{- $allHookTypes := keys $deploy.hooks | sortAlpha | join "," -}}
 
+{{- /* Compute minimum Job weight across all hooks for this deployment */ -}}
+{{- $minJobWeight := 10 -}}
+{{- range $hookType, $commands := $deploy.hooks -}}
+  {{- if $commands -}}
+    {{- range $name, $command := $commands -}}
+      {{- if $command -}}
+        {{- $w := int (ternary $command.weight 10 (hasKey $command "weight")) -}}
+        {{- if lt $w $minJobWeight -}}{{ $minJobWeight = $w }}{{ end -}}
+      {{- end -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+{{- $prereqWeight := sub $minJobWeight 7 -}}
+{{- if lt $prereqWeight 0 }}{{ $prereqWeight = 0 }}{{ end -}}
+
 {{- /*
   Hook-specific ConfigMap/Secret: duplicates of the deployment's generated ConfigMap/Secret
   with hook annotations so they exist BEFORE the Job runs.
   Normal (non-hook) ConfigMap/Secret are NOT updated until after hooks complete,
   so the Job would reference stale values without these hook copies.
   Rendered ONCE per deployment (not per hook command) with ALL hook types aggregated.
+  Weight order: prereq ConfigMap/Secret (jobWeight-7) < SA (jobWeight-5) < Job (jobWeight)
 */ -}}
 {{- if $hasDeployConfigMap }}
 ---
@@ -221,7 +237,7 @@ metadata:
     {{- . | nindent 4 }}
     {{- end }}
     "helm.sh/hook": {{ $allHookTypes | quote }}
-    "helm.sh/hook-weight": "3"
+    "helm.sh/hook-weight": {{ $prereqWeight | quote }}
     "helm.sh/hook-delete-policy": "before-hook-creation"
 data:
 {{- range $key, $value := $deploy.configMap }}
@@ -247,7 +263,7 @@ metadata:
     {{- . | nindent 4 }}
     {{- end }}
     "helm.sh/hook": {{ $allHookTypes | quote }}
-    "helm.sh/hook-weight": "3"
+    "helm.sh/hook-weight": {{ $prereqWeight | quote }}
     "helm.sh/hook-delete-policy": "before-hook-creation"
 type: Opaque
 data:
