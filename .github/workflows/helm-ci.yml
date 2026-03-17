@@ -26,6 +26,12 @@ jobs:
       - name: Generate manifests
         run: make generate-templates
 
+      - name: Validate manifests (kubeconform)
+        run: make kubeconform
+
+      - name: Lint manifests (kube-linter)
+        run: make kube-linter
+
       - name: Upload generated manifests
         if: ${{ success() }}
         uses: actions/upload-artifact@v7
