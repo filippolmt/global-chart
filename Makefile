@@ -28,8 +28,9 @@ TEST_CASES := \
 	tests/multi-deployment.yaml:multi:multi-deployment \
 	tests/service-disabled.yaml:svc-disabled:service-disabled \
 	tests/raw-deployment.yaml:raw:raw-deployment \
-	tests/deployment-hooks-cronjobs.yaml:deploy-hooks:deployment-hooks-cronjobs \
-	tests/hooks-sa-inheritance.yaml:hooks-sa:hooks-sa-inheritance
+	tests/deployment-hooks-cronjobs.yaml:deploy-hooks:deploy-hooks-cj \
+	tests/hooks-sa-inheritance.yaml:hooks-sa:hooks-sa-inheritance \
+	tests/name-collision.yaml:default:name-collision
 
 # Default target
 .DEFAULT_GOAL := help

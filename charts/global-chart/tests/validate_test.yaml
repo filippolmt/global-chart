@@ -1,0 +1,49 @@
+suite: name collision detection tests
+templates:
+  - templates/validate.yaml
+tests:
+  # ====== deployment name collision ======
+  # Prefix "RELEASE-NAME-global-chart-" = 26 chars, leaving 37 chars for deployment name
+  # "abcdefghij-klmnopqrst-uvwxyz-abcdefgh1" (39 chars) and "...gh2" both truncate to same 37 chars
+  - it: should fail when two deployment names collide after truncation
+    set:
+      deployments:
+        abcdefghij-klmnopqrst-uvwxyz-abcdefgh1:
+          image: nginx:1.25
+        abcdefghij-klmnopqrst-uvwxyz-abcdefgh2:
+          image: nginx:1.25
+    asserts:
+      - failedTemplate:
+          errorPattern: "Name collision"
+
+  - it: should not fail when deployment names are unique after truncation
+    set:
+      deployments:
+        frontend:
+          image: nginx:1.25
+        backend:
+          image: myapp:v2
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  # ====== deployment-level CronJob collision ======
+  # Both deployments: 27-char names + cronJob "m" = 29-char suffix, trunc to 26 = identical
+  - it: should fail when deployment-level cronjob names collide after truncation
+    set:
+      deployments:
+        abcdefghijklmnopqrstuvwxyz1:
+          image: nginx:1.25
+          cronJobs:
+            m:
+              schedule: "0 4 * * *"
+              command: ["./cleanup.sh"]
+        abcdefghijklmnopqrstuvwxyz2:
+          image: nginx:1.25
+          cronJobs:
+            m:
+              schedule: "0 4 * * *"
+              command: ["./cleanup.sh"]
+    asserts:
+      - failedTemplate:
+          errorPattern: "Name collision"
