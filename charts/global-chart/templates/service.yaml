@@ -17,9 +17,12 @@ metadata:
   name: {{ $depFullname }}
   labels:
     {{- include "global-chart.deploymentLabels" $labelCtx | nindent 4 }}
-  {{- with (include "global-chart.renderCommonAnnotations" $root) }}
+  {{- $svcAnnotations := default (dict) $svc.annotations }}
+  {{- $commonAnnotations := default (dict) (default (dict) $root.Values.global).commonAnnotations }}
+  {{- $mergedAnnotations := merge $svcAnnotations $commonAnnotations }}
+  {{- with $mergedAnnotations }}
   annotations:
-    {{- . | nindent 4 }}
+    {{- toYaml . | nindent 4 }}
   {{- end }}
 spec:
   type: {{ ternary $svc.type "ClusterIP" (hasKey $svc "type") }}

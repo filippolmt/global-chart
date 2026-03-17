@@ -168,5 +168,5 @@ affinity:
 tolerations:
   {{- toYaml . | nindent 2 }}
 {{- end }}
-restartPolicy: {{ ternary $job.restartPolicy "Never" (hasKey $job "restartPolicy") | quote }}
+restartPolicy: {{ default "Never" (ternary $job.restartPolicy "" (hasKey $job "restartPolicy")) | quote }}
 {{- end }}

@@ -123,7 +123,7 @@ spec:
       {{- with (include "global-chart.renderDnsConfig" $command.dnsConfig) }}
 {{- . | nindent 6 }}
       {{- end }}
-      restartPolicy: {{ ternary $command.restartPolicy "Never" (hasKey $command "restartPolicy") | quote }}
+      restartPolicy: {{ default "Never" (ternary $command.restartPolicy "" (hasKey $command "restartPolicy")) | quote }}
       containers:
       - name: {{ $hookFullname }}
         image: {{ $imageRef | quote }}
@@ -209,7 +209,7 @@ spec:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ $deployFullname }}-hook-config
+  name: {{ printf "%s-hook-config" $deployFullname | trunc 63 | trimSuffix "-" }}
   labels:
     {{- include "global-chart.hookLabels" $root | nindent 4 }}
     app.kubernetes.io/component: {{ $deployName }}-hook
@@ -235,7 +235,7 @@ data:
 apiVersion: v1
 kind: Secret
 metadata:
-  name: {{ $deployFullname }}-hook-secret
+  name: {{ printf "%s-hook-secret" $deployFullname | trunc 63 | trimSuffix "-" }}
   labels:
     {{- include "global-chart.hookLabels" $root | nindent 4 }}
     app.kubernetes.io/component: {{ $deployName }}-hook
@@ -381,8 +381,8 @@ spec:
         {{- . | nindent 8 }}
       {{- end }}
     spec:
-      {{- $configMapRef := printf "%s-hook-config" $deployFullname }}
-      {{- $secretRef := printf "%s-hook-secret" $deployFullname }}
+      {{- $configMapRef := printf "%s-hook-config" $deployFullname | trunc 63 | trimSuffix "-" }}
+      {{- $secretRef := printf "%s-hook-secret" $deployFullname | trunc 63 | trimSuffix "-" }}
       {{- $ctx := dict "root" $root "job" $command "deploy" $deploy "saName" $saName "imageRef" $imageRef "containerName" $name "configMapRef" $configMapRef "secretRef" $secretRef "inheritDnsConfig" false "renderInitContainers" false }}
       {{- include "global-chart.inheritedJobPodSpec" $ctx | trimPrefix "\n" | nindent 6 }}
 {{ end }}
