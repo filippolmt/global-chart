@@ -273,6 +273,58 @@ automountServiceAccountToken: {{ $saAutomount }}
 {{- $deployFullname := include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $deployName) -}}
 {{- $hasDeployConfigMap := and $deploy.configMap (gt (len $deploy.configMap) 0) -}}
 {{- $hasDeploySecret := and $deploy.secret (gt (len $deploy.secret) 0) -}}
+{{- /*
+  Hook-specific ConfigMap/Secret: duplicates of the deployment's generated ConfigMap/Secret
+  with hook annotations so they exist BEFORE the Job runs.
+  Normal (non-hook) ConfigMap/Secret are NOT updated until after hooks complete,
+  so the Job would reference stale values without these hook copies.
+*/ -}}
+{{- if $hasDeployConfigMap }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $hookFullname }}-config
+  labels:
+    {{- include "global-chart.hookLabels" $root | nindent 4 }}
+    app.kubernetes.io/component: {{ $deployName }}-hook
+  annotations:
+    "helm.sh/hook": {{ $hookType | quote }}
+    "helm.sh/hook-weight": {{ default "5" $command.weight | quote }}
+    "helm.sh/hook-delete-policy": {{ default "before-hook-creation" $command.deletePolicy | quote }}
+data:
+{{- range $key, $value := $deploy.configMap }}
+  {{- if or (kindIs "map" $value) (kindIs "slice" $value) }}
+  {{ $key }}:
+    {{- toYaml $value | nindent 4 }}
+  {{- else }}
+  {{ $key }}: {{ toString $value | quote }}
+  {{- end }}
+{{- end }}
+{{- end }}
+{{- if $hasDeploySecret }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ $hookFullname }}-secret
+  labels:
+    {{- include "global-chart.hookLabels" $root | nindent 4 }}
+    app.kubernetes.io/component: {{ $deployName }}-hook
+  annotations:
+    "helm.sh/hook": {{ $hookType | quote }}
+    "helm.sh/hook-weight": {{ default "5" $command.weight | quote }}
+    "helm.sh/hook-delete-policy": {{ default "before-hook-creation" $command.deletePolicy | quote }}
+type: Opaque
+data:
+{{- range $key, $value := $deploy.secret }}
+  {{- if kindIs "string" $value }}
+  {{ $key }}: {{ $value | b64enc | quote }}
+  {{- else }}
+  {{ $key }}: {{ toYaml $value | b64enc | quote }}
+  {{- end }}
+{{- end }}
+{{- end }}
 ---
 apiVersion: batch/v1
 kind: Job
@@ -345,15 +397,15 @@ spec:
         {{- $hasEnvFrom := or $hasDeployConfigMap $hasDeploySecret $command.envFromConfigMaps $command.envFromSecrets $deploy.envFromConfigMaps $deploy.envFromSecrets -}}
         {{- if $hasEnvFrom }}
         envFrom:
-          {{- /* Deployment's generated ConfigMap */ -}}
+          {{- /* Hook-specific ConfigMap (hook resource, updated before Job) */ -}}
           {{- if $hasDeployConfigMap }}
           - configMapRef:
-              name: {{ $deployFullname | quote }}
+              name: {{ printf "%s-config" $hookFullname | quote }}
           {{- end }}
-          {{- /* Deployment's generated Secret */ -}}
+          {{- /* Hook-specific Secret (hook resource, updated before Job) */ -}}
           {{- if $hasDeploySecret }}
           - secretRef:
-              name: {{ $deployFullname | quote }}
+              name: {{ printf "%s-secret" $hookFullname | quote }}
           {{- end }}
           {{- /* Deployment's external ConfigMaps */ -}}
           {{- range $cm := $deploy.envFromConfigMaps }}

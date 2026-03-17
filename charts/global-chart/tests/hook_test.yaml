@@ -1000,18 +1000,35 @@ tests:
               migrate:
                 command: ["./migrate.sh"]
     asserts:
+      # Hook-specific ConfigMap created as hook resource (documentIndex 0)
+      - isKind:
+          of: ConfigMap
+        documentIndex: 0
+      - equal:
+          path: metadata.annotations["helm.sh/hook"]
+          value: post-upgrade
+        documentIndex: 0
+      # Hook-specific Secret created as hook resource (documentIndex 1)
+      - isKind:
+          of: Secret
+        documentIndex: 1
+      - equal:
+          path: metadata.annotations["helm.sh/hook"]
+          value: post-upgrade
+        documentIndex: 1
+      # Job (documentIndex 2) references hook-specific ConfigMap and Secret
       - contains:
           path: spec.template.spec.containers[0].envFrom
           content:
             configMapRef:
-              name: RELEASE-NAME-global-chart-backend
-        documentIndex: 0
+              name: RELEASE-NAME-global-chart-backend-post-upgrade-migrate-config
+        documentIndex: 2
       - contains:
           path: spec.template.spec.containers[0].envFrom
           content:
             secretRef:
-              name: RELEASE-NAME-global-chart-backend
-        documentIndex: 0
+              name: RELEASE-NAME-global-chart-backend-post-upgrade-migrate-secret
+        documentIndex: 2
 
   - it: should inherit envFromConfigMaps and envFromSecrets from deployment
     set:
