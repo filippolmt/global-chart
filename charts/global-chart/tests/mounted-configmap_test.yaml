@@ -87,3 +87,34 @@ tests:
       - matchRegex:
           path: metadata.name
           pattern: ".*md-cm-bundled-file"
+
+  # ====== Negative tests: fail/required paths ======
+
+  - it: should fail when files entry has no content
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          mountedConfigFiles:
+            files:
+              - name: myconfig
+                filename: config.yaml
+                targetPath: /etc/config/config.yaml
+    asserts:
+      - failedTemplate:
+          errorPattern: "content.*is required"
+
+  - it: should fail when bundle file entry has no content
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          mountedConfigFiles:
+            bundles:
+              - mountDir: /etc/bundle
+                files:
+                  - name: appconfig
+                    relPath: sub/app.yaml
+    asserts:
+      - failedTemplate:
+          errorPattern: "content.*is required"

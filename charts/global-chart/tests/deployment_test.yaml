@@ -638,3 +638,52 @@ tests:
       - equal:
           path: spec.template.spec.containers[0].image
           value: "docker.io/nginx:1.25"
+
+  # ====== Negative tests: fail/required paths ======
+  # NOTE: Deploy-level CronJob/Hook image-required checks (cronjob.yaml:175, hook.yaml:259)
+  # are unreachable in practice because deployment.yaml catches missing image first. Skipped.
+
+  - it: should fail when image map has repository but no tag or digest
+    set:
+      deployments:
+        main:
+          image:
+            repository: myapp/api
+    asserts:
+      - failedTemplate:
+          errorMessage: "deployments.main.image requires either a tag or digest when repository is provided"
+
+  - it: should fail when image is nil
+    set:
+      deployments:
+        main:
+          image: null
+    asserts:
+      - failedTemplate:
+          errorMessage: "deployments.main.image must define a repository with tag/digest or be a full image reference"
+
+  - it: should fail when volume uses unknown legacy type
+    set:
+      deployments:
+        main:
+          image: "nginx:1.25"
+          volumes:
+            - name: myvol
+              type: nfs
+          volumeMounts:
+            - name: myvol
+              mountPath: /mnt
+    asserts:
+      - failedTemplate:
+          errorPattern: "renderVolume: unknown legacy volume type 'nfs'"
+
+  - it: should fail when imagePullSecrets entry has no name key
+    set:
+      deployments:
+        main:
+          image: "nginx:1.25"
+          imagePullSecrets:
+            - badkey: value
+    asserts:
+      - failedTemplate:
+          errorMessage: "imagePullSecrets must be a list of strings or objects with a 'name' key."
