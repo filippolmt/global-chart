@@ -1000,7 +1000,7 @@ tests:
               migrate:
                 command: ["./migrate.sh"]
     asserts:
-      # Hook-specific ConfigMap created as hook resource (documentIndex 0)
+      # Hook-specific ConfigMap created as prerequisite (documentIndex 0)
       - isKind:
           of: ConfigMap
         documentIndex: 0
@@ -1008,7 +1008,11 @@ tests:
           path: metadata.annotations["helm.sh/hook"]
           value: post-upgrade
         documentIndex: 0
-      # Hook-specific Secret created as hook resource (documentIndex 1)
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "3"
+        documentIndex: 0
+      # Hook-specific Secret created as prerequisite (documentIndex 1)
       - isKind:
           of: Secret
         documentIndex: 1
@@ -1016,18 +1020,22 @@ tests:
           path: metadata.annotations["helm.sh/hook"]
           value: post-upgrade
         documentIndex: 1
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "3"
+        documentIndex: 1
       # Job (documentIndex 2) references hook-specific ConfigMap and Secret
       - contains:
           path: spec.template.spec.containers[0].envFrom
           content:
             configMapRef:
-              name: RELEASE-NAME-global-chart-backend-post-upgrade-migrate-config
+              name: RELEASE-NAME-global-chart-backend-hook-config
         documentIndex: 2
       - contains:
           path: spec.template.spec.containers[0].envFrom
           content:
             secretRef:
-              name: RELEASE-NAME-global-chart-backend-post-upgrade-migrate-secret
+              name: RELEASE-NAME-global-chart-backend-hook-secret
         documentIndex: 2
 
   - it: should inherit envFromConfigMaps and envFromSecrets from deployment
@@ -1462,3 +1470,158 @@ tests:
     asserts:
       - hasDocuments:
           count: 3
+
+  # ====== hook weight ordering ======
+  - it: should set weight 3 on prerequisite ConfigMap for deployment-level hook
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          configMap:
+            DB_HOST: postgres
+          hooks:
+            pre-upgrade:
+              migrate:
+                command: ["./migrate.sh"]
+    asserts:
+      - isKind:
+          of: ConfigMap
+        documentIndex: 0
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "3"
+        documentIndex: 0
+
+  - it: should set weight 3 on prerequisite Secret for deployment-level hook
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          secret:
+            DB_PASSWORD: secret123
+          hooks:
+            pre-upgrade:
+              migrate:
+                command: ["./migrate.sh"]
+    asserts:
+      - isKind:
+          of: Secret
+        documentIndex: 0
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "3"
+        documentIndex: 0
+
+  - it: should set weight 5 on SA for deployment-level hook
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          hooks:
+            pre-upgrade:
+              migrate:
+                command: ["./migrate.sh"]
+                serviceAccount:
+                  create: true
+    asserts:
+      - isKind:
+          of: ServiceAccount
+        documentIndex: 0
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "5"
+        documentIndex: 0
+
+  - it: should set weight 10 on Job for deployment-level hook
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          serviceAccount:
+            create: true
+          hooks:
+            pre-upgrade:
+              migrate:
+                command: ["./migrate.sh"]
+    asserts:
+      - isKind:
+          of: Job
+        documentIndex: 0
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "10"
+        documentIndex: 0
+
+  # ====== hook type aggregation on prerequisites ======
+  - it: should aggregate all hook types on prerequisite ConfigMap when deployment has multiple hook types
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          configMap:
+            DB_HOST: postgres
+          hooks:
+            pre-install:
+              setup:
+                command: ["./setup.sh"]
+            pre-upgrade:
+              migrate:
+                command: ["./migrate.sh"]
+    asserts:
+      - isKind:
+          of: ConfigMap
+        documentIndex: 0
+      - equal:
+          path: metadata.annotations["helm.sh/hook"]
+          value: "pre-install,pre-upgrade"
+        documentIndex: 0
+
+  - it: should aggregate all hook types on prerequisite Secret when deployment has multiple hook types
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          secret:
+            DB_PASSWORD: secret123
+          hooks:
+            pre-install:
+              setup:
+                command: ["./setup.sh"]
+            pre-upgrade:
+              migrate:
+                command: ["./migrate.sh"]
+    asserts:
+      - isKind:
+          of: Secret
+        documentIndex: 0
+      - equal:
+          path: metadata.annotations["helm.sh/hook"]
+          value: "pre-install,pre-upgrade"
+        documentIndex: 0
+
+  # ====== hasKey default conversions ======
+  - it: should render restartPolicy Never by default on root-level hook
+    set:
+      hooks:
+        post-install:
+          setup:
+            image: busybox:1.36
+            command: ["./setup.sh"]
+    asserts:
+      - equal:
+          path: spec.template.spec.restartPolicy
+          value: "Never"
+        documentIndex: 1
+
+  - it: should render deletePolicy before-hook-creation by default on root-level hook
+    set:
+      hooks:
+        post-install:
+          setup:
+            image: busybox:1.36
+            command: ["./setup.sh"]
+    asserts:
+      - equal:
+          path: metadata.annotations["helm.sh/hook-delete-policy"]
+          value: "before-hook-creation"
+        documentIndex: 1

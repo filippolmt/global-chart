@@ -30,7 +30,10 @@
 {{- /* ServiceAccount handling */ -}}
 {{- $commandSAMap := (and (hasKey $command "serviceAccount") (kindIs "map" $command.serviceAccount)) | ternary $command.serviceAccount (dict) -}}
 {{- $commandSAExplicitName := coalesce $command.serviceAccountName $commandSAMap.name -}}
-{{- $saName := default $hookFullname $commandSAExplicitName -}}
+{{- $saName := $hookFullname -}}
+{{- if $commandSAExplicitName -}}
+  {{- $saName = $commandSAExplicitName -}}
+{{- end -}}
 {{- $saCreate := false -}}
 {{- if hasKey $commandSAMap "create" -}}
   {{- $saCreate = $commandSAMap.create -}}
@@ -62,8 +65,8 @@ metadata:
     {{- include "global-chart.hookLabelsWithComponent" $root | nindent 4 }}
   annotations:
     "helm.sh/hook": {{ $hookType | quote }}
-    "helm.sh/hook-weight": {{ default "5" $command.weight | quote }}
-    "helm.sh/hook-delete-policy": {{ default "before-hook-creation" $command.deletePolicy | quote }}
+    "helm.sh/hook-weight": "5"
+    "helm.sh/hook-delete-policy": {{ ternary $command.deletePolicy "before-hook-creation" (hasKey $command "deletePolicy") | quote }}
     {{- with $saAnnotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
@@ -78,8 +81,8 @@ metadata:
     {{- include "global-chart.hookLabelsWithComponent" $root | nindent 4 }}
   annotations:
     "helm.sh/hook": {{ $hookType | quote }}
-    "helm.sh/hook-weight": {{ default "10" $command.weight | quote }}
-    "helm.sh/hook-delete-policy": {{ default "before-hook-creation" $command.deletePolicy | quote }}
+    "helm.sh/hook-weight": {{ ternary $command.weight "10" (hasKey $command "weight") | quote }}
+    "helm.sh/hook-delete-policy": {{ ternary $command.deletePolicy "before-hook-creation" (hasKey $command "deletePolicy") | quote }}
 spec:
   template:
     metadata:
@@ -110,7 +113,7 @@ spec:
       {{- with (include "global-chart.renderDnsConfig" $command.dnsConfig) }}
 {{- . | nindent 6 }}
       {{- end }}
-      restartPolicy: {{ default "Never" $command.restartPolicy | quote }}
+      restartPolicy: {{ ternary $command.restartPolicy "Never" (hasKey $command "restartPolicy") | quote }}
       containers:
       - name: {{ $hookFullname }}
         image: {{ $imageRef | quote }}
@@ -176,6 +179,69 @@ spec:
 {{- range $deployName, $deploy := .Values.deployments }}
 {{- if $deploy }}
 {{- if and (eq (include "global-chart.deploymentEnabled" (dict "deploy" $deploy)) "true") $deploy.hooks }}
+
+{{- /* Compute deployment-level values ONCE per deployment (before hookType/command loops) */ -}}
+{{- $deployFullname := include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $deployName) -}}
+{{- $hasDeployConfigMap := and $deploy.configMap (gt (len $deploy.configMap) 0) -}}
+{{- $hasDeploySecret := and $deploy.secret (gt (len $deploy.secret) 0) -}}
+{{- /* Aggregate ALL hook types for prerequisite resources (sorted for deterministic output) */ -}}
+{{- $allHookTypes := keys $deploy.hooks | sortAlpha | join "," -}}
+
+{{- /*
+  Hook-specific ConfigMap/Secret: duplicates of the deployment's generated ConfigMap/Secret
+  with hook annotations so they exist BEFORE the Job runs.
+  Normal (non-hook) ConfigMap/Secret are NOT updated until after hooks complete,
+  so the Job would reference stale values without these hook copies.
+  Rendered ONCE per deployment (not per hook command) with ALL hook types aggregated.
+*/ -}}
+{{- if $hasDeployConfigMap }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $deployFullname }}-hook-config
+  labels:
+    {{- include "global-chart.hookLabels" $root | nindent 4 }}
+    app.kubernetes.io/component: {{ $deployName }}-hook
+  annotations:
+    "helm.sh/hook": {{ $allHookTypes | quote }}
+    "helm.sh/hook-weight": "3"
+    "helm.sh/hook-delete-policy": "before-hook-creation"
+data:
+{{- range $key, $value := $deploy.configMap }}
+  {{- if or (kindIs "map" $value) (kindIs "slice" $value) }}
+  {{ $key }}:
+    {{- toYaml $value | nindent 4 }}
+  {{- else }}
+  {{ $key }}: {{ toString $value | quote }}
+  {{- end }}
+{{- end }}
+{{- end }}
+{{- if $hasDeploySecret }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ $deployFullname }}-hook-secret
+  labels:
+    {{- include "global-chart.hookLabels" $root | nindent 4 }}
+    app.kubernetes.io/component: {{ $deployName }}-hook
+  annotations:
+    "helm.sh/hook": {{ $allHookTypes | quote }}
+    "helm.sh/hook-weight": "3"
+    "helm.sh/hook-delete-policy": "before-hook-creation"
+type: Opaque
+data:
+{{- range $key, $value := $deploy.secret }}
+  {{- if kindIs "string" $value }}
+  {{ $key }}: {{ $value | b64enc | quote }}
+  {{- else }}
+  {{ $key }}: {{ toYaml $value | b64enc | quote }}
+  {{- end }}
+{{- end }}
+{{- end }}
+
+{{- /* Per hook type and command: SA + Job */ -}}
 {{- range $hookType, $jobs := $deploy.hooks }}
 {{- range $name, $command := $jobs }}
 {{- if $command }}
@@ -229,7 +295,7 @@ spec:
 {{- if hasKey $commandSAMap "create" -}}
   {{- $saCreate = $commandSAMap.create -}}
   {{- if $saCreate -}}
-    {{- $saName = default $hookFullname $commandSAMap.name -}}
+    {{- $saName = ternary $commandSAMap.name $hookFullname (hasKey $commandSAMap "name") -}}
   {{- end -}}
 {{- end -}}
 
@@ -262,69 +328,13 @@ metadata:
     app.kubernetes.io/component: {{ $deployName }}-hook
   annotations:
     "helm.sh/hook": {{ $hookType | quote }}
-    "helm.sh/hook-weight": {{ default "5" $command.weight | quote }}
-    "helm.sh/hook-delete-policy": {{ default "before-hook-creation" $command.deletePolicy | quote }}
+    "helm.sh/hook-weight": "5"
+    "helm.sh/hook-delete-policy": {{ ternary $command.deletePolicy "before-hook-creation" (hasKey $command "deletePolicy") | quote }}
     {{- with $saAnnotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
 automountServiceAccountToken: {{ $saAutomount }}
 {{ end }}
-{{- /* Resolve inherited envFrom from deployment's configMap and secret */ -}}
-{{- $deployFullname := include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $deployName) -}}
-{{- $hasDeployConfigMap := and $deploy.configMap (gt (len $deploy.configMap) 0) -}}
-{{- $hasDeploySecret := and $deploy.secret (gt (len $deploy.secret) 0) -}}
-{{- /*
-  Hook-specific ConfigMap/Secret: duplicates of the deployment's generated ConfigMap/Secret
-  with hook annotations so they exist BEFORE the Job runs.
-  Normal (non-hook) ConfigMap/Secret are NOT updated until after hooks complete,
-  so the Job would reference stale values without these hook copies.
-*/ -}}
-{{- if $hasDeployConfigMap }}
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: {{ $hookFullname }}-config
-  labels:
-    {{- include "global-chart.hookLabels" $root | nindent 4 }}
-    app.kubernetes.io/component: {{ $deployName }}-hook
-  annotations:
-    "helm.sh/hook": {{ $hookType | quote }}
-    "helm.sh/hook-weight": {{ default "5" $command.weight | quote }}
-    "helm.sh/hook-delete-policy": {{ default "before-hook-creation" $command.deletePolicy | quote }}
-data:
-{{- range $key, $value := $deploy.configMap }}
-  {{- if or (kindIs "map" $value) (kindIs "slice" $value) }}
-  {{ $key }}:
-    {{- toYaml $value | nindent 4 }}
-  {{- else }}
-  {{ $key }}: {{ toString $value | quote }}
-  {{- end }}
-{{- end }}
-{{- end }}
-{{- if $hasDeploySecret }}
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: {{ $hookFullname }}-secret
-  labels:
-    {{- include "global-chart.hookLabels" $root | nindent 4 }}
-    app.kubernetes.io/component: {{ $deployName }}-hook
-  annotations:
-    "helm.sh/hook": {{ $hookType | quote }}
-    "helm.sh/hook-weight": {{ default "5" $command.weight | quote }}
-    "helm.sh/hook-delete-policy": {{ default "before-hook-creation" $command.deletePolicy | quote }}
-type: Opaque
-data:
-{{- range $key, $value := $deploy.secret }}
-  {{- if kindIs "string" $value }}
-  {{ $key }}: {{ $value | b64enc | quote }}
-  {{- else }}
-  {{ $key }}: {{ toYaml $value | b64enc | quote }}
-  {{- end }}
-{{- end }}
-{{- end }}
 ---
 apiVersion: batch/v1
 kind: Job
@@ -335,8 +345,8 @@ metadata:
     app.kubernetes.io/component: {{ $deployName }}-hook
   annotations:
     "helm.sh/hook": {{ $hookType | quote }}
-    "helm.sh/hook-weight": {{ default "10" $command.weight | quote }}
-    "helm.sh/hook-delete-policy": {{ default "before-hook-creation" $command.deletePolicy | quote }}
+    "helm.sh/hook-weight": {{ ternary $command.weight "10" (hasKey $command "weight") | quote }}
+    "helm.sh/hook-delete-policy": {{ ternary $command.deletePolicy "before-hook-creation" (hasKey $command "deletePolicy") | quote }}
 spec:
   template:
     metadata:
@@ -371,7 +381,7 @@ spec:
       securityContext:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      restartPolicy: {{ default "Never" $command.restartPolicy | quote }}
+      restartPolicy: {{ ternary $command.restartPolicy "Never" (hasKey $command "restartPolicy") | quote }}
       containers:
       - name: {{ $name }}
         image: {{ $imageRef | quote }}
@@ -400,12 +410,12 @@ spec:
           {{- /* Hook-specific ConfigMap (hook resource, updated before Job) */ -}}
           {{- if $hasDeployConfigMap }}
           - configMapRef:
-              name: {{ printf "%s-config" $hookFullname | quote }}
+              name: {{ printf "%s-hook-config" $deployFullname | quote }}
           {{- end }}
           {{- /* Hook-specific Secret (hook resource, updated before Job) */ -}}
           {{- if $hasDeploySecret }}
           - secretRef:
-              name: {{ printf "%s-secret" $hookFullname | quote }}
+              name: {{ printf "%s-hook-secret" $deployFullname | quote }}
           {{- end }}
           {{- /* Deployment's external ConfigMaps */ -}}
           {{- range $cm := $deploy.envFromConfigMaps }}
