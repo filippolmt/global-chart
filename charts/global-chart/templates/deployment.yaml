@@ -15,9 +15,13 @@ metadata:
   name: {{ $depFullname }}
   labels:
     {{- include "global-chart.deploymentLabels" $labelCtx | nindent 4 }}
+  {{- with (include "global-chart.renderCommonAnnotations" $root) }}
+  annotations:
+    {{- . | nindent 4 }}
+  {{- end }}
 spec:
   {{- if not $autoscaling.enabled }}
-  replicas: {{ $deploy.replicaCount | default 2 }}
+  replicas: {{ ternary $deploy.replicaCount 2 (hasKey $deploy "replicaCount") }}
   {{- end }}
   {{- with $deploy.strategy }}
   strategy:
@@ -35,6 +39,9 @@ spec:
   template:
     metadata:
       annotations:
+        {{- with (include "global-chart.renderCommonAnnotations" $root) }}
+        {{- . | nindent 8 }}
+        {{- end }}
         checksum/config: {{ toYaml $deploy.configMap | sha256sum }}
         checksum/secret: {{ toYaml $deploy.secret | sha256sum }}
         checksum/mounted-config-files: {{ toYaml $deploy.mountedConfigFiles | sha256sum }}
@@ -90,9 +97,9 @@ spec:
             {{- toYaml . | nindent 12 }}
           {{- end }}
           ports:
-            - name: {{ $svc.portName | default "http" }}
-              containerPort: {{ $svc.port | default 80 }}
-              protocol: {{ ($svc.protocol | default "TCP") | upper }}
+            - name: {{ ternary $svc.portName "http" (hasKey $svc "portName") }}
+              containerPort: {{ ternary $svc.port 80 (hasKey $svc "port") }}
+              protocol: {{ (ternary $svc.protocol "TCP" (hasKey $svc "protocol")) | upper }}
           {{- if $deploy.livenessProbe }}
           livenessProbe:
             {{- toYaml $deploy.livenessProbe | nindent 12 }}

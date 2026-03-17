@@ -115,3 +115,66 @@ tests:
       - equal:
           path: spec.ports[0].name
           value: api
+
+  # ====== per-service annotations with global commonAnnotations ======
+  - it: should merge per-service annotations with global commonAnnotations
+    set:
+      global:
+        commonAnnotations:
+          managed-by: helm
+      deployments:
+        main:
+          image: nginx:1.25
+          service:
+            annotations:
+              custom-annotation: my-value
+    asserts:
+      - equal:
+          path: metadata.annotations.managed-by
+          value: helm
+      - equal:
+          path: metadata.annotations.custom-annotation
+          value: my-value
+
+  - it: should render only per-service annotations when no commonAnnotations
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          service:
+            annotations:
+              custom-annotation: my-value
+    asserts:
+      - equal:
+          path: metadata.annotations.custom-annotation
+          value: my-value
+
+  - it: should let per-service annotations override global commonAnnotations
+    set:
+      global:
+        commonAnnotations:
+          shared-key: global-value
+      deployments:
+        main:
+          image: nginx:1.25
+          service:
+            annotations:
+              shared-key: service-value
+    asserts:
+      - equal:
+          path: metadata.annotations.shared-key
+          value: service-value
+
+  # ====== global.commonLabels ======
+  - it: should render global.commonLabels on service metadata
+    set:
+      global:
+        commonLabels:
+          team: platform
+      deployments:
+        main:
+          image: nginx:1.25
+    asserts:
+      - equal:
+          path: metadata.labels.team
+          value: platform

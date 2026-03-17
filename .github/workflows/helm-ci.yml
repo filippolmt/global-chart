@@ -17,14 +17,34 @@ jobs:
         with:
           version: v3.19.0
 
+      - name: Pre-pull Docker images
+        run: |
+          for img in \
+            ghcr.io/stackrox/kube-linter:v0.7.1 \
+            ghcr.io/yannh/kubeconform:v0.7.0 \
+            helmunittest/helm-unittest:3.19.0-1.0.3; do
+            for i in 1 2 3; do
+              docker pull "$img" && break || sleep 5
+            done
+          done
+
       - name: Lint chart scenarios
         run: make lint-chart
 
       - name: Run unit tests
         run: make unit-test
 
+      - name: Validate bad-values rejected
+        run: make validate-bad-values
+
       - name: Generate manifests
         run: make generate-templates
+
+      - name: Validate manifests (kubeconform)
+        run: make kubeconform
+
+      - name: Lint manifests (kube-linter)
+        run: make kube-linter
 
       - name: Upload generated manifests
         if: ${{ success() }}

@@ -6,10 +6,12 @@ CHART_DIR := charts
 GENERATED_DIR := generated-manifests
 
 # Docker images
-KUBE_LINTER_VERSION := $(shell if [ "$(shell uname -m)" = "x86_64" ]; then echo "latest-alpine-amd64"; else echo "latest-alpine-arm64"; fi)
-KUBE_LINTER_IMAGE := ghcr.io/stackrox/kube-linter:$(KUBE_LINTER_VERSION)
+KUBE_LINTER_VERSION := 0.7.1
+KUBE_LINTER_IMAGE := ghcr.io/stackrox/kube-linter:v$(KUBE_LINTER_VERSION)
 HELM_DOCS_IMAGE := jnorwood/helm-docs:latest
 HELM_UNITTEST_IMAGE := helmunittest/helm-unittest:3.19.0-1.0.3
+KUBECONFORM_VERSION := v0.7.0
+KUBECONFORM_IMAGE := ghcr.io/yannh/kubeconform:$(KUBECONFORM_VERSION)
 
 # Test cases: values_file:namespace:slug
 # Used by lint-chart, generate-templates, and kube-linter
@@ -28,15 +30,16 @@ TEST_CASES := \
 	tests/multi-deployment.yaml:multi:multi-deployment \
 	tests/service-disabled.yaml:svc-disabled:service-disabled \
 	tests/raw-deployment.yaml:raw:raw-deployment \
-	tests/deployment-hooks-cronjobs.yaml:deploy-hooks:deployment-hooks-cronjobs \
-	tests/hooks-sa-inheritance.yaml:hooks-sa:hooks-sa-inheritance
+	tests/deployment-hooks-cronjobs.yaml:deploy-hooks:deploy-hooks-cj \
+	tests/hooks-sa-inheritance.yaml:hooks-sa:hooks-sa-inheritance \
+	tests/name-collision.yaml:default:name-collision
 
 # Default target
 .DEFAULT_GOAL := help
 
 # All phony targets
-.PHONY: help all lint-chart unit-test generate-templates \
-	kube-linter-manifests kube-linter generate-docs package \
+.PHONY: help all lint-chart unit-test validate-bad-values generate-templates \
+	kubeconform kube-linter-manifests kube-linter generate-docs package \
 	install install-test01 render clean clean-all
 
 # ============================================================================
@@ -60,7 +63,7 @@ help: ## Show this help message
 # Main targets
 # ============================================================================
 
-all: lint-chart unit-test generate-templates ## Run lint, unit tests and generate templates
+all: lint-chart unit-test validate-bad-values generate-templates kubeconform kube-linter ## Run lint, unit tests, bad-values, generate, validate, and lint manifests
 
 lint-chart: ## Lint chart with all test values files
 	@echo "==> Linting chart with all test cases..."
@@ -75,6 +78,18 @@ unit-test: ## Run helm-unittest via Docker
 	@echo "==> Running helm unit tests..."
 	@docker run --rm -u $$(id -u):$$(id -g) -v $(CURDIR)/$(CHART_DIR)/$(GLOBAL_CHART_NAME):/apps -w /apps $(HELM_UNITTEST_IMAGE) .
 	@echo "==> All unit tests passed!"
+
+validate-bad-values: ## Verify that bad-values files are rejected by schema validation
+	@echo "==> Validating bad-values are correctly rejected..."
+	@set -e; for f in tests/bad-values/*.yaml; do \
+		if helm lint $(STRICT) -f "$$f" ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) >/dev/null 2>&1; then \
+			echo "    FAIL: $$f should have been rejected but was accepted"; \
+			exit 1; \
+		else \
+			echo "    OK: $$f correctly rejected"; \
+		fi; \
+	done
+	@echo "==> All bad-values correctly rejected!"
 
 # Internal: generate templates to a given directory
 define _helm_generate
@@ -99,6 +114,24 @@ generate-templates: lint-chart ## Generate templates for all test cases
 	@echo "==> Templates generated in $(GENERATED_DIR)/"
 
 # ============================================================================
+# Kubeconform
+# ============================================================================
+
+kubeconform: generate-templates ## Validate generated manifests against K8s 1.29 schema
+	@echo "==> Running kubeconform..."
+	@docker run --rm \
+		-v $(CURDIR):/work \
+		$(KUBECONFORM_IMAGE) \
+		-kubernetes-version 1.29.0 \
+		-strict \
+		-summary \
+		-schema-location default \
+		-schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/external-secrets.io/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
+		-output pretty \
+		/work/$(GENERATED_DIR)
+	@echo "==> Kubeconform validation passed!"
+
+# ============================================================================
 # Kube-linter
 # ============================================================================
 
@@ -110,7 +143,7 @@ kube-linter-manifests: ## Generate manifests for kube-linter
 kube-linter: kube-linter-manifests ## Run kube-linter on generated manifests
 	@echo "==> Running kube-linter..."
 	@docker run --rm \
-		-v $(PWD):/workspace \
+		-v $(CURDIR):/workspace \
 		$(KUBE_LINTER_IMAGE) \
 		lint "/workspace/$(GENERATED_DIR)/kube-linter" \
 		--config "/workspace/.kube-linter-config.yaml"
@@ -121,8 +154,8 @@ kube-linter: kube-linter-manifests ## Run kube-linter on generated manifests
 
 generate-docs: ## Generate Helm documentation
 	@echo "==> Generating Helm docs..."
-	@docker run --rm --volume "$$(pwd)/$(CHART_DIR)/$(GLOBAL_CHART_NAME):/helm-docs" -u $$(id -u) $(HELM_DOCS_IMAGE) --sort-values-order file
-	@docker run --rm --volume "$$(pwd)/$(CHART_DIR)/$(RAW_CHART_NAME):/helm-docs" -u $$(id -u) $(HELM_DOCS_IMAGE) --sort-values-order file
+	@docker run --rm --volume "$(CURDIR)/$(CHART_DIR)/$(GLOBAL_CHART_NAME):/helm-docs" -u $$(id -u) $(HELM_DOCS_IMAGE) --sort-values-order file
+	@docker run --rm --volume "$(CURDIR)/$(CHART_DIR)/$(RAW_CHART_NAME):/helm-docs" -u $$(id -u) $(HELM_DOCS_IMAGE) --sort-values-order file
 	@echo "==> Documentation generated!"
 
 # ============================================================================

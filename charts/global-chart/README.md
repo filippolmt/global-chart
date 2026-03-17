@@ -1,6 +1,6 @@
 # global-chart
 
-![Version: 1.3.0](https://img.shields.io/badge/Version-1.3.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 1.3.0](https://img.shields.io/badge/AppVersion-1.3.0-informational?style=flat-square)
+![Version: 1.4.0](https://img.shields.io/badge/Version-1.4.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 1.4.0](https://img.shields.io/badge/AppVersion-1.4.0-informational?style=flat-square)
 
 Reusable Helm chart providing common building blocks—Deployments, Services, Ingress, Jobs, and more—for broadly adaptable Kubernetes applications.
 
@@ -24,9 +24,11 @@ Kubernetes: `>=1.19.0-0`
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| global | object | `{"imagePullSecrets":[],"imageRegistry":""}` | Global values shared across all deployments, cronJobs, and hooks |
+| global | object | `{"commonAnnotations":{},"commonLabels":{},"imagePullSecrets":[],"imageRegistry":""}` | Global values shared across all deployments, cronJobs, and hooks |
 | global.imageRegistry | string | `""` (no prefix) | Global image registry prefix (e.g., registry.example.com) |
 | global.imagePullSecrets | list | `[]` | Global imagePullSecrets (used when deployment/cronJob/hook doesn't specify its own) |
+| global.commonLabels | object | `{}` | Global labels applied to metadata.labels of ALL resources (not added to selector labels) |
+| global.commonAnnotations | object | `{}` | Global annotations applied to metadata.annotations of ALL resources (including pod templates) |
 | nameOverride | string | `""` | Override the chart name |
 | fullnameOverride | string | `""` | Override the chart fullname |
 | deployments | object | `{}` (empty map) | Multiple deployments configuration (map of named deployments). Each deployment supports an `enabled` field (bool, default `true`) to skip rendering of the Deployment and all its sub-resources (Service, ConfigMap, Secret, ServiceAccount, HPA, mounted ConfigMaps, CronJobs, Hooks). An Ingress that references a disabled deployment will fail with a clear error. |

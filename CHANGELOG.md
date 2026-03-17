@@ -5,6 +5,125 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ---
 
+## [1.4.0] — 2026-03-17
+
+### Migration guide from 1.3.x
+
+> **This release contains behavioral breaking changes.** Read the migration guide carefully before running `helm upgrade`.
+
+#### 1. Hook/CronJob SA inheritance now defaults to `create: true` (HIGH)
+
+Deployment-level hooks and cronjobs now inherit the deployment's ServiceAccount by default. Previously, if the deployment didn't have an explicit `serviceAccount` block, hooks/cronjobs created their own SA.
+
+**Who is affected:** all deployment-level hooks/cronjobs where the parent deployment does not explicitly set `serviceAccount.create`.
+
+**Impact:** the hook/cronjob now runs with the deployment's SA. If RBAC differs, permissions may change.
+
+**Action:** to preserve old behavior, explicitly set `serviceAccountName` on the hook/cronjob:
+
+```yaml
+deployments:
+  backend:
+    image: myapp:v2
+    hooks:
+      pre-upgrade:
+        migrate:
+          command: ["./migrate.sh"]
+          serviceAccountName: "my-custom-sa"  # Override inheritance
+```
+
+#### 2. Legacy volume key precedence flipped (HIGH — edge case)
+
+For legacy-format volumes, `secret.secretName` (the canonical Kubernetes key) now takes priority over the non-standard `secret.name` alias when both are present. Same for `persistentVolumeClaim.claimName` vs `.name`.
+
+**Who is affected:** only users specifying BOTH `secret.name` and `secret.secretName` with different values (extremely rare).
+
+**Action:** use only the canonical key (`secretName` / `claimName`). Remove the `name` alias if present:
+
+```yaml
+# Before (ambiguous — which one wins?)
+volumes:
+  - name: creds
+    type: secret
+    secret:
+      name: old-secret         # Remove this
+      secretName: new-secret   # Keep this (now wins)
+
+# After (unambiguous)
+volumes:
+  - name: creds
+    type: secret
+    secret:
+      secretName: new-secret
+```
+
+#### 3. Hook weight calculation changed (MEDIUM)
+
+Hook SA weight is now computed as `jobWeight - 5` (was hardcoded `"5"`). Prerequisite ConfigMap/Secret weight is `minJobWeight - 7` (was hardcoded `"3"`).
+
+For the default case (weight=10): SA=5, prereq=3 — **no change**. Only differs with custom `weight` overrides.
+
+**Who is affected:** users with custom `weight` on hooks.
+
+**Action:** run `helm template` and verify hook execution order after upgrade.
+
+#### 4. `values.schema.json` added (CONDITIONAL)
+
+A JSON Schema Draft 7 is now included. Helm uses it to validate values during `helm install/upgrade/lint`. Values with unknown top-level keys or incorrect types will be rejected.
+
+**Who is affected:** users with non-standard top-level keys in values or values with incorrect types.
+
+**Action:** run `helm lint` with your values before upgrading to see if schema validation catches anything. Fix any reported issues.
+
+#### Migration checklist
+
+- [ ] Read the points above and verify applicability
+- [ ] Audit RBAC for deployment-level hooks/cronjobs (point 1)
+- [ ] Check legacy volume specs for dual `name`/`secretName` usage (point 2)
+- [ ] If using custom hook weights, verify execution order (point 3)
+- [ ] Run `helm lint -f your-values.yaml` to test schema validation (point 4)
+- [ ] Run `helm diff upgrade` to inspect all differences before applying
+- [ ] Schedule the upgrade during a maintenance window
+- [ ] Run `helm upgrade`
+
+---
+
+### Added
+
+- **global.commonLabels** — opt-in shared labels applied to all resource metadata via the labels helper
+- **global.commonAnnotations** — opt-in shared annotations applied to all resource metadata
+- **Service annotations** — per-service `service.annotations` merged with `global.commonAnnotations` (service-specific wins on conflict)
+- **JSON Schema Draft 7** — `values.schema.json` for input validation and IDE autocomplete
+- **Name collision detection** — `validate.yaml` + `_validate-helpers.tpl` fail fast when truncation creates duplicate resource names
+- **Ingress validation** — template fails with clear error when ingress host references a disabled deployment or a deployment with `service.enabled: false`
+- **kubeconform** — CI step validates all generated manifests against K8s 1.29 schema
+- **kube-linter** — CI step with `addAllBuiltIn: true` and documented exclusions
+- **Bad-values validation** — CI step verifying schema correctly rejects invalid values
+- **Docker pre-pull** — CI pre-pulls Docker images with 3 retries for resilience
+- 90+ new unit tests (312 total across 17 suites), including negative `failedTemplate` tests
+
+### Changed
+
+- **Helper decomposition** — `_helpers.tpl` split into `_image-helpers.tpl`, `_job-helpers.tpl`, `_render-helpers.tpl`, `_validate-helpers.tpl` (~260 lines deduplication)
+- **`inheritedJobPodSpec` shared helper** — eliminates duplication between deployment-level hook and cronjob pod spec rendering
+- **Hook SA weight** — derived from Job weight (`jobWeight - 5`, min 0) instead of hardcoded "5"
+- **Hook prerequisite weight** — derived from min Job weight (`minJobWeight - 7`, min 0) instead of hardcoded "3"
+- **SA inheritance** — `deploySA.create` defaults to `true` via `hasKey/ternary`, matching `serviceaccount.yaml` behavior
+- **Image tag/digest** — `toString` before `trim` to safely handle numeric tags (e.g., `tag: 1.25`)
+- **Legacy volume precedence** — canonical K8s keys (`secretName`, `claimName`) now take priority over non-standard aliases (`name`)
+- **Service annotations** — `deepCopy` before `merge` to avoid mutating `.Values`
+- **restartPolicy** — null-safe with `default "Never"` fallback for empty/null values
+- **renderVolume** — `required` guard on volume `name` field for clear error messages
+- **Makefile** — `$(pwd)` → `$(CURDIR)` for consistency; new `validate-bad-values` target
+
+### Fixed
+
+- **CronJob SA null** — `serviceAccountName: null` now correctly falls back to job fullname
+- **Schema completeness** — added `metadataPolicy`, `target.name`, `volumeMounts`, `initContainers`, `serviceAccountAnnotations`, `env`, `claims`, `mountPath`, `mountedConfigFiles` items schemas, `ingress.tls` items schema
+- **Schema accuracy** — removed phantom `podAnnotations` and `suspend` from job definitions; removed dead `additionalEnvs` from root-level job definitions; `imagePullSecrets` accepts both strings and objects; `resources` allows custom types (GPU, ephemeral-storage)
+
+---
+
 ## [1.3.0] — 2026-03-13
 
 ### Migration guide from 1.2.x

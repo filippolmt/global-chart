@@ -1,0 +1,672 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "global": { "$ref": "#/$defs/global" },
+    "nameOverride": { "type": "string" },
+    "fullnameOverride": { "type": "string" },
+    "deployments": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/deployment" }
+    },
+    "ingress": { "$ref": "#/$defs/ingress" },
+    "cronJobs": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/cronJob" }
+    },
+    "hooks": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/hookJob" }
+          ]
+        }
+      }
+    },
+    "externalSecrets": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/externalSecret" }
+    },
+    "defaults": { "$ref": "#/$defs/defaults" },
+    "rbacs": { "$ref": "#/$defs/rbacs" }
+  },
+  "$defs": {
+    "global": {
+      "type": "object",
+      "properties": {
+        "imageRegistry": { "type": "string" },
+        "imagePullSecrets": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              { "type": "string" },
+              {
+                "type": "object",
+                "properties": { "name": { "type": "string" } },
+                "required": ["name"],
+                "additionalProperties": false
+              }
+            ]
+          }
+        },
+        "commonLabels": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "commonAnnotations": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "image": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "string",
+          "description": "Full image string, e.g. nginx:1.25"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "repository": { "type": "string" },
+            "tag": { "type": ["string", "number"] },
+            "digest": { "type": "string" },
+            "pullPolicy": {
+              "type": "string",
+              "enum": ["Always", "IfNotPresent", "Never"]
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "resources": {
+      "type": "object",
+      "properties": {
+        "requests": {
+          "type": "object",
+          "properties": {
+            "cpu": { "type": ["string", "number"] },
+            "memory": { "type": ["string", "number"] }
+          },
+          "additionalProperties": { "type": ["string", "number"] }
+        },
+        "limits": {
+          "type": "object",
+          "properties": {
+            "cpu": { "type": ["string", "number"] },
+            "memory": { "type": ["string", "number"] }
+          },
+          "additionalProperties": { "type": ["string", "number"] }
+        },
+        "claims": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" }
+            },
+            "required": ["name"]
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "probe": {
+      "type": "object",
+      "description": "Kubernetes probe configuration (httpGet, tcpSocket, exec, grpc)"
+    },
+    "serviceAccount": {
+      "type": "object",
+      "properties": {
+        "create": { "type": "boolean" },
+        "automount": { "type": "boolean" },
+        "annotations": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "name": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "service": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "portName": { "type": "string" },
+        "type": {
+          "type": "string",
+          "enum": ["ClusterIP", "NodePort", "LoadBalancer", "ExternalName"]
+        },
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "targetPort": {
+          "oneOf": [
+            { "type": "string" },
+            { "type": "integer", "minimum": 1, "maximum": 65535 }
+          ]
+        },
+        "protocol": {
+          "type": "string",
+          "enum": ["TCP", "UDP", "SCTP"]
+        },
+        "annotations": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "autoscaling": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "minReplicas": { "type": "integer", "minimum": 1 },
+        "maxReplicas": { "type": "integer", "minimum": 1 },
+        "targetCPUUtilizationPercentage": { "type": ["integer", "string"] },
+        "targetMemoryUtilizationPercentage": { "type": ["integer", "string"] },
+        "behavior": { "type": "object" }
+      },
+      "additionalProperties": false
+    },
+    "pdb": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "minAvailable": {
+          "oneOf": [
+            { "type": "integer", "minimum": 0 },
+            { "type": "string" }
+          ]
+        },
+        "maxUnavailable": {
+          "oneOf": [
+            { "type": "integer", "minimum": 0 },
+            { "type": "string" }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "networkPolicy": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "policyTypes": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "ingress": { "type": "array" },
+        "egress": { "type": "array" }
+      }
+    },
+    "dnsConfig": {
+      "type": "object",
+      "properties": {
+        "nameservers": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "searches": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "options": {
+          "type": "array",
+          "items": { "type": "object" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "mountedConfigFiles": {
+      "type": "object",
+      "properties": {
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "filename": { "type": "string" },
+              "targetPath": { "type": "string" },
+              "mountPath": { "type": "string" },
+              "content": { "type": "string" }
+            },
+            "additionalProperties": false
+          }
+        },
+        "bundles": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "mountDir": { "type": "string" },
+              "files": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": { "type": "string" },
+                    "relPath": { "type": "string" },
+                    "content": { "type": "string" }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      }
+    },
+    "deployment": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "replicaCount": { "type": "integer", "minimum": 0 },
+        "image": { "$ref": "#/$defs/image" },
+        "imagePullSecrets": { "type": "array" },
+        "serviceAccount": { "$ref": "#/$defs/serviceAccount" },
+        "podAnnotations": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "podLabels": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "podSecurityContext": { "type": "object" },
+        "securityContext": { "type": "object" },
+        "service": { "$ref": "#/$defs/service" },
+        "resources": { "$ref": "#/$defs/resources" },
+        "livenessProbe": { "$ref": "#/$defs/probe" },
+        "readinessProbe": { "$ref": "#/$defs/probe" },
+        "startupProbe": { "$ref": "#/$defs/probe" },
+        "autoscaling": { "$ref": "#/$defs/autoscaling" },
+        "strategy": { "type": "object" },
+        "revisionHistoryLimit": { "type": "integer", "minimum": 0 },
+        "progressDeadlineSeconds": { "type": "integer", "minimum": 0 },
+        "topologySpreadConstraints": { "type": "array" },
+        "pdb": { "$ref": "#/$defs/pdb" },
+        "networkPolicy": { "$ref": "#/$defs/networkPolicy" },
+        "volumes": { "type": "array" },
+        "volumeMounts": { "type": "array" },
+        "nodeSelector": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "tolerations": { "type": "array" },
+        "affinity": { "type": "object" },
+        "secret": { "type": "object", "additionalProperties": {} },
+        "configMap": { "type": "object", "additionalProperties": {} },
+        "hostAliases": { "type": "array" },
+        "dnsConfig": { "$ref": "#/$defs/dnsConfig" },
+        "envFromConfigMaps": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "envFromSecrets": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "additionalEnvs": { "type": "array" },
+        "extraInitContainers": { "type": "array" },
+        "extraContainers": { "type": "array" },
+        "podRecreation": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean" }
+          },
+          "additionalProperties": false
+        },
+        "mountedConfigFiles": { "$ref": "#/$defs/mountedConfigFiles" },
+        "hooks": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": { "$ref": "#/$defs/deploymentHookJob" }
+          }
+        },
+        "cronJobs": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/deploymentCronJob" }
+        }
+      }
+    },
+    "cronJob": {
+      "type": "object",
+      "required": ["schedule"],
+      "properties": {
+        "schedule": { "type": "string" },
+        "image": { "$ref": "#/$defs/image" },
+        "fromDeployment": { "type": "string" },
+        "command": { "type": "array", "items": { "type": "string" } },
+        "args": { "type": "array" },
+        "resources": { "$ref": "#/$defs/resources" },
+        "serviceAccount": { "$ref": "#/$defs/serviceAccount" },
+        "serviceAccountName": { "type": ["string", "null"] },
+        "serviceAccountAnnotations": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "imagePullPolicy": {
+          "type": "string",
+          "enum": ["Always", "IfNotPresent", "Never"]
+        },
+        "imagePullSecrets": { "type": "array" },
+        "nodeSelector": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "tolerations": { "type": "array" },
+        "affinity": { "type": "object" },
+        "hostAliases": { "type": "array" },
+        "dnsConfig": { "$ref": "#/$defs/dnsConfig" },
+        "env": { "type": "array" },
+        "envFromConfigMaps": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "envFromSecrets": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "initContainers": { "type": "array" },
+        "successfulJobsHistoryLimit": { "type": "integer", "minimum": 0 },
+        "failedJobsHistoryLimit": { "type": "integer", "minimum": 0 },
+        "annotations": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "automountServiceAccountToken": { "type": "boolean" },
+        "volumes": { "type": "array" },
+        "volumeMounts": { "type": "array" },
+        "concurrencyPolicy": {
+          "type": "string",
+          "enum": ["Allow", "Forbid", "Replace"]
+        },
+        "restartPolicy": { "type": "string" },
+        "podSecurityContext": { "type": "object" },
+        "securityContext": { "type": "object" }
+      }
+    },
+    "deploymentCronJob": {
+      "type": "object",
+      "required": ["schedule"],
+      "properties": {
+        "schedule": { "type": "string" },
+        "image": { "$ref": "#/$defs/image" },
+        "command": { "type": "array", "items": { "type": "string" } },
+        "args": { "type": "array" },
+        "resources": { "$ref": "#/$defs/resources" },
+        "serviceAccount": { "$ref": "#/$defs/serviceAccount" },
+        "serviceAccountName": { "type": ["string", "null"] },
+        "serviceAccountAnnotations": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "imagePullPolicy": {
+          "type": "string",
+          "enum": ["Always", "IfNotPresent", "Never"]
+        },
+        "imagePullSecrets": { "type": "array" },
+        "nodeSelector": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "tolerations": { "type": "array" },
+        "affinity": { "type": "object" },
+        "hostAliases": { "type": "array" },
+        "dnsConfig": { "$ref": "#/$defs/dnsConfig" },
+        "env": { "type": "array" },
+        "envFromConfigMaps": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "envFromSecrets": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "additionalEnvs": { "type": "array" },
+        "initContainers": { "type": "array" },
+        "successfulJobsHistoryLimit": { "type": "integer", "minimum": 0 },
+        "failedJobsHistoryLimit": { "type": "integer", "minimum": 0 },
+        "annotations": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "automountServiceAccountToken": { "type": "boolean" },
+        "volumes": { "type": "array" },
+        "volumeMounts": { "type": "array" },
+        "concurrencyPolicy": {
+          "type": "string",
+          "enum": ["Allow", "Forbid", "Replace"]
+        },
+        "restartPolicy": { "type": "string" },
+        "podSecurityContext": { "type": "object" },
+        "securityContext": { "type": "object" }
+      }
+    },
+    "hookJob": {
+      "type": "object",
+      "properties": {
+        "image": { "$ref": "#/$defs/image" },
+        "fromDeployment": { "type": "string" },
+        "command": { "type": "array", "items": { "type": "string" } },
+        "args": { "type": "array" },
+        "resources": { "$ref": "#/$defs/resources" },
+        "serviceAccount": { "$ref": "#/$defs/serviceAccount" },
+        "serviceAccountName": { "type": ["string", "null"] },
+        "serviceAccountAnnotations": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "imagePullPolicy": {
+          "type": "string",
+          "enum": ["Always", "IfNotPresent", "Never"]
+        },
+        "imagePullSecrets": { "type": "array" },
+        "nodeSelector": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "tolerations": { "type": "array" },
+        "affinity": { "type": "object" },
+        "hostAliases": { "type": "array" },
+        "dnsConfig": { "$ref": "#/$defs/dnsConfig" },
+        "env": { "type": "array" },
+        "envFromConfigMaps": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "envFromSecrets": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "weight": { "type": ["string", "integer"] },
+        "deletePolicy": { "type": "string" },
+        "annotations": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "automountServiceAccountToken": { "type": "boolean" },
+        "volumes": { "type": "array" },
+        "volumeMounts": { "type": "array" },
+        "restartPolicy": { "type": "string" },
+        "podSecurityContext": { "type": "object" },
+        "securityContext": { "type": "object" }
+      }
+    },
+    "deploymentHookJob": {
+      "type": "object",
+      "properties": {
+        "image": { "$ref": "#/$defs/image" },
+        "command": { "type": "array", "items": { "type": "string" } },
+        "args": { "type": "array" },
+        "resources": { "$ref": "#/$defs/resources" },
+        "serviceAccount": { "$ref": "#/$defs/serviceAccount" },
+        "serviceAccountName": { "type": ["string", "null"] },
+        "serviceAccountAnnotations": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "imagePullPolicy": {
+          "type": "string",
+          "enum": ["Always", "IfNotPresent", "Never"]
+        },
+        "imagePullSecrets": { "type": "array" },
+        "nodeSelector": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "tolerations": { "type": "array" },
+        "affinity": { "type": "object" },
+        "hostAliases": { "type": "array" },
+        "dnsConfig": { "$ref": "#/$defs/dnsConfig" },
+        "env": { "type": "array" },
+        "envFromConfigMaps": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "envFromSecrets": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "additionalEnvs": { "type": "array" },
+        "weight": { "type": ["string", "integer"] },
+        "deletePolicy": { "type": "string" },
+        "annotations": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "automountServiceAccountToken": { "type": "boolean" },
+        "volumes": { "type": "array" },
+        "volumeMounts": { "type": "array" },
+        "restartPolicy": { "type": "string" },
+        "podSecurityContext": { "type": "object" },
+        "securityContext": { "type": "object" }
+      }
+    },
+    "externalSecret": {
+      "type": "object",
+      "properties": {
+        "remote": {
+          "type": "object",
+          "properties": {
+            "key": { "type": "string" },
+            "conversionStrategy": { "type": "string" },
+            "decodingStrategy": { "type": "string" },
+            "metadataPolicy": { "type": "string" }
+          },
+          "additionalProperties": false
+        },
+        "secretstore": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": ["ClusterSecretStore", "SecretStore"]
+            },
+            "name": { "type": "string" }
+          },
+          "additionalProperties": false
+        },
+        "secretkey": { "type": "string" },
+        "refreshInterval": { "type": "string" },
+        "target": {
+          "type": "object",
+          "properties": {
+            "creationPolicy": { "type": "string" },
+            "deletionPolicy": { "type": "string" },
+            "name": { "type": "string" }
+          },
+          "additionalProperties": false
+        }
+      }
+    },
+    "ingress": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "className": { "type": "string" },
+        "annotations": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "tls": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "hosts": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "secretName": { "type": "string" }
+            }
+          }
+        },
+        "hosts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "host": { "type": "string" },
+              "deployment": { "type": "string" },
+              "service": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "port": { "type": "integer" }
+                }
+              },
+              "paths": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "path": { "type": "string" },
+                    "pathType": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "defaults": {
+      "type": "object",
+      "properties": {
+        "resources": { "$ref": "#/$defs/resources" }
+      },
+      "additionalProperties": false
+    },
+    "rbacs": {
+      "type": "object",
+      "properties": {
+        "roles": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "rules"],
+            "properties": {
+              "name": { "type": "string" },
+              "serviceAccount": { "$ref": "#/$defs/serviceAccount" },
+              "rules": {
+                "type": "array",
+                "items": { "type": "object" }
+              }
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

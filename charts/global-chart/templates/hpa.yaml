@@ -3,8 +3,8 @@
 {{- if $deploy }}
 {{- if eq (include "global-chart.deploymentEnabled" (dict "deploy" $deploy)) "true" }}
 {{- $hpa := default (dict) $deploy.autoscaling }}
-{{- $cpu := int (default 0 $hpa.targetCPUUtilizationPercentage) }}
-{{- $mem := int (default 0 $hpa.targetMemoryUtilizationPercentage) }}
+{{- $cpu := int (ternary $hpa.targetCPUUtilizationPercentage 0 (hasKey $hpa "targetCPUUtilizationPercentage")) }}
+{{- $mem := int (ternary $hpa.targetMemoryUtilizationPercentage 0 (hasKey $hpa "targetMemoryUtilizationPercentage")) }}
 {{- $hasMetric := or (gt $cpu 0) (gt $mem 0) }}
 {{- if and $hpa.enabled $hasMetric }}
 {{- $depFullname := include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $name) }}
@@ -16,6 +16,10 @@ metadata:
   name: {{ $depFullname }}
   labels:
     {{- include "global-chart.deploymentLabels" $labelCtx | nindent 4 }}
+  {{- with (include "global-chart.renderCommonAnnotations" $root) }}
+  annotations:
+    {{- . | nindent 4 }}
+  {{- end }}
 spec:
   scaleTargetRef:
     apiVersion: apps/v1

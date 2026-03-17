@@ -1,0 +1,4 @@
+cronJobs:
+  broken:
+    image: busybox:1.36
+    command: ["echo", "no schedule"]

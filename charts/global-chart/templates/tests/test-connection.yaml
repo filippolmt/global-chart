@@ -9,7 +9,7 @@
 {{- $svcEnabled := ternary $svc.enabled true (hasKey $svc "enabled") }}
 {{- if $svcEnabled }}
 {{- $firstSvc = include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $name) }}
-{{- $firstPort = default 80 $svc.port }}
+{{- $firstPort = ternary $svc.port 80 (hasKey $svc "port") }}
 {{- end }}
 {{- end }}
 {{- end }}

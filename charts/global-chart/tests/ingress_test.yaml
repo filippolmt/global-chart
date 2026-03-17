@@ -219,3 +219,116 @@ tests:
     asserts:
       - isKind:
           of: Ingress
+
+  # ====== service.enabled validation ======
+  - it: should fail when ingress references deployment with service.enabled false
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          service:
+            enabled: false
+      ingress:
+        enabled: true
+        hosts:
+          - host: api.example.com
+            deployment: backend
+            paths:
+              - path: /
+    asserts:
+      - failedTemplate:
+          errorMessage: "Ingress host 'api.example.com' references deployment 'backend' which has service.enabled: false. Enable the service or remove the ingress rule."
+
+  - it: should render ingress when deployment has service.enabled true
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          service:
+            enabled: true
+            port: 3000
+      ingress:
+        enabled: true
+        hosts:
+          - host: api.example.com
+            deployment: backend
+            paths:
+              - path: /
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: spec.rules[0].http.paths[0].backend.service.port.number
+          value: 3000
+
+  - it: should render ingress when deployment has no service key (defaults to enabled)
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+      ingress:
+        enabled: true
+        hosts:
+          - host: api.example.com
+            deployment: backend
+            paths:
+              - path: /
+    asserts:
+      - hasDocuments:
+          count: 1
+
+  # ====== Negative tests: fail/required paths ======
+
+  - it: should fail when ingress host references non-existent deployment
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+      ingress:
+        enabled: true
+        hosts:
+          - host: example.com
+            deployment: frontend
+            paths:
+              - path: /
+    asserts:
+      - failedTemplate:
+          errorPattern: "ingress host.*references deployment.*which does not exist"
+
+  - it: should fail when ingress host has neither deployment nor service.name
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+      ingress:
+        enabled: true
+        hosts:
+          - host: example.com
+            paths:
+              - path: /
+    asserts:
+      - failedTemplate:
+          errorPattern: "must specify either 'deployment'.*or 'service.name'"
+
+  # ====== global.commonLabels ======
+  - it: should render global.commonLabels on ingress metadata
+    set:
+      global:
+        commonLabels:
+          team: platform
+      deployments:
+        main:
+          image: nginx:1.25
+      ingress:
+        enabled: true
+        className: nginx
+        hosts:
+          - host: example.com
+            deployment: main
+            paths:
+              - path: /
+                pathType: Prefix
+    asserts:
+      - equal:
+          path: metadata.labels.team
+          value: platform

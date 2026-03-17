@@ -1,0 +1,19 @@
+# Lint scenario: verifies collision detection does not false-positive on normal names
+deployments:
+  frontend:
+    image: nginx:1.25
+    service:
+      port: 80
+  backend:
+    image: myapp:v2
+    service:
+      port: 3000
+    cronJobs:
+      cleanup:
+        schedule: "0 4 * * *"
+        command: ["./cleanup.sh"]
+cronJobs:
+  backup:
+    schedule: "0 2 * * *"
+    fromDeployment: backend
+    command: ["./backup.sh"]

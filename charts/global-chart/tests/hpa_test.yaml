@@ -90,3 +90,31 @@ tests:
       - equal:
           path: spec.metrics[1].resource.name
           value: memory
+
+  # ====== Negative tests: fail/required paths ======
+
+  - it: should fail when autoscaling.minReplicas is not set
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          autoscaling:
+            enabled: true
+            maxReplicas: 10
+            targetCPUUtilizationPercentage: 80
+    asserts:
+      - failedTemplate:
+          errorMessage: "deployments.main.autoscaling.minReplicas is required when HPA is enabled"
+
+  - it: should fail when autoscaling.maxReplicas is not set
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          autoscaling:
+            enabled: true
+            minReplicas: 2
+            targetCPUUtilizationPercentage: 80
+    asserts:
+      - failedTemplate:
+          errorMessage: "deployments.main.autoscaling.maxReplicas is required when HPA is enabled"

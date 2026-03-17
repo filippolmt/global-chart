@@ -1,0 +1,3 @@
+deploymens:
+  main:
+    image: nginx:1.25

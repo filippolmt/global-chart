@@ -30,7 +30,10 @@
 {{- /* ServiceAccount handling */ -}}
 {{- $commandSAMap := (and (hasKey $command "serviceAccount") (kindIs "map" $command.serviceAccount)) | ternary $command.serviceAccount (dict) -}}
 {{- $commandSAExplicitName := coalesce $command.serviceAccountName $commandSAMap.name -}}
-{{- $saName := default $hookFullname $commandSAExplicitName -}}
+{{- $saName := $hookFullname -}}
+{{- if $commandSAExplicitName -}}
+  {{- $saName = $commandSAExplicitName -}}
+{{- end -}}
 {{- $saCreate := false -}}
 {{- if hasKey $commandSAMap "create" -}}
   {{- $saCreate = $commandSAMap.create -}}
@@ -61,9 +64,15 @@ metadata:
   labels:
     {{- include "global-chart.hookLabelsWithComponent" $root | nindent 4 }}
   annotations:
+    {{- with (include "global-chart.renderCommonAnnotations" $root) }}
+    {{- . | nindent 4 }}
+    {{- end }}
+    {{- $effectiveJobWeight := int (ternary $command.weight 10 (hasKey $command "weight")) }}
+    {{- $saWeight := sub $effectiveJobWeight 5 }}
+    {{- if lt $saWeight 0 }}{{ $saWeight = 0 }}{{ end }}
     "helm.sh/hook": {{ $hookType | quote }}
-    "helm.sh/hook-weight": {{ default "5" $command.weight | quote }}
-    "helm.sh/hook-delete-policy": {{ default "before-hook-creation" $command.deletePolicy | quote }}
+    "helm.sh/hook-weight": {{ $saWeight | quote }}
+    "helm.sh/hook-delete-policy": {{ ternary $command.deletePolicy "before-hook-creation" (hasKey $command "deletePolicy") | quote }}
     {{- with $saAnnotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
@@ -77,15 +86,22 @@ metadata:
   labels:
     {{- include "global-chart.hookLabelsWithComponent" $root | nindent 4 }}
   annotations:
+    {{- with (include "global-chart.renderCommonAnnotations" $root) }}
+    {{- . | nindent 4 }}
+    {{- end }}
     "helm.sh/hook": {{ $hookType | quote }}
-    "helm.sh/hook-weight": {{ default "10" $command.weight | quote }}
-    "helm.sh/hook-delete-policy": {{ default "before-hook-creation" $command.deletePolicy | quote }}
+    "helm.sh/hook-weight": {{ ternary $command.weight "10" (hasKey $command "weight") | quote }}
+    "helm.sh/hook-delete-policy": {{ ternary $command.deletePolicy "before-hook-creation" (hasKey $command "deletePolicy") | quote }}
 spec:
   template:
     metadata:
       name: {{ $hookFullname }}
       labels:
         {{- include "global-chart.hookLabelsWithComponent" $root | nindent 8 }}
+      {{- with (include "global-chart.renderCommonAnnotations" $root) }}
+      annotations:
+        {{- . | nindent 8 }}
+      {{- end }}
     spec:
       serviceAccountName: {{ $saName | quote }}
       {{- /* ImagePullSecrets: hook-level > global (hasKey distinguishes unset from empty) */ -}}
@@ -110,7 +126,7 @@ spec:
       {{- with (include "global-chart.renderDnsConfig" $command.dnsConfig) }}
 {{- . | nindent 6 }}
       {{- end }}
-      restartPolicy: {{ default "Never" $command.restartPolicy | quote }}
+      restartPolicy: {{ default "Never" (ternary $command.restartPolicy "" (hasKey $command "restartPolicy")) | quote }}
       containers:
       - name: {{ $hookFullname }}
         image: {{ $imageRef | quote }}
@@ -176,6 +192,91 @@ spec:
 {{- range $deployName, $deploy := .Values.deployments }}
 {{- if $deploy }}
 {{- if and (eq (include "global-chart.deploymentEnabled" (dict "deploy" $deploy)) "true") $deploy.hooks }}
+
+{{- /* Compute deployment-level values ONCE per deployment (before hookType/command loops) */ -}}
+{{- $deployFullname := include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $deployName) -}}
+{{- $hasDeployConfigMap := and $deploy.configMap (gt (len $deploy.configMap) 0) -}}
+{{- $hasDeploySecret := and $deploy.secret (gt (len $deploy.secret) 0) -}}
+{{- /* Aggregate ALL hook types for prerequisite resources (sorted for deterministic output) */ -}}
+{{- $allHookTypes := keys $deploy.hooks | sortAlpha | join "," -}}
+
+{{- /* Compute minimum Job weight across all hooks for this deployment */ -}}
+{{- $minJobWeight := 10 -}}
+{{- range $hookType, $commands := $deploy.hooks -}}
+  {{- if $commands -}}
+    {{- range $name, $command := $commands -}}
+      {{- if $command -}}
+        {{- $w := int (ternary $command.weight 10 (hasKey $command "weight")) -}}
+        {{- if lt $w $minJobWeight -}}{{ $minJobWeight = $w }}{{ end -}}
+      {{- end -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+{{- $prereqWeight := sub $minJobWeight 7 -}}
+{{- if lt $prereqWeight 0 }}{{ $prereqWeight = 0 }}{{ end -}}
+
+{{- /*
+  Hook-specific ConfigMap/Secret: duplicates of the deployment's generated ConfigMap/Secret
+  with hook annotations so they exist BEFORE the Job runs.
+  Normal (non-hook) ConfigMap/Secret are NOT updated until after hooks complete,
+  so the Job would reference stale values without these hook copies.
+  Rendered ONCE per deployment (not per hook command) with ALL hook types aggregated.
+  Weight order: prereq ConfigMap/Secret (jobWeight-7) < SA (jobWeight-5) < Job (jobWeight)
+*/ -}}
+{{- if $hasDeployConfigMap }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ printf "%s-hook-config" $deployFullname | trunc 63 | trimSuffix "-" }}
+  labels:
+    {{- include "global-chart.hookLabels" $root | nindent 4 }}
+    app.kubernetes.io/component: {{ $deployName }}-hook
+  annotations:
+    {{- with (include "global-chart.renderCommonAnnotations" $root) }}
+    {{- . | nindent 4 }}
+    {{- end }}
+    "helm.sh/hook": {{ $allHookTypes | quote }}
+    "helm.sh/hook-weight": {{ $prereqWeight | quote }}
+    "helm.sh/hook-delete-policy": "before-hook-creation"
+data:
+{{- range $key, $value := $deploy.configMap }}
+  {{- if or (kindIs "map" $value) (kindIs "slice" $value) }}
+  {{ $key }}:
+    {{- toYaml $value | nindent 4 }}
+  {{- else }}
+  {{ $key }}: {{ toString $value | quote }}
+  {{- end }}
+{{- end }}
+{{- end }}
+{{- if $hasDeploySecret }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ printf "%s-hook-secret" $deployFullname | trunc 63 | trimSuffix "-" }}
+  labels:
+    {{- include "global-chart.hookLabels" $root | nindent 4 }}
+    app.kubernetes.io/component: {{ $deployName }}-hook
+  annotations:
+    {{- with (include "global-chart.renderCommonAnnotations" $root) }}
+    {{- . | nindent 4 }}
+    {{- end }}
+    "helm.sh/hook": {{ $allHookTypes | quote }}
+    "helm.sh/hook-weight": {{ $prereqWeight | quote }}
+    "helm.sh/hook-delete-policy": "before-hook-creation"
+type: Opaque
+data:
+{{- range $key, $value := $deploy.secret }}
+  {{- if kindIs "string" $value }}
+  {{ $key }}: {{ $value | b64enc | quote }}
+  {{- else }}
+  {{ $key }}: {{ toYaml $value | b64enc | quote }}
+  {{- end }}
+{{- end }}
+{{- end }}
+
+{{- /* Per hook type and command: SA + Job */ -}}
 {{- range $hookType, $jobs := $deploy.hooks }}
 {{- range $name, $command := $jobs }}
 {{- if $command }}
@@ -204,7 +305,8 @@ spec:
   - Otherwise no deployment SA to inherit
 */ -}}
 {{- $deploymentSAName := "" -}}
-{{- if $deploySA.create -}}
+{{- $deploySACreate := ternary $deploySA.create true (hasKey $deploySA "create") -}}
+{{- if $deploySACreate -}}
   {{- $deploymentSAName = include "global-chart.deploymentServiceAccountName" (dict "root" $root "deploymentName" $deployName "deployment" $deploy) -}}
 {{- else if $deploySA.name -}}
   {{- /* Deployment references an existing SA - inherit it */ -}}
@@ -229,7 +331,7 @@ spec:
 {{- if hasKey $commandSAMap "create" -}}
   {{- $saCreate = $commandSAMap.create -}}
   {{- if $saCreate -}}
-    {{- $saName = default $hookFullname $commandSAMap.name -}}
+    {{- $saName = ternary $commandSAMap.name $hookFullname (hasKey $commandSAMap "name") -}}
   {{- end -}}
 {{- end -}}
 
@@ -261,18 +363,20 @@ metadata:
     {{- include "global-chart.hookLabels" $root | nindent 4 }}
     app.kubernetes.io/component: {{ $deployName }}-hook
   annotations:
+    {{- $effectiveJobWeight := int (ternary $command.weight 10 (hasKey $command "weight")) }}
+    {{- $saWeight := sub $effectiveJobWeight 5 }}
+    {{- if lt $saWeight 0 }}{{ $saWeight = 0 }}{{ end }}
+    {{- with (include "global-chart.renderCommonAnnotations" $root) }}
+    {{- . | nindent 4 }}
+    {{- end }}
     "helm.sh/hook": {{ $hookType | quote }}
-    "helm.sh/hook-weight": {{ default "5" $command.weight | quote }}
-    "helm.sh/hook-delete-policy": {{ default "before-hook-creation" $command.deletePolicy | quote }}
+    "helm.sh/hook-weight": {{ $saWeight | quote }}
+    "helm.sh/hook-delete-policy": {{ ternary $command.deletePolicy "before-hook-creation" (hasKey $command "deletePolicy") | quote }}
     {{- with $saAnnotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
 automountServiceAccountToken: {{ $saAutomount }}
 {{ end }}
-{{- /* Resolve inherited envFrom from deployment's configMap and secret */ -}}
-{{- $deployFullname := include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $deployName) -}}
-{{- $hasDeployConfigMap := and $deploy.configMap (gt (len $deploy.configMap) 0) -}}
-{{- $hasDeploySecret := and $deploy.secret (gt (len $deploy.secret) 0) -}}
 ---
 apiVersion: batch/v1
 kind: Job
@@ -282,9 +386,12 @@ metadata:
     {{- include "global-chart.hookLabels" $root | nindent 4 }}
     app.kubernetes.io/component: {{ $deployName }}-hook
   annotations:
+    {{- with (include "global-chart.renderCommonAnnotations" $root) }}
+    {{- . | nindent 4 }}
+    {{- end }}
     "helm.sh/hook": {{ $hookType | quote }}
-    "helm.sh/hook-weight": {{ default "10" $command.weight | quote }}
-    "helm.sh/hook-delete-policy": {{ default "before-hook-creation" $command.deletePolicy | quote }}
+    "helm.sh/hook-weight": {{ ternary $command.weight "10" (hasKey $command "weight") | quote }}
+    "helm.sh/hook-delete-policy": {{ ternary $command.deletePolicy "before-hook-creation" (hasKey $command "deletePolicy") | quote }}
 spec:
   template:
     metadata:
@@ -292,130 +399,15 @@ spec:
       labels:
         {{- include "global-chart.hookLabels" $root | nindent 8 }}
         app.kubernetes.io/component: {{ $deployName }}-hook
+      {{- with (include "global-chart.renderCommonAnnotations" $root) }}
+      annotations:
+        {{- . | nindent 8 }}
+      {{- end }}
     spec:
-      serviceAccountName: {{ $saName | quote }}
-      {{- /* ImagePullSecrets: explicit > inherited from deployment > global (hasKey distinguishes unset from empty) */ -}}
-      {{- $imagePullSecrets := list -}}
-      {{- if hasKey $command "imagePullSecrets" -}}
-        {{- $imagePullSecrets = $command.imagePullSecrets -}}
-      {{- else if hasKey $deploy "imagePullSecrets" -}}
-        {{- $imagePullSecrets = $deploy.imagePullSecrets -}}
-      {{- else -}}
-        {{- $global := default (dict) $root.Values.global -}}
-        {{- $imagePullSecrets = $global.imagePullSecrets -}}
-      {{- end -}}
-      {{- with (include "global-chart.renderImagePullSecrets" $imagePullSecrets) }}
-{{- . | nindent 6 }}
-      {{- end }}
-      {{- /* HostAliases: explicit > inherited from deployment */ -}}
-      {{- $hostAliases := ternary $command.hostAliases $deploy.hostAliases (hasKey $command "hostAliases") -}}
-      {{- with $hostAliases }}
-      hostAliases:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      {{- /* PodSecurityContext: explicit > inherited from deployment */ -}}
-      {{- $podSecCtx := ternary $command.podSecurityContext $deploy.podSecurityContext (hasKey $command "podSecurityContext") -}}
-      {{- with $podSecCtx }}
-      securityContext:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      restartPolicy: {{ default "Never" $command.restartPolicy | quote }}
-      containers:
-      - name: {{ $name }}
-        image: {{ $imageRef | quote }}
-        imagePullPolicy: {{ include "global-chart.imagePullPolicy" (dict "override" $command.imagePullPolicy "image" (default $deploy.image $command.image)) | quote }}
-        {{- if $command.command }}
-        command:
-          {{- toYaml $command.command | nindent 10 }}
-        {{- end }}
-        {{- if $command.args }}
-        args:
-          {{- toYaml $command.args | nindent 10 }}
-        {{- end }}
-        {{- /* Container securityContext: explicit > inherited from deployment */ -}}
-        {{- $secCtx := ternary $command.securityContext $deploy.securityContext (hasKey $command "securityContext") -}}
-        {{- with $secCtx }}
-        securityContext:
-          {{- toYaml . | nindent 10 }}
-        {{- end }}
-        {{- with (include "global-chart.renderResources" (dict "resources" $command.resources "hasResources" (hasKey $command "resources") "defaults" $root.Values.defaults)) }}
-{{- . | nindent 8 }}
-        {{- end }}
-        {{- /* EnvFrom: deployment's configMap/secret + explicit envFromConfigMaps/envFromSecrets + deployment's envFromConfigMaps/envFromSecrets */ -}}
-        {{- $hasEnvFrom := or $hasDeployConfigMap $hasDeploySecret $command.envFromConfigMaps $command.envFromSecrets $deploy.envFromConfigMaps $deploy.envFromSecrets -}}
-        {{- if $hasEnvFrom }}
-        envFrom:
-          {{- /* Deployment's generated ConfigMap */ -}}
-          {{- if $hasDeployConfigMap }}
-          - configMapRef:
-              name: {{ $deployFullname | quote }}
-          {{- end }}
-          {{- /* Deployment's generated Secret */ -}}
-          {{- if $hasDeploySecret }}
-          - secretRef:
-              name: {{ $deployFullname | quote }}
-          {{- end }}
-          {{- /* Deployment's external ConfigMaps */ -}}
-          {{- range $cm := $deploy.envFromConfigMaps }}
-          - configMapRef:
-              name: {{ $cm | quote }}
-          {{- end }}
-          {{- /* Deployment's external Secrets */ -}}
-          {{- range $sec := $deploy.envFromSecrets }}
-          - secretRef:
-              name: {{ $sec | quote }}
-          {{- end }}
-          {{- /* Hook's explicit external ConfigMaps */ -}}
-          {{- range $cm := $command.envFromConfigMaps }}
-          - configMapRef:
-              name: {{ $cm | quote }}
-          {{- end }}
-          {{- /* Hook's explicit external Secrets */ -}}
-          {{- range $sec := $command.envFromSecrets }}
-          - secretRef:
-              name: {{ $sec | quote }}
-          {{- end }}
-        {{- end }}
-        {{- /* Env: deployment's additionalEnvs + hook's env */ -}}
-        {{- $envVars := list -}}
-        {{- if $deploy.additionalEnvs -}}
-          {{- $envVars = $deploy.additionalEnvs -}}
-        {{- end -}}
-        {{- if $command.env -}}
-          {{- $envVars = concat $envVars $command.env -}}
-        {{- end -}}
-        {{- if $envVars }}
-        env:
-          {{- toYaml $envVars | nindent 10 }}
-        {{- end }}
-        {{- with $command.volumeMounts }}
-        volumeMounts:
-          {{- toYaml . | nindent 10 }}
-        {{- end }}
-      {{- with $command.volumes }}
-      volumes:
-        {{- range . }}
-        {{- include "global-chart.renderVolume" . | nindent 8 }}
-        {{- end }}
-      {{- end }}
-      {{- /* NodeSelector: explicit > inherited from deployment */ -}}
-      {{- $nodeSelector := ternary $command.nodeSelector $deploy.nodeSelector (hasKey $command "nodeSelector") -}}
-      {{- with $nodeSelector }}
-      nodeSelector:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      {{- /* Affinity: explicit > inherited from deployment */ -}}
-      {{- $affinity := ternary $command.affinity $deploy.affinity (hasKey $command "affinity") -}}
-      {{- with $affinity }}
-      affinity:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      {{- /* Tolerations: explicit > inherited from deployment */ -}}
-      {{- $tolerations := ternary $command.tolerations $deploy.tolerations (hasKey $command "tolerations") -}}
-      {{- with $tolerations }}
-      tolerations:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
+      {{- $configMapRef := printf "%s-hook-config" $deployFullname | trunc 63 | trimSuffix "-" }}
+      {{- $secretRef := printf "%s-hook-secret" $deployFullname | trunc 63 | trimSuffix "-" }}
+      {{- $ctx := dict "root" $root "job" $command "deploy" $deploy "saName" $saName "imageRef" $imageRef "containerName" $name "configMapRef" $configMapRef "secretRef" $secretRef "inheritDnsConfig" false "renderInitContainers" false }}
+      {{- include "global-chart.inheritedJobPodSpec" $ctx | trimPrefix "\n" | nindent 6 }}
 {{ end }}
 {{- end }}
 {{- end }}

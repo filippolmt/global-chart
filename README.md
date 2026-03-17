@@ -6,26 +6,32 @@ The chart supports **multiple deployments** in a single release, each with indep
 ## Chart scope at a glance
 
 - **Multi-deployment support**
-  Define multiple independent deployments under `deployments.*`. Each gets its own Service, ConfigMap, Secret, ServiceAccount, and HPA.
+  Define multiple independent deployments under `deployments.*`. Each gets its own Service, ConfigMap, Secret, ServiceAccount, HPA, PDB, and NetworkPolicy.
 - **Deployment primitives**
   Image can be a string (`nginx:1.25`) or a map (`repository/tag/digest`). Probes, resources, autoscaling (HPA), scheduling constraints, extra containers/init containers, pod recreation bumps, and ConfigMap/Secret `envFrom` are all configurable.
 - **Networking**
-  First-class Service configuration plus optional Ingress with TLS, class annotations, and routes to specific deployments. DNS options and host aliases can be defined per-deployment.
+  First-class Service configuration (with per-service annotations) plus optional Ingress with TLS, class annotations, and routes to specific deployments. DNS options and host aliases can be defined per-deployment.
 - **Configuration distribution**
-  Inline ConfigMap/Secret data, mounted config files (single file) or bundles (projected lists of files), and volume templates (configMap/secret/emptyDir/PVC) are supported.
+  Inline ConfigMap/Secret data, mounted config files (single file) or bundles (projected lists of files), and volume templates (configMap/secret/emptyDir/PVC or native K8s spec) are supported.
 - **Lifecycle and batch**
   Helm hook jobs and CronJobs can be defined in two ways:
   - **Root level** (`hooks.*`, `cronJobs.*`): Standalone, use `fromDeployment` to copy image from a deployment
   - **Inside deployments** (`deployments.*.hooks`, `deployments.*.cronJobs`): Inherit image, configMap, secret, serviceAccount, hostAliases, podSecurityContext, securityContext, dnsConfig (cronJobs), nodeSelector, tolerations, affinity, and more from the parent deployment
+  - Hook prerequisite ConfigMap/Secret are created automatically with correct weight ordering
 - **Secret management**
   ExternalSecret resources with required field validation to avoid silent misconfigurations.
 - **RBAC**
   Create Roles, ServiceAccounts, and RoleBindings for fine-grained access control.
+- **Global values**
+  `global.imageRegistry`, `global.imagePullSecrets`, `global.commonLabels`, `global.commonAnnotations` apply across all resources.
+- **Validation**
+  JSON Schema Draft 7 (`values.schema.json`) for input validation and IDE autocomplete. Name collision detection at render time.
 
 ## Prerequisites
 
 - Helm 3.x
 - Kubernetes 1.19 or newer
+- Docker (for unit tests, kubeconform, kube-linter, helm-docs)
 
 ## Quick start
 
@@ -89,20 +95,21 @@ ingress:
 
 ## Local development
 
-This repository ships with helper targets that exercise every supported scenario (multi-deployment, mounted config files, hooks, cron jobs, external secrets, ingress variations).
-
 ```bash
-# Run helm lint across all test value files
-make lint-chart
+# Show all available commands
+make help
 
-# Run helm-unittest via Docker (161 tests across 14 suites)
-make unit-test
-
-# Render manifests for visual inspection in generated-manifests/
-make generate-templates
-
-# Run everything (lint + unit tests + generate)
+# Run full pipeline: lint, unit tests, bad-values, generate, kubeconform, kube-linter
 make all
+
+# Individual targets
+make lint-chart            # Lint all 17 test scenarios
+make unit-test             # Run 312 helm-unittest tests via Docker
+make validate-bad-values   # Verify schema rejects invalid values
+make generate-templates    # Render manifests for visual inspection
+make kubeconform           # Validate manifests against K8s 1.29
+make kube-linter           # Lint manifests (addAllBuiltIn)
+make generate-docs         # Regenerate helm-docs
 
 # Install a test scenario to a cluster
 make install SCENARIO=test01
@@ -111,21 +118,17 @@ make install SCENARIO=test01
 make render VALUES=tests/test01/values.01.yaml TEMPLATE=deployment.yaml
 ```
 
-CI runs the same commands through the `Helm CI` GitHub workflow to keep the chart healthy on each push/PR.
+## Testing & CI
 
-## Values deep dive
+The chart has multiple layers of testing:
 
-All configuration lives under `charts/global-chart/values.yaml`. Highlights:
+- **Lint scenarios** (`make lint-chart`): Runs `helm lint --strict` across 17 value files in `tests/`.
+- **Unit tests** (`make unit-test`): 312 helm-unittest tests across 17 suites in `charts/global-chart/tests/`, including negative `failedTemplate` tests.
+- **Schema validation** (`make validate-bad-values`): Verifies schema correctly rejects 3 invalid value files.
+- **Manifest validation** (`make kubeconform`): Validates 161 generated resources against K8s 1.29 schema.
+- **Best practices** (`make kube-linter`): Lints manifests with `addAllBuiltIn: true` and 28 documented exclusions.
 
-- `deployments` – map of named deployments. Each deployment generates its own Deployment, Service, ConfigMap, Secret, ServiceAccount, and HPA.
-  - `image` can be `{ repository, tag, digest, pullPolicy }` or a single string.
-  - `service.enabled: false` skips Service creation (useful for workers).
-  - `hooks` and `cronJobs` defined inside a deployment inherit image, configMap, secret, serviceAccount, hostAliases, podSecurityContext, securityContext, dnsConfig (cronJobs), and scheduling constraints.
-- `cronJobs` – root-level map keyed by job name. Use `fromDeployment` to copy image from a deployment, or specify `image` explicitly.
-- `hooks` – root-level map of hook types (post-install/pre-upgrade/etc.) to job definitions. Use `fromDeployment` or `image`.
-- `externalSecrets` – map keyed by logical name. Each entry must define `secretkey`, `remote.key`, and `secretstore.{kind,name}`.
-- `ingress` – routes to specific deployments via `hosts[].deployment`, or to external services via `hosts[].service`.
-- `rbacs` – create Roles, ServiceAccounts, and RoleBindings.
+The GitHub Action (`.github/workflows/helm-ci.yml`) executes all steps on pushes and pull requests, pre-pulling Docker images with retry for resilience.
 
 ## Test scenarios
 
@@ -138,6 +141,7 @@ See the `tests/` directory for concrete examples:
 | `values.03.yaml`                 | Chart disabled (no output)                                                                |
 | `multi-deployment.yaml`          | Multi-deployment test (frontend, backend, worker, minimal)                                |
 | `deployment-hooks-cronjobs.yaml` | Hooks/CronJobs inside deployments (inheritance test)                                      |
+| `hooks-sa-inheritance.yaml`      | Hooks SA inheritance (existing SA, explicit override)                                     |
 | `mountedcm*.yaml`                | Mounted config file scenarios                                                             |
 | `cron-only.yaml`                 | CronJobs without Deployment                                                               |
 | `hook-only.yaml`                 | Hooks without Deployment                                                                  |
@@ -147,20 +151,21 @@ See the `tests/` directory for concrete examples:
 | `rbac.yaml`                      | RBAC with roles and service accounts                                                      |
 | `service-disabled.yaml`          | Deployment with service disabled                                                          |
 | `raw-deployment.yaml`            | Deployment with raw image string                                                          |
-| `hooks-sa-inheritance.yaml`      | Hooks SA inheritance (existing SA, explicit override)                                     |
+| `name-collision.yaml`            | Name collision detection test                                                             |
+| `bad-values/*.yaml`              | Schema rejection tests                                                                    |
 
-## Testing & CI
+## Values reference
 
-The chart has two layers of testing:
+All configuration lives under `charts/global-chart/values.yaml`. See `charts/global-chart/README.md` for the auto-generated values table.
 
-- **Lint scenarios** (`make lint-chart`): Runs `helm lint --strict` across 16 value files in `tests/`, catching schema and rendering errors.
-- **Unit tests** (`make unit-test`): Runs 161 helm-unittest tests across 14 suites in `charts/global-chart/tests/`, verifying rendered output for every template (deployment, service, ingress, cronjob, hook, hpa, serviceaccount, configmap, secret, mounted-configmap, externalsecret, rbac, helpers, NOTES.txt).
+## Changelog
 
-The GitHub Action defined in `.github/workflows/helm-ci.yml` executes lint, unit tests, and template generation on pushes and pull requests, uploading manifests as an artifact for traceability.
+See [CHANGELOG.md](CHANGELOG.md) for version history, breaking changes, and migration guides.
 
 ## Useful references
 
 - Core values: `charts/global-chart/values.yaml`
+- JSON Schema: `charts/global-chart/values.schema.json`
 - Example scenarios: `tests/`
 - Make targets: `Makefile`
 - GitHub workflow: `.github/workflows/helm-ci.yml`

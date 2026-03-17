@@ -712,10 +712,10 @@ tests:
     asserts:
       - isKind:
           of: Job
-        documentIndex: 1
+        documentIndex: 0
       - isNull:
           path: spec.template.spec.hostAliases
-        documentIndex: 1
+        documentIndex: 0
 
   - it: should not inherit podSecurityContext when hook sets empty map
     set:
@@ -732,10 +732,10 @@ tests:
     asserts:
       - isKind:
           of: Job
-        documentIndex: 1
+        documentIndex: 0
       - isNull:
           path: spec.template.spec.securityContext
-        documentIndex: 1
+        documentIndex: 0
 
   - it: should not inherit container securityContext when hook sets empty map
     set:
@@ -752,10 +752,10 @@ tests:
     asserts:
       - isKind:
           of: Job
-        documentIndex: 1
+        documentIndex: 0
       - isNull:
           path: spec.template.spec.containers[0].securityContext
-        documentIndex: 1
+        documentIndex: 0
 
   - it: should not inherit nodeSelector when hook sets empty map
     set:
@@ -772,10 +772,10 @@ tests:
     asserts:
       - isKind:
           of: Job
-        documentIndex: 1
+        documentIndex: 0
       - isNull:
           path: spec.template.spec.nodeSelector
-        documentIndex: 1
+        documentIndex: 0
 
   - it: should not inherit affinity when hook sets empty map
     set:
@@ -798,10 +798,10 @@ tests:
     asserts:
       - isKind:
           of: Job
-        documentIndex: 1
+        documentIndex: 0
       - isNull:
           path: spec.template.spec.affinity
-        documentIndex: 1
+        documentIndex: 0
 
   - it: should not inherit tolerations when hook sets empty list
     set:
@@ -821,10 +821,10 @@ tests:
     asserts:
       - isKind:
           of: Job
-        documentIndex: 1
+        documentIndex: 0
       - isNull:
           path: spec.template.spec.tolerations
-        documentIndex: 1
+        documentIndex: 0
 
   - it: should not inherit imagePullSecrets when hook sets empty list
     set:
@@ -841,10 +841,10 @@ tests:
     asserts:
       - isKind:
           of: Job
-        documentIndex: 1
+        documentIndex: 0
       - isNull:
           path: spec.template.spec.imagePullSecrets
-        documentIndex: 1
+        documentIndex: 0
 
   # ====== Deployment-level hook securityContext inheritance ======
   - it: should inherit podSecurityContext from deployment in deployment-level hook
@@ -1000,18 +1000,43 @@ tests:
               migrate:
                 command: ["./migrate.sh"]
     asserts:
+      # Hook-specific ConfigMap created as prerequisite (documentIndex 0)
+      - isKind:
+          of: ConfigMap
+        documentIndex: 0
+      - equal:
+          path: metadata.annotations["helm.sh/hook"]
+          value: post-upgrade
+        documentIndex: 0
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "3"
+        documentIndex: 0
+      # Hook-specific Secret created as prerequisite (documentIndex 1)
+      - isKind:
+          of: Secret
+        documentIndex: 1
+      - equal:
+          path: metadata.annotations["helm.sh/hook"]
+          value: post-upgrade
+        documentIndex: 1
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "3"
+        documentIndex: 1
+      # Job (documentIndex 2) references hook-specific ConfigMap and Secret
       - contains:
           path: spec.template.spec.containers[0].envFrom
           content:
             configMapRef:
-              name: RELEASE-NAME-global-chart-backend
-        documentIndex: 0
+              name: RELEASE-NAME-global-chart-backend-hook-config
+        documentIndex: 2
       - contains:
           path: spec.template.spec.containers[0].envFrom
           content:
             secretRef:
-              name: RELEASE-NAME-global-chart-backend
-        documentIndex: 0
+              name: RELEASE-NAME-global-chart-backend-hook-secret
+        documentIndex: 2
 
   - it: should inherit envFromConfigMaps and envFromSecrets from deployment
     set:
@@ -1445,3 +1470,359 @@ tests:
     asserts:
       - hasDocuments:
           count: 3
+
+  # ====== hook weight ordering ======
+  - it: should set weight 3 on prerequisite ConfigMap for deployment-level hook
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          configMap:
+            DB_HOST: postgres
+          hooks:
+            pre-upgrade:
+              migrate:
+                command: ["./migrate.sh"]
+    asserts:
+      - isKind:
+          of: ConfigMap
+        documentIndex: 0
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "3"
+        documentIndex: 0
+
+  - it: should set weight 3 on prerequisite Secret for deployment-level hook
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          secret:
+            DB_PASSWORD: secret123
+          hooks:
+            pre-upgrade:
+              migrate:
+                command: ["./migrate.sh"]
+    asserts:
+      - isKind:
+          of: Secret
+        documentIndex: 0
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "3"
+        documentIndex: 0
+
+  - it: should set weight 5 on SA for deployment-level hook
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          hooks:
+            pre-upgrade:
+              migrate:
+                command: ["./migrate.sh"]
+                serviceAccount:
+                  create: true
+    asserts:
+      - isKind:
+          of: ServiceAccount
+        documentIndex: 0
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "5"
+        documentIndex: 0
+
+  - it: should set weight 10 on Job for deployment-level hook
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          serviceAccount:
+            create: true
+          hooks:
+            pre-upgrade:
+              migrate:
+                command: ["./migrate.sh"]
+    asserts:
+      - isKind:
+          of: Job
+        documentIndex: 0
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "10"
+        documentIndex: 0
+
+  # ====== hook type aggregation on prerequisites ======
+  - it: should aggregate all hook types on prerequisite ConfigMap when deployment has multiple hook types
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          configMap:
+            DB_HOST: postgres
+          hooks:
+            pre-install:
+              setup:
+                command: ["./setup.sh"]
+            pre-upgrade:
+              migrate:
+                command: ["./migrate.sh"]
+    asserts:
+      - isKind:
+          of: ConfigMap
+        documentIndex: 0
+      - equal:
+          path: metadata.annotations["helm.sh/hook"]
+          value: "pre-install,pre-upgrade"
+        documentIndex: 0
+
+  - it: should aggregate all hook types on prerequisite Secret when deployment has multiple hook types
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          secret:
+            DB_PASSWORD: secret123
+          hooks:
+            pre-install:
+              setup:
+                command: ["./setup.sh"]
+            pre-upgrade:
+              migrate:
+                command: ["./migrate.sh"]
+    asserts:
+      - isKind:
+          of: Secret
+        documentIndex: 0
+      - equal:
+          path: metadata.annotations["helm.sh/hook"]
+          value: "pre-install,pre-upgrade"
+        documentIndex: 0
+
+  # ====== hasKey default conversions ======
+  - it: should render restartPolicy Never by default on root-level hook
+    set:
+      hooks:
+        post-install:
+          setup:
+            image: busybox:1.36
+            command: ["./setup.sh"]
+    asserts:
+      - equal:
+          path: spec.template.spec.restartPolicy
+          value: "Never"
+        documentIndex: 1
+
+  - it: should render deletePolicy before-hook-creation by default on root-level hook
+    set:
+      hooks:
+        post-install:
+          setup:
+            image: busybox:1.36
+            command: ["./setup.sh"]
+    asserts:
+      - equal:
+          path: metadata.annotations["helm.sh/hook-delete-policy"]
+          value: "before-hook-creation"
+        documentIndex: 1
+
+  # ====== Seven-category: default assertions ======
+
+  - it: should render no nodeSelector when neither deployment nor hook sets it
+    set:
+      deployments:
+        backend:
+          image: myapp:v1
+          serviceAccount:
+            create: true
+          hooks:
+            pre-install:
+              migrate:
+                command: ["./migrate.sh"]
+    asserts:
+      - isKind:
+          of: Job
+        documentIndex: 0
+      - isNull:
+          path: spec.template.spec.nodeSelector
+        documentIndex: 0
+
+  # ====== Hook prerequisite partial tests ======
+
+  - it: should not create prerequisite ConfigMap when deployment has no configMap
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          serviceAccount:
+            create: true
+          secret:
+            DB_PASSWORD: secret123
+          hooks:
+            pre-install:
+              migrate:
+                command: ["./migrate.sh"]
+    asserts:
+      # Documents: Secret prereq (0), Job (1) — no ConfigMap prereq
+      - hasDocuments:
+          count: 2
+      - isKind:
+          of: Secret
+        documentIndex: 0
+      - isKind:
+          of: Job
+        documentIndex: 1
+
+  - it: should create only ConfigMap prereq when deployment has configMap but no secret
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          serviceAccount:
+            create: true
+          configMap:
+            DB_HOST: postgres
+          hooks:
+            pre-install:
+              migrate:
+                command: ["./migrate.sh"]
+    asserts:
+      # Documents: ConfigMap prereq (0), Job (1) — no Secret prereq
+      - hasDocuments:
+          count: 2
+      - isKind:
+          of: ConfigMap
+        documentIndex: 0
+      - equal:
+          path: metadata.annotations["helm.sh/hook"]
+          value: "pre-install"
+        documentIndex: 0
+      - isKind:
+          of: Job
+        documentIndex: 1
+
+  - it: should create only Secret prereq when deployment has secret but no configMap
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          serviceAccount:
+            create: true
+          secret:
+            DB_PASSWORD: secret123
+          hooks:
+            pre-install:
+              migrate:
+                command: ["./migrate.sh"]
+    asserts:
+      # Documents: Secret prereq (0), Job (1) — no ConfigMap prereq
+      - hasDocuments:
+          count: 2
+      - isKind:
+          of: Secret
+        documentIndex: 0
+      - equal:
+          path: metadata.annotations["helm.sh/hook"]
+          value: "pre-install"
+        documentIndex: 0
+      - isKind:
+          of: Job
+        documentIndex: 1
+
+  - it: should share single prereq set across multiple hook commands
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          serviceAccount:
+            create: true
+          configMap:
+            DB_HOST: postgres
+          secret:
+            DB_PASSWORD: secret123
+          hooks:
+            pre-install:
+              migrate:
+                command: ["./migrate.sh"]
+              seed:
+                command: ["./seed.sh"]
+    asserts:
+      # Documents: ConfigMap prereq (0), Secret prereq (1), Job migrate (2), Job seed (3)
+      # Only 1 ConfigMap + 1 Secret prereq, NOT 2 each
+      - hasDocuments:
+          count: 4
+      - isKind:
+          of: ConfigMap
+        documentIndex: 0
+      - isKind:
+          of: Secret
+        documentIndex: 1
+      - isKind:
+          of: Job
+        documentIndex: 2
+      - isKind:
+          of: Job
+        documentIndex: 3
+
+  # ====== global.commonLabels ======
+  - it: should render global.commonLabels on hook job metadata
+    set:
+      global:
+        commonLabels:
+          team: platform
+      hooks:
+        post-install:
+          migrate:
+            image: myapp:v1
+            command: ["./migrate.sh"]
+    asserts:
+      - equal:
+          path: metadata.labels.team
+          value: platform
+        documentIndex: 1
+
+  # ====== Negative tests: fail/required paths ======
+
+  # ====== dnsConfig NOT inherited in deployment-level hooks ======
+  - it: should not inherit dnsConfig from deployment in deployment-level hook
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          dnsConfig:
+            nameservers:
+              - 8.8.8.8
+          hooks:
+            post-upgrade:
+              migrate:
+                command: ["./migrate.sh"]
+    documentIndex: 0
+    asserts:
+      - isKind:
+          of: Job
+      - isNull:
+          path: spec.template.spec.dnsConfig
+
+  # ====== restartPolicy null-safe ======
+  - it: should default restartPolicy to Never for root-level hook
+    set:
+      hooks:
+        post-install:
+          migrate:
+            image: myapp:v2
+            command: ["./migrate.sh"]
+    documentIndex: 1
+    asserts:
+      - equal:
+          path: spec.template.spec.restartPolicy
+          value: Never
+
+  - it: should fail when root-level hook has no image and no fromDeployment
+    set:
+      hooks:
+        post-install:
+          migrate:
+            command: ["./run.sh"]
+    asserts:
+      - failedTemplate:
+          errorPattern: "image is required for hooks.post-install.migrate"

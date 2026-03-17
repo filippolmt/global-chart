@@ -17,13 +17,20 @@ metadata:
   name: {{ $depFullname }}
   labels:
     {{- include "global-chart.deploymentLabels" $labelCtx | nindent 4 }}
+  {{- $svcAnnotations := deepCopy (default (dict) $svc.annotations) }}
+  {{- $commonAnnotations := default (dict) (default (dict) $root.Values.global).commonAnnotations }}
+  {{- $mergedAnnotations := merge $svcAnnotations $commonAnnotations }}
+  {{- with $mergedAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 spec:
-  type: {{ $svc.type | default "ClusterIP" }}
+  type: {{ ternary $svc.type "ClusterIP" (hasKey $svc "type") }}
   ports:
-    - port: {{ $svc.port | default 80 }}
-      targetPort: {{ $svc.targetPort | default "http" }}
-      protocol: {{ ($svc.protocol | default "TCP") | upper }}
-      name: {{ $svc.portName | default "http" }}
+    - port: {{ ternary $svc.port 80 (hasKey $svc "port") }}
+      targetPort: {{ ternary $svc.targetPort "http" (hasKey $svc "targetPort") }}
+      protocol: {{ (ternary $svc.protocol "TCP" (hasKey $svc "protocol")) | upper }}
+      name: {{ ternary $svc.portName "http" (hasKey $svc "portName") }}
   selector:
     {{- include "global-chart.deploymentSelectorLabels" $labelCtx | nindent 4 }}
 {{- end }}

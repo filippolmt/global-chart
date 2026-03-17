@@ -178,6 +178,41 @@ tests:
             image: busybox:1.28
             command: ["sh", "-c", "echo init"]
 
+  - it: should render extraInitContainers with full spec
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          extraInitContainers:
+            - name: init-db
+              image: busybox:1.36
+              command: ["sh", "-c", "echo init"]
+              env:
+                - name: DB_HOST
+                  value: postgres
+    asserts:
+      - equal:
+          path: spec.template.spec.initContainers[0].name
+          value: init-db
+      - equal:
+          path: spec.template.spec.initContainers[0].image
+          value: busybox:1.36
+      - equal:
+          path: spec.template.spec.initContainers[0].command[0]
+          value: sh
+      - equal:
+          path: spec.template.spec.initContainers[0].env[0].name
+          value: DB_HOST
+
+  - it: should not render initContainers when extraInitContainers not set
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+    asserts:
+      - notExists:
+          path: spec.template.spec.initContainers
+
   # ====== image with digest ======
   - it: should render image with digest
     set:
@@ -233,6 +268,67 @@ tests:
       - equal:
           path: spec.template.spec.containers[0].readinessProbe.httpGet.path
           value: /ready
+
+  - it: should render startupProbe when configured
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          startupProbe:
+            httpGet:
+              path: /startup
+              port: http
+            failureThreshold: 30
+            periodSeconds: 10
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].startupProbe.httpGet.path
+          value: /startup
+      - equal:
+          path: spec.template.spec.containers[0].startupProbe.failureThreshold
+          value: 30
+      - equal:
+          path: spec.template.spec.containers[0].startupProbe.periodSeconds
+          value: 10
+
+  - it: should not render probes when not configured
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+    asserts:
+      - notExists:
+          path: spec.template.spec.containers[0].livenessProbe
+      - notExists:
+          path: spec.template.spec.containers[0].readinessProbe
+      - notExists:
+          path: spec.template.spec.containers[0].startupProbe
+
+  - it: should render all three probe types simultaneously
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+          readinessProbe:
+            tcpSocket:
+              port: 8080
+          startupProbe:
+            exec:
+              command: ["/bin/check"]
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.httpGet.path
+          value: /healthz
+      - equal:
+          path: spec.template.spec.containers[0].readinessProbe.tcpSocket.port
+          value: 8080
+      - equal:
+          path: spec.template.spec.containers[0].startupProbe.exec.command[0]
+          value: /bin/check
 
   # ====== envFrom ======
   - it: should render envFrom with configMap and secret
@@ -615,6 +711,18 @@ tests:
           path: spec.template.spec.imagePullSecrets[0].name
           value: "local-regcred"
 
+  # ====== falsy-safe replicaCount (hasKey) ======
+  - it: should render replicaCount 0 when explicitly set
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          replicaCount: 0
+    asserts:
+      - equal:
+          path: spec.replicas
+          value: 0
+
   - it: should skip global imageRegistry when string image already contains a registry
     set:
       global:
@@ -626,3 +734,171 @@ tests:
       - equal:
           path: spec.template.spec.containers[0].image
           value: "docker.io/nginx:1.25"
+
+  # ====== Deployment field gap closure ======
+
+  - it: should render affinity when set on deployment
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                  - matchExpressions:
+                      - key: zone
+                        operator: In
+                        values: ["us-east-1a"]
+    asserts:
+      - isNotNull:
+          path: spec.template.spec.affinity.nodeAffinity
+      - equal:
+          path: spec.template.spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].key
+          value: zone
+      - equal:
+          path: spec.template.spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].operator
+          value: In
+
+  - it: should not use global.imagePullSecrets when deployment sets empty list
+    set:
+      global:
+        imagePullSecrets:
+          - name: global-regcred
+      deployments:
+        main:
+          image: nginx:1.25
+          imagePullSecrets: []
+    asserts:
+      - isNull:
+          path: spec.template.spec.imagePullSecrets
+
+  # ====== global.commonLabels / global.commonAnnotations ======
+
+  - it: should render global.commonLabels on deployment metadata
+    set:
+      global:
+        commonLabels:
+          team: platform
+      deployments:
+        main:
+          image: nginx:1.25
+    asserts:
+      - equal:
+          path: metadata.labels.team
+          value: platform
+
+  - it: should render global.commonAnnotations on deployment metadata
+    set:
+      global:
+        commonAnnotations:
+          owner: ops-team
+      deployments:
+        main:
+          image: nginx:1.25
+    asserts:
+      - equal:
+          path: metadata.annotations.owner
+          value: ops-team
+
+  - it: should render global.commonAnnotations on pod template
+    set:
+      global:
+        commonAnnotations:
+          owner: ops-team
+      deployments:
+        main:
+          image: nginx:1.25
+    asserts:
+      - equal:
+          path: spec.template.metadata.annotations.owner
+          value: ops-team
+
+  - it: should not add global.commonLabels to selector matchLabels
+    set:
+      global:
+        commonLabels:
+          team: platform
+      deployments:
+        main:
+          image: nginx:1.25
+    asserts:
+      - notExists:
+          path: spec.selector.matchLabels.team
+
+  # ====== Negative tests: fail/required paths ======
+  - it: should render correctly with numeric image tag
+    set:
+      deployments:
+        main:
+          image:
+            repository: myapp/api
+            tag: 1.25
+    asserts:
+      - isKind:
+          of: Deployment
+      - matchRegex:
+          path: spec.template.spec.containers[0].image
+          pattern: "myapp/api:1\\.25"
+
+  # NOTE: Deploy-level CronJob/Hook image-required checks (cronjob.yaml:175, hook.yaml:259)
+  # are unreachable in practice because deployment.yaml catches missing image first. Skipped.
+
+  - it: should fail when image map has repository but no tag or digest
+    set:
+      deployments:
+        main:
+          image:
+            repository: myapp/api
+    asserts:
+      - failedTemplate:
+          errorMessage: "deployments.main.image requires either a tag or digest when repository is provided"
+
+  - it: should fail when image is nil
+    set:
+      deployments:
+        main:
+          image: null
+    asserts:
+      - failedTemplate:
+          errorMessage: "deployments.main.image must define a repository with tag/digest or be a full image reference"
+
+  - it: should fail when volume has no name
+    set:
+      deployments:
+        main:
+          image: "nginx:1.25"
+          volumes:
+            - emptyDir: {}
+          volumeMounts:
+            - name: myvol
+              mountPath: /mnt
+    asserts:
+      - failedTemplate:
+          errorPattern: "renderVolume: every volume entry must have a 'name' field"
+
+  - it: should fail when volume uses unknown legacy type
+    set:
+      deployments:
+        main:
+          image: "nginx:1.25"
+          volumes:
+            - name: myvol
+              type: nfs
+          volumeMounts:
+            - name: myvol
+              mountPath: /mnt
+    asserts:
+      - failedTemplate:
+          errorPattern: "renderVolume: unknown legacy volume type 'nfs'"
+
+  - it: should fail when imagePullSecrets entry has no name key
+    set:
+      deployments:
+        main:
+          image: "nginx:1.25"
+          imagePullSecrets:
+            - badkey: value
+    asserts:
+      - failedTemplate:
+          errorMessage: "imagePullSecrets must be a list of strings or objects with a 'name' key."

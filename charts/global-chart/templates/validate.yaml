@@ -1,0 +1,6 @@
+{{- /*
+  Validation template — runs all cross-resource validation checks.
+  Calls fail on error. Renders no Kubernetes resources on success.
+  The include below will fail with an actionable error message if name collisions are detected.
+*/ -}}
+{{- include "global-chart.validateNameCollisions" . -}}
