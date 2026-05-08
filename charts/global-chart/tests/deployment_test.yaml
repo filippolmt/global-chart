@@ -330,6 +330,79 @@ tests:
           path: spec.template.spec.containers[0].startupProbe.exec.command[0]
           value: /bin/check
 
+  # ====== lifecycle + terminationGracePeriodSeconds ======
+  - it: should render lifecycle preStop hook when configured
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "sleep 5"]
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].lifecycle.preStop.exec.command[0]
+          value: /bin/sh
+      - equal:
+          path: spec.template.spec.containers[0].lifecycle.preStop.exec.command[2]
+          value: sleep 5
+
+  - it: should render lifecycle postStart hook when configured
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          lifecycle:
+            postStart:
+              httpGet:
+                path: /warmup
+                port: http
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].lifecycle.postStart.httpGet.path
+          value: /warmup
+
+  - it: should not render lifecycle when not configured
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+    asserts:
+      - notExists:
+          path: spec.template.spec.containers[0].lifecycle
+
+  - it: should render terminationGracePeriodSeconds when configured
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          terminationGracePeriodSeconds: 60
+    asserts:
+      - equal:
+          path: spec.template.spec.terminationGracePeriodSeconds
+          value: 60
+
+  - it: should render terminationGracePeriodSeconds 0 when explicitly set to zero
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          terminationGracePeriodSeconds: 0
+    asserts:
+      - equal:
+          path: spec.template.spec.terminationGracePeriodSeconds
+          value: 0
+
+  - it: should not render terminationGracePeriodSeconds when not configured
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+    asserts:
+      - notExists:
+          path: spec.template.spec.terminationGracePeriodSeconds
+
   # ====== envFrom ======
   - it: should render envFrom with configMap and secret
     set:

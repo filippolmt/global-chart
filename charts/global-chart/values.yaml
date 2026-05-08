@@ -95,6 +95,15 @@ deployments: {}
   #   # -- Startup probe configuration
   #   startupProbe: {}
   #
+  #   # -- Container lifecycle hooks (preStop / postStart). Useful for graceful shutdown.
+  #   lifecycle: {}
+  #     # preStop:
+  #     #   exec:
+  #     #     command: ["/bin/sh", "-c", "sleep 5"]
+  #
+  #   # -- Pod termination grace period in seconds (Kubernetes default: 30)
+  #   terminationGracePeriodSeconds: 30
+  #
   #   # -- Horizontal Pod Autoscaling configuration
   #   autoscaling:
   #     enabled: false
@@ -233,6 +242,18 @@ deployments: {}
   #       command: ["./backup.sh"]
   #       # Inherits: image, configMap, secret, serviceAccount, nodeSelector, tolerations, affinity
   #       # Can override with explicit values if needed
+  #       # Hardening (all optional):
+  #       # timeZone: "Europe/Rome"          # CronJob spec, k8s >=1.27
+  #       # suspend: false                   # pause without removing
+  #       # startingDeadlineSeconds: 60      # bound catch-up on missed schedules
+  #       # backoffLimit: 3                  # k8s default 6
+  #       # ttlSecondsAfterFinished: 600     # GC finished Jobs (avoids etcd bloat)
+  #       # activeDeadlineSeconds: 900       # kill runaway Jobs
+  #       # parallelism: 1
+  #       # completions: 1
+  #       # Opt-out of deployment ConfigMap/Secret env injection (defaults: true):
+  #       # inheritDeploymentConfigMap: false
+  #       # inheritDeploymentSecret: false
 
 # -- Ingress configuration
 ingress:
@@ -299,6 +320,20 @@ cronJobs: {}
   #     create: true
   #   # Or use existing:
   #   # serviceAccountName: existing-sa
+  #   # Hardening (all optional):
+  #   # timeZone: "Europe/Rome"           # CronJob spec, k8s >=1.27
+  #   # suspend: false                    # pause without removing
+  #   # startingDeadlineSeconds: 60       # bound catch-up on missed schedules
+  #   # backoffLimit: 3                   # k8s default 6
+  #   # ttlSecondsAfterFinished: 600      # GC finished Jobs (avoids etcd bloat)
+  #   # activeDeadlineSeconds: 900        # kill runaway Jobs
+  #   # parallelism: 1
+  #   # completions: 1
+  #
+  # Note: root-level cronJobs do NOT auto-inherit ConfigMap/Secret from deployments.
+  # Use envFromConfigMaps / envFromSecrets to reference them by name explicitly.
+  # Deployment-level cronJobs (deployments.<name>.cronJobs) DO auto-inherit; use
+  # inheritDeploymentConfigMap/inheritDeploymentSecret: false to opt out.
 
 # -- Hook jobs for chart lifecycle (install/upgrade). Can also be defined inside deployments to inherit image, configMap, secret, SA.
 hooks: {}

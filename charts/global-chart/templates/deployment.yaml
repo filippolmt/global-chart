@@ -76,6 +76,9 @@ spec:
 {{- . | nindent 6 }}
       {{- end }}
       serviceAccountName: {{ include "global-chart.deploymentServiceAccountName" (dict "root" $root "deploymentName" $name "deployment" $deploy) }}
+      {{- if hasKey $deploy "terminationGracePeriodSeconds" }}
+      terminationGracePeriodSeconds: {{ $deploy.terminationGracePeriodSeconds }}
+      {{- end }}
       {{- if $deploy.podSecurityContext }}
       securityContext:
         {{- toYaml $deploy.podSecurityContext | nindent 8 }}
@@ -111,6 +114,10 @@ spec:
           {{- if $deploy.startupProbe }}
           startupProbe:
             {{- toYaml $deploy.startupProbe | nindent 12 }}
+          {{- end }}
+          {{- with $deploy.lifecycle }}
+          lifecycle:
+            {{- toYaml . | nindent 12 }}
           {{- end }}
           {{- with $deploy.resources }}
           resources:
