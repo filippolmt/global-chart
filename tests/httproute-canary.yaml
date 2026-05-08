@@ -1,0 +1,31 @@
+# HTTPRoute lint scenario — multiple weighted backendRefs (canary 90/10 split).
+deployments:
+  api-stable:
+    image: api:1.0
+    service:
+      port: 8080
+  api-canary:
+    image: api:1.1
+    service:
+      port: 8080
+
+ingress:
+  enabled: false
+
+httpRoute:
+  enabled: true
+  parentRefs:
+    - name: public-gw
+      namespace: gateway-system
+  hostnames:
+    - app.example.com
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - deployment: api-stable
+          weight: 90
+        - deployment: api-canary
+          weight: 10

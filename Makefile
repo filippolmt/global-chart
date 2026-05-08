@@ -33,7 +33,10 @@ TEST_CASES := \
 	tests/raw-deployment.yaml:raw:raw-deployment \
 	tests/deployment-hooks-cronjobs.yaml:deploy-hooks:deploy-hooks-cj \
 	tests/hooks-sa-inheritance.yaml:hooks-sa:hooks-sa-inheritance \
-	tests/name-collision.yaml:default:name-collision
+	tests/name-collision.yaml:default:name-collision \
+	tests/httproute-basic.yaml:httproute-basic:httproute-basic \
+	tests/httproute-canary.yaml:httproute-canary:httproute-canary \
+	tests/httproute-filters.yaml:httproute-filters:httproute-filters
 
 # Default target
 .DEFAULT_GOAL := help
@@ -128,6 +131,7 @@ kubeconform: generate-templates ## Validate generated manifests against K8s 1.29
 		-summary \
 		-schema-location default \
 		-schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/external-secrets.io/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
+		-schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/gateway.networking.k8s.io/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
 		-output pretty \
 		/work/$(GENERATED_DIR)
 	@echo "==> Kubeconform validation passed!"
