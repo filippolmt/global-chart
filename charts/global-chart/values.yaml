@@ -306,6 +306,45 @@ ingress:
     #     - path: /
     #       pathType: Prefix
 
+# -- HTTPRoute (Gateway API v1) — alternative to Ingress.
+# The chart renders only the HTTPRoute resource; the referenced Gateway must be
+# managed externally (e.g. by your platform team or a separate infra chart).
+# Mutually exclusive with `ingress.enabled` — enabling both fails template render.
+httpRoute:
+  # -- Enable HTTPRoute rendering. Requires Gateway API v1 CRDs in the cluster.
+  enabled: false
+
+  # -- Annotations applied to the HTTPRoute resource (merged with global.commonAnnotations).
+  annotations: {}
+
+  # -- References to existing Gateway resources. At least one is required when enabled.
+  # Each entry: { name, namespace?, sectionName?, port?, kind?, group? }
+  parentRefs: []
+  # Example:
+  # parentRefs:
+  #   - name: public-gw
+  #     namespace: gateway-system
+  #     sectionName: https
+
+  # -- Hostnames the HTTPRoute responds to. Optional but typical for HTTP routing.
+  hostnames: []
+
+  # -- Routing rules. Each rule may declare matches, filters, backendRefs, timeouts.
+  # backendRefs accept either `deployment: <name>` (resolves to the chart-managed Service)
+  # or `service: { name, port }` for an external Service.
+  rules: []
+  # Example (canary 90/10):
+  # rules:
+  #   - matches:
+  #       - path:
+  #           type: PathPrefix
+  #           value: /
+  #     backendRefs:
+  #       - deployment: api-stable
+  #         weight: 90
+  #       - deployment: api-canary
+  #         weight: 10
+
 # -- CronJobs configuration (map of named cronJobs). Can also be defined inside deployments to inherit image, configMap, secret, SA.
 cronJobs: {}
   # Example:
