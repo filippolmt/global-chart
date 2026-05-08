@@ -83,10 +83,11 @@ unit-test: ## Run helm-unittest via Docker
 	@docker run --rm -u $$(id -u):$$(id -g) -v $(CURDIR)/$(CHART_DIR)/$(GLOBAL_CHART_NAME):/apps -w /apps $(HELM_UNITTEST_IMAGE) .
 	@echo "==> All unit tests passed!"
 
-validate-bad-values: ## Verify that bad-values files are rejected by schema validation
+validate-bad-values: ## Verify that bad-values files are rejected by schema or template fail
 	@echo "==> Validating bad-values are correctly rejected..."
 	@set -e; for f in tests/bad-values/*.yaml; do \
-		if helm lint $(STRICT) -f "$$f" ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) >/dev/null 2>&1; then \
+		if helm lint $(STRICT) -f "$$f" ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) >/dev/null 2>&1 \
+		&& helm template global-chart-bad-values ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) -f "$$f" >/dev/null 2>&1; then \
 			echo "    FAIL: $$f should have been rejected but was accepted"; \
 			exit 1; \
 		else \
