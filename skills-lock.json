@@ -4,6 +4,7 @@
     "helm-chart-scaffolding": {
       "source": "wshobson/agents",
       "sourceType": "github",
+      "skillPath": "plugins/kubernetes-operations/skills/helm-chart-scaffolding/SKILL.md",
       "computedHash": "227baa46e7fcf59448b7f670ba504a0dbd6ae0e5d80338c066037e01b2b15755"
     }
   }
