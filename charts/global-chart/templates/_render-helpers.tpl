@@ -120,15 +120,20 @@ Accepts root context (.). Returns toYaml of global.commonAnnotations, or empty s
 {{/*
 Resolve a backend reference to a {name, port} dict, emitted as JSON for the caller to parse via fromJson.
 Usage:
-  {{- $b := include "global-chart.resolveBackend" (dict "root" $root "ref" $hostEntry "sourceKind" "ingress") | fromJson -}}
+  {{- $b := include "global-chart.resolveBackend" (dict "root" $root "ref" $hostEntry "sourceKind" "ingress host") | fromJson -}}
   {{- $svcName := $b.name -}}
   {{- $svcPort := $b.port -}}
 
 Inputs (dict):
   - root        (required) — Helm root context (the chart "." passed in)
   - ref         (required) — host entry (ingress) or backendRef (httpRoute) map; supports .service.name/.port and .deployment
-  - sourceKind  (required) — "ingress" or "httpRoute"; used in fail messages
-  - identifier  (optional) — human-readable identifier for fail messages; defaults to ref.host or "<unknown>"
+  - sourceKind  (required) — caller-supplied noun phrase used to prefix fail messages
+                             (e.g. "ingress host", "httpRoute rule"). Capitalize per existing wording —
+                             this string flows verbatim into "%s '%s' references deployment ..." messages.
+  - identifier  (optional) — human-readable identifier for fail messages.
+                             Falls back to ref.host (ingress entries have one), else "<unknown>".
+  - ruleNoun    (optional) — noun used in the "remove the X" suffix of the service.enabled:false message.
+                             Defaults to "rule". Ingress passes "ingress rule" to preserve historical wording.
 
 Resolution priority (mirrors the historical inline ingress logic):
   1. Explicit service override: ref.service.name set      → {name=ref.service.name, port=ref.service.port|80}
@@ -142,7 +147,19 @@ Output: JSON string of the form {"name":"<svc>","port":<int>}
 {{- $root := .root -}}
 {{- $ref := .ref -}}
 {{- $sourceKind := .sourceKind -}}
-{{- $ident := default $ref.host (default "<unknown>" .identifier) -}}
+{{- /* sourceKindCapital: same noun phrase with its first word capitalized.
+       Used only in the "service.enabled: false" message to preserve the
+       historical "Ingress host '...'" sentence-start wording. Defaults to
+       $sourceKind if not provided. */ -}}
+{{- $sourceKindCapital := default $sourceKind .sourceKindCapital -}}
+{{- /* ruleNoun: noun used in the "remove the X" suffix. Defaults to "rule".
+       Ingress passes "ingress rule" to preserve historical wording. */ -}}
+{{- $ruleNoun := default "rule" .ruleNoun -}}
+{{- /* Identifier: prefer explicit .identifier, else ref.host (ingress), else "<unknown>" */ -}}
+{{- $ident := "<unknown>" -}}
+{{- if .identifier -}}{{- $ident = .identifier -}}
+{{- else if and (kindIs "map" $ref) (hasKey $ref "host") $ref.host -}}{{- $ident = $ref.host -}}
+{{- end -}}
 {{- $svcName := "" -}}
 {{- $svcPort := 80 -}}
 
@@ -162,7 +179,7 @@ Output: JSON string of the form {"name":"<svc>","port":<int>}
   {{- end -}}
   {{- $depSvc := default (dict) $deploy.service -}}
   {{- if and (hasKey $depSvc "enabled") (not $depSvc.enabled) -}}
-    {{- fail (printf "%s '%s' references deployment '%s' which has service.enabled: false. Enable the service or remove the rule." $sourceKind $ident $depName) -}}
+    {{- fail (printf "%s '%s' references deployment '%s' which has service.enabled: false. Enable the service or remove the %s." $sourceKindCapital $ident $depName $ruleNoun) -}}
   {{- end -}}
   {{- $svcName = include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $depName) -}}
   {{- $svcPort = ternary $depSvc.port 80 (hasKey $depSvc "port") -}}
