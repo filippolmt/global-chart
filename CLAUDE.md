@@ -4,14 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Global-chart is a reusable Helm chart (v1.4.0) providing multi-deployment Kubernetes building blocks. See `README.md` for full feature list and examples, `CHANGELOG.md` for version history and migration guides.
+Global-chart is a reusable Helm chart (v1.5.0) providing multi-deployment Kubernetes building blocks. See `README.md` for full feature list and examples, `CHANGELOG.md` for version history and migration guides.
 
 ## Commands
 
 ```bash
 make all                    # Full pipeline: lint + test + bad-values + generate + kubeconform + kube-linter
-make lint-chart             # Lint all 17 test scenarios
-make unit-test              # 312 helm-unittest tests via Docker
+make lint-chart             # Lint all 16 scenarios in tests/*.yaml
+make unit-test              # 331 helm-unittest tests (17 suites) via Docker
 make validate-bad-values    # Verify schema rejects invalid values
 make kubeconform            # Validate manifests against K8s 1.29
 make kube-linter            # Lint manifests (addAllBuiltIn)
@@ -20,6 +20,7 @@ make render VALUES=tests/test01/values.01.yaml TEMPLATE=deployment.yaml  # Debug
 ```
 
 Always run `make lint-chart` and `make unit-test` after modifying templates or values.
+When schema or user-visible values change (new fields, defaults, descriptions), also run `make generate-docs` to refresh `charts/global-chart/README.md`.
 
 ## Architecture
 
@@ -47,7 +48,8 @@ Always run `make lint-chart` and `make unit-test` after modifying templates or v
 2. **Naming**: `{release}-{chart}-{deploymentName}` (trunc 63). CronJobs trunc 52 (K8s adds 11-char timestamp)
 3. **Selector labels**: `app.kubernetes.io/component: {deploymentName}` ensures pods don't overlap
 4. **SA default**: `serviceAccount.create` defaults to `true`. Deployment-level hooks/cronjobs inherit the deployment SA via `hasKey/ternary` with default true
-5. **Inheritance**: Deployment-level hooks/cronjobs inherit image, configMap, secret, SA, envFrom, imagePullSecrets, hostAliases, securityContext, dnsConfig (cronjobs only), nodeSelector, tolerations, affinity. Override with explicit value; use empty `{}` or `[]` to stop inheritance
+5. **Inheritance**: Deployment-level hooks/cronjobs inherit image, configMap, secret, SA, envFrom, imagePullSecrets, hostAliases, securityContext, dnsConfig (cronjobs only), nodeSelector, tolerations, affinity. Override with explicit value; use empty `{}` or `[]` to stop inheritance. Toggle `inheritDeploymentConfigMap: false` / `inheritDeploymentSecret: false` to break ConfigMap/Secret env injection without removing them from the deployment (defensive: limits secret leak surface for narrow-scope cronjobs/hooks)
+   - **Asymmetry**: Root-level `.Values.cronJobs` and `.Values.hooks` do NOT auto-inherit anything from deployments — they are standalone. Reference deployment ConfigMaps/Secrets explicitly via `envFromConfigMaps` / `envFromSecrets` (or use `fromDeployment` for image only). Only `.Values.deployments.<name>.cronJobs` and `.Values.deployments.<name>.hooks` auto-inherit.
 6. **Hook weight ordering**: `prereq ConfigMap/Secret (w-7) < SA (w-5) < Job (w)`, derived from effective Job weight (default 10). `minJobWeight` across all hooks per deployment determines prereq weight
 7. **Hook prerequisite resources**: Deployment ConfigMap/Secret are duplicated as hook-annotated resources because normal resources aren't updated until after hooks complete
 8. **Global fallback chains**: job > deployment > global, using `hasKey` at every level. Explicit `[]` stops fallback

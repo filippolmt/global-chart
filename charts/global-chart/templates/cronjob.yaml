@@ -69,22 +69,48 @@ metadata:
   {{- end }}
 spec:
   schedule: {{ $job.schedule | quote }}
+  {{- with $job.timeZone }}
+  timeZone: {{ . | quote }}
+  {{- end }}
+  {{- if hasKey $job "startingDeadlineSeconds" }}
+  startingDeadlineSeconds: {{ $job.startingDeadlineSeconds }}
+  {{- end }}
+  {{- if hasKey $job "suspend" }}
+  suspend: {{ $job.suspend }}
+  {{- end }}
   concurrencyPolicy: {{ ternary $job.concurrencyPolicy "Forbid" (hasKey $job "concurrencyPolicy") | quote }}
   successfulJobsHistoryLimit: {{ ternary $job.successfulJobsHistoryLimit 2 (hasKey $job "successfulJobsHistoryLimit") }}
   failedJobsHistoryLimit: {{ ternary $job.failedJobsHistoryLimit 2 (hasKey $job "failedJobsHistoryLimit") }}
   jobTemplate:
+    {{- $jtAnn := include "global-chart.renderCommonAnnotations" $root }}
+    {{- if $jtAnn }}
     metadata:
-      {{- with (include "global-chart.renderCommonAnnotations" $root) }}
       annotations:
-        {{- . | nindent 8 }}
-      {{- end }}
+        {{- $jtAnn | nindent 8 }}
+    {{- end }}
     spec:
+      {{- if hasKey $job "backoffLimit" }}
+      backoffLimit: {{ $job.backoffLimit }}
+      {{- end }}
+      {{- if hasKey $job "ttlSecondsAfterFinished" }}
+      ttlSecondsAfterFinished: {{ $job.ttlSecondsAfterFinished }}
+      {{- end }}
+      {{- if hasKey $job "activeDeadlineSeconds" }}
+      activeDeadlineSeconds: {{ $job.activeDeadlineSeconds }}
+      {{- end }}
+      {{- if hasKey $job "parallelism" }}
+      parallelism: {{ $job.parallelism }}
+      {{- end }}
+      {{- if hasKey $job "completions" }}
+      completions: {{ $job.completions }}
+      {{- end }}
       template:
+        {{- $tplAnn := include "global-chart.renderCommonAnnotations" $root }}
+        {{- if $tplAnn }}
         metadata:
-          {{- with (include "global-chart.renderCommonAnnotations" $root) }}
           annotations:
-            {{- . | nindent 12 }}
-          {{- end }}
+            {{- $tplAnn | nindent 12 }}
+        {{- end }}
         spec:
           {{- /* ImagePullSecrets: job-level > global (hasKey distinguishes unset from empty) */ -}}
           {{- $cronImagePullSecrets := list -}}
@@ -285,22 +311,48 @@ metadata:
   {{- end }}
 spec:
   schedule: {{ $job.schedule | quote }}
+  {{- with $job.timeZone }}
+  timeZone: {{ . | quote }}
+  {{- end }}
+  {{- if hasKey $job "startingDeadlineSeconds" }}
+  startingDeadlineSeconds: {{ $job.startingDeadlineSeconds }}
+  {{- end }}
+  {{- if hasKey $job "suspend" }}
+  suspend: {{ $job.suspend }}
+  {{- end }}
   concurrencyPolicy: {{ ternary $job.concurrencyPolicy "Forbid" (hasKey $job "concurrencyPolicy") | quote }}
   successfulJobsHistoryLimit: {{ ternary $job.successfulJobsHistoryLimit 2 (hasKey $job "successfulJobsHistoryLimit") }}
   failedJobsHistoryLimit: {{ ternary $job.failedJobsHistoryLimit 2 (hasKey $job "failedJobsHistoryLimit") }}
   jobTemplate:
+    {{- $jtAnn := include "global-chart.renderCommonAnnotations" $root }}
+    {{- if $jtAnn }}
     metadata:
-      {{- with (include "global-chart.renderCommonAnnotations" $root) }}
       annotations:
-        {{- . | nindent 8 }}
-      {{- end }}
+        {{- $jtAnn | nindent 8 }}
+    {{- end }}
     spec:
+      {{- if hasKey $job "backoffLimit" }}
+      backoffLimit: {{ $job.backoffLimit }}
+      {{- end }}
+      {{- if hasKey $job "ttlSecondsAfterFinished" }}
+      ttlSecondsAfterFinished: {{ $job.ttlSecondsAfterFinished }}
+      {{- end }}
+      {{- if hasKey $job "activeDeadlineSeconds" }}
+      activeDeadlineSeconds: {{ $job.activeDeadlineSeconds }}
+      {{- end }}
+      {{- if hasKey $job "parallelism" }}
+      parallelism: {{ $job.parallelism }}
+      {{- end }}
+      {{- if hasKey $job "completions" }}
+      completions: {{ $job.completions }}
+      {{- end }}
       template:
+        {{- $tplAnn := include "global-chart.renderCommonAnnotations" $root }}
+        {{- if $tplAnn }}
         metadata:
-          {{- with (include "global-chart.renderCommonAnnotations" $root) }}
           annotations:
-            {{- . | nindent 12 }}
-          {{- end }}
+            {{- $tplAnn | nindent 12 }}
+        {{- end }}
         spec:
           {{- $ctx := dict "root" $root "job" $job "deploy" $deploy "saName" $saName "imageRef" $imageRef "containerName" $name "configMapRef" $deployFullname "secretRef" $deployFullname "inheritDnsConfig" true "renderInitContainers" true }}
           {{- include "global-chart.inheritedJobPodSpec" $ctx | trimPrefix "\n" | nindent 10 }}

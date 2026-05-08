@@ -88,8 +88,11 @@ containers:
     {{- toYaml . | nindent 4 }}
   {{- end }}
   {{- /* EnvFrom: deployment's configMap/secret + explicit envFromConfigMaps/envFromSecrets + deployment's envFromConfigMaps/envFromSecrets */ -}}
-  {{- $hasDeployConfigMap := and $deploy.configMap (gt (len $deploy.configMap) 0) -}}
-  {{- $hasDeploySecret := and $deploy.secret (gt (len $deploy.secret) 0) -}}
+  {{- /* Opt-out flags: inheritDeploymentSecret/inheritDeploymentConfigMap default true, set false to break inheritance */ -}}
+  {{- $inheritCM := ternary $job.inheritDeploymentConfigMap true (hasKey $job "inheritDeploymentConfigMap") -}}
+  {{- $inheritSec := ternary $job.inheritDeploymentSecret true (hasKey $job "inheritDeploymentSecret") -}}
+  {{- $hasDeployConfigMap := and $inheritCM $deploy.configMap (gt (len $deploy.configMap) 0) -}}
+  {{- $hasDeploySecret := and $inheritSec $deploy.secret (gt (len $deploy.secret) 0) -}}
   {{- $hasEnvFrom := or $hasDeployConfigMap $hasDeploySecret $job.envFromConfigMaps $job.envFromSecrets $deploy.envFromConfigMaps $deploy.envFromSecrets -}}
   {{- if $hasEnvFrom }}
   envFrom:

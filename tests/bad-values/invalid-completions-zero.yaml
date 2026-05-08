@@ -1,0 +1,6 @@
+cronJobs:
+  broken:
+    schedule: "0 2 * * *"
+    image: busybox:1.36
+    command: ["echo", "broken"]
+    completions: 0

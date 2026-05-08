@@ -842,3 +842,320 @@ tests:
       - equal:
           path: spec.jobTemplate.spec.template.spec.restartPolicy
           value: Never
+
+  # ====== issue #48: empty metadata blocks (root-level) ======
+  - it: should NOT render empty jobTemplate.metadata when no annotations set
+    set:
+      cronJobs:
+        backup:
+          schedule: "0 2 * * *"
+          image: busybox:1.36
+          command: ["echo", "backup"]
+    asserts:
+      - notExists:
+          path: spec.jobTemplate.metadata
+
+  - it: should NOT render empty jobTemplate.spec.template.metadata when no annotations set
+    set:
+      cronJobs:
+        backup:
+          schedule: "0 2 * * *"
+          image: busybox:1.36
+          command: ["echo", "backup"]
+    asserts:
+      - notExists:
+          path: spec.jobTemplate.spec.template.metadata
+
+  - it: should render jobTemplate.metadata.annotations when commonAnnotations set (root-level)
+    set:
+      global:
+        commonAnnotations:
+          owner: platform
+      cronJobs:
+        backup:
+          schedule: "0 2 * * *"
+          image: busybox:1.36
+          command: ["echo", "backup"]
+    asserts:
+      - equal:
+          path: spec.jobTemplate.metadata.annotations.owner
+          value: platform
+      - equal:
+          path: spec.jobTemplate.spec.template.metadata.annotations.owner
+          value: platform
+
+  # ====== issue #48: empty metadata blocks (deployment-level) ======
+  - it: should NOT render empty jobTemplate.metadata for deployment-level cronjob
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          cronJobs:
+            cleanup:
+              schedule: "0 4 * * *"
+              command: ["./cleanup.sh"]
+    documentIndex: 0
+    asserts:
+      - isKind:
+          of: CronJob
+      - notExists:
+          path: spec.jobTemplate.metadata
+      - notExists:
+          path: spec.jobTemplate.spec.template.metadata
+
+  # ====== issue #48: CronJob spec hardening fields (root-level) ======
+  - it: should render timeZone / suspend / startingDeadlineSeconds (root-level)
+    set:
+      cronJobs:
+        backup:
+          schedule: "0 2 * * *"
+          image: busybox:1.36
+          command: ["echo", "backup"]
+          timeZone: "Europe/Rome"
+          suspend: true
+          startingDeadlineSeconds: 60
+    asserts:
+      - equal:
+          path: spec.timeZone
+          value: Europe/Rome
+      - equal:
+          path: spec.suspend
+          value: true
+      - equal:
+          path: spec.startingDeadlineSeconds
+          value: 60
+
+  - it: should render jobTemplate.spec hardening fields (root-level)
+    set:
+      cronJobs:
+        backup:
+          schedule: "0 2 * * *"
+          image: busybox:1.36
+          command: ["echo", "backup"]
+          backoffLimit: 3
+          ttlSecondsAfterFinished: 600
+          activeDeadlineSeconds: 900
+          parallelism: 2
+          completions: 2
+    asserts:
+      - equal:
+          path: spec.jobTemplate.spec.backoffLimit
+          value: 3
+      - equal:
+          path: spec.jobTemplate.spec.ttlSecondsAfterFinished
+          value: 600
+      - equal:
+          path: spec.jobTemplate.spec.activeDeadlineSeconds
+          value: 900
+      - equal:
+          path: spec.jobTemplate.spec.parallelism
+          value: 2
+      - equal:
+          path: spec.jobTemplate.spec.completions
+          value: 2
+
+  - it: should NOT render hardening fields when not set (root-level)
+    set:
+      cronJobs:
+        backup:
+          schedule: "0 2 * * *"
+          image: busybox:1.36
+          command: ["echo", "backup"]
+    asserts:
+      - notExists:
+          path: spec.timeZone
+      - notExists:
+          path: spec.suspend
+      - notExists:
+          path: spec.startingDeadlineSeconds
+      - notExists:
+          path: spec.jobTemplate.spec.backoffLimit
+      - notExists:
+          path: spec.jobTemplate.spec.ttlSecondsAfterFinished
+      - notExists:
+          path: spec.jobTemplate.spec.activeDeadlineSeconds
+      - notExists:
+          path: spec.jobTemplate.spec.parallelism
+      - notExists:
+          path: spec.jobTemplate.spec.completions
+
+  - it: should render suspend false explicitly (root-level)
+    set:
+      cronJobs:
+        backup:
+          schedule: "0 2 * * *"
+          image: busybox:1.36
+          command: ["echo", "backup"]
+          suspend: false
+    asserts:
+      - equal:
+          path: spec.suspend
+          value: false
+
+  # ====== issue #48: CronJob spec hardening fields (deployment-level) ======
+  - it: should render hardening fields on deployment-level cronjob
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          cronJobs:
+            cleanup:
+              schedule: "0 4 * * *"
+              command: ["./cleanup.sh"]
+              timeZone: "UTC"
+              suspend: false
+              startingDeadlineSeconds: 30
+              backoffLimit: 1
+              ttlSecondsAfterFinished: 300
+              activeDeadlineSeconds: 600
+              parallelism: 1
+              completions: 1
+    documentIndex: 0
+    asserts:
+      - equal:
+          path: spec.timeZone
+          value: UTC
+      - equal:
+          path: spec.suspend
+          value: false
+      - equal:
+          path: spec.startingDeadlineSeconds
+          value: 30
+      - equal:
+          path: spec.jobTemplate.spec.backoffLimit
+          value: 1
+      - equal:
+          path: spec.jobTemplate.spec.ttlSecondsAfterFinished
+          value: 300
+      - equal:
+          path: spec.jobTemplate.spec.activeDeadlineSeconds
+          value: 600
+      - equal:
+          path: spec.jobTemplate.spec.parallelism
+          value: 1
+      - equal:
+          path: spec.jobTemplate.spec.completions
+          value: 1
+
+  # ====== issue #48: secret/configmap inheritance opt-out (deployment-level cronjob) ======
+  - it: should auto-inherit deployment configMap and secret in env (default)
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          configMap:
+            APP_KEY: value
+          secret:
+            DB_PASSWORD: secret
+          cronJobs:
+            cleanup:
+              schedule: "0 4 * * *"
+              command: ["./cleanup.sh"]
+    documentIndex: 0
+    asserts:
+      - isKind:
+          of: CronJob
+      - contains:
+          path: spec.jobTemplate.spec.template.spec.containers[0].envFrom
+          content:
+            configMapRef:
+              name: RELEASE-NAME-global-chart-backend
+      - contains:
+          path: spec.jobTemplate.spec.template.spec.containers[0].envFrom
+          content:
+            secretRef:
+              name: RELEASE-NAME-global-chart-backend
+
+  - it: should opt out of deployment secret inheritance when inheritDeploymentSecret=false
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          configMap:
+            APP_KEY: value
+          secret:
+            DB_PASSWORD: secret
+          cronJobs:
+            cleanup:
+              schedule: "0 4 * * *"
+              command: ["./cleanup.sh"]
+              inheritDeploymentSecret: false
+    documentIndex: 0
+    asserts:
+      - isKind:
+          of: CronJob
+      - contains:
+          path: spec.jobTemplate.spec.template.spec.containers[0].envFrom
+          content:
+            configMapRef:
+              name: RELEASE-NAME-global-chart-backend
+      - notContains:
+          path: spec.jobTemplate.spec.template.spec.containers[0].envFrom
+          content:
+            secretRef:
+              name: RELEASE-NAME-global-chart-backend
+
+  - it: should opt out of deployment configMap inheritance when inheritDeploymentConfigMap=false
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          configMap:
+            APP_KEY: value
+          secret:
+            DB_PASSWORD: secret
+          cronJobs:
+            cleanup:
+              schedule: "0 4 * * *"
+              command: ["./cleanup.sh"]
+              inheritDeploymentConfigMap: false
+    documentIndex: 0
+    asserts:
+      - isKind:
+          of: CronJob
+      - notContains:
+          path: spec.jobTemplate.spec.template.spec.containers[0].envFrom
+          content:
+            configMapRef:
+              name: RELEASE-NAME-global-chart-backend
+      - contains:
+          path: spec.jobTemplate.spec.template.spec.containers[0].envFrom
+          content:
+            secretRef:
+              name: RELEASE-NAME-global-chart-backend
+
+  - it: should opt out of both inheritances when both flags=false
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          configMap:
+            APP_KEY: value
+          secret:
+            DB_PASSWORD: secret
+          cronJobs:
+            cleanup:
+              schedule: "0 4 * * *"
+              command: ["./cleanup.sh"]
+              inheritDeploymentConfigMap: false
+              inheritDeploymentSecret: false
+              envFromSecrets: ["narrow-scope-token"]
+    documentIndex: 0
+    asserts:
+      - isKind:
+          of: CronJob
+      - contains:
+          path: spec.jobTemplate.spec.template.spec.containers[0].envFrom
+          content:
+            secretRef:
+              name: narrow-scope-token
+      - notContains:
+          path: spec.jobTemplate.spec.template.spec.containers[0].envFrom
+          content:
+            configMapRef:
+              name: RELEASE-NAME-global-chart-backend
+      - notContains:
+          path: spec.jobTemplate.spec.template.spec.containers[0].envFrom
+          content:
+            secretRef:
+              name: RELEASE-NAME-global-chart-backend

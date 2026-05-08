@@ -287,6 +287,8 @@
         "livenessProbe": { "$ref": "#/$defs/probe" },
         "readinessProbe": { "$ref": "#/$defs/probe" },
         "startupProbe": { "$ref": "#/$defs/probe" },
+        "lifecycle": { "type": "object" },
+        "terminationGracePeriodSeconds": { "type": "integer", "minimum": 0 },
         "autoscaling": { "$ref": "#/$defs/autoscaling" },
         "strategy": { "type": "object" },
         "revisionHistoryLimit": { "type": "integer", "minimum": 0 },
@@ -379,6 +381,14 @@
         "initContainers": { "type": "array" },
         "successfulJobsHistoryLimit": { "type": "integer", "minimum": 0 },
         "failedJobsHistoryLimit": { "type": "integer", "minimum": 0 },
+        "backoffLimit": { "type": "integer", "minimum": 0 },
+        "ttlSecondsAfterFinished": { "type": "integer", "minimum": 0 },
+        "activeDeadlineSeconds": { "type": "integer", "minimum": 1 },
+        "startingDeadlineSeconds": { "type": "integer", "minimum": 0 },
+        "parallelism": { "type": "integer", "minimum": 0 },
+        "completions": { "type": "integer", "minimum": 1 },
+        "timeZone": { "type": "string" },
+        "suspend": { "type": "boolean" },
         "annotations": {
           "type": "object",
           "additionalProperties": { "type": "string" }
@@ -436,6 +446,16 @@
         "initContainers": { "type": "array" },
         "successfulJobsHistoryLimit": { "type": "integer", "minimum": 0 },
         "failedJobsHistoryLimit": { "type": "integer", "minimum": 0 },
+        "backoffLimit": { "type": "integer", "minimum": 0 },
+        "ttlSecondsAfterFinished": { "type": "integer", "minimum": 0 },
+        "activeDeadlineSeconds": { "type": "integer", "minimum": 1 },
+        "startingDeadlineSeconds": { "type": "integer", "minimum": 0 },
+        "parallelism": { "type": "integer", "minimum": 0 },
+        "completions": { "type": "integer", "minimum": 1 },
+        "timeZone": { "type": "string" },
+        "suspend": { "type": "boolean" },
+        "inheritDeploymentSecret": { "type": "boolean" },
+        "inheritDeploymentConfigMap": { "type": "boolean" },
         "annotations": {
           "type": "object",
           "additionalProperties": { "type": "string" }
@@ -540,6 +560,8 @@
         "additionalEnvs": { "type": "array" },
         "weight": { "type": ["string", "integer"] },
         "deletePolicy": { "type": "string" },
+        "inheritDeploymentSecret": { "type": "boolean" },
+        "inheritDeploymentConfigMap": { "type": "boolean" },
         "annotations": {
           "type": "object",
           "additionalProperties": { "type": "string" }
