@@ -5,6 +5,79 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ---
 
+## [1.5.0] — 2026-05-08
+
+### Added
+
+#### CronJob hardening (issue #48)
+
+- **CronJob spec fields**: `timeZone` (k8s ≥1.27), `suspend`, `startingDeadlineSeconds`.
+- **jobTemplate.spec fields**: `backoffLimit`, `ttlSecondsAfterFinished`, `activeDeadlineSeconds`, `parallelism`, `completions`.
+- Applied to both root-level (`.Values.cronJobs`) and deployment-level (`.Values.deployments.<name>.cronJobs`) cronJobs.
+
+```yaml
+cronJobs:
+  cleanup:
+    schedule: "0 2 * * *"
+    timeZone: "Europe/Rome"
+    backoffLimit: 3
+    ttlSecondsAfterFinished: 600     # GC finished Jobs (avoids etcd bloat)
+    activeDeadlineSeconds: 900       # kill runaway Jobs
+    suspend: false
+```
+
+#### Deployment graceful shutdown (issue erredi #6)
+
+- **Container `lifecycle`** (preStop / postStart) on deployments.
+- **Pod `terminationGracePeriodSeconds`** on deployments.
+
+```yaml
+deployments:
+  fast-api:
+    image: myapp:v1
+    terminationGracePeriodSeconds: 30
+    lifecycle:
+      preStop:
+        exec:
+          command: ["/bin/sh", "-c", "sleep 5"]
+```
+
+#### Inheritance opt-out toggles
+
+- `inheritDeploymentSecret: false` and `inheritDeploymentConfigMap: false` on deployment-level cronjobs/hooks. Defaults `true`. Allows narrow-scope cronjobs to break envFrom inheritance, limiting secret leak surface.
+
+```yaml
+deployments:
+  fast-api:
+    secret:
+      DB_PASSWORD: "..."
+      MAILJET_KEY: "..."
+    cronJobs:
+      narrow-scope-job:
+        schedule: "*/10 * * * *"
+        inheritDeploymentSecret: false
+        envFromSecrets: ["only-this-token"]
+```
+
+### Fixed
+
+- **Empty `metadata:` blocks in CronJob output (issue #48)**. `jobTemplate.metadata` and `jobTemplate.spec.template.metadata` are now wrapped in conditional rendering. Previously emitted bare `metadata:` keys when `commonAnnotations` was empty, flagged by strict linters (kubeval, polaris).
+
+### Changed
+
+- **Schema validation tightened**: `cronJob.completions` and `deploymentCronJob.completions` now require `minimum: 1` (was `0`). Kubernetes Jobs reject `completions: 0` at apply time; schema now catches this earlier.
+
+### Documentation
+
+- `CLAUDE.md`: clarify root-vs-deployment-level cronJob/hook inheritance asymmetry; document new opt-out toggles.
+- `values.yaml`: commented hardening examples on both cronJob locations.
+
+### Migration
+
+No breaking changes. All new fields are opt-in. Upgrade is a drop-in replacement for 1.4.x.
+
+---
+
 ## [1.4.0] — 2026-03-17
 
 ### Migration guide from 1.3.x
