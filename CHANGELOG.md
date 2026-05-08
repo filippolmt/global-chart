@@ -5,6 +5,42 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ---
 
+## [1.7.0] — 2026-05-31
+
+### Added
+- HTTPRoute template (`templates/httproute.yaml`) supporting Gateway API v1
+- Top-level `.Values.httpRoute` block: `parentRefs`, `hostnames`, `rules` (matches/filters/backendRefs/timeouts)
+- Filter types: `RequestRedirect`, `URLRewrite`, `RequestHeaderModifier`, `ResponseHeaderModifier`, `RequestMirror`, `ExtensionRef`
+- Multi-backend weighted routing for canary deployments
+- Shared backend resolution helper `global-chart.resolveBackend` (used by both Ingress and HTTPRoute)
+- kubeconform validation extended to `gateway.networking.k8s.io` schemas via `datreeio/CRDs-catalog`
+- 4 lint scenarios: `tests/httproute-basic.yaml`, `tests/httproute-canary.yaml`, `tests/httproute-filters.yaml`, `tests/bad-values/httproute-conflict.yaml`
+- 2 helm-unittest suites: `httproute_test.yaml` (rendering), `httproute_validation_test.yaml` (failure cases)
+
+### Changed
+- `templates/ingress.yaml` backend resolution refactored to call `global-chart.resolveBackend` (behavior-preserving — all existing tests pass unchanged)
+
+### Notes
+- Gateway API v1 CRDs MUST be installed in the cluster; the chart does not create the Gateway resource (platform-managed)
+- `.Values.ingress.enabled: true` and `.Values.httpRoute.enabled: true` are mutually exclusive — enabling both fails template render
+
+### Migration: Ingress → HTTPRoute
+
+| Ingress field                          | HTTPRoute equivalent                               | Notes                                          |
+|----------------------------------------|-----------------------------------------------------|------------------------------------------------|
+| `ingress.className`                    | `httpRoute.parentRefs[].name` (Gateway name)       | Gateway is platform-managed, not chart-rendered |
+| `ingress.tls[].secretName`             | Configured on the Gateway listener (out of chart scope) | Use `parentRefs[].sectionName` to bind HTTPS listener |
+| `ingress.hosts[].host`                 | `httpRoute.hostnames[]`                            | Multiple hostnames per HTTPRoute supported      |
+| `ingress.hosts[].paths[].path`         | `httpRoute.rules[].matches[].path.value`           |                                                |
+| `ingress.hosts[].paths[].pathType`     | `httpRoute.rules[].matches[].path.type`            | `Prefix` → `PathPrefix`; `Exact` → `Exact`     |
+| `ingress.hosts[].deployment`           | `httpRoute.rules[].backendRefs[].deployment`       | Same resolution semantics                       |
+| `ingress.hosts[].service.{name,port}`  | `httpRoute.rules[].backendRefs[].service.{name,port}` | Same                                         |
+| nginx-ingress canary annotations       | `httpRoute.rules[].backendRefs[].weight`           | Native traffic split                            |
+| nginx `rewrite-target` annotation      | `httpRoute.rules[].filters[].URLRewrite`           | Native filter                                   |
+| nginx `permanent-redirect` annotation  | `httpRoute.rules[].filters[].RequestRedirect`      | Native filter                                   |
+
+---
+
 ## [1.6.2] — 2026-05-31
 
 ### Changed
