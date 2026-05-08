@@ -4,14 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Global-chart is a reusable Helm chart (v1.4.0) providing multi-deployment Kubernetes building blocks. See `README.md` for full feature list and examples, `CHANGELOG.md` for version history and migration guides.
+Global-chart is a reusable Helm chart (v1.5.0) providing multi-deployment Kubernetes building blocks. See `README.md` for full feature list and examples, `CHANGELOG.md` for version history and migration guides.
 
 ## Commands
 
 ```bash
 make all                    # Full pipeline: lint + test + bad-values + generate + kubeconform + kube-linter
-make lint-chart             # Lint all 17 test scenarios
-make unit-test              # 312 helm-unittest tests via Docker
+make lint-chart             # Lint all 16 scenarios in tests/*.yaml
+make unit-test              # 331 helm-unittest tests (17 suites) via Docker
 make validate-bad-values    # Verify schema rejects invalid values
 make kubeconform            # Validate manifests against K8s 1.29
 make kube-linter            # Lint manifests (addAllBuiltIn)
@@ -20,6 +20,7 @@ make render VALUES=tests/test01/values.01.yaml TEMPLATE=deployment.yaml  # Debug
 ```
 
 Always run `make lint-chart` and `make unit-test` after modifying templates or values.
+When schema or user-visible values change (new fields, defaults, descriptions), also run `make generate-docs` to refresh `charts/global-chart/README.md`.
 
 ## Architecture
 
