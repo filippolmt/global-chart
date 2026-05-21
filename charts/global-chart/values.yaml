@@ -79,6 +79,14 @@ deployments: {}
   #     targetPort: http
   #     # -- Protocol for the service port (TCP|UDP)
   #     protocol: TCP
+  #     # -- Additional ports exposed by the same Service (multi-port workloads)
+  #     # Each entry requires: name, port, targetPort. Optional: protocol, appProtocol, nodePort.
+  #     extraPorts: []
+  #     # extraPorts:
+  #     #   - name: gevent
+  #     #     port: 8072
+  #     #     targetPort: 8072
+  #     #     appProtocol: http
   #
   #   # -- Resource requests & limits for pods
   #   resources:

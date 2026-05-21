@@ -178,3 +178,130 @@ tests:
       - equal:
           path: metadata.labels.team
           value: platform
+
+  # ====== extraPorts ======
+  - it: should render extraPorts after primary port
+    set:
+      deployments:
+        odoo:
+          image: odoo:17
+          service:
+            port: 8069
+            targetPort: 8069
+            portName: odoo
+            extraPorts:
+              - name: gevent
+                port: 8072
+                targetPort: 8072
+              - name: metrics
+                port: 9090
+                targetPort: 9090
+                protocol: TCP
+                appProtocol: http
+    asserts:
+      - equal:
+          path: spec.ports[0].port
+          value: 8069
+      - equal:
+          path: spec.ports[0].name
+          value: odoo
+      - equal:
+          path: spec.ports[1].name
+          value: gevent
+      - equal:
+          path: spec.ports[1].port
+          value: 8072
+      - equal:
+          path: spec.ports[1].targetPort
+          value: 8072
+      - equal:
+          path: spec.ports[1].protocol
+          value: TCP
+      - equal:
+          path: spec.ports[2].name
+          value: metrics
+      - equal:
+          path: spec.ports[2].appProtocol
+          value: http
+      - lengthEqual:
+          path: spec.ports
+          count: 3
+
+  - it: should default extraPorts protocol to TCP when omitted
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          service:
+            extraPorts:
+              - name: extra
+                port: 5353
+                targetPort: 5353
+    asserts:
+      - equal:
+          path: spec.ports[1].protocol
+          value: TCP
+
+  - it: should render UDP protocol on extraPorts when specified
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          service:
+            extraPorts:
+              - name: dns
+                port: 5353
+                targetPort: 5353
+                protocol: UDP
+    asserts:
+      - equal:
+          path: spec.ports[1].protocol
+          value: UDP
+
+  - it: should render nodePort on extraPorts when set
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          service:
+            type: NodePort
+            extraPorts:
+              - name: extra
+                port: 8081
+                targetPort: 8081
+                nodePort: 30081
+    asserts:
+      - equal:
+          path: spec.ports[1].nodePort
+          value: 30081
+
+  - it: should accept named targetPort in extraPorts
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          service:
+            extraPorts:
+              - name: ws
+                port: 8072
+                targetPort: gevent
+    asserts:
+      - equal:
+          path: spec.ports[1].targetPort
+          value: gevent
+
+  - it: should render only primary port when extraPorts omitted
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          service:
+            port: 8080
+            targetPort: 8080
+    asserts:
+      - lengthEqual:
+          path: spec.ports
+          count: 1
+      - equal:
+          path: spec.ports[0].port
+          value: 8080

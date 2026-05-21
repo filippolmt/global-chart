@@ -1,0 +1,9 @@
+deployments:
+  main:
+    image: nginx:1.25
+    service:
+      extraPorts:
+        - name: gevent
+          port: 8072
+          targetPort: 8072
+          notARealKey: nope
