@@ -1,0 +1,22 @@
+# Test deployment with multi-port Service (Odoo HTTP + gevent pattern, see issue #52)
+deployments:
+  odoo:
+    image:
+      repository: odoo
+      tag: "17"
+    service:
+      type: ClusterIP
+      port: 8069
+      targetPort: 8069
+      portName: odoo
+      protocol: TCP
+      extraPorts:
+        - name: gevent
+          port: 8072
+          targetPort: 8072
+          protocol: TCP
+          appProtocol: http
+        - name: metrics
+          port: 9090
+          targetPort: metrics
+          protocol: TCP

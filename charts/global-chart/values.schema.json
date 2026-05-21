@@ -158,6 +158,30 @@
         "annotations": {
           "type": "object",
           "additionalProperties": { "type": "string" }
+        },
+        "extraPorts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+              "targetPort": {
+                "oneOf": [
+                  { "type": "string" },
+                  { "type": "integer", "minimum": 1, "maximum": 65535 }
+                ]
+              },
+              "protocol": {
+                "type": "string",
+                "enum": ["TCP", "UDP", "SCTP"]
+              },
+              "appProtocol": { "type": "string" },
+              "nodePort": { "type": "integer", "minimum": 30000, "maximum": 32767 }
+            },
+            "required": ["name", "port", "targetPort"],
+            "additionalProperties": false
+          }
         }
       },
       "additionalProperties": false

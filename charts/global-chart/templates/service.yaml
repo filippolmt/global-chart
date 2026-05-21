@@ -31,6 +31,18 @@ spec:
       targetPort: {{ ternary $svc.targetPort "http" (hasKey $svc "targetPort") }}
       protocol: {{ (ternary $svc.protocol "TCP" (hasKey $svc "protocol")) | upper }}
       name: {{ ternary $svc.portName "http" (hasKey $svc "portName") }}
+    {{- range (default (list) $svc.extraPorts) }}
+    - name: {{ .name }}
+      port: {{ .port }}
+      targetPort: {{ .targetPort }}
+      protocol: {{ (default "TCP" .protocol) | upper }}
+      {{- with .appProtocol }}
+      appProtocol: {{ . }}
+      {{- end }}
+      {{- with .nodePort }}
+      nodePort: {{ . }}
+      {{- end }}
+    {{- end }}
   selector:
     {{- include "global-chart.deploymentSelectorLabels" $labelCtx | nindent 4 }}
 {{- end }}
