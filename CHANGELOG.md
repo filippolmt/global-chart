@@ -5,6 +5,38 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ---
 
+## [1.6.0] — 2026-05-21
+
+### Added
+
+#### Multi-port Services (issue #52)
+
+- **`service.extraPorts`**: list of additional ports rendered on the same Service after the primary port. Unblocks workloads needing multiple ports on the same Pod selector (Odoo HTTP+gevent, Redis client+TLS, gRPC sidecars, exporters).
+- Schema enforces required `[name, port, targetPort]` per item with `additionalProperties: false`. Optional: `protocol` (TCP/UDP/SCTP, default TCP), `appProtocol`, `nodePort` (30000-32767).
+
+```yaml
+deployments:
+  odoo:
+    service:
+      port: 8069
+      targetPort: 8069
+      portName: odoo
+      extraPorts:
+        - name: gevent
+          port: 8072
+          targetPort: 8072
+          appProtocol: http
+        - name: metrics
+          port: 9090
+          targetPort: metrics
+```
+
+### Compatibility
+
+- Backward compatible: Services without `extraPorts` render byte-for-byte identical manifests.
+
+---
+
 ## [1.5.0] — 2026-05-08
 
 ### Added
