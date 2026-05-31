@@ -2,3 +2,4 @@ generated-manifests
 .DS_Store
 backup
 .planning/
+.toolbox.yaml

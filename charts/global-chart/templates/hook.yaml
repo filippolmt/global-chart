@@ -217,7 +217,7 @@ spec:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ printf "%s-hook-config" $deployFullname | trunc 63 | trimSuffix "-" }}
+  name: {{ include "global-chart.hookPrereqConfigName" (dict "deploymentFullname" $deployFullname) }}
   labels:
     {{- include "global-chart.hookLabels" $root | nindent 4 }}
     app.kubernetes.io/component: {{ $deployName }}-hook
@@ -243,7 +243,7 @@ data:
 apiVersion: v1
 kind: Secret
 metadata:
-  name: {{ printf "%s-hook-secret" $deployFullname | trunc 63 | trimSuffix "-" }}
+  name: {{ include "global-chart.hookPrereqSecretName" (dict "deploymentFullname" $deployFullname) }}
   labels:
     {{- include "global-chart.hookLabels" $root | nindent 4 }}
     app.kubernetes.io/component: {{ $deployName }}-hook
@@ -271,7 +271,7 @@ data:
 {{- if $command }}
 
 {{- /* Build hook fullname with deployment name for uniqueness */ -}}
-{{- $hookFullname := printf "%s-%s-%s-%s" (include "global-chart.fullname" $root) $deployName $hookType $name | trunc 63 | trimSuffix "-" }}
+{{- $hookFullname := include "global-chart.deploymentHookName" (dict "root" $root "deploymentName" $deployName "hookType" $hookType "jobName" $name) }}
 
 {{- /* Resolve image: explicit in hook > inherited from deployment (see jobImageString helper) */ -}}
 {{- $imageRef := required (printf "image is required for deployments.%s.hooks.%s.%s" $deployName $hookType $name) (include "global-chart.jobImageString" (dict "root" $root "job" $command "deploy" $deploy "errCtx" (printf "deployments.%s.hooks.%s.%s" $deployName $hookType $name))) }}
@@ -337,8 +337,8 @@ spec:
         {{- . | nindent 8 }}
       {{- end }}
     spec:
-      {{- $configMapRef := printf "%s-hook-config" $deployFullname | trunc 63 | trimSuffix "-" }}
-      {{- $secretRef := printf "%s-hook-secret" $deployFullname | trunc 63 | trimSuffix "-" }}
+      {{- $configMapRef := include "global-chart.hookPrereqConfigName" (dict "deploymentFullname" $deployFullname) }}
+      {{- $secretRef := include "global-chart.hookPrereqSecretName" (dict "deploymentFullname" $deployFullname) }}
       {{- $ctx := dict "root" $root "job" $command "deploy" $deploy "saName" $saName "imageRef" $imageRef "containerName" $name "configMapRef" $configMapRef "secretRef" $secretRef "inheritDnsConfig" false "renderInitContainers" false }}
       {{- include "global-chart.inheritedJobPodSpec" $ctx | trimPrefix "\n" | nindent 6 }}
 {{ end }}

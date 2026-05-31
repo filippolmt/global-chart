@@ -577,6 +577,33 @@ tests:
           value: RELEASE-NAME-global-chart-backend-post-upgrade-migrate
         documentIndex: 0
 
+  # Locks the canonical name shape: deployment-level hook name is a SINGLE
+  # trunc 63 over the full 4-part name (deploymentHookName helper, shared with
+  # validateNameCollisions). Guards against a future revert to a per-site
+  # printf|trunc that could re-introduce the validator/template decomposition split.
+  - it: should truncate deployment-level hook name to 63 chars via single trunc
+    release:
+      name: rel-abcdefghijklmnop
+    set:
+      deployments:
+        backend-service-worker-component:
+          image: nginx:1.25
+          hooks:
+            pre-install:
+              db:
+                command: ["./m.sh"]
+    asserts:
+      - isKind:
+          of: Job
+        documentIndex: 0
+      - matchRegex:
+          path: metadata.name
+          pattern: "^.{1,63}$"
+      - equal:
+          path: metadata.name
+          value: rel-abcdefghijklmnop-global-chart-backend-service-worker-compon
+        documentIndex: 0
+
   - it: should set component label for deployment-level hook
     set:
       deployments:
