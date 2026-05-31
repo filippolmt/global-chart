@@ -1,11 +1,11 @@
 ---
 name: global-chart-development
-description: Use when modifying global-chart Helm templates, adding features, fixing bugs, or updating values. Covers hasKey vs truthiness pitfalls, global fallback chains, inheritance logic (with defensive opt-out toggles), validation with fail, deterministic rendering, schema integer bounds, empty metadata block pitfall, and the required lint-test-generate workflow.
+description: Use when modifying global-chart Helm templates, adding features, fixing bugs, refactoring helpers, or updating values, CHANGELOG, or Chart.yaml in this repo. Covers hasKey vs truthiness pitfalls, global fallback chains, inheritance logic (with defensive opt-out toggles), validation with fail, deterministic rendering, schema integer bounds, empty metadata block pitfall, resource-name helpers (one home per name so templates and the collision validator never drift on truncation), the discipline of proving a bug is observable before labelling it a `fix:`, and the required lint-test-generate workflow.
 ---
 
 # Global-Chart Development Patterns
 
-Coding patterns extracted from the global-chart repository (Feb 2025 – May 2026, chart v1.5.0).
+Coding patterns extracted from the global-chart repository.
 
 ## Commit Conventions
 
@@ -20,6 +20,28 @@ This project uses **conventional commits** (~65% adoption):
 | `refactor:` | Structural changes |
 
 Always include PR number: `feat: add X (#42)`
+
+### Before You Label Something a `fix:` — Prove It's Observable
+
+`fix:` and a CHANGELOG `### Fixed` entry are a promise: a user-reachable input
+produced wrong behaviour, and now it doesn't. In a templating engine it's easy to
+spot a code smell — two formulas that *look* like they disagree — and reach for
+"bug" before checking whether the disagreement is ever reachable. It often isn't:
+a name validator that uses one truncation formula for *every* comparison is
+internally self-consistent, so its collision verdicts can be correct even if the
+formula differs from the template's. The divergence may only exist for inputs
+Kubernetes itself rejects (names ending in `-`, etc.).
+
+So before writing `fix:`, demonstrate the bug with a **schema-valid, K8s-valid
+input** — ideally a failing test first (red-green). If you can't construct one
+(e.g. an exhaustive sweep over realistic release names / deployment names / hook
+types finds zero divergent verdicts), it isn't an observable bug: call it what it
+is — a `refactor:` that removes a latent inconsistency — and say so plainly in the
+CHANGELOG ("the verdict was never wrong for valid input; this removes the
+divergence"). Honest, narrow claims age better than a `Fixed` entry that a reader
+can't reproduce. The same discipline applies to the regression test: a test that
+passes against the *old* code too is locking the shape, not the fix — name it
+accordingly, don't dress it up as a bug regression.
 
 ## File Co-Change Rules
 
@@ -42,6 +64,14 @@ make generate-templates  # Visual inspection
 ```
 
 Never commit without all three passing.
+
+**Refactor = render-neutral.** When a change is meant to be a pure refactor
+(extracting a helper, deduplicating logic), the proof is that the existing
+unit-test suite passes **unchanged** — same assertions, same expected strings.
+If you have to edit existing test expectations to make them pass, the manifests
+moved and it isn't a pure refactor; either that's a real (and intended) behaviour
+change you should call out, or a mistake. New tests are fine; *changed* old
+expectations are the signal to stop and look.
 
 ## Helm Template Gotchas (Project-Specific)
 
@@ -273,12 +303,44 @@ Key points:
 | Most resources | 63 | Kubernetes label limit |
 | CronJobs | **52** | K8s appends 11-char timestamp to Job names |
 
+### One Helper Per Name — Never Recompute a Name Inline
+
+A resource name is computed from a `printf | trunc N | trimSuffix "-"` rule. The
+trap: the *same* name often has to be computed in two places — the template that
+emits the resource (`cronjob.yaml`, `hook.yaml`) **and** `validateNameCollisions`
+in `_validate-helpers.tpl`, which must predict the emitted name to detect
+truncation collisions. When both sides inline their own `printf | trunc`, they
+drift. They can even reach the *same* string by *different* decompositions — e.g.
+`printf "%s-%s-%s-%s" $fullname $dep $hookType $job | trunc 63` versus
+`printf "%s-%s-%s" $deployFullname $hookType $job | trunc 63` (the latter
+truncates `deployFullname` first, then re-truncates). Those agree for short names
+but can diverge at the truncation boundary, so the validator ends up predicting a
+name the template never emits.
+
+Give every resource name exactly one home: a named helper in `_helpers.tpl` that
+owns the `printf`, the truncation constant, and the `trimSuffix`. Both the
+emitting template and the validator call that helper. Now the name can't drift,
+the magic truncation constant lives in one place, and changing the rule is a
+one-line edit. This mirrors how `deploymentFullname` / `hookfullname` already
+work — extend the pattern, don't reinvent it inline.
+
+```yaml
+# ❌ WRONG: same rule typed in cronjob.yaml AND _validate-helpers.tpl
+{{- $jobFullname := printf "%s-%s-%s" $fullname $deployName $name | trunc 52 | trimSuffix "-" }}
+
+# ✅ CORRECT: one helper, both sites call it
+{{- $jobFullname := include "global-chart.deploymentCronJobName" (dict "root" $root "deploymentName" $deployName "jobName" $name) }}
+```
+
+When you add a new named resource, add its name helper first, then call it from
+the template and (if it participates in collision detection) the validator.
+
 ## Test Structure
 
 - **`tests/`** (root): Value files for lint scenarios (`make lint-chart`)
 - **`charts/global-chart/tests/`**: helm-unittest suites (`make unit-test`)
 - **`tests/bad-values/`**: fixtures that MUST be rejected by `values.schema.json` (`make validate-bad-values`)
-- Current: **17 suites, 331 tests**
+- **17 suites** under `charts/global-chart/tests/` (exact test count lives in CLAUDE.md — single source of truth)
 
 When adding a new template, always create a corresponding `*_test.yaml`.
 When adding a schema constraint that should reject configurations, add a fixture in `tests/bad-values/` so the schema's rejection is locked in by CI.

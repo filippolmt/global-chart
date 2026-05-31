@@ -5,6 +5,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ---
 
+## [1.6.2] — 2026-05-31
+
+### Changed
+
+#### Internal: resource-name helper consolidation
+
+Pure refactor — rendered manifests are byte-identical. The `printf | trunc` naming rules that were duplicated inline between the resource templates and the collision validator now live in five helpers in `_helpers.tpl`, each the single home for its name (and its truncation constant):
+
+- **`global-chart.rootCronJobName`** / **`global-chart.deploymentCronJobName`** — CronJob names (trunc 52).
+- **`global-chart.deploymentHookName`** — deployment-level hook Job name (single trunc 63 over the full 4-part name).
+- **`global-chart.hookPrereqConfigName`** / **`global-chart.hookPrereqSecretName`** — hook-prerequisite ConfigMap/Secret names (trunc 63).
+
+`cronjob.yaml`, `hook.yaml` and `_validate-helpers.tpl` all call these helpers, so the collision validator can no longer drift from the names the templates emit.
+
+As part of this, `validateNameCollisions` previously computed the deployment-level hook Job name by truncating `deploymentFullname` first and re-truncating after appending `-<hookType>-<jobName>`, whereas `hook.yaml` truncates the full 4-part name once. The two forms only ever differ at a trailing-dash truncation boundary — i.e. for names Kubernetes itself would reject — so the collision **verdict** was never wrong for any valid input; the divergence was a latent inconsistency, not an observable bug. Routing both sites through `deploymentHookName` removes it.
+
+---
+
 ## [1.6.1] — 2026-05-31
 
 ### Changed

@@ -11,7 +11,7 @@ Global-chart is a reusable Helm chart (v1.5.0) providing multi-deployment Kubern
 ```bash
 make all                    # Full pipeline: lint + test + bad-values + generate + kubeconform + kube-linter
 make lint-chart             # Lint all 16 scenarios in tests/*.yaml
-make unit-test              # 338 helm-unittest tests (17 suites) via Docker
+make unit-test              # 339 helm-unittest tests (17 suites) via Docker
 make validate-bad-values    # Verify schema rejects invalid values
 make kubeconform            # Validate manifests against K8s 1.29
 make kube-linter            # Lint manifests (addAllBuiltIn)
@@ -36,7 +36,7 @@ When schema or user-visible values change (new fields, defaults, descriptions), 
 
 | File | Domain |
 |------|--------|
-| `_helpers.tpl` | Core naming, labels (`fullname`, `deploymentFullname`, `labels`, `selectorLabels`, `deploymentEnabled`, `deploymentServiceAccountName`) |
+| `_helpers.tpl` | Core naming, labels (`fullname`, `deploymentFullname`, `labels`, `selectorLabels`, `deploymentEnabled`, `deploymentServiceAccountName`). Job-family name helpers — single home for each name + its truncation constant, consumed by both resource templates and `validateNameCollisions`: `rootCronJobName`/`deploymentCronJobName` (trunc 52), `deploymentHookName` (canonical single trunc 63), `hookPrereqConfigName`/`hookPrereqSecretName` (trunc 63) |
 | `_image-helpers.tpl` | `imageString` (string/map/global registry/numeric tags), `imagePullPolicy` |
 | `_job-helpers.tpl` | `inheritedJobPodSpec` — shared pod spec for deployment-level hooks/cronjobs with full inheritance chain. Params: `inheritDnsConfig` (true=cronjob, false=hook), `renderInitContainers` (true=cronjob, false=hook). `jobImageString` — unified image resolution (`image` > `deploy.image` > `fromDeployment` lookup+fail), `errCtx` param preserves exact failure messages. `jobServiceAccount` — unified deployment-level SA resolution (name/create/automount/annotations), returns JSON consumed via `fromJson` |
 | `_render-helpers.tpl` | `renderVolume` (native + legacy), `renderImagePullSecrets`, `renderDnsConfig`, `renderResources`, `renderCommonAnnotations` |

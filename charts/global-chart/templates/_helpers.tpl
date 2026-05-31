@@ -140,3 +140,60 @@ app.kubernetes.io/component: hook
 {{- $fullname := (include "global-chart.fullname" .) }}
 {{- printf "%s-%s-%s" $fullname .hookname .jobname | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
+
+{{/*
+Resource-name helpers for the job family. These concentrate the printf+trunc
+rules so the resource templates (cronjob.yaml, hook.yaml) and the collision
+validator (_validate-helpers.tpl) compute every name through ONE seam and can
+never drift. Truncation constants live here only.
+*/}}
+
+{{/*
+Root-level CronJob name. Truncated to 52 chars because Kubernetes appends an
+11-char timestamp suffix to the Jobs a CronJob creates.
+Usage: {{ include "global-chart.rootCronJobName" (dict "root" . "name" $name) }}
+*/}}
+{{- define "global-chart.rootCronJobName" -}}
+{{- $fullname := include "global-chart.fullname" .root -}}
+{{- printf "%s-%s" $fullname .name | trunc 52 | trimSuffix "-" -}}
+{{- end -}}
+
+{{/*
+Deployment-level CronJob name (includes deployment name for uniqueness).
+Truncated to 52 chars (see rootCronJobName).
+Usage: {{ include "global-chart.deploymentCronJobName" (dict "root" . "deploymentName" $deployName "jobName" $name) }}
+*/}}
+{{- define "global-chart.deploymentCronJobName" -}}
+{{- $fullname := include "global-chart.fullname" .root -}}
+{{- printf "%s-%s-%s" $fullname .deploymentName .jobName | trunc 52 | trimSuffix "-" -}}
+{{- end -}}
+
+{{/*
+Deployment-level Hook Job name (includes deployment name + hook type for uniqueness).
+Canonical form: a single `trunc 63` over the full 4-part name. The collision
+validator MUST use this exact decomposition — an earlier validator variant
+truncated deploymentFullname first and re-truncated. The two only differ at a
+trailing-dash truncation boundary (names K8s would reject), so the collision
+verdict was never wrong for valid input; this keeps the two byte-identical.
+Usage: {{ include "global-chart.deploymentHookName" (dict "root" . "deploymentName" $deployName "hookType" $hookType "jobName" $name) }}
+*/}}
+{{- define "global-chart.deploymentHookName" -}}
+{{- $fullname := include "global-chart.fullname" .root -}}
+{{- printf "%s-%s-%s-%s" $fullname .deploymentName .hookType .jobName | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+
+{{/*
+Hook-prerequisite ConfigMap name for a deployment.
+Usage: {{ include "global-chart.hookPrereqConfigName" (dict "deploymentFullname" $deployFullname) }}
+*/}}
+{{- define "global-chart.hookPrereqConfigName" -}}
+{{- printf "%s-hook-config" .deploymentFullname | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+
+{{/*
+Hook-prerequisite Secret name for a deployment.
+Usage: {{ include "global-chart.hookPrereqSecretName" (dict "deploymentFullname" $deployFullname) }}
+*/}}
+{{- define "global-chart.hookPrereqSecretName" -}}
+{{- printf "%s-hook-secret" .deploymentFullname | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
