@@ -5,6 +5,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ---
 
+## [Unreleased]
+
+### Changed
+
+#### Internal: job helper deduplication (issues #54, #55)
+
+Pure refactor — rendered manifests are byte-identical; error messages unchanged.
+
+- **`global-chart.jobImageString`** (`_job-helpers.tpl`): unifies the image-resolution choice (`explicit image > deploy.image > fromDeployment lookup+fail`) previously duplicated across four inline blocks in `cronjob.yaml` and `hook.yaml` (root + deployment-level). The `errCtx` argument preserves the exact `fromDeployment` failure messages.
+- **`global-chart.jobServiceAccount`** (`_job-helpers.tpl`): unifies the deployment-level ServiceAccount resolution (name/create/automount/annotations) previously duplicated near-verbatim across `hook.yaml` PART 2 and `cronjob.yaml` PART 2. Returns a JSON object consumed via `fromJson`.
+- Removed a dead `serviceAccount.automountServiceAccountToken` branch in the hook SA logic — the key is rejected by `values.schema.json` (`additionalProperties: false`), so it was unreachable. Automount is controlled by the job-level `automountServiceAccountToken` and the SA-map `automount` keys, unchanged.
+
+Deferred follow-ups tracked in #56 (`deploymentMetadata` helper) and #57 (`renderJob` collapse — needs an ADR).
+
+---
+
 ## [1.6.0] — 2026-05-21
 
 ### Added

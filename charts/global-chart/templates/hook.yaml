@@ -13,19 +13,8 @@
 {{- if $command }}
 {{- $hookFullname := include "global-chart.hookfullname" (merge (dict "hookname" $hookType "jobname" $name) $root) }}
 
-{{- /* Resolve image: explicit > fromDeployment > error */ -}}
-{{- $cmdImage := "" }}
-{{- if hasKey $command "image" }}
-  {{- $cmdImage = include "global-chart.imageString" (dict "image" $command.image "global" $root.Values.global) -}}
-{{- else if $command.fromDeployment }}
-  {{- $depName := $command.fromDeployment -}}
-  {{- $deploy := index $root.Values.deployments $depName -}}
-  {{- if not $deploy -}}
-    {{- fail (printf "hooks.%s.%s.fromDeployment references deployment '%s' which does not exist in .Values.deployments" $hookType $name $depName) -}}
-  {{- end -}}
-  {{- $cmdImage = include "global-chart.imageString" (dict "image" $deploy.image "global" $root.Values.global) -}}
-{{- end }}
-{{- $imageRef := required (printf "image is required for hooks.%s.%s (set hooks.%s.%s.image or hooks.%s.%s.fromDeployment)" $hookType $name $hookType $name $hookType $name) $cmdImage }}
+{{- /* Resolve image: explicit > fromDeployment > error (see jobImageString helper) */ -}}
+{{- $imageRef := required (printf "image is required for hooks.%s.%s (set hooks.%s.%s.image or hooks.%s.%s.fromDeployment)" $hookType $name $hookType $name $hookType $name) (include "global-chart.jobImageString" (dict "root" $root "job" $command "errCtx" (printf "hooks.%s.%s" $hookType $name))) }}
 
 {{- /* ServiceAccount handling */ -}}
 {{- $commandSAMap := (and (hasKey $command "serviceAccount") (kindIs "map" $command.serviceAccount)) | ternary $command.serviceAccount (dict) -}}
@@ -284,71 +273,15 @@ data:
 {{- /* Build hook fullname with deployment name for uniqueness */ -}}
 {{- $hookFullname := printf "%s-%s-%s-%s" (include "global-chart.fullname" $root) $deployName $hookType $name | trunc 63 | trimSuffix "-" }}
 
-{{- /* Resolve image: explicit in hook > inherited from deployment */ -}}
-{{- $cmdImage := "" }}
-{{- if hasKey $command "image" }}
-  {{- $cmdImage = include "global-chart.imageString" (dict "image" $command.image "global" $root.Values.global) -}}
-{{- else }}
-  {{- $cmdImage = include "global-chart.imageString" (dict "image" $deploy.image "global" $root.Values.global) -}}
-{{- end }}
-{{- $imageRef := required (printf "image is required for deployments.%s.hooks.%s.%s" $deployName $hookType $name) $cmdImage }}
+{{- /* Resolve image: explicit in hook > inherited from deployment (see jobImageString helper) */ -}}
+{{- $imageRef := required (printf "image is required for deployments.%s.hooks.%s.%s" $deployName $hookType $name) (include "global-chart.jobImageString" (dict "root" $root "job" $command "deploy" $deploy "errCtx" (printf "deployments.%s.hooks.%s.%s" $deployName $hookType $name))) }}
 
-{{- /* ServiceAccount: explicit in hook > inherited from deployment > create new for hook */ -}}
-{{- $deploySA := default (dict) $deploy.serviceAccount -}}
-{{- $commandSAMap := (and (hasKey $command "serviceAccount") (kindIs "map" $command.serviceAccount)) | ternary $command.serviceAccount (dict) -}}
-{{- $commandSAExplicitName := coalesce $command.serviceAccountName $commandSAMap.name -}}
-
-{{- /*
-  Resolve deployment's SA name:
-  - If deployment has serviceAccount.create=true, use generated or specified name
-  - If deployment has serviceAccount.name but create=false, use that existing name
-  - Otherwise no deployment SA to inherit
-*/ -}}
-{{- $deploymentSAName := "" -}}
-{{- $deploySACreate := ternary $deploySA.create true (hasKey $deploySA "create") -}}
-{{- if $deploySACreate -}}
-  {{- $deploymentSAName = include "global-chart.deploymentServiceAccountName" (dict "root" $root "deploymentName" $deployName "deployment" $deploy) -}}
-{{- else if $deploySA.name -}}
-  {{- /* Deployment references an existing SA - inherit it */ -}}
-  {{- $deploymentSAName = $deploySA.name -}}
-{{- end -}}
-
-{{- $saName := "" -}}
-{{- $saCreate := false -}}
-{{- if $commandSAExplicitName -}}
-  {{- /* Hook explicitly specifies a SA name - use it */ -}}
-  {{- $saName = $commandSAExplicitName -}}
-{{- else if $deploymentSAName -}}
-  {{- /* Inherit from deployment's service account (whether created or existing) */ -}}
-  {{- $saName = $deploymentSAName -}}
-{{- else -}}
-  {{- /* No SA from hook or deployment - create hook-specific SA */ -}}
-  {{- $saName = $hookFullname -}}
-  {{- $saCreate = true -}}
-{{- end -}}
-
-{{- /* Override saCreate if explicitly set in command */ -}}
-{{- if hasKey $commandSAMap "create" -}}
-  {{- $saCreate = $commandSAMap.create -}}
-  {{- if $saCreate -}}
-    {{- $saName = ternary $commandSAMap.name $hookFullname (hasKey $commandSAMap "name") -}}
-  {{- end -}}
-{{- end -}}
-
-{{- $saAutomount := true -}}
-{{- if hasKey $command "automountServiceAccountToken" -}}
-  {{- $saAutomount = $command.automountServiceAccountToken -}}
-{{- end -}}
-{{- if hasKey $commandSAMap "automountServiceAccountToken" -}}
-  {{- $saAutomount = $commandSAMap.automountServiceAccountToken -}}
-{{- end -}}
-{{- if hasKey $commandSAMap "automount" -}}
-  {{- $saAutomount = $commandSAMap.automount -}}
-{{- end -}}
-{{- $saAnnotations := $command.serviceAccountAnnotations -}}
-{{- if hasKey $commandSAMap "annotations" -}}
-  {{- $saAnnotations = $commandSAMap.annotations -}}
-{{- end -}}
+{{- /* ServiceAccount: explicit in hook > inherited from deployment > create new for hook (see jobServiceAccount helper) */ -}}
+{{- $sa := include "global-chart.jobServiceAccount" (dict "root" $root "job" $command "deploy" $deploy "deployName" $deployName "jobFullname" $hookFullname) | fromJson -}}
+{{- $saName := $sa.name -}}
+{{- $saCreate := $sa.create -}}
+{{- $saAutomount := $sa.automount -}}
+{{- $saAnnotations := $sa.annotations -}}
 
 {{- /* Create SA only if needed (not using deployment's or explicit existing);
        ServiceAccount uses weight 5 so it exists before the Job (weight 10) */ -}}

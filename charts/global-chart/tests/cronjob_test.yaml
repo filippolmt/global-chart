@@ -558,6 +558,29 @@ tests:
           value: false
         documentIndex: 0
 
+  - it: should honor serviceAccount.automount on created deployment-level cronjob SA
+    release:
+      name: myrel
+    set:
+      deployments:
+        backend:
+          image: myapp/backend:v1
+          cronJobs:
+            cleanup:
+              schedule: "0 4 * * *"
+              command: ["./cleanup.sh"]
+              serviceAccount:
+                create: true
+                automount: false
+    asserts:
+      - isKind:
+          of: ServiceAccount
+        documentIndex: 0
+      - equal:
+          path: automountServiceAccountToken
+          value: false
+        documentIndex: 0
+
   - it: should render successfulJobsHistoryLimit 0 on deployment-level cronjob
     set:
       deployments:
