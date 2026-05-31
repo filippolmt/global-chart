@@ -11,7 +11,7 @@ Global-chart is a reusable Helm chart (v1.5.0) providing multi-deployment Kubern
 ```bash
 make all                    # Full pipeline: lint + test + bad-values + generate + kubeconform + kube-linter
 make lint-chart             # Lint all 16 scenarios in tests/*.yaml
-make unit-test              # 331 helm-unittest tests (17 suites) via Docker
+make unit-test              # 338 helm-unittest tests (17 suites) via Docker
 make validate-bad-values    # Verify schema rejects invalid values
 make kubeconform            # Validate manifests against K8s 1.29
 make kube-linter            # Lint manifests (addAllBuiltIn)
@@ -38,7 +38,7 @@ When schema or user-visible values change (new fields, defaults, descriptions), 
 |------|--------|
 | `_helpers.tpl` | Core naming, labels (`fullname`, `deploymentFullname`, `labels`, `selectorLabels`, `deploymentEnabled`, `deploymentServiceAccountName`) |
 | `_image-helpers.tpl` | `imageString` (string/map/global registry/numeric tags), `imagePullPolicy` |
-| `_job-helpers.tpl` | `inheritedJobPodSpec` — shared pod spec for deployment-level hooks/cronjobs with full inheritance chain. Params: `inheritDnsConfig` (true=cronjob, false=hook), `renderInitContainers` (true=cronjob, false=hook) |
+| `_job-helpers.tpl` | `inheritedJobPodSpec` — shared pod spec for deployment-level hooks/cronjobs with full inheritance chain. Params: `inheritDnsConfig` (true=cronjob, false=hook), `renderInitContainers` (true=cronjob, false=hook). `jobImageString` — unified image resolution (`image` > `deploy.image` > `fromDeployment` lookup+fail), `errCtx` param preserves exact failure messages. `jobServiceAccount` — unified deployment-level SA resolution (name/create/automount/annotations), returns JSON consumed via `fromJson` |
 | `_render-helpers.tpl` | `renderVolume` (native + legacy), `renderImagePullSecrets`, `renderDnsConfig`, `renderResources`, `renderCommonAnnotations` |
 | `_validate-helpers.tpl` | `validateNameCollisions` — fails on truncation-induced name collisions |
 
@@ -119,3 +119,17 @@ imagePullSecrets:
 **Adding hook weight logic:** Maintain invariant `prereq (w-7) < SA (w-5) < Job (w)`
 
 **Every template must have a corresponding `*_test.yaml`** in `charts/global-chart/tests/`
+
+## Agent skills
+
+### Issue tracker
+
+Issues e PRD su GitHub Issues (`filippolmt/global-chart`), via `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Cinque ruoli canonici, label = nome del ruolo (default). See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: `CONTEXT.md` + `docs/adr/` alla root. See `docs/agents/domain.md`.
