@@ -5,7 +5,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ---
 
-## [Unreleased]
+## [1.6.1] — 2026-05-31
 
 ### Changed
 
@@ -17,7 +17,7 @@ Pure refactor — rendered manifests are byte-identical; error messages unchange
 - **`global-chart.jobServiceAccount`** (`_job-helpers.tpl`): unifies the deployment-level ServiceAccount resolution (name/create/automount/annotations) previously duplicated near-verbatim across `hook.yaml` PART 2 and `cronjob.yaml` PART 2. Returns a JSON object consumed via `fromJson`.
 - Removed a dead `serviceAccount.automountServiceAccountToken` branch in the hook SA logic — the key is rejected by `values.schema.json` (`additionalProperties: false`), so it was unreachable. Automount is controlled by the job-level `automountServiceAccountToken` and the SA-map `automount` keys, unchanged.
 
-Deferred follow-ups tracked in #56 (`deploymentMetadata` helper) and #57 (`renderJob` collapse — needs an ADR).
+Follow-ups resolved: #56 (`deploymentMetadata` helper) closed as won't-do; #57 (`renderJob` collapse) recorded as a deliberate non-decision in [ADR-0001](docs/adr/0001-keep-root-and-deployment-job-rendering-separate.md).
 
 ---
 
