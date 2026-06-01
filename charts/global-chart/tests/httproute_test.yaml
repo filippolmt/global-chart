@@ -754,3 +754,51 @@ tests:
       - equal:
           path: spec.rules[0].backendRefs[0].filters[0].requestHeaderModifier.add[0].name
           value: X-Backend
+
+  # ====== 27. matches passthrough — chart does not inject CRD defaults ======
+  - it: should pass path matches through verbatim, leaving type to the Gateway API CRD default
+    set:
+      deployments:
+        api:
+          image: nginx:1.25
+      httpRoute:
+        enabled: true
+        parentRefs:
+          - name: gw
+        rules:
+          - matches:
+              - path:
+                  value: /api
+            backendRefs:
+              - deployment: api
+    asserts:
+      - equal:
+          path: spec.rules[0].matches[0].path.value
+          value: /api
+      - notExists:
+          path: spec.rules[0].matches[0].path.type
+
+  # ====== 28. explicit empty path value preserved (not coerced to /) ======
+  - it: should preserve an explicitly empty path value instead of defaulting to /
+    set:
+      deployments:
+        api:
+          image: nginx:1.25
+      httpRoute:
+        enabled: true
+        parentRefs:
+          - name: gw
+        rules:
+          - matches:
+              - path:
+                  type: Exact
+                  value: ""
+            backendRefs:
+              - deployment: api
+    asserts:
+      - equal:
+          path: spec.rules[0].matches[0].path.type
+          value: Exact
+      - equal:
+          path: spec.rules[0].matches[0].path.value
+          value: ""

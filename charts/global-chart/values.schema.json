@@ -700,11 +700,12 @@
           "type": "array",
           "items": {
             "type": "object",
+            "additionalProperties": false,
             "properties": {
               "name": { "type": "string" },
               "namespace": { "type": "string" },
               "sectionName": { "type": "string" },
-              "port": { "type": "integer" },
+              "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
               "kind": { "type": "string" },
               "group": { "type": "string" }
             },
@@ -723,14 +724,18 @@
     },
     "httpRouteRule": {
       "type": "object",
+      "additionalProperties": false,
       "properties": {
         "matches": {
           "type": "array",
           "items": {
             "type": "object",
+            "additionalProperties": false,
+            "minProperties": 1,
             "properties": {
               "path": {
                 "type": "object",
+                "additionalProperties": false,
                 "properties": {
                   "type": {
                     "type": "string",
@@ -743,6 +748,7 @@
                 "type": "array",
                 "items": {
                   "type": "object",
+                  "additionalProperties": false,
                   "properties": {
                     "type": {
                       "type": "string",
@@ -758,6 +764,7 @@
                 "type": "array",
                 "items": {
                   "type": "object",
+                  "additionalProperties": false,
                   "properties": {
                     "type": {
                       "type": "string",
@@ -765,7 +772,8 @@
                     },
                     "name": { "type": "string" },
                     "value": { "type": "string" }
-                  }
+                  },
+                  "required": ["name", "value"]
                 }
               },
               "method": {
@@ -799,13 +807,15 @@
           "type": "array",
           "items": {
             "type": "object",
+            "additionalProperties": false,
             "properties": {
               "deployment": { "type": "string" },
               "service": {
                 "type": "object",
+                "additionalProperties": false,
                 "properties": {
                   "name": { "type": "string" },
-                  "port": { "type": "integer" }
+                  "port": { "type": "integer", "minimum": 1, "maximum": 65535 }
                 }
               },
               "weight": { "type": "integer", "minimum": 0, "maximum": 1000000 },
@@ -834,6 +844,7 @@
         },
         "timeouts": {
           "type": "object",
+          "additionalProperties": false,
           "properties": {
             "request": { "type": "string" },
             "backendRequest": { "type": "string" }

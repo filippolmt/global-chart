@@ -19,6 +19,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Changed
 - `templates/ingress.yaml` backend resolution refactored to call `global-chart.resolveBackend` (behavior-preserving — all existing tests pass unchanged)
+- `templates/httproute.yaml` renders `parentRefs` and `matches` via `toYaml` passthrough (verbatim Gateway API structures) instead of field-by-field, mirroring Helm's own `helm create` HTTPRoute scaffold. The chart no longer re-implements the Gateway API field shape: per-field defaults (path `type`/`value`) are applied by the Gateway API CRD, and new match fields work with no template change. Only `backendRefs` stays field-by-field — that is where the chart transforms input (deployment name → Service via `resolveBackend`).
+
+### Validation
+- Schema sets `additionalProperties: false` on every nested `httpRoute` object (rule, matches, path, headers, queryParams, backendRefs, service, parentRefs, timeouts), so a misspelled key (e.g. `timeouts.requestTimeout` instead of `request`) is rejected at lint time instead of silently dropped. `filters` stay open by design (passthrough of arbitrary Gateway API filter bodies).
+- `parentRefs[].port` and `backendRefs[].service.port` are bounded to `1–65535` (matching deployment service ports); `0`/out-of-range is rejected at lint time, not at apply time.
+- `queryParams` match items now require `value` (like `headers`), preventing a rendered `value: null` that the Gateway API rejects.
+- `matches[]` items require at least one of path/headers/queryParams/method (`minProperties: 1`), rejecting an empty match `{}`.
 
 ### Notes
 - Gateway API v1 CRDs MUST be installed in the cluster; the chart does not create the Gateway resource (platform-managed)

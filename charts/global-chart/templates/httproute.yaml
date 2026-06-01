@@ -7,6 +7,14 @@
 {{- $commonAnnotations := default (dict) $global.commonAnnotations }}
 {{- $mergedAnnotations := merge $annotations $commonAnnotations }}
 
+{{- /* parentRefs and matches are verbatim Gateway API structures rendered straight
+       through toYaml, so the chart never re-implements — and drifts from — the
+       upstream schema. Field-level validation lives in values.schema.json; field
+       defaults (e.g. path type/value) are owned by the Gateway API CRD, not
+       duplicated here. Only backendRefs is rendered field-by-field, since that is
+       where the chart transforms input (deployment name -> Service via
+       resolveBackend). */ -}}
+
 {{- /* Validate required-when-enabled fields */ -}}
 {{- if not $rt.parentRefs }}
   {{- fail "httpRoute.enabled is true but httpRoute.parentRefs is empty. Provide at least one parentRef pointing to an existing Gateway (the chart does not create Gateways)." }}
@@ -27,24 +35,7 @@ metadata:
   {{- end }}
 spec:
   parentRefs:
-    {{- range $pref := $rt.parentRefs }}
-    - name: {{ $pref.name | quote }}
-      {{- with $pref.namespace }}
-      namespace: {{ . | quote }}
-      {{- end }}
-      {{- with $pref.sectionName }}
-      sectionName: {{ . | quote }}
-      {{- end }}
-      {{- with $pref.port }}
-      port: {{ . }}
-      {{- end }}
-      {{- with $pref.kind }}
-      kind: {{ . | quote }}
-      {{- end }}
-      {{- with $pref.group }}
-      group: {{ . | quote }}
-      {{- end }}
-    {{- end }}
+    {{- toYaml $rt.parentRefs | nindent 4 }}
   {{- with $rt.hostnames }}
   hostnames:
     {{- range . }}
@@ -56,37 +47,7 @@ spec:
     -
       {{- with $rule.matches }}
       matches:
-        {{- range $match := . }}
-        -
-          {{- with $match.path }}
-          path:
-            type: {{ default "PathPrefix" .type | quote }}
-            value: {{ default "/" .value | quote }}
-          {{- end }}
-          {{- with $match.headers }}
-          headers:
-            {{- range . }}
-            - name: {{ .name | quote }}
-              value: {{ .value | quote }}
-              {{- with .type }}
-              type: {{ . | quote }}
-              {{- end }}
-            {{- end }}
-          {{- end }}
-          {{- with $match.queryParams }}
-          queryParams:
-            {{- range . }}
-            - name: {{ .name | quote }}
-              value: {{ .value | quote }}
-              {{- with .type }}
-              type: {{ . | quote }}
-              {{- end }}
-            {{- end }}
-          {{- end }}
-          {{- with $match.method }}
-          method: {{ . | quote }}
-          {{- end }}
-        {{- end }}
+        {{- toYaml . | nindent 8 }}
       {{- end }}
       {{- with $rule.filters }}
       filters:

@@ -114,8 +114,8 @@ Called from validate.yaml. Emits nothing on success.
 {{- define "global-chart.validateRoutingConflict" -}}
 {{- $ing := default (dict) .Values.ingress -}}
 {{- $rt := default (dict) .Values.httpRoute -}}
-{{- $ingEnabled := ternary (default false $ing.enabled) false (hasKey $ing "enabled") -}}
-{{- $rtEnabled := ternary (default false $rt.enabled) false (hasKey $rt "enabled") -}}
+{{- $ingEnabled := default false $ing.enabled -}}
+{{- $rtEnabled := default false $rt.enabled -}}
 {{- if and $ingEnabled $rtEnabled -}}
 {{- fail "Both .Values.ingress.enabled and .Values.httpRoute.enabled are true. The chart supports only one routing layer per release. Disable one (set enabled: false) to proceed." -}}
 {{- end -}}

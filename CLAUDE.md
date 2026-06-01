@@ -11,7 +11,7 @@ Global-chart is a reusable Helm chart (v1.5.0) providing multi-deployment Kubern
 ```bash
 make all                    # Full pipeline: lint + test + bad-values + generate + kubeconform + kube-linter
 make lint-chart             # Lint all 16 scenarios in tests/*.yaml
-make unit-test              # 339 helm-unittest tests (17 suites) via Docker
+make unit-test              # 379 helm-unittest tests (19 suites) via Docker
 make validate-bad-values    # Verify schema rejects invalid values
 make kubeconform            # Validate manifests against K8s 1.29
 make kube-linter            # Lint manifests (addAllBuiltIn)
@@ -29,7 +29,7 @@ When schema or user-visible values change (new fields, defaults, descriptions), 
 - `charts/global-chart/templates/` — Helm templates
 - `charts/global-chart/templates/_*.tpl` — Helper files (5 domain files, see below)
 - `charts/global-chart/values.schema.json` — JSON Schema Draft 7
-- `charts/global-chart/tests/` — helm-unittest suites (17 suites)
+- `charts/global-chart/tests/` — helm-unittest suites (19 suites)
 - `tests/` — Lint scenario values + `bad-values/` for schema rejection tests
 
 ### Helper Files
