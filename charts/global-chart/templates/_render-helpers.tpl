@@ -116,3 +116,77 @@ Accepts root context (.). Returns toYaml of global.commonAnnotations, or empty s
 {{- toYaml . -}}
 {{- end -}}
 {{- end }}
+
+{{/*
+Resolve a backend reference to a {name, port} dict, emitted as JSON for the caller to parse via fromJson.
+Usage:
+  {{- $b := include "global-chart.resolveBackend" (dict "root" $root "ref" $hostEntry "sourceKind" "ingress host") | fromJson -}}
+  {{- $svcName := $b.name -}}
+  {{- $svcPort := $b.port -}}
+
+Inputs (dict):
+  - root        (required) — Helm root context (the chart "." passed in)
+  - ref         (required) — host entry (ingress) or backendRef (httpRoute) map; supports .service.name/.port and .deployment
+  - sourceKind  (required) — caller-supplied noun phrase used to prefix fail messages
+                             (e.g. "ingress host", "httpRoute rule"). Capitalize per existing wording —
+                             this string flows verbatim into "%s '%s' references deployment ..." messages.
+  - identifier  (optional) — human-readable identifier for fail messages.
+                             Falls back to ref.host (ingress entries have one), else "<unknown>".
+  - ruleNoun    (optional) — noun used in the "remove the X" suffix of the service.enabled:false message.
+                             Defaults to "rule". Ingress passes "ingress rule" to preserve historical wording.
+
+Resolution priority (mirrors the historical inline ingress logic):
+  1. Explicit service override: ref.service.name set      → {name=ref.service.name, port=ref.service.port|80}
+  2. Deployment reference:      ref.deployment set        → {name=deploymentFullname, port=deploy.service.port|80}
+                                with validations: deployment exists, enabled, service.enabled != false
+  3. Otherwise: fail with actionable message.
+
+Output: JSON string of the form {"name":"<svc>","port":<int>}
+*/}}
+{{- define "global-chart.resolveBackend" -}}
+{{- $root := .root -}}
+{{- $ref := .ref -}}
+{{- $sourceKind := .sourceKind -}}
+{{- /* sourceKindCapital: same noun phrase with its first word capitalized.
+       Used only in the "service.enabled: false" message to preserve the
+       historical "Ingress host '...'" sentence-start wording. Defaults to
+       $sourceKind if not provided. */ -}}
+{{- $sourceKindCapital := default $sourceKind .sourceKindCapital -}}
+{{- /* ruleNoun: noun used in the "remove the X" suffix. Defaults to "rule".
+       Ingress passes "ingress rule" to preserve historical wording. */ -}}
+{{- $ruleNoun := default "rule" .ruleNoun -}}
+{{- /* Identifier: prefer explicit .identifier, else ref.host (ingress), else "<unknown>" */ -}}
+{{- $ident := "<unknown>" -}}
+{{- if .identifier -}}{{- $ident = .identifier -}}
+{{- else if and (kindIs "map" $ref) (hasKey $ref "host") $ref.host -}}{{- $ident = $ref.host -}}
+{{- end -}}
+{{- $svcName := "" -}}
+{{- $svcPort := 80 -}}
+
+{{- /* Priority 1: Explicit service override */ -}}
+{{- if and (hasKey $ref "service") $ref.service $ref.service.name -}}
+  {{- $svcName = $ref.service.name -}}
+  {{- $svcPort = ternary $ref.service.port 80 (hasKey $ref.service "port") -}}
+{{- /* Priority 2: Deployment reference */ -}}
+{{- else if $ref.deployment -}}
+  {{- $depName := $ref.deployment -}}
+  {{- $deploy := index $root.Values.deployments $depName -}}
+  {{- if not $deploy -}}
+    {{- fail (printf "%s '%s' references deployment '%s' which does not exist in .Values.deployments" $sourceKind $ident $depName) -}}
+  {{- end -}}
+  {{- if ne (include "global-chart.deploymentEnabled" (dict "deploy" $deploy)) "true" -}}
+    {{- fail (printf "%s '%s' references deployment '%s' which has enabled: false (its Service will not be created)" $sourceKind $ident $depName) -}}
+  {{- end -}}
+  {{- $depSvc := default (dict) $deploy.service -}}
+  {{- if and (hasKey $depSvc "enabled") (not $depSvc.enabled) -}}
+    {{- fail (printf "%s '%s' references deployment '%s' which has service.enabled: false. Enable the service or remove the %s." $sourceKindCapital $ident $depName $ruleNoun) -}}
+  {{- end -}}
+  {{- $svcName = include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $depName) -}}
+  {{- $svcPort = ternary $depSvc.port 80 (hasKey $depSvc "port") -}}
+{{- /* Priority 3: Error - must specify deployment or service */ -}}
+{{- else -}}
+  {{- fail (printf "%s '%s' must specify either 'deployment' (name of a deployment) or 'service.name' (explicit service name)" $sourceKind $ident) -}}
+{{- end -}}
+
+{{- dict "name" $svcName "port" $svcPort | toJson -}}
+{{- end }}

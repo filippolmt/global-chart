@@ -1,0 +1,292 @@
+suite: httproute validation tests
+templates:
+  - templates/httproute.yaml
+  - templates/validate.yaml
+  - templates/ingress.yaml
+tests:
+  # ====== 1. parentRefs missing (key absent) ======
+  - it: should fail when httpRoute.enabled is true and parentRefs is missing
+    set:
+      deployments:
+        api:
+          image: nginx:1.25
+      httpRoute:
+        enabled: true
+        rules:
+          - matches:
+              - path:
+                  type: PathPrefix
+                  value: /
+            backendRefs:
+              - deployment: api
+    asserts:
+      - failedTemplate:
+          errorMessage: "httpRoute.enabled is true but httpRoute.parentRefs is empty. Provide at least one parentRef pointing to an existing Gateway (the chart does not create Gateways)."
+        template: templates/httproute.yaml
+
+  # ====== 2. parentRefs explicitly empty list ======
+  - it: should fail when httpRoute.parentRefs is an empty list
+    set:
+      deployments:
+        api:
+          image: nginx:1.25
+      httpRoute:
+        enabled: true
+        parentRefs: []
+        rules:
+          - matches:
+              - path:
+                  type: PathPrefix
+                  value: /
+            backendRefs:
+              - deployment: api
+    asserts:
+      - failedTemplate:
+          errorMessage: "httpRoute.enabled is true but httpRoute.parentRefs is empty. Provide at least one parentRef pointing to an existing Gateway (the chart does not create Gateways)."
+        template: templates/httproute.yaml
+
+  # ====== 3. rules missing (key absent) ======
+  - it: should fail when httpRoute.enabled is true and rules is missing
+    set:
+      deployments:
+        api:
+          image: nginx:1.25
+      httpRoute:
+        enabled: true
+        parentRefs:
+          - name: gw
+    asserts:
+      - failedTemplate:
+          errorMessage: "httpRoute.enabled is true but httpRoute.rules is empty. Provide at least one rule."
+        template: templates/httproute.yaml
+
+  # ====== 4. rules explicitly empty list ======
+  - it: should fail when httpRoute.rules is an empty list
+    set:
+      deployments:
+        api:
+          image: nginx:1.25
+      httpRoute:
+        enabled: true
+        parentRefs:
+          - name: gw
+        rules: []
+    asserts:
+      - failedTemplate:
+          errorMessage: "httpRoute.enabled is true but httpRoute.rules is empty. Provide at least one rule."
+        template: templates/httproute.yaml
+
+  # ====== 5. rule with empty backendRefs ======
+  - it: should fail when a rule has empty backendRefs
+    set:
+      deployments:
+        api:
+          image: nginx:1.25
+      httpRoute:
+        enabled: true
+        parentRefs:
+          - name: gw
+        rules:
+          - matches:
+              - path:
+                  type: PathPrefix
+                  value: /
+            backendRefs: []
+    asserts:
+      - failedTemplate:
+          errorMessage: "httpRoute.rules[0].backendRefs is empty — provide at least one backendRef (deployment or service)."
+        template: templates/httproute.yaml
+
+  # ====== 6. backendRef → nonexistent deployment ======
+  - it: should fail when backendRef references a non-existent deployment
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+      httpRoute:
+        enabled: true
+        parentRefs:
+          - name: gw
+        rules:
+          - matches:
+              - path:
+                  type: PathPrefix
+                  value: /
+            backendRefs:
+              - deployment: frontend
+    asserts:
+      - failedTemplate:
+          errorMessage: "httpRoute 'rule[0].backendRefs[0]' references deployment 'frontend' which does not exist in .Values.deployments"
+        template: templates/httproute.yaml
+
+  # ====== 7. backendRef → deployment with enabled: false ======
+  - it: should fail when backendRef references a deployment with enabled false
+    set:
+      deployments:
+        frontend:
+          enabled: false
+          image: nginx:1.25
+      httpRoute:
+        enabled: true
+        parentRefs:
+          - name: gw
+        rules:
+          - matches:
+              - path:
+                  type: PathPrefix
+                  value: /
+            backendRefs:
+              - deployment: frontend
+    asserts:
+      - failedTemplate:
+          errorMessage: "httpRoute 'rule[0].backendRefs[0]' references deployment 'frontend' which has enabled: false (its Service will not be created)"
+        template: templates/httproute.yaml
+
+  # ====== 8. backendRef → deployment with service.enabled: false ======
+  - it: should fail when backendRef references a deployment with service.enabled false
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          service:
+            enabled: false
+      httpRoute:
+        enabled: true
+        parentRefs:
+          - name: gw
+        rules:
+          - matches:
+              - path:
+                  type: PathPrefix
+                  value: /
+            backendRefs:
+              - deployment: backend
+    asserts:
+      - failedTemplate:
+          errorMessage: "httpRoute 'rule[0].backendRefs[0]' references deployment 'backend' which has service.enabled: false. Enable the service or remove the rule."
+        template: templates/httproute.yaml
+
+  # ====== 9. backendRef → neither deployment nor service.name ======
+  - it: should fail when backendRef has neither deployment nor service.name
+    set:
+      deployments:
+        api:
+          image: nginx:1.25
+      httpRoute:
+        enabled: true
+        parentRefs:
+          - name: gw
+        rules:
+          - matches:
+              - path:
+                  type: PathPrefix
+                  value: /
+            backendRefs:
+              - {}
+    asserts:
+      - failedTemplate:
+          errorMessage: "httpRoute 'rule[0].backendRefs[0]' must specify either 'deployment' (name of a deployment) or 'service.name' (explicit service name)"
+        template: templates/httproute.yaml
+
+  # ====== 10. ingress.enabled and httpRoute.enabled both true (routing conflict) ======
+  - it: should fail when both ingress.enabled and httpRoute.enabled are true
+    set:
+      deployments:
+        api:
+          image: nginx:1.25
+          service:
+            port: 8080
+      ingress:
+        enabled: true
+        hosts:
+          - host: app.example.com
+            deployment: api
+            paths:
+              - path: /
+                pathType: Prefix
+      httpRoute:
+        enabled: true
+        parentRefs:
+          - name: gw
+        hostnames:
+          - app.example.com
+        rules:
+          - matches:
+              - path:
+                  type: PathPrefix
+                  value: /
+            backendRefs:
+              - deployment: api
+    asserts:
+      - failedTemplate:
+          errorMessage: "Both .Values.ingress.enabled and .Values.httpRoute.enabled are true. The chart supports only one routing layer per release. Disable one (set enabled: false) to proceed."
+        template: templates/validate.yaml
+
+  # ====== 11. ingress only — no fail, Ingress rendered ======
+  - it: should render Ingress only when ingress.enabled is true and httpRoute.enabled is false
+    set:
+      deployments:
+        api:
+          image: nginx:1.25
+          service:
+            port: 8080
+      ingress:
+        enabled: true
+        hosts:
+          - host: app.example.com
+            deployment: api
+            paths:
+              - path: /
+                pathType: Prefix
+      httpRoute:
+        enabled: false
+    asserts:
+      - notFailedTemplate: {}
+        template: templates/validate.yaml
+      - notFailedTemplate: {}
+        template: templates/ingress.yaml
+      - notFailedTemplate: {}
+        template: templates/httproute.yaml
+      - isKind:
+          of: Ingress
+        template: templates/ingress.yaml
+      - hasDocuments:
+          count: 0
+        template: templates/httproute.yaml
+
+  # ====== 12. httpRoute only — no fail, HTTPRoute rendered ======
+  - it: should render HTTPRoute only when httpRoute.enabled is true and ingress.enabled is false
+    set:
+      deployments:
+        api:
+          image: nginx:1.25
+          service:
+            port: 8080
+      ingress:
+        enabled: false
+      httpRoute:
+        enabled: true
+        parentRefs:
+          - name: gw
+        hostnames:
+          - app.example.com
+        rules:
+          - matches:
+              - path:
+                  type: PathPrefix
+                  value: /
+            backendRefs:
+              - deployment: api
+    asserts:
+      - notFailedTemplate: {}
+        template: templates/validate.yaml
+      - notFailedTemplate: {}
+        template: templates/httproute.yaml
+      - notFailedTemplate: {}
+        template: templates/ingress.yaml
+      - isKind:
+          of: HTTPRoute
+        template: templates/httproute.yaml
+      - hasDocuments:
+          count: 0
+        template: templates/ingress.yaml

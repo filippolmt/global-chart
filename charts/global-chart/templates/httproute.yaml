@@ -1,0 +1,78 @@
+{{- $rt := default (dict) .Values.httpRoute }}
+{{- if $rt.enabled }}
+{{- $root := . }}
+{{- $fullName := include "global-chart.fullname" $root }}
+{{- $annotations := deepCopy (default (dict) $rt.annotations) }}
+{{- $global := default (dict) $root.Values.global }}
+{{- $commonAnnotations := default (dict) $global.commonAnnotations }}
+{{- $mergedAnnotations := merge $annotations $commonAnnotations }}
+
+{{- /* parentRefs and matches are verbatim Gateway API structures rendered straight
+       through toYaml, so the chart never re-implements — and drifts from — the
+       upstream schema. Field-level validation lives in values.schema.json; field
+       defaults (e.g. path type/value) are owned by the Gateway API CRD, not
+       duplicated here. Only backendRefs is rendered field-by-field, since that is
+       where the chart transforms input (deployment name -> Service via
+       resolveBackend). */ -}}
+
+{{- /* Validate required-when-enabled fields */ -}}
+{{- if not $rt.parentRefs }}
+  {{- fail "httpRoute.enabled is true but httpRoute.parentRefs is empty. Provide at least one parentRef pointing to an existing Gateway (the chart does not create Gateways)." }}
+{{- end }}
+{{- if not $rt.rules }}
+  {{- fail "httpRoute.enabled is true but httpRoute.rules is empty. Provide at least one rule." }}
+{{- end }}
+
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ $fullName }}
+  labels:
+    {{- include "global-chart.labels" $root | nindent 4 }}
+  {{- with $mergedAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  parentRefs:
+    {{- toYaml $rt.parentRefs | nindent 4 }}
+  {{- with $rt.hostnames }}
+  hostnames:
+    {{- range . }}
+    - {{ . | quote }}
+    {{- end }}
+  {{- end }}
+  rules:
+    {{- range $ruleIdx, $rule := $rt.rules }}
+    -
+      {{- with $rule.matches }}
+      matches:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $rule.filters }}
+      filters:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if not $rule.backendRefs }}
+        {{- fail (printf "httpRoute.rules[%d].backendRefs is empty — provide at least one backendRef (deployment or service)." $ruleIdx) }}
+      {{- end }}
+      backendRefs:
+        {{- range $brIdx, $br := $rule.backendRefs }}
+        {{- $identifier := printf "rule[%d].backendRefs[%d]" $ruleIdx $brIdx }}
+        {{- $b := include "global-chart.resolveBackend" (dict "root" $root "ref" $br "sourceKind" "httpRoute" "identifier" $identifier) | fromJson }}
+        - name: {{ $b.name | quote }}
+          port: {{ $b.port }}
+          {{- if hasKey $br "weight" }}
+          weight: {{ $br.weight }}
+          {{- end }}
+          {{- with $br.filters }}
+          filters:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+        {{- end }}
+      {{- with $rule.timeouts }}
+      timeouts:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    {{- end }}
+{{- end }}

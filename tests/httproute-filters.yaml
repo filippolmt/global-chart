@@ -1,0 +1,55 @@
+# HTTPRoute lint scenario — RequestRedirect, URLRewrite, Request/ResponseHeaderModifier filters.
+deployments:
+  api:
+    image: nginx:1.25
+    service:
+      port: 8080
+
+ingress:
+  enabled: false
+
+httpRoute:
+  enabled: true
+  parentRefs:
+    - name: public-gw
+      namespace: gateway-system
+  hostnames:
+    - app.example.com
+  rules:
+    # Redirect /old to /new
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /old
+      filters:
+        - type: RequestRedirect
+          requestRedirect:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: /new
+            statusCode: 301
+      backendRefs:
+        - deployment: api
+    # Rewrite /api/v1 to / + inject request and response headers
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /api/v1
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: /
+        - type: RequestHeaderModifier
+          requestHeaderModifier:
+            add:
+              - name: X-Forwarded-By
+                value: global-chart
+        - type: ResponseHeaderModifier
+          responseHeaderModifier:
+            set:
+              - name: X-Content-Type-Options
+                value: nosniff
+      backendRefs:
+        - deployment: api

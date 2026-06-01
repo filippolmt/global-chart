@@ -5,6 +5,49 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ---
 
+## [1.7.0] — 2026-05-31
+
+### Added
+- HTTPRoute template (`templates/httproute.yaml`) supporting Gateway API v1
+- Top-level `.Values.httpRoute` block: `parentRefs`, `hostnames`, `rules` (matches/filters/backendRefs/timeouts)
+- Filter types: `RequestRedirect`, `URLRewrite`, `RequestHeaderModifier`, `ResponseHeaderModifier`, `RequestMirror`, `ExtensionRef`
+- Multi-backend weighted routing for canary deployments
+- Shared backend resolution helper `global-chart.resolveBackend` (used by both Ingress and HTTPRoute)
+- kubeconform validation extended to `gateway.networking.k8s.io` schemas via `datreeio/CRDs-catalog`
+- 4 lint scenarios: `tests/httproute-basic.yaml`, `tests/httproute-canary.yaml`, `tests/httproute-filters.yaml`, `tests/bad-values/httproute-conflict.yaml`
+- 2 helm-unittest suites: `httproute_test.yaml` (rendering), `httproute_validation_test.yaml` (failure cases)
+
+### Changed
+- `templates/ingress.yaml` backend resolution refactored to call `global-chart.resolveBackend` (behavior-preserving — all existing tests pass unchanged)
+- `templates/httproute.yaml` renders `parentRefs` and `matches` via `toYaml` passthrough (verbatim Gateway API structures) instead of field-by-field, mirroring Helm's own `helm create` HTTPRoute scaffold. The chart no longer re-implements the Gateway API field shape: per-field defaults (path `type`/`value`) are applied by the Gateway API CRD, and new match fields work with no template change. Only `backendRefs` stays field-by-field — that is where the chart transforms input (deployment name → Service via `resolveBackend`).
+
+### Validation
+- Schema sets `additionalProperties: false` on every nested `httpRoute` object (rule, matches, path, headers, queryParams, backendRefs, service, parentRefs, timeouts), so a misspelled key (e.g. `timeouts.requestTimeout` instead of `request`) is rejected at lint time instead of silently dropped. `filters` stay open by design (passthrough of arbitrary Gateway API filter bodies).
+- `parentRefs[].port` and `backendRefs[].service.port` are bounded to `1–65535` (matching deployment service ports); `0`/out-of-range is rejected at lint time, not at apply time.
+- `queryParams` match items now require `value` (like `headers`), preventing a rendered `value: null` that the Gateway API rejects.
+- `matches[]` items require at least one of path/headers/queryParams/method (`minProperties: 1`), rejecting an empty match `{}`.
+
+### Notes
+- Gateway API v1 CRDs MUST be installed in the cluster; the chart does not create the Gateway resource (platform-managed)
+- `.Values.ingress.enabled: true` and `.Values.httpRoute.enabled: true` are mutually exclusive — enabling both fails template render
+
+### Migration: Ingress → HTTPRoute
+
+| Ingress field                          | HTTPRoute equivalent                               | Notes                                          |
+|----------------------------------------|-----------------------------------------------------|------------------------------------------------|
+| `ingress.className`                    | `httpRoute.parentRefs[].name` (Gateway name)       | Gateway is platform-managed, not chart-rendered |
+| `ingress.tls[].secretName`             | Configured on the Gateway listener (out of chart scope) | Use `parentRefs[].sectionName` to bind HTTPS listener |
+| `ingress.hosts[].host`                 | `httpRoute.hostnames[]`                            | Multiple hostnames per HTTPRoute supported      |
+| `ingress.hosts[].paths[].path`         | `httpRoute.rules[].matches[].path.value`           |                                                |
+| `ingress.hosts[].paths[].pathType`     | `httpRoute.rules[].matches[].path.type`            | `Prefix` → `PathPrefix`; `Exact` → `Exact`     |
+| `ingress.hosts[].deployment`           | `httpRoute.rules[].backendRefs[].deployment`       | Same resolution semantics                       |
+| `ingress.hosts[].service.{name,port}`  | `httpRoute.rules[].backendRefs[].service.{name,port}` | Same                                         |
+| nginx-ingress canary annotations       | `httpRoute.rules[].backendRefs[].weight`           | Native traffic split                            |
+| nginx `rewrite-target` annotation      | `httpRoute.rules[].filters[].URLRewrite`           | Native filter                                   |
+| nginx `permanent-redirect` annotation  | `httpRoute.rules[].filters[].RequestRedirect`      | Native filter                                   |
+
+---
+
 ## [1.6.2] — 2026-05-31
 
 ### Changed

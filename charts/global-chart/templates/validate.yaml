@@ -4,3 +4,4 @@
   The include below will fail with an actionable error message if name collisions are detected.
 */ -}}
 {{- include "global-chart.validateNameCollisions" . -}}
+{{- include "global-chart.validateRoutingConflict" . -}}

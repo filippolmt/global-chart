@@ -33,34 +33,10 @@ spec:
   {{- end }}
   rules:
     {{- range $hostEntry := $ing.hosts }}
-      {{- /* Resolve service name and port */ -}}
-      {{- $svcName := "" -}}
-      {{- $svcPort := 80 -}}
-
-      {{- /* Priority 1: Explicit service override */ -}}
-      {{- if and (hasKey $hostEntry "service") $hostEntry.service $hostEntry.service.name -}}
-        {{- $svcName = $hostEntry.service.name -}}
-        {{- $svcPort = ternary $hostEntry.service.port 80 (hasKey $hostEntry.service "port") -}}
-      {{- /* Priority 2: Deployment reference */ -}}
-      {{- else if $hostEntry.deployment -}}
-        {{- $depName := $hostEntry.deployment -}}
-        {{- $deploy := index $root.Values.deployments $depName -}}
-        {{- if not $deploy -}}
-          {{- fail (printf "ingress host '%s' references deployment '%s' which does not exist in .Values.deployments" $hostEntry.host $depName) -}}
-        {{- end -}}
-        {{- if ne (include "global-chart.deploymentEnabled" (dict "deploy" $deploy)) "true" -}}
-          {{- fail (printf "ingress host '%s' references deployment '%s' which has enabled: false (its Service will not be created)" $hostEntry.host $depName) -}}
-        {{- end -}}
-        {{- $depSvc := default (dict) $deploy.service -}}
-        {{- if and (hasKey $depSvc "enabled") (not $depSvc.enabled) -}}
-          {{- fail (printf "Ingress host '%s' references deployment '%s' which has service.enabled: false. Enable the service or remove the ingress rule." $hostEntry.host $depName) -}}
-        {{- end -}}
-        {{- $svcName = include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $depName) -}}
-        {{- $svcPort = ternary $depSvc.port 80 (hasKey $depSvc "port") -}}
-      {{- /* Priority 3: Error - must specify deployment or service */ -}}
-      {{- else -}}
-        {{- fail (printf "ingress host '%s' must specify either 'deployment' (name of a deployment) or 'service.name' (explicit service name)" $hostEntry.host) -}}
-      {{- end }}
+      {{- /* Resolve service name and port via shared helper */ -}}
+      {{- $b := include "global-chart.resolveBackend" (dict "root" $root "ref" $hostEntry "sourceKind" "ingress host" "sourceKindCapital" "Ingress host" "ruleNoun" "ingress rule") | fromJson -}}
+      {{- $svcName := $b.name -}}
+      {{- $svcPort := $b.port }}
 
     - host: {{ $hostEntry.host | quote }}
       http:

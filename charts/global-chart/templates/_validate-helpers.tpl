@@ -104,3 +104,19 @@ Called from validate.yaml.
 {{- end -}}
 
 {{- end }}
+
+{{/*
+Validate that .Values.ingress and .Values.httpRoute are not both enabled.
+The chart supports only one routing layer per release; both being enabled
+would render conflicting top-level routing resources.
+Called from validate.yaml. Emits nothing on success.
+*/}}
+{{- define "global-chart.validateRoutingConflict" -}}
+{{- $ing := default (dict) .Values.ingress -}}
+{{- $rt := default (dict) .Values.httpRoute -}}
+{{- $ingEnabled := default false $ing.enabled -}}
+{{- $rtEnabled := default false $rt.enabled -}}
+{{- if and $ingEnabled $rtEnabled -}}
+{{- fail "Both .Values.ingress.enabled and .Values.httpRoute.enabled are true. The chart supports only one routing layer per release. Disable one (set enabled: false) to proceed." -}}
+{{- end -}}
+{{- end }}

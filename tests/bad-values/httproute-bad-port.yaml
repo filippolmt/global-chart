@@ -1,0 +1,20 @@
+# httpRoute.parentRefs[].port is out of range (0).
+# Must be rejected by values.schema.json (port minimum:1 maximum:65535).
+deployments:
+  api:
+    image: nginx:1.25
+    service:
+      port: 8080
+
+httpRoute:
+  enabled: true
+  parentRefs:
+    - name: public-gw
+      port: 0
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - deployment: api

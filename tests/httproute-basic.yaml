@@ -1,0 +1,25 @@
+# HTTPRoute lint scenario — single deployment backend, basic PathPrefix match.
+deployments:
+  api:
+    image: nginx:1.25
+    service:
+      port: 8080
+
+ingress:
+  enabled: false
+
+httpRoute:
+  enabled: true
+  parentRefs:
+    - name: public-gw
+      namespace: gateway-system
+      sectionName: https
+  hostnames:
+    - app.example.com
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - deployment: api

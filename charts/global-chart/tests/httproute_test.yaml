@@ -1,0 +1,804 @@
+suite: httproute template tests
+templates:
+  - templates/httproute.yaml
+tests:
+  # ====== 1. Basic rendering ======
+  - it: should render HTTPRoute with minimal valid input
+    release:
+      name: myrel
+    set:
+      deployments:
+        api:
+          image: nginx:1.25
+          service:
+            port: 8080
+      httpRoute:
+        enabled: true
+        parentRefs:
+          - name: public-gw
+            namespace: gateway-system
+        rules:
+          - matches:
+              - path:
+                  type: PathPrefix
+                  value: /
+            backendRefs:
+              - deployment: api
+    asserts:
+      - isKind:
+          of: HTTPRoute
+      - equal:
+          path: apiVersion
+          value: gateway.networking.k8s.io/v1
+      - equal:
+          path: metadata.name
+          value: myrel-global-chart
+
+  # ====== 2. Disabled (explicit false) ======
+  - it: should not render when httpRoute.enabled is false
+    set:
+      httpRoute:
+        enabled: false
+        parentRefs:
+          - name: public-gw
+        rules:
+          - matches:
+              - path:
+                  type: PathPrefix
+                  value: /
+            backendRefs:
+              - service:
+                  name: external
+                  port: 80
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  # ====== 3. Disabled (unset) ======
+  - it: should not render when httpRoute is not set
+    set:
+      deployments:
+        api:
+          image: nginx:1.25
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  # ====== 4. parentRefs single ======
+  - it: should render single parentRef with name only
+    set:
+      deployments:
+        api:
+          image: nginx:1.25
+      httpRoute:
+        enabled: true
+        parentRefs:
+          - name: only-gw
+        rules:
+          - matches:
+              - path:
+                  type: PathPrefix
+                  value: /
+            backendRefs:
+              - deployment: api
+    asserts:
+      - equal:
+          path: spec.parentRefs[0].name
+          value: only-gw
+      - notExists:
+          path: spec.parentRefs[0].namespace
+
+  # ====== 5. parentRefs full ======
+  - it: should render parentRef with name, namespace, sectionName, port, kind, group
+    set:
+      deployments:
+        api:
+          image: nginx:1.25
+      httpRoute:
+        enabled: true
+        parentRefs:
+          - name: full-gw
+            namespace: gateway-system
+            sectionName: https
+            port: 443
+            kind: Gateway
+            group: gateway.networking.k8s.io
+        rules:
+          - matches:
+              - path:
+                  type: PathPrefix
+                  value: /
+            backendRefs:
+              - deployment: api
+    asserts:
+      - equal:
+          path: spec.parentRefs[0].name
+          value: full-gw
+      - equal:
+          path: spec.parentRefs[0].namespace
+          value: gateway-system
+      - equal:
+          path: spec.parentRefs[0].sectionName
+          value: https
+      - equal:
+          path: spec.parentRefs[0].port
+          value: 443
+      - equal:
+          path: spec.parentRefs[0].kind
+          value: Gateway
+      - equal:
+          path: spec.parentRefs[0].group
+          value: gateway.networking.k8s.io
+
+  # ====== 6. parentRefs multiple ======
+  - it: should render multiple parentRefs
+    set:
+      deployments:
+        api:
+          image: nginx:1.25
+      httpRoute:
+        enabled: true
+        parentRefs:
+          - name: gw-a
+            namespace: gateway-system
+          - name: gw-b
+            namespace: gateway-system
+            sectionName: tls
+        rules:
+          - matches:
+              - path:
+                  type: PathPrefix
+                  value: /
+            backendRefs:
+              - deployment: api
+    asserts:
+      - equal:
+          path: spec.parentRefs[0].name
+          value: gw-a
+      - equal:
+          path: spec.parentRefs[1].name
+          value: gw-b
+      - equal:
+          path: spec.parentRefs[1].sectionName
+          value: tls
+
+  # ====== 7. hostnames present ======
+  - it: should render hostnames as YAML list
+    set:
+      deployments:
+        api:
+          image: nginx:1.25
+      httpRoute:
+        enabled: true
+        parentRefs:
+          - name: gw
+        hostnames:
+          - app.example.com
+          - api.example.com
+        rules:
+          - matches:
+              - path:
+                  type: PathPrefix
+                  value: /
+            backendRefs:
+              - deployment: api
+    asserts:
+      - equal:
+          path: spec.hostnames[0]
+          value: app.example.com
+      - equal:
+          path: spec.hostnames[1]
+          value: api.example.com
+
+  # ====== 8. hostnames absent ======
+  - it: should omit hostnames key when not provided
+    set:
+      deployments:
+        api:
+          image: nginx:1.25
+      httpRoute:
+        enabled: true
+        parentRefs:
+          - name: gw
+        rules:
+          - matches:
+              - path:
+                  type: PathPrefix
+                  value: /
+            backendRefs:
+              - deployment: api
+    asserts:
+      - notExists:
+          path: spec.hostnames
+
+  # ====== 9. path match — Exact ======
+  - it: should render path match type Exact
+    set:
+      deployments:
+        api:
+          image: nginx:1.25
+      httpRoute:
+        enabled: true
+        parentRefs:
+          - name: gw
+        rules:
+          - matches:
+              - path:
+                  type: Exact
+                  value: /healthz
+            backendRefs:
+              - deployment: api
+    asserts:
+      - equal:
+          path: spec.rules[0].matches[0].path.type
+          value: Exact
+      - equal:
+          path: spec.rules[0].matches[0].path.value
+          value: /healthz
+
+  # ====== 10. path match — PathPrefix ======
+  - it: should render path match type PathPrefix
+    set:
+      deployments:
+        api:
+          image: nginx:1.25
+      httpRoute:
+        enabled: true
+        parentRefs:
+          - name: gw
+        rules:
+          - matches:
+              - path:
+                  type: PathPrefix
+                  value: /api
+            backendRefs:
+              - deployment: api
+    asserts:
+      - equal:
+          path: spec.rules[0].matches[0].path.type
+          value: PathPrefix
+      - equal:
+          path: spec.rules[0].matches[0].path.value
+          value: /api
+
+  # ====== 11. path match — RegularExpression ======
+  - it: should render path match type RegularExpression
+    set:
+      deployments:
+        api:
+          image: nginx:1.25
+      httpRoute:
+        enabled: true
+        parentRefs:
+          - name: gw
+        rules:
+          - matches:
+              - path:
+                  type: RegularExpression
+                  value: ^/api/v[0-9]+/.*$
+            backendRefs:
+              - deployment: api
+    asserts:
+      - equal:
+          path: spec.rules[0].matches[0].path.type
+          value: RegularExpression
+      - equal:
+          path: spec.rules[0].matches[0].path.value
+          value: ^/api/v[0-9]+/.*$
+
+  # ====== 12. header match ======
+  - it: should render header match with name, value, type
+    set:
+      deployments:
+        api:
+          image: nginx:1.25
+      httpRoute:
+        enabled: true
+        parentRefs:
+          - name: gw
+        rules:
+          - matches:
+              - headers:
+                  - name: X-Tenant
+                    value: gold
+                    type: Exact
+            backendRefs:
+              - deployment: api
+    asserts:
+      - equal:
+          path: spec.rules[0].matches[0].headers[0].name
+          value: X-Tenant
+      - equal:
+          path: spec.rules[0].matches[0].headers[0].value
+          value: gold
+      - equal:
+          path: spec.rules[0].matches[0].headers[0].type
+          value: Exact
+
+  # ====== 13. method match ======
+  - it: should render HTTP method match
+    set:
+      deployments:
+        api:
+          image: nginx:1.25
+      httpRoute:
+        enabled: true
+        parentRefs:
+          - name: gw
+        rules:
+          - matches:
+              - method: POST
+            backendRefs:
+              - deployment: api
+    asserts:
+      - equal:
+          path: spec.rules[0].matches[0].method
+          value: POST
+
+  # ====== 14. filter — RequestRedirect ======
+  - it: should pass through RequestRedirect filter via toYaml
+    set:
+      deployments:
+        api:
+          image: nginx:1.25
+      httpRoute:
+        enabled: true
+        parentRefs:
+          - name: gw
+        rules:
+          - matches:
+              - path:
+                  type: PathPrefix
+                  value: /old
+            filters:
+              - type: RequestRedirect
+                requestRedirect:
+                  scheme: https
+                  hostname: new.example.com
+                  path:
+                    type: ReplacePrefixMatch
+                    replacePrefixMatch: /new
+                  statusCode: 301
+            backendRefs:
+              - deployment: api
+    asserts:
+      - equal:
+          path: spec.rules[0].filters[0].type
+          value: RequestRedirect
+      - equal:
+          path: spec.rules[0].filters[0].requestRedirect.statusCode
+          value: 301
+      - equal:
+          path: spec.rules[0].filters[0].requestRedirect.hostname
+          value: new.example.com
+      - equal:
+          path: spec.rules[0].filters[0].requestRedirect.path.replacePrefixMatch
+          value: /new
+
+  # ====== 15. filter — URLRewrite ======
+  - it: should pass through URLRewrite filter
+    set:
+      deployments:
+        api:
+          image: nginx:1.25
+      httpRoute:
+        enabled: true
+        parentRefs:
+          - name: gw
+        rules:
+          - matches:
+              - path:
+                  type: PathPrefix
+                  value: /api/v1
+            filters:
+              - type: URLRewrite
+                urlRewrite:
+                  hostname: backend.internal
+                  path:
+                    type: ReplacePrefixMatch
+                    replacePrefixMatch: /
+            backendRefs:
+              - deployment: api
+    asserts:
+      - equal:
+          path: spec.rules[0].filters[0].type
+          value: URLRewrite
+      - equal:
+          path: spec.rules[0].filters[0].urlRewrite.hostname
+          value: backend.internal
+      - equal:
+          path: spec.rules[0].filters[0].urlRewrite.path.type
+          value: ReplacePrefixMatch
+
+  # ====== 16. filter — RequestHeaderModifier (add/set/remove) ======
+  - it: should pass through RequestHeaderModifier with add, set, remove
+    set:
+      deployments:
+        api:
+          image: nginx:1.25
+      httpRoute:
+        enabled: true
+        parentRefs:
+          - name: gw
+        rules:
+          - matches:
+              - path:
+                  type: PathPrefix
+                  value: /
+            filters:
+              - type: RequestHeaderModifier
+                requestHeaderModifier:
+                  add:
+                    - name: X-Forwarded-By
+                      value: global-chart
+                  set:
+                    - name: X-Tenant
+                      value: gold
+                  remove:
+                    - X-Internal-Auth
+            backendRefs:
+              - deployment: api
+    asserts:
+      - equal:
+          path: spec.rules[0].filters[0].type
+          value: RequestHeaderModifier
+      - equal:
+          path: spec.rules[0].filters[0].requestHeaderModifier.add[0].name
+          value: X-Forwarded-By
+      - equal:
+          path: spec.rules[0].filters[0].requestHeaderModifier.set[0].name
+          value: X-Tenant
+      - equal:
+          path: spec.rules[0].filters[0].requestHeaderModifier.remove[0]
+          value: X-Internal-Auth
+
+  # ====== 17. filter — ResponseHeaderModifier ======
+  - it: should pass through ResponseHeaderModifier
+    set:
+      deployments:
+        api:
+          image: nginx:1.25
+      httpRoute:
+        enabled: true
+        parentRefs:
+          - name: gw
+        rules:
+          - matches:
+              - path:
+                  type: PathPrefix
+                  value: /
+            filters:
+              - type: ResponseHeaderModifier
+                responseHeaderModifier:
+                  set:
+                    - name: X-Content-Type-Options
+                      value: nosniff
+                  add:
+                    - name: X-Trace-Id
+                      value: abc123
+            backendRefs:
+              - deployment: api
+    asserts:
+      - equal:
+          path: spec.rules[0].filters[0].type
+          value: ResponseHeaderModifier
+      - equal:
+          path: spec.rules[0].filters[0].responseHeaderModifier.set[0].name
+          value: X-Content-Type-Options
+      - equal:
+          path: spec.rules[0].filters[0].responseHeaderModifier.add[0].value
+          value: abc123
+
+  # ====== 18. backendRef — deployment resolves to chart-named Service ======
+  - it: should resolve deployment-ref to deploymentFullname Service and inherit port
+    release:
+      name: myrel
+    set:
+      deployments:
+        api:
+          image: nginx:1.25
+          service:
+            port: 8080
+      httpRoute:
+        enabled: true
+        parentRefs:
+          - name: gw
+        rules:
+          - matches:
+              - path:
+                  type: PathPrefix
+                  value: /
+            backendRefs:
+              - deployment: api
+    asserts:
+      - equal:
+          path: spec.rules[0].backendRefs[0].name
+          value: myrel-global-chart-api
+      - equal:
+          path: spec.rules[0].backendRefs[0].port
+          value: 8080
+
+  # ====== 19. backendRef — explicit service.name + port verbatim ======
+  - it: should render explicit service backendRef verbatim
+    set:
+      httpRoute:
+        enabled: true
+        parentRefs:
+          - name: gw
+        rules:
+          - matches:
+              - path:
+                  type: PathPrefix
+                  value: /
+            backendRefs:
+              - service:
+                  name: my-external-svc
+                  port: 9090
+    asserts:
+      - equal:
+          path: spec.rules[0].backendRefs[0].name
+          value: my-external-svc
+      - equal:
+          path: spec.rules[0].backendRefs[0].port
+          value: 9090
+
+  # ====== 20. backendRef — multiple weighted (canary) ======
+  - it: should render multiple weighted backendRefs
+    release:
+      name: myrel
+    set:
+      deployments:
+        api-stable:
+          image: api:1.0
+          service:
+            port: 8080
+        api-canary:
+          image: api:1.1
+          service:
+            port: 8080
+      httpRoute:
+        enabled: true
+        parentRefs:
+          - name: gw
+        rules:
+          - matches:
+              - path:
+                  type: PathPrefix
+                  value: /
+            backendRefs:
+              - deployment: api-stable
+                weight: 90
+              - deployment: api-canary
+                weight: 10
+    asserts:
+      - equal:
+          path: spec.rules[0].backendRefs[0].name
+          value: myrel-global-chart-api-stable
+      - equal:
+          path: spec.rules[0].backendRefs[0].weight
+          value: 90
+      - equal:
+          path: spec.rules[0].backendRefs[1].name
+          value: myrel-global-chart-api-canary
+      - equal:
+          path: spec.rules[0].backendRefs[1].weight
+          value: 10
+
+  # ====== 21. backendRef — weight 0 rendered explicitly (not omitted) ======
+  - it: should render weight 0 (not omit it as falsy)
+    set:
+      deployments:
+        api-stable:
+          image: api:1.0
+          service:
+            port: 8080
+        api-dark:
+          image: api:1.2
+          service:
+            port: 8080
+      httpRoute:
+        enabled: true
+        parentRefs:
+          - name: gw
+        rules:
+          - matches:
+              - path:
+                  type: PathPrefix
+                  value: /
+            backendRefs:
+              - deployment: api-stable
+                weight: 100
+              - deployment: api-dark
+                weight: 0
+    asserts:
+      - equal:
+          path: spec.rules[0].backendRefs[1].weight
+          value: 0
+
+  # ====== 22. timeouts — request ======
+  - it: should render timeouts.request
+    set:
+      deployments:
+        api:
+          image: nginx:1.25
+      httpRoute:
+        enabled: true
+        parentRefs:
+          - name: gw
+        rules:
+          - matches:
+              - path:
+                  type: PathPrefix
+                  value: /
+            backendRefs:
+              - deployment: api
+            timeouts:
+              request: 30s
+    asserts:
+      - equal:
+          path: spec.rules[0].timeouts.request
+          value: 30s
+
+  # ====== 23. timeouts — backendRequest ======
+  - it: should render timeouts.backendRequest
+    set:
+      deployments:
+        api:
+          image: nginx:1.25
+      httpRoute:
+        enabled: true
+        parentRefs:
+          - name: gw
+        rules:
+          - matches:
+              - path:
+                  type: PathPrefix
+                  value: /
+            backendRefs:
+              - deployment: api
+            timeouts:
+              backendRequest: 10s
+    asserts:
+      - equal:
+          path: spec.rules[0].timeouts.backendRequest
+          value: 10s
+
+  # ====== 24. annotations merge with global.commonAnnotations ======
+  - it: should merge httpRoute.annotations with global.commonAnnotations
+    set:
+      global:
+        commonAnnotations:
+          cost-center: "platform"
+      deployments:
+        api:
+          image: nginx:1.25
+      httpRoute:
+        enabled: true
+        annotations:
+          gateway.networking.k8s.io/owner: team-x
+        parentRefs:
+          - name: gw
+        rules:
+          - matches:
+              - path:
+                  type: PathPrefix
+                  value: /
+            backendRefs:
+              - deployment: api
+    asserts:
+      - equal:
+          path: metadata.annotations["gateway.networking.k8s.io/owner"]
+          value: team-x
+      - equal:
+          path: metadata.annotations["cost-center"]
+          value: platform
+
+  # ====== 25. labels — global-chart.labels included ======
+  - it: should include standard global-chart.labels and global.commonLabels
+    set:
+      global:
+        commonLabels:
+          team: platform
+      deployments:
+        api:
+          image: nginx:1.25
+      httpRoute:
+        enabled: true
+        parentRefs:
+          - name: gw
+        rules:
+          - matches:
+              - path:
+                  type: PathPrefix
+                  value: /
+            backendRefs:
+              - deployment: api
+    asserts:
+      - equal:
+          path: metadata.labels["app.kubernetes.io/managed-by"]
+          value: Helm
+      - equal:
+          path: metadata.labels["app.kubernetes.io/name"]
+          value: global-chart
+      - equal:
+          path: metadata.labels.team
+          value: platform
+
+  # ====== 26. per-backendRef filters ======
+  - it: should render filters under backendRefs[]
+    set:
+      deployments:
+        api:
+          image: nginx:1.25
+      httpRoute:
+        enabled: true
+        parentRefs:
+          - name: gw
+        rules:
+          - matches:
+              - path:
+                  type: PathPrefix
+                  value: /
+            backendRefs:
+              - deployment: api
+                filters:
+                  - type: RequestHeaderModifier
+                    requestHeaderModifier:
+                      add:
+                        - name: X-Backend
+                          value: api-v1
+    asserts:
+      - equal:
+          path: spec.rules[0].backendRefs[0].filters[0].type
+          value: RequestHeaderModifier
+      - equal:
+          path: spec.rules[0].backendRefs[0].filters[0].requestHeaderModifier.add[0].name
+          value: X-Backend
+
+  # ====== 27. matches passthrough — chart does not inject CRD defaults ======
+  - it: should pass path matches through verbatim, leaving type to the Gateway API CRD default
+    set:
+      deployments:
+        api:
+          image: nginx:1.25
+      httpRoute:
+        enabled: true
+        parentRefs:
+          - name: gw
+        rules:
+          - matches:
+              - path:
+                  value: /api
+            backendRefs:
+              - deployment: api
+    asserts:
+      - equal:
+          path: spec.rules[0].matches[0].path.value
+          value: /api
+      - notExists:
+          path: spec.rules[0].matches[0].path.type
+
+  # ====== 28. explicit empty path value preserved (not coerced to /) ======
+  - it: should preserve an explicitly empty path value instead of defaulting to /
+    set:
+      deployments:
+        api:
+          image: nginx:1.25
+      httpRoute:
+        enabled: true
+        parentRefs:
+          - name: gw
+        rules:
+          - matches:
+              - path:
+                  type: Exact
+                  value: ""
+            backendRefs:
+              - deployment: api
+    asserts:
+      - equal:
+          path: spec.rules[0].matches[0].path.type
+          value: Exact
+      - equal:
+          path: spec.rules[0].matches[0].path.value
+          value: ""

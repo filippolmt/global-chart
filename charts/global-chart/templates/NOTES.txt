@@ -40,6 +40,22 @@ Ingress is enabled:
 {{- end }}
 {{- end }}
 
+{{- if and .Values.httpRoute .Values.httpRoute.enabled }}
+
+HTTPRoute is configured. Hostnames:
+{{- range .Values.httpRoute.hostnames }}
+  - {{ . }}
+{{- end }}
+
+Bound to Gateway(s):
+{{- range .Values.httpRoute.parentRefs }}
+  - {{ .name }}{{ if .namespace }} (namespace: {{ .namespace }}){{ end }}{{ if .sectionName }} (listener: {{ .sectionName }}){{ end }}
+{{- end }}
+
+Reminder: Gateway API CRDs must be installed in the cluster.
+The chart does not create the Gateway resource — it must be managed externally.
+{{- end }}
+
 {{- if .Values.hooks }}
 
 Hooks:

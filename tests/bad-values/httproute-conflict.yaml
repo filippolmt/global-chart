@@ -1,0 +1,32 @@
+# Both ingress.enabled and httpRoute.enabled are true.
+# Must be rejected by global-chart.validateRoutingConflict (called from validate.yaml).
+# Expected fail substring: "Both .Values.ingress.enabled"
+deployments:
+  api:
+    image: nginx:1.25
+    service:
+      port: 8080
+
+ingress:
+  enabled: true
+  hosts:
+    - host: app.example.com
+      deployment: api
+      paths:
+        - path: /
+          pathType: Prefix
+
+httpRoute:
+  enabled: true
+  parentRefs:
+    - name: public-gw
+      namespace: gateway-system
+  hostnames:
+    - app.example.com
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - deployment: api

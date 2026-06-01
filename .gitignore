@@ -3,3 +3,5 @@ generated-manifests
 backup
 .planning/
 .toolbox.yaml
+*openspec*
+*opsx*

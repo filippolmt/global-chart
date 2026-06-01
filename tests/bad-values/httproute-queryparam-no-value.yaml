@@ -1,0 +1,19 @@
+# httpRoute queryParam match omits the required 'value'.
+# Must be rejected by values.schema.json (queryParams items required:[name,value]).
+# Without it the template renders `value:` (null), an invalid HTTPQueryParamMatch.
+deployments:
+  api:
+    image: nginx:1.25
+    service:
+      port: 8080
+
+httpRoute:
+  enabled: true
+  parentRefs:
+    - name: public-gw
+  rules:
+    - matches:
+        - queryParams:
+            - name: debug
+      backendRefs:
+        - deployment: api
