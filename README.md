@@ -122,11 +122,11 @@ make render VALUES=tests/test01/values.01.yaml TEMPLATE=deployment.yaml
 
 The chart has multiple layers of testing:
 
-- **Lint scenarios** (`make lint-chart`): Runs `helm lint --strict` across 17 value files in `tests/`.
-- **Unit tests** (`make unit-test`): 312 helm-unittest tests across 17 suites in `charts/global-chart/tests/`, including negative `failedTemplate` tests.
-- **Schema validation** (`make validate-bad-values`): Verifies schema correctly rejects 3 invalid value files.
-- **Manifest validation** (`make kubeconform`): Validates 161 generated resources against K8s 1.29 schema.
-- **Best practices** (`make kube-linter`): Lints manifests with `addAllBuiltIn: true` and 28 documented exclusions.
+- **Lint scenarios** (`make lint-chart`): Runs `helm lint --strict` across every scenario in `tests/` (the `TEST_CASES` list in the `Makefile`).
+- **Unit tests** (`make unit-test`): helm-unittest suites in `charts/global-chart/tests/` (one `*_test.yaml` per template), including negative `failedTemplate` tests.
+- **Schema validation** (`make validate-bad-values`): Verifies the schema rejects every fixture in `tests/bad-values/`.
+- **Manifest validation** (`make kubeconform`): Validates the generated resources against the K8s 1.29 schema.
+- **Best practices** (`make kube-linter`): Lints manifests with `addAllBuiltIn: true` and the documented exclusions.
 
 The GitHub Action (`.github/workflows/helm-ci.yml`) executes all steps on pushes and pull requests, pre-pulling Docker images with retry for resilience.
 
