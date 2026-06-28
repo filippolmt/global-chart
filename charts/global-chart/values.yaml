@@ -400,6 +400,26 @@ hooks: {}
 
 # -- ExternalSecrets definitions for secret management
 externalSecrets: {}
+  # Single-key form (one remote key -> one Secret key):
+  # single:
+  #   secretstore: { kind: ClusterSecretStore, name: my-store }
+  #   remote: { key: SOME_KEY }
+  #   secretkey: SOME_KEY
+  #
+  # data list form (many keys collapsed into one Secret):
+  # app:
+  #   secretstore: { kind: ClusterSecretStore, name: my-store }
+  #   refreshInterval: 1h
+  #   target: { name: app-secrets }
+  #   data:
+  #     - { secretkey: DB_PASSWORD, remote: { key: MY_DB_PASSWORD } }
+  #     - { secretkey: API_TOKEN,  remote: { key: MY_API_TOKEN } }
+  #
+  # dataFrom form (extract / find), rendered verbatim:
+  # app-bulk:
+  #   secretstore: { kind: ClusterSecretStore, name: my-store }
+  #   dataFrom:
+  #     - find: { name: { regexp: "^APP_.*" } }
 
 # -- Default resource settings for CronJobs and Hooks when not specified per-job
 defaults:

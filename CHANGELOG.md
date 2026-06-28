@@ -5,6 +5,36 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ---
 
+## [Unreleased]
+
+### Added
+- `externalSecrets.<name>.data` (list form): many remote keys collapsed into a
+  single `ExternalSecret` → one `Secret` → one `envFromSecrets` reference,
+  instead of one `ExternalSecret` per key.
+- `externalSecrets.<name>.dataFrom` support (`extract` / `find`), rendered
+  verbatim into `spec.dataFrom`. `data` and `dataFrom` may be set together —
+  both are rendered, matching the external-secrets.io CRD.
+- The single-key form (`remote` + `secretkey`) is used only when neither `data`
+  nor `dataFrom` is set, and is unchanged / fully backward compatible. Combining
+  it with `data`/`dataFrom` now fails with a clear error instead of silently
+  dropping the named key.
+
+```yaml
+externalSecrets:
+  app:
+    secretstore: { kind: ClusterSecretStore, name: my-store }
+    target: { name: app-secrets }
+    data:
+      - { secretkey: DB_PASSWORD, remote: { key: MY_DB_PASSWORD } }
+      - { secretkey: API_TOKEN,  remote: { key: MY_API_TOKEN } }
+  app-bulk:
+    secretstore: { kind: ClusterSecretStore, name: my-store }
+    dataFrom:
+      - find: { name: { regexp: "^APP_.*" } }
+```
+
+---
+
 ## [1.7.0] — 2026-05-31
 
 ### Added

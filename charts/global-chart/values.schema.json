@@ -599,18 +599,44 @@
         "securityContext": { "type": "object" }
       }
     },
+    "externalSecretRemote": {
+      "type": "object",
+      "properties": {
+        "key": { "type": "string" },
+        "conversionStrategy": { "type": "string" },
+        "decodingStrategy": { "type": "string" },
+        "metadataPolicy": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
     "externalSecret": {
       "type": "object",
       "properties": {
-        "remote": {
-          "type": "object",
-          "properties": {
-            "key": { "type": "string" },
-            "conversionStrategy": { "type": "string" },
-            "decodingStrategy": { "type": "string" },
-            "metadataPolicy": { "type": "string" }
-          },
-          "additionalProperties": false
+        "remote": { "$ref": "#/$defs/externalSecretRemote" },
+        "data": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "secretkey": { "type": "string" },
+              "remote": { "$ref": "#/$defs/externalSecretRemote" }
+            },
+            "additionalProperties": false
+          }
+        },
+        "dataFrom": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "minProperties": 1,
+            "properties": {
+              "extract": { "type": "object" },
+              "find": { "type": "object" },
+              "rewrite": { "type": "array" },
+              "sourceRef": { "type": "object" }
+            },
+            "additionalProperties": false
+          }
         },
         "secretstore": {
           "type": "object",
