@@ -19,7 +19,7 @@ The chart supports **multiple deployments** in a single release, each with indep
   - **Inside deployments** (`deployments.*.hooks`, `deployments.*.cronJobs`): Inherit image, configMap, secret, serviceAccount, hostAliases, podSecurityContext, securityContext, dnsConfig (cronJobs), nodeSelector, tolerations, affinity, and more from the parent deployment
   - Hook prerequisite ConfigMap/Secret are created automatically with correct weight ordering
 - **Secret management**
-  ExternalSecret resources with required field validation to avoid silent misconfigurations.
+  ExternalSecret resources with required field validation to avoid silent misconfigurations. Each entry maps a single remote key (`remote`/`secretkey`), many keys into one Secret via a `data` list, or pulls in bulk via `dataFrom` (`extract`/`find`).
 - **RBAC**
   Create Roles, ServiceAccounts, and RoleBindings for fine-grained access control.
 - **Global values**
