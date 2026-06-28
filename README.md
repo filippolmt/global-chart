@@ -19,7 +19,7 @@ The chart supports **multiple deployments** in a single release, each with indep
   - **Inside deployments** (`deployments.*.hooks`, `deployments.*.cronJobs`): Inherit image, configMap, secret, serviceAccount, hostAliases, podSecurityContext, securityContext, dnsConfig (cronJobs), nodeSelector, tolerations, affinity, and more from the parent deployment
   - Hook prerequisite ConfigMap/Secret are created automatically with correct weight ordering
 - **Secret management**
-  ExternalSecret resources with required field validation to avoid silent misconfigurations.
+  ExternalSecret resources with required field validation to avoid silent misconfigurations. Each entry maps a single remote key (`remote`/`secretkey`), many keys into one Secret via a `data` list, or pulls in bulk via `dataFrom` (`extract`/`find`).
 - **RBAC**
   Create Roles, ServiceAccounts, and RoleBindings for fine-grained access control.
 - **Global values**
@@ -122,11 +122,11 @@ make render VALUES=tests/test01/values.01.yaml TEMPLATE=deployment.yaml
 
 The chart has multiple layers of testing:
 
-- **Lint scenarios** (`make lint-chart`): Runs `helm lint --strict` across 17 value files in `tests/`.
-- **Unit tests** (`make unit-test`): 312 helm-unittest tests across 17 suites in `charts/global-chart/tests/`, including negative `failedTemplate` tests.
-- **Schema validation** (`make validate-bad-values`): Verifies schema correctly rejects 3 invalid value files.
-- **Manifest validation** (`make kubeconform`): Validates 161 generated resources against K8s 1.29 schema.
-- **Best practices** (`make kube-linter`): Lints manifests with `addAllBuiltIn: true` and 28 documented exclusions.
+- **Lint scenarios** (`make lint-chart`): Runs `helm lint --strict` across every scenario in `tests/` (the `TEST_CASES` list in the `Makefile`).
+- **Unit tests** (`make unit-test`): helm-unittest suites in `charts/global-chart/tests/` (one `*_test.yaml` per template), including negative `failedTemplate` tests.
+- **Schema validation** (`make validate-bad-values`): Verifies the schema rejects every fixture in `tests/bad-values/`.
+- **Manifest validation** (`make kubeconform`): Validates the generated resources against the K8s 1.29 schema.
+- **Best practices** (`make kube-linter`): Lints manifests with `addAllBuiltIn: true` and the documented exclusions.
 
 The GitHub Action (`.github/workflows/helm-ci.yml`) executes all steps on pushes and pull requests, pre-pulling Docker images with retry for resilience.
 

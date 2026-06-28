@@ -13,12 +13,14 @@ description: "Reusable Helm chart providing common building blocks—Deployments
 type: application
 
 # This is the chart version. This version number should be incremented each time you make changes
-# to the chart and its templates, including the app version.
+# to the chart and its templates.
 # Versions are expected to follow Semantic Versioning (https://semver.org/)
-version: 1.7.0
+version: 2.0.0
 
-# Application version deployed by this chart
-appVersion: "1.7.0"
+# appVersion is intentionally omitted: this is a generic, reusable chart that
+# deploys arbitrary workloads, so there is no single application version to pin.
+# The app.kubernetes.io/version label is therefore only emitted when a consumer
+# sets it (e.g. via global.commonLabels).
 
 # Chart icon
 icon: https://helm.sh/img/helm.svg
