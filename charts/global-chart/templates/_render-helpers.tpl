@@ -190,3 +190,20 @@ Output: JSON string of the form {"name":"<svc>","port":<int>}
 
 {{- dict "name" $svcName "port" $svcPort | toJson -}}
 {{- end }}
+
+{{/*
+Render an ExternalSecret remoteRef block (the four strategy/key fields), shared
+by both the data-list and single-key branches of externalsecret.yaml so their
+defaults can never drift.
+Usage: {{- include "global-chart.renderExternalSecretRemoteRef" (dict "remote" $remote "keyError" (printf "externalSecrets.%s.remote.key is mandatory" $name)) | nindent 8 }}
+Inputs (dict):
+  - remote    (required) — the remote map (key + optional conversion/decoding/metadata strategies)
+  - keyError  (required) — fail message when remote.key is missing (caller supplies the exact path)
+*/}}
+{{- define "global-chart.renderExternalSecretRemoteRef" -}}
+{{- $remote := .remote -}}
+conversionStrategy: {{ ternary $remote.conversionStrategy "Default" (hasKey $remote "conversionStrategy") | quote }}
+decodingStrategy: {{ ternary $remote.decodingStrategy "None" (hasKey $remote "decodingStrategy") | quote }}
+key: {{ required .keyError $remote.key | quote }}
+metadataPolicy: {{ ternary $remote.metadataPolicy "None" (hasKey $remote "metadataPolicy") | quote }}
+{{- end }}
