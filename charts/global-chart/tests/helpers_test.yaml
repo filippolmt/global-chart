@@ -114,14 +114,39 @@ tests:
           value: Always
 
   # ====== version label ======
-  - it: should include version label in deployment labels
+  - it: should omit the version label when appVersion is unset (generic chart)
     set:
       deployments:
         main:
           image: "nginx:1.25"
     asserts:
-      - isNotEmpty:
+      - notExists:
           path: metadata.labels["app.kubernetes.io/version"]
+
+  - it: should let a consumer set the version label via global.commonLabels
+    set:
+      global:
+        commonLabels:
+          app.kubernetes.io/version: "2.3.4"
+      deployments:
+        main:
+          image: "nginx:1.25"
+    asserts:
+      - equal:
+          path: metadata.labels["app.kubernetes.io/version"]
+          value: "2.3.4"
+
+  - it: should emit the version label (quoted) when the chart defines appVersion
+    chart:
+      appVersion: "9.9.9"
+    set:
+      deployments:
+        main:
+          image: "nginx:1.25"
+    asserts:
+      - equal:
+          path: metadata.labels["app.kubernetes.io/version"]
+          value: "9.9.9"
 
   # ====== global.commonLabels in labels helpers ======
   - it: should include global.commonLabels in deployment labels

@@ -36,7 +36,9 @@ Common labels (for non-deployment resources like Ingress)
 {{- define "global-chart.labels" -}}
 helm.sh/chart: {{ include "global-chart.chart" . }}
 {{ include "global-chart.selectorLabels" . }}
-app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+{{- with .Chart.AppVersion }}
+app.kubernetes.io/version: {{ . | quote }}
+{{- end }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- $global := default (dict) .Values.global }}
 {{- with $global.commonLabels }}
@@ -80,7 +82,9 @@ Usage: {{ include "global-chart.deploymentLabels" (dict "root" . "deploymentName
 {{- define "global-chart.deploymentLabels" -}}
 helm.sh/chart: {{ include "global-chart.chart" .root }}
 {{ include "global-chart.deploymentSelectorLabels" . }}
-app.kubernetes.io/version: {{ .root.Chart.AppVersion | quote }}
+{{- with .root.Chart.AppVersion }}
+app.kubernetes.io/version: {{ . | quote }}
+{{- end }}
 app.kubernetes.io/managed-by: {{ .root.Release.Service }}
 {{- $global := default (dict) .root.Values.global }}
 {{- with $global.commonLabels }}
@@ -120,7 +124,9 @@ Base labels without component (used when component is added separately).
 */}}
 {{- define "global-chart.hookLabels" -}}
 helm.sh/chart: {{ include "global-chart.chart" . }}
-app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+{{- with .Chart.AppVersion }}
+app.kubernetes.io/version: {{ . | quote }}
+{{- end }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- $global := default (dict) .Values.global }}
 {{- with $global.commonLabels }}

@@ -11,7 +11,7 @@ Global-chart is a reusable Helm chart (v1.5.0) providing multi-deployment Kubern
 ```bash
 make all                    # Full pipeline: lint + test + bad-values + generate + kubeconform + kube-linter
 make lint-chart             # Lint all 16 scenarios in tests/*.yaml
-make unit-test              # 387 helm-unittest tests (19 suites) via Docker
+make unit-test              # 389 helm-unittest tests (19 suites) via Docker
 make validate-bad-values    # Verify schema rejects invalid values
 make kubeconform            # Validate manifests against K8s 1.29
 make kube-linter            # Lint manifests (addAllBuiltIn)

@@ -5,7 +5,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ---
 
-## [Unreleased]
+## [2.0.0] — 2026-06-28
 
 ### Added
 - `externalSecrets.<name>.data` (list form): many remote keys collapsed into a
@@ -32,6 +32,29 @@ externalSecrets:
     dataFrom:
       - find: { name: { regexp: "^APP_.*" } }
 ```
+
+### Changed
+- Removed `appVersion` from `Chart.yaml`. This is a generic, reusable chart that
+  deploys arbitrary workloads, so there is no single application version to pin.
+- The `app.kubernetes.io/version` label is now emitted only when set — it is no
+  longer hardcoded to the chart's `appVersion`. Consumers that want it can set
+  it via `global.commonLabels` (e.g. `app.kubernetes.io/version: "2.3.4"`).
+
+### ⚠️ Breaking — rendered-output change
+- **`app.kubernetes.io/version` is no longer present on rendered objects by
+  default.** Every resource previously carried this recommended label set to the
+  chart's `appVersion`; after upgrading it disappears unless you set it yourself.
+- **Impact:** dashboards, alerting rules, cost-allocation, and any `kubectl`/
+  tooling queries that *filter on* `app.kubernetes.io/version` return empty or
+  mismatched results after upgrade. **Pod/Service selectors are NOT affected** —
+  they only ever matched `name`/`instance`/`component`, so rollouts are safe.
+- **Migration:** if you relied on the label, re-add it explicitly via
+  `global.commonLabels`:
+  ```yaml
+  global:
+    commonLabels:
+      app.kubernetes.io/version: "<your-app-version>"
+  ```
 
 ---
 
