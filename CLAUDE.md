@@ -4,14 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Global-chart is a reusable Helm chart (v1.5.0) providing multi-deployment Kubernetes building blocks. See `README.md` for full feature list and examples, `CHANGELOG.md` for version history and migration guides.
+Global-chart is a reusable Helm chart providing multi-deployment Kubernetes building blocks. See `Chart.yaml` for the current version, `README.md` for the full feature list and examples, `CHANGELOG.md` for version history and migration guides.
 
 ## Commands
 
 ```bash
 make all                    # Full pipeline: lint + test + bad-values + generate + kubeconform + kube-linter
-make lint-chart             # Lint all 16 scenarios in tests/*.yaml
-make unit-test              # 389 helm-unittest tests (19 suites) via Docker
+make lint-chart             # Lint every scenario in TEST_CASES (Makefile)
+make unit-test              # Run helm-unittest suites via Docker
 make validate-bad-values    # Verify schema rejects invalid values
 make kubeconform            # Validate manifests against K8s 1.29
 make kube-linter            # Lint manifests (addAllBuiltIn)
@@ -27,9 +27,9 @@ When schema or user-visible values change (new fields, defaults, descriptions), 
 ### File Layout
 
 - `charts/global-chart/templates/` — Helm templates
-- `charts/global-chart/templates/_*.tpl` — Helper files (5 domain files, see below)
+- `charts/global-chart/templates/_*.tpl` — Helper files (domain-split, see below)
 - `charts/global-chart/values.schema.json` — JSON Schema Draft 7
-- `charts/global-chart/tests/` — helm-unittest suites (19 suites)
+- `charts/global-chart/tests/` — helm-unittest suites (one `*_test.yaml` per template)
 - `tests/` — Lint scenario values + `bad-values/` for schema rejection tests
 
 ### Helper Files
@@ -54,6 +54,7 @@ When schema or user-visible values change (new fields, defaults, descriptions), 
 7. **Hook prerequisite resources**: Deployment ConfigMap/Secret are duplicated as hook-annotated resources because normal resources aren't updated until after hooks complete
 8. **Global fallback chains**: job > deployment > global, using `hasKey` at every level. Explicit `[]` stops fallback
 9. **Schema**: `values.schema.json` validates during install/upgrade/lint. Does NOT use `required` on `mountedConfigFiles` items (templates handle runtime validation to allow `failedTemplate` tests)
+10. **No `appVersion`**: this is a generic chart with no app version to pin. `app.kubernetes.io/version` is emitted only when set — guarded with `{{- with .Chart.AppVersion }}` in the label helpers; consumers set it via `global.commonLabels`. Pod/Service selectors never included it.
 
 ### Resource Naming Limits
 
