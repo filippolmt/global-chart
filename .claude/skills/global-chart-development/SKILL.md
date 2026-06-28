@@ -1,15 +1,22 @@
 ---
 name: global-chart-development
-description: Use when modifying global-chart Helm templates, adding features, fixing bugs, refactoring helpers, or updating values, CHANGELOG, or Chart.yaml in this repo. Covers hasKey vs truthiness pitfalls, global fallback chains, inheritance logic (with defensive opt-out toggles), validation with fail, deterministic rendering, schema integer bounds, empty metadata block pitfall, resource-name helpers (one home per name so templates and the collision validator never drift on truncation), the discipline of proving a bug is observable before labelling it a `fix:`, and the required lint-test-generate workflow.
+description: Use for any hands-on work on this repo's `global-chart` Helm chart — editing, adding, fixing, refactoring, or testing it. Covers exposing a new Kubernetes field (e.g. priorityClassName, topologySpreadConstraints) on a deployment/cronjob/hook; adding `fail`-based validation for invalid or mutually-exclusive config (e.g. PDB minAvailable + maxUnavailable); refactoring or deduplicating helpers in `_helpers.tpl`/`_job-helpers.tpl`; debugging chart rendering (`enabled: false` ignored, name collisions, misbehaving hooks); fixing failing helm-unittest suites after a `.tpl` change; and touching `values.yaml`, `values.schema.json`, tests, `CHANGELOG`, or `Chart.yaml`. Provides the template+test+schema+version co-change, lint/unit-test/generate workflow, conventional-commit and prove-before-`fix:` discipline, and chart-specific patterns not in CLAUDE.md. Do NOT use for generic Helm/Kubernetes how-to, installing charts, formatting files, or explaining an existing helper without changing it.
 ---
 
 # Global-Chart Development Patterns
 
-Coding patterns extracted from the global-chart repository.
+Procedural disciplines and the patterns that are NOT already in `CLAUDE.md`.
+
+> **Core template coding rules live in `CLAUDE.md`** (always loaded): `hasKey` vs
+> `default` for bool/numeric, never mutate `.Values`, nil-safe nested access,
+> `with`-wrap empty helpers, global fallback chains, multi-deployment iteration,
+> schema↔template consistency, resource naming limits. This skill does NOT repeat
+> them — it adds the workflow, the commit/fix discipline, and the project-specific
+> patterns below.
 
 ## Commit Conventions
 
-This project uses **conventional commits** (~65% adoption):
+This project uses **conventional commits**:
 
 | Prefix | Usage |
 |--------|-------|
@@ -50,7 +57,7 @@ accordingly, don't dress it up as a bug regression.
 1. `charts/global-chart/templates/<resource>.yaml` — the template
 2. `charts/global-chart/tests/<resource>_test.yaml` — unit tests
 3. `charts/global-chart/Chart.yaml` — version bump (patch for fixes, minor for features)
-4. `CLAUDE.md` — update test count, architecture docs if changed
+4. `CLAUDE.md` — update architecture docs if changed (do NOT add fixed counts; CLAUDE.md is kept number-free so it can't drift)
 
 **Version bump also requires:** `charts/global-chart/values.yaml` annotation updates → `make generate-docs`
 
@@ -73,87 +80,9 @@ moved and it isn't a pure refactor; either that's a real (and intended) behaviou
 change you should call out, or a mistake. New tests are fine; *changed* old
 expectations are the signal to stop and look.
 
-## Helm Template Gotchas (Project-Specific)
+## Project-Specific Patterns (not in CLAUDE.md)
 
-### Boolean Fields: Never Use `default`
-
-Go templates treat `false` as falsy. `default true .field` replaces `false` with `true`.
-
-```yaml
-# ❌ WRONG: loses explicit false
-enabled: {{ default true $deploy.enabled }}
-
-# ✅ CORRECT: preserves false
-enabled: {{ hasKey $deploy "enabled" | ternary $deploy.enabled true }}
-```
-
-Use the centralized helper when available:
-```yaml
-{{- if eq (include "global-chart.deploymentEnabled" (dict "deploy" $deploy)) "true" }}
-```
-
-### Never Mutate .Values
-
-```yaml
-# ❌ WRONG: mutates shared state
-{{- $_ := set $ing.annotations "key" "value" }}
-
-# ✅ CORRECT: work on a copy
-{{- $annotations := deepCopy $ing.annotations }}
-{{- $_ := set $annotations "key" "value" }}
-```
-
-### Inheritance: Use hasKey to Distinguish "Not Set" from "Empty"
-
-For hooks/cronjobs inside deployments that inherit from parent:
-
-```yaml
-# ❌ WRONG: treats {} and [] as falsy, incorrectly inherits
-{{- if not $job.field }}{{ $deploy.field }}{{- end }}
-
-# ✅ CORRECT: only inherits when field is truly absent
-{{ hasKey $job "field" | ternary $job.field $deploy.field }}
-```
-
-### Global Fallback Chains: hasKey at Every Level
-
-When falling back through job → deployment → global (e.g., imagePullSecrets), use `hasKey` at each level. An explicit empty list (`imagePullSecrets: []`) must stop the fallback — it means "no pull secrets", not "unset".
-
-```yaml
-# ❌ WRONG: [] is falsy, falls through to global
-{{- $imagePullSecrets := $job.imagePullSecrets -}}
-{{- if not $imagePullSecrets -}}
-  {{- $imagePullSecrets = $global.imagePullSecrets -}}
-{{- end -}}
-
-# ✅ CORRECT: hasKey at each level
-{{- $imagePullSecrets := list -}}
-{{- if hasKey $job "imagePullSecrets" -}}
-  {{- $imagePullSecrets = $job.imagePullSecrets -}}
-{{- else if hasKey $deploy "imagePullSecrets" -}}
-  {{- $imagePullSecrets = $deploy.imagePullSecrets -}}
-{{- else -}}
-  {{- $imagePullSecrets = $global.imagePullSecrets -}}
-{{- end -}}
-```
-
-### Numeric Fields: Never Use Truthiness
-
-Go templates treat `0` as falsy. For fields like PDB `minAvailable`/`maxUnavailable`, use `hasKey`:
-
-```yaml
-# ❌ WRONG: 0 is falsy, won't render
-{{- if $pdb.minAvailable }}
-minAvailable: {{ $pdb.minAvailable }}
-{{- end }}
-
-# ✅ CORRECT: hasKey preserves 0
-{{- if hasKey $pdb "minAvailable" }}
-minAvailable: {{ $pdb.minAvailable }}
-{{- end }}
-```
-
-### Template Validation with fail
+### Template Validation with `fail`
 
 Use `fail` for invalid configurations instead of silently producing bad manifests:
 
@@ -167,17 +96,6 @@ Use `fail` for invalid configurations instead of silently producing bad manifest
 {{- else }}
 {{- fail (printf "unknown type '%s' for volume '%s'" $vol.type $vol.name) }}
 {{- end }}
-```
-
-### Nil-Safe Nested Access
-
-```yaml
-# ❌ WRONG: nil pointer if parent missing
-{{ $deploy.service.port }}
-
-# ✅ CORRECT: safe default
-{{- $service := default (dict) $deploy.service }}
-{{ $service.port }}
 ```
 
 ### Native Volumes: Deterministic Key Ordering
@@ -270,39 +188,6 @@ Always pair a tightened minimum with a `tests/bad-values/` fixture so CI keeps t
 {{- end -}}
 ```
 
-## Multi-Deployment Iteration Pattern
-
-All resource templates iterate over the deployments map:
-
-```yaml
-{{- range $name, $deploy := .Values.deployments }}
-{{- if eq (include "global-chart.deploymentEnabled" (dict "deploy" $deploy)) "true" }}
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: {{ include "global-chart.deploymentFullname" (dict "root" $ "name" $name) }}
-  labels:
-    {{- include "global-chart.labels" $ | nindent 4 }}
-    app.kubernetes.io/component: {{ $name }}
-# ... template body ...
-{{- end }}
-{{- end }}
-```
-
-Key points:
-- `$name` = deployment key (frontend, backend, worker)
-- `$deploy` = deployment config map
-- Always pass `$` (root context) to helpers, not `.`
-- `app.kubernetes.io/component` ensures unique selectors per deployment
-
-## Resource Naming Limits
-
-| Resource | Max Chars | Why |
-|----------|-----------|-----|
-| Most resources | 63 | Kubernetes label limit |
-| CronJobs | **52** | K8s appends 11-char timestamp to Job names |
-
 ### One Helper Per Name — Never Recompute a Name Inline
 
 A resource name is computed from a `printf | trunc N | trimSuffix "-"` rule. The
@@ -319,10 +204,7 @@ name the template never emits.
 
 Give every resource name exactly one home: a named helper in `_helpers.tpl` that
 owns the `printf`, the truncation constant, and the `trimSuffix`. Both the
-emitting template and the validator call that helper. Now the name can't drift,
-the magic truncation constant lives in one place, and changing the rule is a
-one-line edit. This mirrors how `deploymentFullname` / `hookfullname` already
-work — extend the pattern, don't reinvent it inline.
+emitting template and the validator call that helper.
 
 ```yaml
 # ❌ WRONG: same rule typed in cronjob.yaml AND _validate-helpers.tpl
@@ -338,9 +220,8 @@ the template and (if it participates in collision detection) the validator.
 ## Test Structure
 
 - **`tests/`** (root): Value files for lint scenarios (`make lint-chart`)
-- **`charts/global-chart/tests/`**: helm-unittest suites (`make unit-test`)
+- **`charts/global-chart/tests/`**: helm-unittest suites (`make unit-test`) — one `*_test.yaml` per template; `make unit-test` prints the live suite/test totals
 - **`tests/bad-values/`**: fixtures that MUST be rejected by `values.schema.json` (`make validate-bad-values`)
-- **17 suites** under `charts/global-chart/tests/` (exact test count lives in CLAUDE.md — single source of truth)
 
 When adding a new template, always create a corresponding `*_test.yaml`.
 When adding a schema constraint that should reject configurations, add a fixture in `tests/bad-values/` so the schema's rejection is locked in by CI.
@@ -354,6 +235,7 @@ When adding a schema constraint that should reject configurations, add a fixture
 5. **ServiceAccount per deployment by default**: `serviceAccount.create` defaults to `true`
 6. **Schema as first line of defense**: every template-accessed field is declared in `values.schema.json`; integer bounds reject obviously-invalid values (e.g. `completions: 0`) before the API server does
 7. **Docker-based tooling**: helm-unittest and helm-docs run via Docker, no local plugins needed
+8. **No `appVersion`**: generic chart, no app version to pin; `app.kubernetes.io/version` is emitted only when set (consumers add it via `global.commonLabels`)
 
 ## New-Field Checklist
 
@@ -366,4 +248,4 @@ When exposing a new Kubernetes spec field on a chart resource, walk through:
 5. **Tests** (`charts/global-chart/tests/<resource>_test.yaml`): three cases minimum — field set & rendered, field absent & not rendered, edge value (0, false, empty) rendered correctly.
 6. **Bad-values** (`tests/bad-values/`): fixture for any schema constraint you tightened.
 7. **CHANGELOG.md** + Chart.yaml version bump (patch for fixes, minor for opt-in features).
-8. **CLAUDE.md**: update test count and any architecture changes; refresh the Helper Files table if you added one.
+8. **CLAUDE.md**: update architecture changes; refresh the Helper Files table if you added one. (No fixed counts — keep it number-free.)
