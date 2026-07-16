@@ -307,6 +307,7 @@
         },
         "podSecurityContext": { "type": "object" },
         "securityContext": { "type": "object" },
+        "automountServiceAccountToken": { "type": "boolean" },
         "service": { "$ref": "#/$defs/service" },
         "resources": { "$ref": "#/$defs/resources" },
         "livenessProbe": { "$ref": "#/$defs/probe" },
