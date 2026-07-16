@@ -76,6 +76,9 @@ spec:
 {{- . | nindent 6 }}
       {{- end }}
       serviceAccountName: {{ include "global-chart.deploymentServiceAccountName" (dict "root" $root "deploymentName" $name "deployment" $deploy) }}
+      {{- if hasKey $deploy "automountServiceAccountToken" }}
+      automountServiceAccountToken: {{ $deploy.automountServiceAccountToken }}
+      {{- end }}
       {{- if hasKey $deploy "terminationGracePeriodSeconds" }}
       terminationGracePeriodSeconds: {{ $deploy.terminationGracePeriodSeconds }}
       {{- end }}

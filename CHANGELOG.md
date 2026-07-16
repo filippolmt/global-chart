@@ -5,6 +5,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ---
 
+## [2.1.0] — 2026-07-16
+
+### Added
+- Pod-level `deployments.<name>.automountServiceAccountToken` (boolean). Sets
+  `automountServiceAccountToken` on the Deployment pod spec, letting a pod force
+  (or opt out of) SA-token mounting independently of the ServiceAccount object's
+  own setting. This is the only lever when the Deployment binds an
+  **externally-managed** ServiceAccount (`serviceAccount.create: false`) whose
+  object has `automountServiceAccountToken: false` — the chart doesn't manage
+  that SA, so its automount value is inert and the pod otherwise gets no token.
+  Opt-in: the field is omitted from the pod spec when unset (behavior unchanged).
+  Resolves #73.
+
+```yaml
+deployments:
+  controller:
+    image: myapp/controller:v1
+    serviceAccount:
+      create: false
+      name: external-workload-identity-sa   # has automountServiceAccountToken: false
+    automountServiceAccountToken: true       # force the token mount at pod level
+```
+
+---
+
 ## [2.0.0] — 2026-06-28
 
 ### Added

@@ -975,3 +975,35 @@ tests:
     asserts:
       - failedTemplate:
           errorMessage: "imagePullSecrets must be a list of strings or objects with a 'name' key."
+
+  # ====== automountServiceAccountToken (pod-level, Issue #73) ======
+  - it: should not render automountServiceAccountToken when not set
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+    asserts:
+      - notExists:
+          path: spec.template.spec.automountServiceAccountToken
+
+  - it: should render pod-level automountServiceAccountToken true when set
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          automountServiceAccountToken: true
+    asserts:
+      - equal:
+          path: spec.template.spec.automountServiceAccountToken
+          value: true
+
+  - it: should render pod-level automountServiceAccountToken false when set
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          automountServiceAccountToken: false
+    asserts:
+      - equal:
+          path: spec.template.spec.automountServiceAccountToken
+          value: false

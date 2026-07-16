@@ -54,6 +54,11 @@ deployments: {}
   #     # -- Use an existing ServiceAccount name
   #     name: ""
   #
+  #   # -- Pod-level automount override. Omit to inherit the ServiceAccount's own
+  #   # setting; set true to force token mounting even when the (external) SA has
+  #   # automountServiceAccountToken: false, or false to opt out.
+  #   automountServiceAccountToken: true
+  #
   #   # -- Pod annotations
   #   podAnnotations: {}
   #   # -- Pod labels
