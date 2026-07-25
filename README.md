@@ -8,7 +8,7 @@ The chart supports **multiple deployments** in a single release, each with indep
 - **Multi-deployment support**
   Define multiple independent deployments under `deployments.*`. Each gets its own Service, ConfigMap, Secret, ServiceAccount, HPA, PDB, and NetworkPolicy.
 - **Deployment primitives**
-  Image can be a string (`nginx:1.25`) or a map (`repository/tag/digest`). Probes, resources, autoscaling (HPA), scheduling constraints, extra containers/init containers, pod recreation bumps, and ConfigMap/Secret `envFrom` are all configurable.
+  Image can be a string (`nginx:1.25`) or a map (`repository/tag/digest`). Probes, resources, autoscaling (HPA), scheduling constraints, extra containers/init containers, pod recreation bumps, and ConfigMap/Secret `envFrom` are all configurable. `command`/`args` override the image entrypoint per deployment, so one image can back several workloads (web, worker, …); they are never inherited by the deployment's hooks/cronJobs.
 - **Networking**
   First-class Service configuration (with per-service annotations) plus optional Ingress with TLS, class annotations, and routes to specific deployments. DNS options and host aliases can be defined per-deployment.
 - **Configuration distribution**
@@ -72,7 +72,9 @@ deployments:
         command: ["./backup.sh"]
 
   worker:
-    image: myapp/worker:v2.0
+    image: myapp/backend:v2.0 # same image as backend, different entrypoint
+    command: ["python", "-m", "app.worker"]
+    args: ["--concurrency", "5"]
     service:
       enabled: false # Workers don't need a service
 

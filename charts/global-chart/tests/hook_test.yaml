@@ -917,6 +917,30 @@ tests:
           value: true
         documentIndex: 0
 
+  # command/args are deliberately NOT inheritable: a migration hook must never
+  # pick up the deployment's entrypoint (see issue #72).
+  - it: should not inherit command or args from deployment in deployment-level hook
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          serviceAccount:
+            create: true
+          command: ["python", "-m", "app.worker"]
+          args: ["--concurrency", "4"]
+          hooks:
+            post-upgrade:
+              migrate:
+                args: ["--check"]
+    asserts:
+      - isNull:
+          path: spec.template.spec.containers[0].command
+        documentIndex: 0
+      - equal:
+          path: spec.template.spec.containers[0].args
+          value: ["--check"]
+        documentIndex: 0
+
   - it: should allow deployment-level hook to override podSecurityContext
     set:
       deployments:

@@ -32,6 +32,72 @@ tests:
       - hasDocuments:
           count: 1
 
+  # ====== command / args ======
+  - it: should render command and args on the main container
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          command: ["python", "-m", "app.worker"]
+          args: ["--concurrency", "4"]
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].command
+          value: ["python", "-m", "app.worker"]
+      - equal:
+          path: spec.template.spec.containers[0].args
+          value: ["--concurrency", "4"]
+
+  - it: should render command without args
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          command: ["python", "-m", "app.worker"]
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].command
+          value: ["python", "-m", "app.worker"]
+      - isNull:
+          path: spec.template.spec.containers[0].args
+
+  - it: should render args without command
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          args: ["--verbose"]
+    asserts:
+      - isNull:
+          path: spec.template.spec.containers[0].command
+      - equal:
+          path: spec.template.spec.containers[0].args
+          value: ["--verbose"]
+
+  - it: should not render command or args when not set
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+    asserts:
+      - isNull:
+          path: spec.template.spec.containers[0].command
+      - isNull:
+          path: spec.template.spec.containers[0].args
+
+  - it: should not render command or args when set to empty lists
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          command: []
+          args: []
+    asserts:
+      - isNull:
+          path: spec.template.spec.containers[0].command
+      - isNull:
+          path: spec.template.spec.containers[0].args
+
   # ====== extraContainers (Bug Fix #1) ======
   - it: should render extraContainers as sidecar
     set:
