@@ -56,9 +56,11 @@ metadata:
     {{- with (include "global-chart.renderCommonAnnotations" $root) }}
     {{- . | nindent 4 }}
     {{- end }}
+    {{- /* Negative weights are legal in Helm and must stay negative: flooring at 0
+           would sort the SA AFTER a Job with a negative weight, breaking the
+           invariant prereq (w-7) < SA (w-5) < Job (w) this ordering exists for */ -}}
     {{- $effectiveJobWeight := int (ternary $command.weight 10 (hasKey $command "weight")) }}
     {{- $saWeight := sub $effectiveJobWeight 5 }}
-    {{- if lt $saWeight 0 }}{{ $saWeight = 0 }}{{ end }}
     "helm.sh/hook": {{ $hookType | quote }}
     "helm.sh/hook-weight": {{ $saWeight | quote }}
     "helm.sh/hook-delete-policy": {{ ternary $command.deletePolicy "before-hook-creation" (hasKey $command "deletePolicy") | quote }}
@@ -202,7 +204,6 @@ spec:
   {{- end -}}
 {{- end -}}
 {{- $prereqWeight := sub $minJobWeight 7 -}}
-{{- if lt $prereqWeight 0 }}{{ $prereqWeight = 0 }}{{ end -}}
 
 {{- /*
   Hook-specific ConfigMap/Secret: duplicates of the deployment's generated ConfigMap/Secret
@@ -305,7 +306,6 @@ data:
 {{- end -}}
 {{- if $needsHookSA }}
 {{- $saWeight := sub $preInstallMinWeight 5 }}
-{{- if lt $saWeight 0 }}{{ $saWeight = 0 }}{{ end }}
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -361,7 +361,6 @@ metadata:
   annotations:
     {{- $effectiveJobWeight := int (ternary $command.weight 10 (hasKey $command "weight")) }}
     {{- $saWeight := sub $effectiveJobWeight 5 }}
-    {{- if lt $saWeight 0 }}{{ $saWeight = 0 }}{{ end }}
     {{- with (include "global-chart.renderCommonAnnotations" $root) }}
     {{- . | nindent 4 }}
     {{- end }}

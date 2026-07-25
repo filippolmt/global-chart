@@ -73,6 +73,13 @@ deployments:
   `serviceAccount.create: false`, renders exactly as before.
   See `docs/adr/0002-hook-prerequisite-serviceaccount-copy.md`.
 
+- Derived hook weights are no longer floored at 0. Helm allows negative hook
+  weights, and clamping meant that a hook Job with a negative weight ran *before*
+  the resources it depends on — its prerequisite ConfigMap/Secret and its
+  ServiceAccount — reintroducing the very failure the weight ordering prevents.
+  A hook with `weight: -3` now gets prereqs at `-10` and an SA at `-8` instead of
+  both at `0`. Non-negative weights render exactly as before.
+
 ### Notes
 - Two cases remain unsupported by design:
   - a deployment added **during an upgrade** with `serviceAccount.create: true`

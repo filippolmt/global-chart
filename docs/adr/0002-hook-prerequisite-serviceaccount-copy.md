@@ -14,7 +14,9 @@ copies that already exist for the same reason.
 The copy carries the **same name**, annotations and automount as the real
 ServiceAccount, is annotated `helm.sh/hook: pre-install` with weight
 `minPreInstallJobWeight - 5` (keeping the invariant `prereq w-7 < SA w-5 < Job w`),
-and uses `helm.sh/hook-delete-policy: hook-succeeded,hook-failed`. It is emitted
+and uses `helm.sh/hook-delete-policy: hook-succeeded,hook-failed`. The derived
+weight is not floored at 0 — Helm allows negative hook weights, and clamping would
+place the copy after a Job with a negative weight. It is emitted
 only for deployments whose `pre-install` hooks actually bind the deployment's
 chart-created SA.
 

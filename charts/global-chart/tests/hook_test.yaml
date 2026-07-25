@@ -819,7 +819,9 @@ tests:
           value: "3"
         documentIndex: 0
 
-  - it: should floor the hook SA copy weight at 0
+  # Helm allows negative hook weights. The SA copy must stay 5 below the Job even
+  # then — flooring at 0 would sort it AFTER the Job and reintroduce #71.
+  - it: should keep the hook SA copy below the Job for a low positive weight
     set:
       deployments:
         app:
@@ -834,8 +836,34 @@ tests:
     asserts:
       - equal:
           path: metadata.annotations["helm.sh/hook-weight"]
-          value: "0"
+          value: "-3"
         documentIndex: 0
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "2"
+        documentIndex: 1
+
+  - it: should keep the hook SA copy below the Job for a negative weight
+    set:
+      deployments:
+        app:
+          image: myapp:v1
+          serviceAccount:
+            create: true
+          hooks:
+            pre-install:
+              migration:
+                command: ["./migrate.sh"]
+                weight: -3
+    asserts:
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "-8"
+        documentIndex: 0
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "-3"
+        documentIndex: 1
 
   - it: should not emit a hook SA copy when the deployment SA is externally managed
     set:
@@ -2033,6 +2061,58 @@ tests:
       - isKind:
           of: Job
         documentIndex: 4
+
+  # Full weight ordering with a negative Job weight: prereq (w-7) < SA (w-5) < Job (w).
+  # Flooring any of the three at 0 would sort it after the Job.
+  - it: should keep the prereq/SA/Job weight ordering for a negative hook weight
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          serviceAccount:
+            create: true
+          configMap:
+            DB_HOST: postgres
+          hooks:
+            pre-install:
+              migrate:
+                command: ["./migrate.sh"]
+                weight: -3
+    asserts:
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "-10"
+        documentIndex: 0
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "-8"
+        documentIndex: 1
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "-3"
+        documentIndex: 2
+
+  # Same for a root-level hook, whose SA is created at w-5 by PART 1
+  - it: should keep the root-level hook SA below its Job for a negative weight
+    set:
+      hooks:
+        pre-install:
+          migrate:
+            image: myapp:v1
+            command: ["./migrate.sh"]
+            weight: -3
+    asserts:
+      - isKind:
+          of: ServiceAccount
+        documentIndex: 0
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "-8"
+        documentIndex: 0
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "-3"
+        documentIndex: 1
 
   # ====== global.commonLabels ======
   - it: should render global.commonLabels on hook job metadata
