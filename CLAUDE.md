@@ -17,9 +17,34 @@ make kubeconform            # Validate manifests against K8s 1.29
 make kube-linter            # Lint manifests (addAllBuiltIn)
 make generate-docs          # Regenerate helm-docs README
 make render VALUES=tests/test01/values.01.yaml TEMPLATE=deployment.yaml  # Debug single template
+make e2e                    # Install/upgrade/uninstall on a throwaway kind cluster
+make kind-delete            # Tear the e2e cluster down
 ```
 
 Always run `make lint-chart` and `make unit-test` after modifying templates or values.
+
+### Install tests — always via `make e2e`, never a hand-rolled `helm install`
+
+`helm-unittest` renders YAML; it cannot see the *runtime* half of this chart —
+hook ordering, hook-weight sorting, `hook-delete-policy` cleanup, whether a
+resource exists at the moment a hook Job schedules. Anything touching
+`hook.yaml`, hook weights, delete policies or ServiceAccount lifecycle needs
+`make e2e`.
+
+`make e2e` downloads `kind` into `.bin/` (gitignored), creates a throwaway
+cluster, installs `tests/e2e/values.yaml`, then asserts: release deployed →
+pre-install hook Job succeeded under the chart-created SA → the surviving SA is
+the real one, not the hook copy → deployment `command`/`args` rendered → upgrade
+kept the SA UID → uninstall leaves no orphaned ConfigMap/Secret/ServiceAccount.
+Extend `tests/e2e/values.yaml` and the assertion block in the `e2e` target when
+adding runtime behaviour.
+
+**Never run `helm install` against whatever `kubectl` context happens to be
+selected** — it can be production. `make e2e` pins `KUBECONFIG` to
+`.bin/kind-kubeconfig` and can only ever reach its own kind cluster; keep it
+that way. The target also repoints the API server at the control-plane
+container's address when it runs inside a container, where the kubeconfig's
+`127.0.0.1` is the Docker host rather than the caller.
 When schema or user-visible values change (new fields, defaults, descriptions), also run `make generate-docs` to refresh `charts/global-chart/README.md`.
 
 ## Architecture
@@ -53,9 +78,10 @@ When schema or user-visible values change (new fields, defaults, descriptions), 
    - **Asymmetry**: Root-level `.Values.cronJobs` and `.Values.hooks` do NOT auto-inherit anything from deployments — they are standalone. Reference deployment ConfigMaps/Secrets explicitly via `envFromConfigMaps` / `envFromSecrets` (or use `fromDeployment` for image only). Only `.Values.deployments.<name>.cronJobs` and `.Values.deployments.<name>.hooks` auto-inherit.
 6. **Hook weight ordering**: `prereq ConfigMap/Secret (w-7) < SA (w-5) < Job (w)`, derived from effective Job weight (default 10). `minJobWeight` across all hooks per deployment determines prereq weight. Derived weights are **never floored at 0** — Helm allows negative hook weights, and clamping a prereq to 0 would sort it *after* a Job whose weight is negative, which is the exact ordering failure the invariant exists to prevent
 7. **Hook prerequisite resources** (*hook-prerequisite copies*, see `CONTEXT.md`): Deployment ConfigMap/Secret are duplicated as hook-annotated resources because normal resources aren't updated until after hooks complete. The deployment ServiceAccount gets the same treatment, but **only for `pre-install`** and with delete policy `hook-succeeded,hook-failed` instead of `before-hook-creation` — the copy shares the real SA's name and must be gone before Helm creates it. See `docs/adr/0002-hook-prerequisite-serviceaccount-copy.md` before touching it
-8. **Global fallback chains**: job > deployment > global, using `hasKey` at every level. Explicit `[]` stops fallback
-9. **Schema**: `values.schema.json` validates during install/upgrade/lint. Does NOT use `required` on `mountedConfigFiles` items (templates handle runtime validation to allow `failedTemplate` tests)
-10. **No `appVersion`**: this is a generic chart with no app version to pin. `app.kubernetes.io/version` is emitted only when set — guarded with `{{- with .Chart.AppVersion }}` in the label helpers; consumers set it via `global.commonLabels`. Pod/Service selectors never included it.
+8. **Hook resources clean themselves up**: hook resources are not part of the release manifest, so Helm never deletes them at uninstall. Plumbing (prereq ConfigMap/Secret, chart-created hook SAs) therefore defaults to `before-hook-creation,hook-succeeded` — the prereq Secret in particular holds the deployment's secret data and must not survive the release. Hook **Jobs** keep the plain `before-hook-creation` default on purpose: a completed hook Job is the record of what ran. All of them still honour an explicit `deletePolicy` on the hook
+9. **Global fallback chains**: job > deployment > global, using `hasKey` at every level. Explicit `[]` stops fallback
+10. **Schema**: `values.schema.json` validates during install/upgrade/lint. Does NOT use `required` on `mountedConfigFiles` items (templates handle runtime validation to allow `failedTemplate` tests)
+11. **No `appVersion`**: this is a generic chart with no app version to pin. `app.kubernetes.io/version` is emitted only when set — guarded with `{{- with .Chart.AppVersion }}` in the label helpers; consumers set it via `global.commonLabels`. Pod/Service selectors never included it.
 
 ### Resource Naming Limits
 

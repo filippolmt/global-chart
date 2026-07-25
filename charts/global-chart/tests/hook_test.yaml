@@ -925,7 +925,7 @@ tests:
         documentIndex: 0
       - equal:
           path: metadata.annotations["helm.sh/hook-delete-policy"]
-          value: "before-hook-creation"
+          value: "before-hook-creation,hook-succeeded"
         documentIndex: 0
 
   # pre-upgrade/pre-rollback run against a release whose SA already exists;
@@ -2112,6 +2112,83 @@ tests:
       - equal:
           path: metadata.annotations["helm.sh/hook-weight"]
           value: "-3"
+        documentIndex: 1
+
+  # Hook resources are not part of the release manifest, so Helm never removes
+  # them at uninstall. Plumbing resources (prereq ConfigMap/Secret, created SAs)
+  # therefore clean themselves up with hook-succeeded; Jobs deliberately do not,
+  # they are the record of what ran.
+  - it: should clean up prereq ConfigMap and Secret after the hook phase
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          serviceAccount:
+            create: true
+          configMap:
+            DB_HOST: postgres
+          secret:
+            DB_PASSWORD: secret123
+          hooks:
+            post-install:
+              migrate:
+                command: ["./migrate.sh"]
+    asserts:
+      - isKind:
+          of: ConfigMap
+        documentIndex: 0
+      - equal:
+          path: metadata.annotations["helm.sh/hook-delete-policy"]
+          value: "before-hook-creation,hook-succeeded"
+        documentIndex: 0
+      - isKind:
+          of: Secret
+        documentIndex: 1
+      - equal:
+          path: metadata.annotations["helm.sh/hook-delete-policy"]
+          value: "before-hook-creation,hook-succeeded"
+        documentIndex: 1
+      # the Job keeps the old default: a completed hook Job is the audit trail
+      - isKind:
+          of: Job
+        documentIndex: 2
+      - equal:
+          path: metadata.annotations["helm.sh/hook-delete-policy"]
+          value: "before-hook-creation"
+        documentIndex: 2
+
+  - it: should clean up a created root-level hook SA after the hook phase
+    set:
+      hooks:
+        post-install:
+          migrate:
+            image: myapp:v1
+            command: ["./migrate.sh"]
+    asserts:
+      - isKind:
+          of: ServiceAccount
+        documentIndex: 0
+      - equal:
+          path: metadata.annotations["helm.sh/hook-delete-policy"]
+          value: "before-hook-creation,hook-succeeded"
+        documentIndex: 0
+
+  - it: should let deletePolicy override the SA cleanup default
+    set:
+      hooks:
+        post-install:
+          migrate:
+            image: myapp:v1
+            command: ["./migrate.sh"]
+            deletePolicy: hook-failed
+    asserts:
+      - equal:
+          path: metadata.annotations["helm.sh/hook-delete-policy"]
+          value: "hook-failed"
+        documentIndex: 0
+      - equal:
+          path: metadata.annotations["helm.sh/hook-delete-policy"]
+          value: "hook-failed"
         documentIndex: 1
 
   # ====== global.commonLabels ======

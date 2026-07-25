@@ -80,6 +80,16 @@ deployments:
   A hook with `weight: -3` now gets prereqs at `-10` and an SA at `-8` instead of
   both at `0`. Non-negative weights render exactly as before.
 
+- Hook plumbing resources no longer survive `helm uninstall`. Hook resources are
+  not part of the release manifest, so Helm never removes them: the deployment's
+  hook-prerequisite ConfigMap **and Secret** — the latter holding the deployment's
+  secret data — plus chart-created hook ServiceAccounts were left behind on every
+  release, and accumulated across install/uninstall cycles. Their default delete
+  policy is now `before-hook-creation,hook-succeeded`, so they are removed once
+  the hook phase they serve completes. Hook **Jobs** keep the previous
+  `before-hook-creation` default: a completed hook Job is the record of what ran.
+  An explicit `deletePolicy` on the hook still overrides all of it.
+
 ### Notes
 - Two cases remain unsupported by design:
   - a deployment added **during an upgrade** with `serviceAccount.create: true`

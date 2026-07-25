@@ -63,7 +63,7 @@ metadata:
     {{- $saWeight := sub $effectiveJobWeight 5 }}
     "helm.sh/hook": {{ $hookType | quote }}
     "helm.sh/hook-weight": {{ $saWeight | quote }}
-    "helm.sh/hook-delete-policy": {{ ternary $command.deletePolicy "before-hook-creation" (hasKey $command "deletePolicy") | quote }}
+    "helm.sh/hook-delete-policy": {{ ternary $command.deletePolicy "before-hook-creation,hook-succeeded" (hasKey $command "deletePolicy") | quote }}
     {{- with $saAnnotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
@@ -228,7 +228,7 @@ metadata:
     {{- end }}
     "helm.sh/hook": {{ $allHookTypes | quote }}
     "helm.sh/hook-weight": {{ $prereqWeight | quote }}
-    "helm.sh/hook-delete-policy": "before-hook-creation"
+    "helm.sh/hook-delete-policy": "before-hook-creation,hook-succeeded"
 data:
 {{- range $key, $value := $deploy.configMap }}
   {{- if or (kindIs "map" $value) (kindIs "slice" $value) }}
@@ -254,7 +254,7 @@ metadata:
     {{- end }}
     "helm.sh/hook": {{ $allHookTypes | quote }}
     "helm.sh/hook-weight": {{ $prereqWeight | quote }}
-    "helm.sh/hook-delete-policy": "before-hook-creation"
+    "helm.sh/hook-delete-policy": "before-hook-creation,hook-succeeded"
 type: Opaque
 data:
 {{- range $key, $value := $deploy.secret }}
@@ -366,7 +366,7 @@ metadata:
     {{- end }}
     "helm.sh/hook": {{ $hookType | quote }}
     "helm.sh/hook-weight": {{ $saWeight | quote }}
-    "helm.sh/hook-delete-policy": {{ ternary $command.deletePolicy "before-hook-creation" (hasKey $command "deletePolicy") | quote }}
+    "helm.sh/hook-delete-policy": {{ ternary $command.deletePolicy "before-hook-creation,hook-succeeded" (hasKey $command "deletePolicy") | quote }}
     {{- with $saAnnotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}

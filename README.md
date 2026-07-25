@@ -115,6 +115,10 @@ make kubeconform           # Validate manifests against K8s 1.29
 make kube-linter           # Lint manifests (addAllBuiltIn)
 make generate-docs         # Regenerate helm-docs
 
+# End-to-end install test on a throwaway kind cluster (never touches your kubectl context)
+make e2e                   # install + upgrade + uninstall, asserts the hook lifecycle
+make kind-delete           # tear the cluster down
+
 # Install a test scenario to a cluster
 make install SCENARIO=test01
 
@@ -131,6 +135,7 @@ The chart has multiple layers of testing:
 - **Schema validation** (`make validate-bad-values`): Verifies the schema rejects every fixture in `tests/bad-values/`.
 - **Manifest validation** (`make kubeconform`): Validates the generated resources against the K8s 1.29 schema.
 - **Best practices** (`make kube-linter`): Lints manifests with `addAllBuiltIn: true` and the documented exclusions.
+- **End-to-end** (`make e2e`): Installs `tests/e2e/values.yaml` on a throwaway kind cluster, then upgrades and uninstalls it. This is the only layer that exercises the *runtime* half of the chart — hook ordering, hook weights and `hook-delete-policy` cleanup — which helm-unittest cannot see because it only renders YAML. It uses its own kubeconfig under `.bin/`, so it can never reach a real cluster.
 
 The GitHub Action (`.github/workflows/helm-ci.yml`) executes all steps on pushes and pull requests, pre-pulling Docker images with retry for resilience.
 
@@ -157,6 +162,7 @@ See the `tests/` directory for concrete examples:
 | `raw-deployment.yaml`            | Deployment with raw image string                                                          |
 | `name-collision.yaml`            | Name collision detection test                                                             |
 | `bad-values/*.yaml`              | Schema rejection tests                                                                    |
+| `e2e/values.yaml`                | End-to-end install scenario for `make e2e` (hook lifecycle on a real cluster)             |
 
 ## Values reference
 
