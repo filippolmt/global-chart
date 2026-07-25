@@ -60,7 +60,9 @@ deployments:
       DB_PASSWORD: supersecret
     serviceAccount:
       create: true
-    # Hooks inside deployment - inherit image, configMap, secret, SA
+    # Hooks inside deployment - inherit image, configMap, secret, SA.
+    # A pre-install hook works with a chart-created SA too: the chart emits a
+    # hook-annotated copy of it, since normal resources are created after hooks.
     hooks:
       pre-upgrade:
         migrate:

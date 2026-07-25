@@ -5,6 +5,56 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ---
 
+## [2.3.0] — 2026-07-25
+
+### Fixed
+- A deployment-level `pre-install` hook can now run under a ServiceAccount the
+  chart creates. Helm creates normal resources **after** `pre-install` hooks, so
+  the hook Job used to reference a ServiceAccount that did not exist yet, could
+  never schedule its pod, and left the release stuck in `pending-install`:
+
+  ```
+  Error creating: pods "<release>-<deployment>-pre-install-migration-" is forbidden:
+  error looking up service account <ns>/<sa-name>: serviceaccount "<sa-name>" not found
+  ```
+
+  The deployment's ServiceAccount is now duplicated as a hook-prerequisite copy —
+  same name, annotations and automount — alongside the ConfigMap/Secret copies
+  that already existed for the same reason. Resolves #71.
+
+```yaml
+deployments:
+  app:
+    serviceAccount:
+      create: true          # chart-managed, e.g. with Workload Identity annotations
+    hooks:
+      pre-install:
+        migration:
+          command: ["sh", "-c"]
+          args: ["./migrate.sh"]
+```
+
+  The copy is annotated `helm.sh/hook: pre-install`, weighted
+  `minPreInstallJobWeight - 5` (invariant `prereq w-7 < SA w-5 < Job w`) and
+  deleted with `hook-succeeded,hook-failed`, so it lives only for the duration of
+  the hook phase and never collides with the real ServiceAccount. It is emitted
+  only when a `pre-install` hook actually binds the deployment's chart-created SA
+  — a hook with its own `serviceAccountName`, or a deployment with
+  `serviceAccount.create: false`, renders exactly as before.
+  See `docs/adr/0002-hook-prerequisite-serviceaccount-copy.md`.
+
+### Notes
+- Two cases remain unsupported by design:
+  - a deployment added **during an upgrade** with `serviceAccount.create: true`
+    and a `pre-upgrade` hook — the chart cannot tell at template time that the
+    deployment is new. Bind a pre-existing SA (`create: false` + `name`) or move
+    the job to `pre-install`.
+  - a **root-level** hook (`.Values.hooks`) whose explicit `serviceAccountName`
+    points at a chart-created deployment SA. Root-level hooks are standalone
+    (ADR 0001); an explicit name is taken to mean an externally-managed SA.
+
+---
+
 ## [2.2.0] — 2026-07-25
 
 ### Added
