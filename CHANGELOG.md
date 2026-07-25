@@ -5,7 +5,37 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ---
 
-## [2.3.0] — 2026-07-25
+## [2.2.0] — 2026-07-25
+
+### Added
+- `deployments.<name>.command` and `deployments.<name>.args` (arrays of strings).
+  Override the image `ENTRYPOINT` / `CMD` on the Deployment's main container,
+  matching what `cronJobs` and `hooks` already supported. This makes it possible
+  to run several workloads from a single image — e.g. a web server and a
+  background worker — without a separate image or an in-image entrypoint
+  dispatcher. Both fields are omitted from the pod spec when unset or empty
+  (behavior unchanged). Resolves #72.
+
+```yaml
+deployments:
+  web:
+    image: myapp:v2                            # runs the image CMD (uvicorn)
+  worker:
+    image: myapp:v2
+    command: ["python", "-m", "app.worker"]
+    args: ["--concurrency", "5"]
+```
+
+  **Not inherited.** A deployment's `hooks` and `cronJobs` do *not* pick up its
+  `command` / `args`: a migration hook inheriting `python -m app.worker` would
+  silently run the worker instead of the migration. Set them explicitly on the
+  hook or cronjob.
+
+### Changed
+- `values.schema.json`: `args` is now typed as an array of strings on cronjobs
+  and hooks too (it was an untyped array). No working configuration changes — a
+  numeric `args` entry already produced a manifest the API server rejects; the
+  error now surfaces at `helm lint` / install time instead.
 
 ### Fixed
 - A deployment-level `pre-install` hook can now run under a ServiceAccount the
@@ -52,40 +82,6 @@ deployments:
   - a **root-level** hook (`.Values.hooks`) whose explicit `serviceAccountName`
     points at a chart-created deployment SA. Root-level hooks are standalone
     (ADR 0001); an explicit name is taken to mean an externally-managed SA.
-
----
-
-## [2.2.0] — 2026-07-25
-
-### Added
-- `deployments.<name>.command` and `deployments.<name>.args` (arrays of strings).
-  Override the image `ENTRYPOINT` / `CMD` on the Deployment's main container,
-  matching what `cronJobs` and `hooks` already supported. This makes it possible
-  to run several workloads from a single image — e.g. a web server and a
-  background worker — without a separate image or an in-image entrypoint
-  dispatcher. Both fields are omitted from the pod spec when unset or empty
-  (behavior unchanged). Resolves #72.
-
-```yaml
-deployments:
-  web:
-    image: myapp:v2                            # runs the image CMD (uvicorn)
-  worker:
-    image: myapp:v2
-    command: ["python", "-m", "app.worker"]
-    args: ["--concurrency", "5"]
-```
-
-  **Not inherited.** A deployment's `hooks` and `cronJobs` do *not* pick up its
-  `command` / `args`: a migration hook inheriting `python -m app.worker` would
-  silently run the worker instead of the migration. Set them explicitly on the
-  hook or cronjob.
-
-### Changed
-- `values.schema.json`: `args` is now typed as an array of strings on cronjobs
-  and hooks too (it was an untyped array). No working configuration changes — a
-  numeric `args` entry already produced a manifest the API server rejects; the
-  error now surfaces at `helm lint` / install time instead.
 
 ---
 
