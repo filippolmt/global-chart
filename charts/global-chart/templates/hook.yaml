@@ -56,12 +56,14 @@ metadata:
     {{- with (include "global-chart.renderCommonAnnotations" $root) }}
     {{- . | nindent 4 }}
     {{- end }}
+    {{- /* Negative weights are legal in Helm and must stay negative: flooring at 0
+           would sort the SA AFTER a Job with a negative weight, breaking the
+           invariant prereq (w-7) < SA (w-5) < Job (w) this ordering exists for */ -}}
     {{- $effectiveJobWeight := int (ternary $command.weight 10 (hasKey $command "weight")) }}
     {{- $saWeight := sub $effectiveJobWeight 5 }}
-    {{- if lt $saWeight 0 }}{{ $saWeight = 0 }}{{ end }}
     "helm.sh/hook": {{ $hookType | quote }}
     "helm.sh/hook-weight": {{ $saWeight | quote }}
-    "helm.sh/hook-delete-policy": {{ ternary $command.deletePolicy "before-hook-creation" (hasKey $command "deletePolicy") | quote }}
+    "helm.sh/hook-delete-policy": {{ ternary $command.deletePolicy "before-hook-creation,hook-succeeded" (hasKey $command "deletePolicy") | quote }}
     {{- with $saAnnotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
@@ -202,7 +204,6 @@ spec:
   {{- end -}}
 {{- end -}}
 {{- $prereqWeight := sub $minJobWeight 7 -}}
-{{- if lt $prereqWeight 0 }}{{ $prereqWeight = 0 }}{{ end -}}
 
 {{- /*
   Hook-specific ConfigMap/Secret: duplicates of the deployment's generated ConfigMap/Secret
@@ -227,7 +228,7 @@ metadata:
     {{- end }}
     "helm.sh/hook": {{ $allHookTypes | quote }}
     "helm.sh/hook-weight": {{ $prereqWeight | quote }}
-    "helm.sh/hook-delete-policy": "before-hook-creation"
+    "helm.sh/hook-delete-policy": "before-hook-creation,hook-succeeded"
 data:
 {{- range $key, $value := $deploy.configMap }}
   {{- if or (kindIs "map" $value) (kindIs "slice" $value) }}
@@ -253,7 +254,7 @@ metadata:
     {{- end }}
     "helm.sh/hook": {{ $allHookTypes | quote }}
     "helm.sh/hook-weight": {{ $prereqWeight | quote }}
-    "helm.sh/hook-delete-policy": "before-hook-creation"
+    "helm.sh/hook-delete-policy": "before-hook-creation,hook-succeeded"
 type: Opaque
 data:
 {{- range $key, $value := $deploy.secret }}
@@ -263,6 +264,68 @@ data:
   {{ $key }}: {{ toYaml $value | b64enc | quote }}
   {{- end }}
 {{- end }}
+{{- end }}
+
+{{- /*
+  Hook-prerequisite copy of the deployment's ServiceAccount.
+
+  Helm creates normal resources AFTER pre-install hooks, so a pre-install hook Job
+  that binds a chart-created deployment SA references an object that does not exist
+  yet and can never schedule its pod (issue #71). The SA is duplicated here with the
+  SAME name, annotations and automount as the real one — Workload Identity and IRSA
+  bind the identity to system:serviceaccount:<ns>:<name>, so a dedicated name would
+  strip the Job of the permissions it is being given.
+
+  pre-install ONLY, and delete-policy hook-succeeded,hook-failed (NOT
+  before-hook-creation): the copy lives for the duration of the hook phase and is
+  gone before Helm creates the real SA, so the two never collide. Emitting it for
+  pre-upgrade would fail with AlreadyExists, and adding before-hook-creation would
+  delete a live SA mid-upgrade, invalidating the bound tokens of running pods.
+  See docs/adr/0002-hook-prerequisite-serviceaccount-copy.md.
+*/ -}}
+{{- $deploySA := default (dict) $deploy.serviceAccount -}}
+{{- $deploySACreate := ternary $deploySA.create true (hasKey $deploySA "create") -}}
+{{- $deploySAName := "" -}}
+{{- $needsHookSA := false -}}
+{{- $preInstallMinWeight := 10 -}}
+{{- if and $deploySACreate (hasKey $deploy.hooks "pre-install") -}}
+  {{- $deploySAName = include "global-chart.deploymentServiceAccountName" (dict "root" $root "deploymentName" $deployName "deployment" $deploy) -}}
+  {{- range $name, $command := (index $deploy.hooks "pre-install") -}}
+    {{- if $command -}}
+      {{- $hookFullname := include "global-chart.deploymentHookName" (dict "root" $root "deploymentName" $deployName "hookType" "pre-install" "jobName" $name) -}}
+      {{- $resolvedSA := include "global-chart.jobServiceAccount" (dict "root" $root "job" $command "deploy" $deploy "deployName" $deployName "jobFullname" $hookFullname) | fromJson -}}
+      {{- /* Only the hooks that actually bind the deployment SA matter: a hook with its
+             own explicit or created SA already gets one with hook weight w-5 */ -}}
+      {{- if and (not $resolvedSA.create) (eq $resolvedSA.name $deploySAName) -}}
+        {{- $needsHookSA = true -}}
+        {{- $w := int (ternary $command.weight 10 (hasKey $command "weight")) -}}
+        {{- if lt $w $preInstallMinWeight -}}{{ $preInstallMinWeight = $w }}{{ end -}}
+      {{- end -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+{{- if $needsHookSA }}
+{{- $saWeight := sub $preInstallMinWeight 5 }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $deploySAName }}
+  namespace: {{ $root.Release.Namespace | quote }}
+  labels:
+    {{- include "global-chart.hookLabels" $root | nindent 4 }}
+    app.kubernetes.io/component: {{ $deployName }}-hook
+  annotations:
+    {{- with (include "global-chart.renderCommonAnnotations" $root) }}
+    {{- . | nindent 4 }}
+    {{- end }}
+    "helm.sh/hook": "pre-install"
+    "helm.sh/hook-weight": {{ $saWeight | quote }}
+    "helm.sh/hook-delete-policy": "hook-succeeded,hook-failed"
+    {{- with $deploySA.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+automountServiceAccountToken: {{ hasKey $deploySA "automount" | ternary $deploySA.automount true }}
 {{- end }}
 
 {{- /* Per hook type and command: SA + Job */ -}}
@@ -298,13 +361,12 @@ metadata:
   annotations:
     {{- $effectiveJobWeight := int (ternary $command.weight 10 (hasKey $command "weight")) }}
     {{- $saWeight := sub $effectiveJobWeight 5 }}
-    {{- if lt $saWeight 0 }}{{ $saWeight = 0 }}{{ end }}
     {{- with (include "global-chart.renderCommonAnnotations" $root) }}
     {{- . | nindent 4 }}
     {{- end }}
     "helm.sh/hook": {{ $hookType | quote }}
     "helm.sh/hook-weight": {{ $saWeight | quote }}
-    "helm.sh/hook-delete-policy": {{ ternary $command.deletePolicy "before-hook-creation" (hasKey $command "deletePolicy") | quote }}
+    "helm.sh/hook-delete-policy": {{ ternary $command.deletePolicy "before-hook-creation,hook-succeeded" (hasKey $command "deletePolicy") | quote }}
     {{- with $saAnnotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}

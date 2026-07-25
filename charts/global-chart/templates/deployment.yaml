@@ -98,6 +98,14 @@ spec:
           {{- $depImageRef := include "global-chart.imageString" (dict "image" $deploy.image "global" $root.Values.global) }}
           image: {{ required (printf "deployments.%s.image must define a repository with tag/digest or be a full image reference" $name) $depImageRef | quote }}
           imagePullPolicy: {{ include "global-chart.imagePullPolicy" (dict "image" $deploy.image) }}
+          {{- if $deploy.command }}
+          command:
+            {{- toYaml $deploy.command | nindent 12 }}
+          {{- end }}
+          {{- if $deploy.args }}
+          args:
+            {{- toYaml $deploy.args | nindent 12 }}
+          {{- end }}
           {{- with $deploy.securityContext }}
           securityContext:
             {{- toYaml . | nindent 12 }}

@@ -169,6 +169,10 @@ deployments:
       repository: myapp/worker
       tag: "v2.1.0"
 
+    # Same image as a web deployment, different entrypoint (issue #72)
+    command: ["python", "-m", "app.worker"]
+    args: ["--concurrency", "5"]
+
     serviceAccount:
       create: false
       name: default

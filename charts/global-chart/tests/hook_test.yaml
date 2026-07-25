@@ -593,16 +593,17 @@ tests:
               db:
                 command: ["./m.sh"]
     asserts:
+      # documentIndex 0 is the hook-prerequisite copy of the deployment SA (#71)
       - isKind:
           of: Job
-        documentIndex: 0
+        documentIndex: 1
       - matchRegex:
           path: metadata.name
           pattern: "^.{1,63}$"
       - equal:
           path: metadata.name
           value: rel-abcdefghijklmnop-global-chart-backend-service-worker-compon
-        documentIndex: 0
+        documentIndex: 1
 
   - it: should set component label for deployment-level hook
     set:
@@ -720,6 +721,238 @@ tests:
           path: spec.template.spec.serviceAccountName
           value: "custom-hook-sa"
         documentIndex: 0
+
+  # ====== issue #71: hook-prerequisite copy of the deployment SA ======
+  # Helm creates normal resources after pre-install hooks, so a pre-install Job
+  # binding a chart-created deployment SA needs a hook-annotated copy of it.
+  - it: should emit a hook copy of the deployment SA for a pre-install hook
+    set:
+      deployments:
+        app:
+          image: myapp:v1
+          serviceAccount:
+            create: true
+          hooks:
+            pre-install:
+              migration:
+                command: ["./migrate.sh"]
+    asserts:
+      - hasDocuments:
+          count: 2
+      - isKind:
+          of: ServiceAccount
+        documentIndex: 0
+      - equal:
+          path: metadata.name
+          value: RELEASE-NAME-global-chart-app
+        documentIndex: 0
+      - equal:
+          path: metadata.annotations["helm.sh/hook"]
+          value: "pre-install"
+        documentIndex: 0
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "5"
+        documentIndex: 0
+      - equal:
+          path: metadata.annotations["helm.sh/hook-delete-policy"]
+          value: "hook-succeeded,hook-failed"
+        documentIndex: 0
+      - equal:
+          path: metadata.labels["app.kubernetes.io/component"]
+          value: app-hook
+        documentIndex: 0
+      - equal:
+          path: automountServiceAccountToken
+          value: true
+        documentIndex: 0
+      # the Job binds exactly that SA
+      - equal:
+          path: spec.template.spec.serviceAccountName
+          value: RELEASE-NAME-global-chart-app
+        documentIndex: 1
+
+  - it: should copy annotations and automount onto the hook SA copy
+    set:
+      deployments:
+        app:
+          image: myapp:v1
+          serviceAccount:
+            create: true
+            automount: false
+            annotations:
+              iam.gke.io/gcp-service-account: app@proj.iam.gserviceaccount.com
+          hooks:
+            pre-install:
+              migration:
+                command: ["./migrate.sh"]
+    asserts:
+      - equal:
+          path: metadata.annotations["iam.gke.io/gcp-service-account"]
+          value: app@proj.iam.gserviceaccount.com
+        documentIndex: 0
+      - equal:
+          path: automountServiceAccountToken
+          value: false
+        documentIndex: 0
+
+  # Weight invariant: prereq (w-7) < SA (w-5) < Job (w), on the LOWEST
+  # pre-install Job weight so the SA precedes every one of them.
+  - it: should derive the hook SA copy weight from the lowest pre-install hook weight
+    set:
+      deployments:
+        app:
+          image: myapp:v1
+          serviceAccount:
+            create: true
+          hooks:
+            pre-install:
+              early:
+                command: ["./early.sh"]
+                weight: 8
+              late:
+                command: ["./late.sh"]
+                weight: 20
+    asserts:
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "3"
+        documentIndex: 0
+
+  # Helm allows negative hook weights. The SA copy must stay 5 below the Job even
+  # then — flooring at 0 would sort it AFTER the Job and reintroduce #71.
+  - it: should keep the hook SA copy below the Job for a low positive weight
+    set:
+      deployments:
+        app:
+          image: myapp:v1
+          serviceAccount:
+            create: true
+          hooks:
+            pre-install:
+              migration:
+                command: ["./migrate.sh"]
+                weight: 2
+    asserts:
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "-3"
+        documentIndex: 0
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "2"
+        documentIndex: 1
+
+  - it: should keep the hook SA copy below the Job for a negative weight
+    set:
+      deployments:
+        app:
+          image: myapp:v1
+          serviceAccount:
+            create: true
+          hooks:
+            pre-install:
+              migration:
+                command: ["./migrate.sh"]
+                weight: -3
+    asserts:
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "-8"
+        documentIndex: 0
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "-3"
+        documentIndex: 1
+
+  - it: should not emit a hook SA copy when the deployment SA is externally managed
+    set:
+      deployments:
+        app:
+          image: myapp:v1
+          serviceAccount:
+            create: false
+            name: my-existing-sa
+          hooks:
+            pre-install:
+              migration:
+                command: ["./migrate.sh"]
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: Job
+        documentIndex: 0
+
+  - it: should not emit a hook SA copy when the hook overrides serviceAccountName
+    set:
+      deployments:
+        app:
+          image: myapp:v1
+          serviceAccount:
+            create: true
+          hooks:
+            pre-install:
+              migration:
+                command: ["./migrate.sh"]
+                serviceAccountName: custom-hook-sa
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: Job
+        documentIndex: 0
+
+  - it: should not emit a hook SA copy when the hook creates its own SA
+    set:
+      deployments:
+        app:
+          image: myapp:v1
+          serviceAccount:
+            create: true
+          hooks:
+            pre-install:
+              migration:
+                command: ["./migrate.sh"]
+                serviceAccount:
+                  create: true
+    asserts:
+      - hasDocuments:
+          count: 2
+      - equal:
+          path: metadata.name
+          value: RELEASE-NAME-global-chart-app-pre-install-migration
+        documentIndex: 0
+      - equal:
+          path: metadata.annotations["helm.sh/hook-delete-policy"]
+          value: "before-hook-creation,hook-succeeded"
+        documentIndex: 0
+
+  # pre-upgrade/pre-rollback run against a release whose SA already exists;
+  # emitting a copy there would fail with AlreadyExists.
+  - it: should not emit a hook SA copy for non pre-install hooks
+    set:
+      deployments:
+        app:
+          image: myapp:v1
+          serviceAccount:
+            create: true
+          hooks:
+            pre-upgrade:
+              migration:
+                command: ["./migrate.sh"]
+            post-install:
+              notify:
+                command: ["./notify.sh"]
+    asserts:
+      - hasDocuments:
+          count: 2
+      - isKind:
+          of: Job
+        documentIndex: 0
+      - isKind:
+          of: Job
+        documentIndex: 1
 
   # ====== Deployment-level hook: explicit empty should NOT inherit ======
   - it: should not inherit hostAliases when hook sets empty list
@@ -915,6 +1148,30 @@ tests:
       - equal:
           path: spec.template.spec.containers[0].securityContext.runAsNonRoot
           value: true
+        documentIndex: 0
+
+  # command/args are deliberately NOT inheritable: a migration hook must never
+  # pick up the deployment's entrypoint (see issue #72).
+  - it: should not inherit command or args from deployment in deployment-level hook
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          serviceAccount:
+            create: true
+          command: ["python", "-m", "app.worker"]
+          args: ["--concurrency", "4"]
+          hooks:
+            post-upgrade:
+              migrate:
+                args: ["--check"]
+    asserts:
+      - isNull:
+          path: spec.template.spec.containers[0].command
+        documentIndex: 0
+      - equal:
+          path: spec.template.spec.containers[0].args
+          value: ["--check"]
         documentIndex: 0
 
   - it: should allow deployment-level hook to override podSecurityContext
@@ -1667,12 +1924,13 @@ tests:
               migrate:
                 command: ["./migrate.sh"]
     asserts:
+      # documentIndex 0 is the hook-prerequisite copy of the deployment SA (#71)
       - isKind:
           of: Job
-        documentIndex: 0
+        documentIndex: 1
       - isNull:
           path: spec.template.spec.nodeSelector
-        documentIndex: 0
+        documentIndex: 1
 
   # ====== Hook prerequisite partial tests ======
 
@@ -1690,15 +1948,18 @@ tests:
               migrate:
                 command: ["./migrate.sh"]
     asserts:
-      # Documents: Secret prereq (0), Job (1) — no ConfigMap prereq
+      # Documents: Secret prereq (0), SA copy (1), Job (2) — no ConfigMap prereq
       - hasDocuments:
-          count: 2
+          count: 3
       - isKind:
           of: Secret
         documentIndex: 0
       - isKind:
-          of: Job
+          of: ServiceAccount
         documentIndex: 1
+      - isKind:
+          of: Job
+        documentIndex: 2
 
   - it: should create only ConfigMap prereq when deployment has configMap but no secret
     set:
@@ -1714,9 +1975,9 @@ tests:
               migrate:
                 command: ["./migrate.sh"]
     asserts:
-      # Documents: ConfigMap prereq (0), Job (1) — no Secret prereq
+      # Documents: ConfigMap prereq (0), SA copy (1), Job (2) — no Secret prereq
       - hasDocuments:
-          count: 2
+          count: 3
       - isKind:
           of: ConfigMap
         documentIndex: 0
@@ -1725,8 +1986,11 @@ tests:
           value: "pre-install"
         documentIndex: 0
       - isKind:
-          of: Job
+          of: ServiceAccount
         documentIndex: 1
+      - isKind:
+          of: Job
+        documentIndex: 2
 
   - it: should create only Secret prereq when deployment has secret but no configMap
     set:
@@ -1742,9 +2006,9 @@ tests:
               migrate:
                 command: ["./migrate.sh"]
     asserts:
-      # Documents: Secret prereq (0), Job (1) — no ConfigMap prereq
+      # Documents: Secret prereq (0), SA copy (1), Job (2) — no ConfigMap prereq
       - hasDocuments:
-          count: 2
+          count: 3
       - isKind:
           of: Secret
         documentIndex: 0
@@ -1753,8 +2017,11 @@ tests:
           value: "pre-install"
         documentIndex: 0
       - isKind:
-          of: Job
+          of: ServiceAccount
         documentIndex: 1
+      - isKind:
+          of: Job
+        documentIndex: 2
 
   - it: should share single prereq set across multiple hook commands
     set:
@@ -1774,10 +2041,11 @@ tests:
               seed:
                 command: ["./seed.sh"]
     asserts:
-      # Documents: ConfigMap prereq (0), Secret prereq (1), Job migrate (2), Job seed (3)
-      # Only 1 ConfigMap + 1 Secret prereq, NOT 2 each
+      # Documents: ConfigMap prereq (0), Secret prereq (1), SA copy (2),
+      # Job migrate (3), Job seed (4)
+      # Only 1 ConfigMap + 1 Secret prereq and 1 SA copy, NOT 2 each
       - hasDocuments:
-          count: 4
+          count: 5
       - isKind:
           of: ConfigMap
         documentIndex: 0
@@ -1785,11 +2053,143 @@ tests:
           of: Secret
         documentIndex: 1
       - isKind:
-          of: Job
+          of: ServiceAccount
         documentIndex: 2
       - isKind:
           of: Job
         documentIndex: 3
+      - isKind:
+          of: Job
+        documentIndex: 4
+
+  # Full weight ordering with a negative Job weight: prereq (w-7) < SA (w-5) < Job (w).
+  # Flooring any of the three at 0 would sort it after the Job.
+  - it: should keep the prereq/SA/Job weight ordering for a negative hook weight
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          serviceAccount:
+            create: true
+          configMap:
+            DB_HOST: postgres
+          hooks:
+            pre-install:
+              migrate:
+                command: ["./migrate.sh"]
+                weight: -3
+    asserts:
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "-10"
+        documentIndex: 0
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "-8"
+        documentIndex: 1
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "-3"
+        documentIndex: 2
+
+  # Same for a root-level hook, whose SA is created at w-5 by PART 1
+  - it: should keep the root-level hook SA below its Job for a negative weight
+    set:
+      hooks:
+        pre-install:
+          migrate:
+            image: myapp:v1
+            command: ["./migrate.sh"]
+            weight: -3
+    asserts:
+      - isKind:
+          of: ServiceAccount
+        documentIndex: 0
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "-8"
+        documentIndex: 0
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "-3"
+        documentIndex: 1
+
+  # Hook resources are not part of the release manifest, so Helm never removes
+  # them at uninstall. Plumbing resources (prereq ConfigMap/Secret, created SAs)
+  # therefore clean themselves up with hook-succeeded; Jobs deliberately do not,
+  # they are the record of what ran.
+  - it: should clean up prereq ConfigMap and Secret after the hook phase
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          serviceAccount:
+            create: true
+          configMap:
+            DB_HOST: postgres
+          secret:
+            DB_PASSWORD: secret123
+          hooks:
+            post-install:
+              migrate:
+                command: ["./migrate.sh"]
+    asserts:
+      - isKind:
+          of: ConfigMap
+        documentIndex: 0
+      - equal:
+          path: metadata.annotations["helm.sh/hook-delete-policy"]
+          value: "before-hook-creation,hook-succeeded"
+        documentIndex: 0
+      - isKind:
+          of: Secret
+        documentIndex: 1
+      - equal:
+          path: metadata.annotations["helm.sh/hook-delete-policy"]
+          value: "before-hook-creation,hook-succeeded"
+        documentIndex: 1
+      # the Job keeps the old default: a completed hook Job is the audit trail
+      - isKind:
+          of: Job
+        documentIndex: 2
+      - equal:
+          path: metadata.annotations["helm.sh/hook-delete-policy"]
+          value: "before-hook-creation"
+        documentIndex: 2
+
+  - it: should clean up a created root-level hook SA after the hook phase
+    set:
+      hooks:
+        post-install:
+          migrate:
+            image: myapp:v1
+            command: ["./migrate.sh"]
+    asserts:
+      - isKind:
+          of: ServiceAccount
+        documentIndex: 0
+      - equal:
+          path: metadata.annotations["helm.sh/hook-delete-policy"]
+          value: "before-hook-creation,hook-succeeded"
+        documentIndex: 0
+
+  - it: should let deletePolicy override the SA cleanup default
+    set:
+      hooks:
+        post-install:
+          migrate:
+            image: myapp:v1
+            command: ["./migrate.sh"]
+            deletePolicy: hook-failed
+    asserts:
+      - equal:
+          path: metadata.annotations["helm.sh/hook-delete-policy"]
+          value: "hook-failed"
+        documentIndex: 0
+      - equal:
+          path: metadata.annotations["helm.sh/hook-delete-policy"]
+          value: "hook-failed"
+        documentIndex: 1
 
   # ====== global.commonLabels ======
   - it: should render global.commonLabels on hook job metadata

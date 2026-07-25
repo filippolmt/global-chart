@@ -1,0 +1,45 @@
+# End-to-end scenario for `make e2e` — runs against a throwaway kind cluster.
+#
+# Deliberately small and image-light (busybox only) because this is the one
+# scenario that actually installs: it verifies the hook lifecycle, which
+# helm-unittest cannot see (it renders YAML, it does not run Helm).
+#
+# Covers:
+# - a pre-install hook bound to a chart-created ServiceAccount (issue #71):
+#   the SA is a normal resource, created AFTER pre-install hooks, so the chart
+#   must emit a hook-prerequisite copy or the Job can never schedule
+# - the prereq ConfigMap/Secret copies feeding the hook's env
+# - deployment-level command/args (issue #72)
+# - a root-level hook, which creates its own ServiceAccount
+deployments:
+  app:
+    image: busybox:1.36
+    command: ["sh", "-c"]
+    args: ["sleep 3600"]
+    replicaCount: 1
+    service:
+      enabled: false
+    serviceAccount:
+      create: true
+      annotations:
+        e2e/marker: chart-created
+    configMap:
+      FOO: bar
+    secret:
+      DB_PASSWORD: supersecret
+    hooks:
+      pre-install:
+        migration:
+          command: ["sh", "-c"]
+          args: ["echo migrating FOO=$FOO DB_PASSWORD=$DB_PASSWORD"]
+      pre-upgrade:
+        migration:
+          command: ["sh", "-c"]
+          args: ["echo upgrading FOO=$FOO"]
+
+hooks:
+  post-install:
+    notify:
+      image: busybox:1.36
+      command: ["sh", "-c"]
+      args: ["echo notified"]

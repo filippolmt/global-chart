@@ -17,6 +17,25 @@
 replicaCount: 3
 ```
 
+#### Command and Args
+
+Override the image `ENTRYPOINT` / `CMD` per deployment. Useful to run several
+workloads from a single image:
+
+```yaml
+deployments:
+  web:
+    image: myapp:v2          # runs the image CMD (uvicorn)
+  worker:
+    image: myapp:v2
+    command: ["python", "-m", "app.worker"]
+    args: ["--concurrency", "5"]
+```
+
+`command` and `args` are **not** inherited by a deployment's `hooks` and
+`cronJobs` — a migration hook must never run the deployment's entrypoint. Set
+them explicitly on the hook or cronjob instead.
+
 #### Image Pull Secrets
 
 ```yaml

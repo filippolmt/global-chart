@@ -6,6 +6,13 @@ workloads, where the same Kubernetes word can mean two different things.
 
 ## Language
 
+**Hook-prerequisite copy**:
+A duplicate of a deployment's normal resource (ConfigMap, Secret, ServiceAccount),
+annotated as a Helm hook so it exists while the deployment's hook Jobs run. Normal
+resources are created or updated only after hooks complete, so without the copy a
+hook Job would read stale data or reference an object that does not exist yet.
+_Avoid_: "the hook ConfigMap" (names one member of a family of three).
+
 **SA-object automount**:
 `automountServiceAccountToken` set on a ServiceAccount object the chart
 _creates_ (`serviceAccount.create: true`), via `serviceaccount.yaml` /

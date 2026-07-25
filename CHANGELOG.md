@@ -5,6 +5,103 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ---
 
+## [2.2.0] — 2026-07-25
+
+### Added
+- `deployments.<name>.command` and `deployments.<name>.args` (arrays of strings).
+  Override the image `ENTRYPOINT` / `CMD` on the Deployment's main container,
+  matching what `cronJobs` and `hooks` already supported. This makes it possible
+  to run several workloads from a single image — e.g. a web server and a
+  background worker — without a separate image or an in-image entrypoint
+  dispatcher. Both fields are omitted from the pod spec when unset or empty
+  (behavior unchanged). Resolves #72.
+
+```yaml
+deployments:
+  web:
+    image: myapp:v2                            # runs the image CMD (uvicorn)
+  worker:
+    image: myapp:v2
+    command: ["python", "-m", "app.worker"]
+    args: ["--concurrency", "5"]
+```
+
+  **Not inherited.** A deployment's `hooks` and `cronJobs` do *not* pick up its
+  `command` / `args`: a migration hook inheriting `python -m app.worker` would
+  silently run the worker instead of the migration. Set them explicitly on the
+  hook or cronjob.
+
+### Changed
+- `values.schema.json`: `args` is now typed as an array of strings on cronjobs
+  and hooks too (it was an untyped array). No working configuration changes — a
+  numeric `args` entry already produced a manifest the API server rejects; the
+  error now surfaces at `helm lint` / install time instead.
+
+### Fixed
+- A deployment-level `pre-install` hook can now run under a ServiceAccount the
+  chart creates. Helm creates normal resources **after** `pre-install` hooks, so
+  the hook Job used to reference a ServiceAccount that did not exist yet, could
+  never schedule its pod, and left the release stuck in `pending-install`:
+
+  ```
+  Error creating: pods "<release>-<deployment>-pre-install-migration-" is forbidden:
+  error looking up service account <ns>/<sa-name>: serviceaccount "<sa-name>" not found
+  ```
+
+  The deployment's ServiceAccount is now duplicated as a hook-prerequisite copy —
+  same name, annotations and automount — alongside the ConfigMap/Secret copies
+  that already existed for the same reason. Resolves #71.
+
+```yaml
+deployments:
+  app:
+    serviceAccount:
+      create: true          # chart-managed, e.g. with Workload Identity annotations
+    hooks:
+      pre-install:
+        migration:
+          command: ["sh", "-c"]
+          args: ["./migrate.sh"]
+```
+
+  The copy is annotated `helm.sh/hook: pre-install`, weighted
+  `minPreInstallJobWeight - 5` (invariant `prereq w-7 < SA w-5 < Job w`) and
+  deleted with `hook-succeeded,hook-failed`, so it lives only for the duration of
+  the hook phase and never collides with the real ServiceAccount. It is emitted
+  only when a `pre-install` hook actually binds the deployment's chart-created SA
+  — a hook with its own `serviceAccountName`, or a deployment with
+  `serviceAccount.create: false`, renders exactly as before.
+  See `docs/adr/0002-hook-prerequisite-serviceaccount-copy.md`.
+
+- Derived hook weights are no longer floored at 0. Helm allows negative hook
+  weights, and clamping meant that a hook Job with a negative weight ran *before*
+  the resources it depends on — its prerequisite ConfigMap/Secret and its
+  ServiceAccount — reintroducing the very failure the weight ordering prevents.
+  A hook with `weight: -3` now gets prereqs at `-10` and an SA at `-8` instead of
+  both at `0`. Non-negative weights render exactly as before.
+
+- Hook plumbing resources no longer survive `helm uninstall`. Hook resources are
+  not part of the release manifest, so Helm never removes them: the deployment's
+  hook-prerequisite ConfigMap **and Secret** — the latter holding the deployment's
+  secret data — plus chart-created hook ServiceAccounts were left behind on every
+  release, and accumulated across install/uninstall cycles. Their default delete
+  policy is now `before-hook-creation,hook-succeeded`, so they are removed once
+  the hook phase they serve completes. Hook **Jobs** keep the previous
+  `before-hook-creation` default: a completed hook Job is the record of what ran.
+  An explicit `deletePolicy` on the hook still overrides all of it.
+
+### Notes
+- Two cases remain unsupported by design:
+  - a deployment added **during an upgrade** with `serviceAccount.create: true`
+    and a `pre-upgrade` hook — the chart cannot tell at template time that the
+    deployment is new. Bind a pre-existing SA (`create: false` + `name`) or move
+    the job to `pre-install`.
+  - a **root-level** hook (`.Values.hooks`) whose explicit `serviceAccountName`
+    points at a chart-created deployment SA. Root-level hooks are standalone
+    (ADR 0001); an explicit name is taken to mean an externally-managed SA.
+
+---
+
 ## [2.1.0] — 2026-07-16
 
 ### Added

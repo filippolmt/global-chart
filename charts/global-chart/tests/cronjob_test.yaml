@@ -455,6 +455,28 @@ tests:
           value: true
         documentIndex: 0
 
+  # command/args are deliberately NOT inheritable: a cronjob must never pick up
+  # the deployment's entrypoint (see issue #72).
+  - it: should not inherit command or args from deployment in deployment-level cronjob
+    set:
+      deployments:
+        backend:
+          image: myapp:v1
+          command: ["python", "-m", "app.worker"]
+          args: ["--concurrency", "4"]
+          cronJobs:
+            cleanup:
+              schedule: "0 4 * * *"
+              args: ["--dry-run"]
+    asserts:
+      - isNull:
+          path: spec.jobTemplate.spec.template.spec.containers[0].command
+        documentIndex: 0
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.containers[0].args
+          value: ["--dry-run"]
+        documentIndex: 0
+
   # ====== Deployment-level CronJob dnsConfig inheritance ======
   - it: should inherit dnsConfig from deployment in deployment-level cronjob
     set:

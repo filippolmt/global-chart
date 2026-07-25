@@ -443,6 +443,30 @@ deployments:
             </body>
             </html>
 
+  # Chart-created SA + pre-install hook (issue #71): the SA is a normal resource,
+  # created AFTER pre-install hooks, so hook.yaml emits a hook-annotated copy of it.
+  migrator:
+    enabled: true
+    replicaCount: 1
+    image:
+      repository: myapp/backend
+      tag: v2.1.0
+    service:
+      enabled: false
+    serviceAccount:
+      create: true
+      annotations:
+        iam.gke.io/gcp-service-account: migrator@example.iam.gserviceaccount.com
+    configMap:
+      DB_HOST: postgres.db.svc
+    secret:
+      DB_PASSWORD: supersecret
+    hooks:
+      pre-install:
+        migration:
+          command: ["sh", "-c"]
+          args: ["./migrate.sh"]
+
 ingress:
   enabled: false
 

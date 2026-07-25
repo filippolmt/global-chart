@@ -40,6 +40,13 @@ deployments: {}
   #     # -- Image tag (e.g., "1.23.3")
   #     tag: "1.23"
   #
+  #   # -- Override the image ENTRYPOINT. Omit to keep the image default.
+  #   # Not inherited by this deployment's hooks/cronJobs.
+  #   command: ["python", "-m", "app.worker"]
+  #   # -- Override the image CMD arguments. Omit to keep the image default.
+  #   # Not inherited by this deployment's hooks/cronJobs.
+  #   args: ["--concurrency", "5"]
+  #
   #   # -- List of imagePullSecrets for private registries
   #   imagePullSecrets: []
   #
