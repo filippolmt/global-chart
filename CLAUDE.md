@@ -32,10 +32,15 @@ resource exists at the moment a hook Job schedules. Anything touching
 `make e2e`.
 
 `make e2e` downloads `kind` into `.bin/` (gitignored), creates a throwaway
-cluster, installs `tests/e2e/values.yaml`, then asserts: release deployed →
+cluster, applies the KEDA **CRDs only** (`kind-keda-crds` — no operator: the
+target asserts this chart's runtime behaviour, not KEDA's reconciliation),
+installs `tests/e2e/values.yaml`, then asserts: release deployed →
 pre-install hook Job succeeded under the chart-created SA → the surviving SA is
-the real one, not the hook copy → deployment `command`/`args` rendered → upgrade
-kept the SA UID → uninstall leaves no orphaned ConfigMap/Secret/ServiceAccount.
+the real one, not the hook copy → deployment `command`/`args` rendered →
+ScaledObject/TriggerAuthentication applied with the `authenticationRef` resolved
+→ upgrade kept the SA UID → upgrade did **not** reset `spec.replicas` on the
+KEDA-scaled Deployment → uninstall leaves no orphaned
+ConfigMap/Secret/ServiceAccount/ScaledObject/TriggerAuthentication.
 Extend `tests/e2e/values.yaml` and the assertion block in the `e2e` target when
 adding runtime behaviour.
 
@@ -65,7 +70,8 @@ When schema or user-visible values change (new fields, defaults, descriptions), 
 | `_image-helpers.tpl` | `imageString` (string/map/global registry/numeric tags), `imagePullPolicy` |
 | `_job-helpers.tpl` | `inheritedJobPodSpec` — shared pod spec for deployment-level hooks/cronjobs with full inheritance chain. Params: `inheritDnsConfig` (true=cronjob, false=hook), `renderInitContainers` (true=cronjob, false=hook). `jobImageString` — unified image resolution (`image` > `deploy.image` > `fromDeployment` lookup+fail), `errCtx` param preserves exact failure messages. `jobServiceAccount` — unified deployment-level SA resolution (name/create/automount/annotations), returns JSON consumed via `fromJson` |
 | `_render-helpers.tpl` | `renderVolume` (native + legacy), `renderImagePullSecrets`, `renderDnsConfig`, `renderResources`, `renderCommonAnnotations`, `renderExternalSecretRemoteRef` (shared remoteRef block for data-list + single-key ExternalSecret branches) |
-| `_validate-helpers.tpl` | `validateNameCollisions` — fails on truncation-induced name collisions |
+| `_keda-helpers.tpl` | `kedaTriggerAuthName` (trunc 63), `kedaAuthRefName` (resolves a trigger's `authenticationRef` against the `kedaTriggerAuthentications` map, passthrough when absent), `kedaTriggers` (trigger list with refs resolved), `requireKedaCrd` (fails when `keda.sh/v1alpha1` is not registered) |
+| `_validate-helpers.tpl` | `validateNameCollisions` — fails on truncation-induced name collisions. `validateRoutingConflict` — ingress vs httpRoute. `validateAutoscalingConflict` — HPA vs KEDA per deployment |
 
 ### Key Design Patterns
 
@@ -81,7 +87,8 @@ When schema or user-visible values change (new fields, defaults, descriptions), 
 8. **Hook resources clean themselves up**: hook resources are not part of the release manifest, so Helm never deletes them at uninstall. Plumbing (prereq ConfigMap/Secret, chart-created hook SAs) therefore defaults to `before-hook-creation,hook-succeeded` — the prereq Secret in particular holds the deployment's secret data and must not survive the release. Hook **Jobs** keep the plain `before-hook-creation` default on purpose: a completed hook Job is the record of what ran. All of them still honour an explicit `deletePolicy` on the hook
 9. **Global fallback chains**: job > deployment > global, using `hasKey` at every level. Explicit `[]` stops fallback
 10. **Schema**: `values.schema.json` validates during install/upgrade/lint. Does NOT use `required` on `mountedConfigFiles` items (templates handle runtime validation to allow `failedTemplate` tests)
-11. **No `appVersion`**: this is a generic chart with no app version to pin. `app.kubernetes.io/version` is emitted only when set — guarded with `{{- with .Chart.AppVersion }}` in the label helpers; consumers set it via `global.commonLabels`. Pod/Service selectors never included it.
+11. **Autoscaling is either/or**: `deployments.<name>.autoscaling` (chart-rendered HPA) and `deployments.<name>.keda` (ScaledObject) are mutually exclusive per deployment — KEDA owns its own *derived HPA*. Either one enabled means the Deployment omits `spec.replicas` entirely; see `docs/adr/0003-keda-alongside-hpa.md`. `.Capabilities.APIVersions` carries CRDs only during a real install/upgrade, so anything rendering a KEDA scenario offline needs `--api-versions keda.sh/v1alpha1` (`HELM_API_VERSIONS` in the Makefile; `capabilities.apiVersions` in the unit-test suites). `helm lint` neither evaluates template `fail` nor accepts the flag, so `lint-chart` needs nothing — it just logs the `fail` message at INFO level and passes
+12. **No `appVersion`**: this is a generic chart with no app version to pin. `app.kubernetes.io/version` is emitted only when set — guarded with `{{- with .Chart.AppVersion }}` in the label helpers; consumers set it via `global.commonLabels`. Pod/Service selectors never included it.
 
 ### Resource Naming Limits
 

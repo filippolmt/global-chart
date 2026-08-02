@@ -1,0 +1,80 @@
+# KEDA scenario: ScaledObject + TriggerAuthentication.
+# Rendering this offline needs --api-versions keda.sh/v1alpha1 (the Makefile
+# passes it); helm lint does not evaluate template `fail`, so it needs nothing.
+kedaTriggerAuthentications:
+  sqs-auth:
+    secretTargetRef:
+      - parameter: awsAccessKeyID
+        name: aws-credentials
+        key: AWS_ACCESS_KEY_ID
+      - parameter: awsSecretAccessKey
+        name: aws-credentials
+        key: AWS_SECRET_ACCESS_KEY
+  workload-identity:
+    podIdentity:
+      provider: aws
+
+deployments:
+  # Chart-managed TriggerAuthentication, scale-to-zero, paused-replicas annotation.
+  worker:
+    image:
+      repository: nginx
+      tag: "1.25"
+    service:
+      enabled: false
+    keda:
+      enabled: true
+      annotations:
+        autoscaling.keda.sh/paused-replicas: "0"
+      minReplicaCount: 0
+      maxReplicaCount: 20
+      pollingInterval: 15
+      cooldownPeriod: 120
+      fallback:
+        failureThreshold: 3
+        replicas: 2
+      advanced:
+        restoreToOriginalReplicaCount: true
+        horizontalPodAutoscalerConfig:
+          behavior:
+            scaleDown:
+              stabilizationWindowSeconds: 300
+      triggers:
+        - type: aws-sqs-queue
+          metadata:
+            queueURL: https://sqs.eu-west-1.amazonaws.com/000000000000/jobs
+            queueLength: "10"
+            awsRegion: eu-west-1
+          authenticationRef:
+            name: sqs-auth
+
+  # authenticationRef pointing at a TriggerAuthentication managed outside the
+  # chart: the name must survive verbatim.
+  api:
+    image:
+      repository: nginx
+      tag: "1.25"
+    keda:
+      enabled: true
+      minReplicaCount: 2
+      maxReplicaCount: 10
+      triggers:
+        - type: prometheus
+          metricType: AverageValue
+          metadata:
+            serverAddress: http://prometheus.monitoring:9090
+            query: sum(rate(http_requests_total[1m]))
+            threshold: "100"
+          authenticationRef:
+            name: externally-managed-auth
+
+  # Native HPA still works alongside KEDA-scaled deployments in the same release.
+  legacy:
+    image:
+      repository: nginx
+      tag: "1.25"
+    autoscaling:
+      enabled: true
+      minReplicas: 1
+      maxReplicas: 5
+      targetCPUUtilizationPercentage: 80

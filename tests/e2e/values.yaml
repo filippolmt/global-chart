@@ -11,6 +11,16 @@
 # - the prereq ConfigMap/Secret copies feeding the hook's env
 # - deployment-level command/args (issue #72)
 # - a root-level hook, which creates its own ServiceAccount
+# - a KEDA-scaled deployment: only the CRDs are installed, no operator, so what
+#   is asserted is the chart's own invariant — with an autoscaler owning
+#   spec.replicas, `helm upgrade` must not reset the live replica count
+kedaTriggerAuthentications:
+  e2e-auth:
+    secretTargetRef:
+      - parameter: username
+        name: e2e-keda-credentials
+        key: username
+
 deployments:
   app:
     image: busybox:1.36
@@ -36,6 +46,27 @@ deployments:
         migration:
           command: ["sh", "-c"]
           args: ["echo upgrading FOO=$FOO"]
+
+  worker:
+    image: busybox:1.36
+    command: ["sh", "-c"]
+    args: ["sleep 3600"]
+    service:
+      enabled: false
+    keda:
+      enabled: true
+      minReplicaCount: 1
+      maxReplicaCount: 10
+      # cron needs no network and no external metric source
+      triggers:
+        - type: cron
+          metadata:
+            timezone: UTC
+            start: "0 0 * * *"
+            end: "59 23 * * *"
+            desiredReplicas: "3"
+          authenticationRef:
+            name: e2e-auth
 
 hooks:
   post-install:

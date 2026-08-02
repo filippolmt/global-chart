@@ -5,6 +5,68 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ---
 
+## [2.3.0] — 2026-08-02
+
+### Added
+- KEDA event-driven autoscaling: `deployments.<name>.keda` renders a
+  `ScaledObject`, and the root-level `kedaTriggerAuthentications` map renders
+  `TriggerAuthentication` resources shared by any deployment's triggers. Scaling
+  on a queue, a broker or any of KEDA's ~70 scalers no longer needs a second
+  chart alongside this one.
+
+```yaml
+kedaTriggerAuthentications:
+  sqs-auth:
+    secretTargetRef:
+      - { parameter: awsAccessKeyID, name: aws-credentials, key: AWS_ACCESS_KEY_ID }
+
+deployments:
+  worker:
+    image: myapp:v2
+    keda:
+      enabled: true
+      minReplicaCount: 0            # scale to zero between bursts
+      maxReplicaCount: 20
+      pollingInterval: 15
+      annotations:                  # operational pause lever
+        autoscaling.keda.sh/paused-replicas: "0"
+      triggers:
+        - type: aws-sqs-queue
+          metadata:
+            queueURL: https://sqs.eu-west-1.amazonaws.com/000000000000/jobs
+            queueLength: "10"
+            awsRegion: eu-west-1
+          authenticationRef:
+            name: sqs-auth          # key of kedaTriggerAuthentications
+```
+
+  `authenticationRef.name` takes the **key** of `kedaTriggerAuthentications`, not
+  the rendered name: the chart rewrites it to `{release}-{chart}-{key}`, which
+  values cannot know in advance. A name that is not a key in the map is passed
+  through unchanged, so a `TriggerAuthentication` managed outside the chart can
+  still be referenced.
+
+  `keda` and `autoscaling` are mutually exclusive on the same deployment —
+  enabling both fails the render. KEDA creates and owns its own HPA for the
+  ScaledObject; a chart-rendered HPA on the same Deployment would fight it.
+
+  The templates require the `keda.sh/v1alpha1` CRDs and say so with an actionable
+  error when they are missing. Rendering a KEDA scenario offline (`helm template`)
+  needs `--api-versions keda.sh/v1alpha1`.
+
+  See `docs/adr/0003-keda-alongside-hpa.md`.
+
+  A Deployment with `keda.enabled` omits `spec.replicas`, exactly as one with
+  `autoscaling.enabled` already did: the autoscaler owns the field, and emitting
+  it would make every `helm upgrade` overwrite the live replica count — with
+  `minReplicaCount: 0`, waking a workload that was deliberately scaled to zero.
+  `replicaCount` is inert on a deployment with either autoscaler enabled.
+
+  **Nothing changes for existing `autoscaling` users**; the guard is extended,
+  not introduced.
+
+---
+
 ## [2.2.0] — 2026-07-25
 
 ### Added

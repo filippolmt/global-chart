@@ -1,4 +1,4 @@
-suite: name collision detection tests
+suite: cross-resource validation tests
 templates:
   - templates/validate.yaml
 tests:
@@ -192,6 +192,69 @@ tests:
           schedule: "0 2 * * *"
           image: nginx:1.25
           command: ["./report.sh"]
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  # ====== Autoscaler conflict (HPA vs KEDA) ======
+  # KEDA creates and owns its own HPA for the ScaledObject; a chart-rendered HPA
+  # on the same Deployment gives two controllers writing spec.replicas.
+  - it: should fail when a deployment enables both the native HPA and KEDA
+    set:
+      deployments:
+        worker:
+          image: nginx:1.25
+          autoscaling:
+            enabled: true
+            minReplicas: 1
+            maxReplicas: 5
+            targetCPUUtilizationPercentage: 80
+          keda:
+            enabled: true
+            triggers:
+              - type: cron
+                metadata: { timezone: UTC, start: "0 0 * * *", end: "59 23 * * *", desiredReplicas: "3" }
+    asserts:
+      - failedTemplate:
+          errorPattern: "deployments.worker: autoscaling.enabled and keda.enabled are mutually exclusive"
+
+  - it: should not fail when HPA and KEDA are enabled on different deployments
+    set:
+      deployments:
+        legacy:
+          image: nginx:1.25
+          autoscaling:
+            enabled: true
+            minReplicas: 1
+            maxReplicas: 5
+            targetCPUUtilizationPercentage: 80
+        worker:
+          image: nginx:1.25
+          keda:
+            enabled: true
+            triggers:
+              - type: cron
+                metadata: { timezone: UTC, start: "0 0 * * *", end: "59 23 * * *", desiredReplicas: "3" }
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  # A disabled deployment renders nothing, so its values cannot conflict.
+  - it: should not fail when both autoscalers are set on a disabled deployment
+    set:
+      deployments:
+        worker:
+          enabled: false
+          image: nginx:1.25
+          autoscaling:
+            enabled: true
+            minReplicas: 1
+            maxReplicas: 5
+          keda:
+            enabled: true
+            triggers:
+              - type: cron
+                metadata: { timezone: UTC, start: "0 0 * * *", end: "59 23 * * *", desiredReplicas: "3" }
     asserts:
       - hasDocuments:
           count: 0

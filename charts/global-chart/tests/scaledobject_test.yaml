@@ -1,0 +1,352 @@
+suite: scaledobject template tests
+templates:
+  - templates/scaledobject.yaml
+# .Capabilities.APIVersions only carries CRDs during a real install/upgrade;
+# declare the KEDA group so the CRD presence check in _keda-helpers.tpl passes
+# offline. One test below drops it on purpose to cover the failure path.
+capabilities:
+  apiVersions:
+    - keda.sh/v1alpha1
+tests:
+  # ====== Enable flag ======
+  - it: should not render a ScaledObject when keda is not defined
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should not render a ScaledObject when keda.enabled is false
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          keda:
+            enabled: false
+            triggers:
+              - type: cron
+                metadata: { timezone: UTC, start: "0 0 * * *", end: "59 23 * * *", desiredReplicas: "3" }
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should not render a ScaledObject when the deployment is disabled
+    set:
+      deployments:
+        main:
+          enabled: false
+          image: nginx:1.25
+          keda:
+            enabled: true
+            triggers:
+              - type: cron
+                metadata: { timezone: UTC, start: "0 0 * * *", end: "59 23 * * *", desiredReplicas: "3" }
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  # ====== Base shape ======
+  - it: should render name, labels and scaleTargetRef from the deployment
+    set:
+      deployments:
+        worker:
+          image: nginx:1.25
+          keda:
+            enabled: true
+            triggers:
+              - type: cron
+                metadata: { timezone: UTC, start: "0 0 * * *", end: "59 23 * * *", desiredReplicas: "3" }
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: ScaledObject
+      - isAPIVersion:
+          of: keda.sh/v1alpha1
+      - equal:
+          path: metadata.name
+          value: RELEASE-NAME-global-chart-worker
+      - equal:
+          path: metadata.labels["app.kubernetes.io/component"]
+          value: worker
+      - equal:
+          path: spec.scaleTargetRef
+          value:
+            apiVersion: apps/v1
+            kind: Deployment
+            name: RELEASE-NAME-global-chart-worker
+      - equal:
+          path: spec.triggers[0].type
+          value: cron
+
+  # ====== Numeric fields: 0 is a real value, never a missing one ======
+  - it: should render minReplicaCount 0 rather than dropping it
+    set:
+      deployments:
+        worker:
+          image: nginx:1.25
+          keda:
+            enabled: true
+            minReplicaCount: 0
+            pollingInterval: 0
+            triggers:
+              - type: cron
+                metadata: { timezone: UTC, start: "0 0 * * *", end: "59 23 * * *", desiredReplicas: "3" }
+    asserts:
+      - equal:
+          path: spec.minReplicaCount
+          value: 0
+      - equal:
+          path: spec.pollingInterval
+          value: 0
+
+  - it: should omit optional scaling fields that are not set
+    set:
+      deployments:
+        worker:
+          image: nginx:1.25
+          keda:
+            enabled: true
+            triggers:
+              - type: cron
+                metadata: { timezone: UTC, start: "0 0 * * *", end: "59 23 * * *", desiredReplicas: "3" }
+    asserts:
+      - notExists:
+          path: spec.minReplicaCount
+      - notExists:
+          path: spec.maxReplicaCount
+      - notExists:
+          path: spec.idleReplicaCount
+      - notExists:
+          path: spec.pollingInterval
+      - notExists:
+          path: spec.cooldownPeriod
+      - notExists:
+          path: spec.initialCooldownPeriod
+      - notExists:
+          path: spec.fallback
+      - notExists:
+          path: spec.advanced
+
+  - it: should render every scaling field when set
+    set:
+      deployments:
+        worker:
+          image: nginx:1.25
+          keda:
+            enabled: true
+            minReplicaCount: 1
+            maxReplicaCount: 20
+            idleReplicaCount: 0
+            pollingInterval: 15
+            cooldownPeriod: 120
+            initialCooldownPeriod: 60
+            fallback:
+              failureThreshold: 3
+              replicas: 2
+            advanced:
+              restoreToOriginalReplicaCount: true
+              horizontalPodAutoscalerConfig:
+                behavior:
+                  scaleDown:
+                    stabilizationWindowSeconds: 300
+            triggers:
+              - type: cron
+                metadata: { timezone: UTC, start: "0 0 * * *", end: "59 23 * * *", desiredReplicas: "3" }
+    asserts:
+      - equal:
+          path: spec.maxReplicaCount
+          value: 20
+      - equal:
+          path: spec.idleReplicaCount
+          value: 0
+      - equal:
+          path: spec.cooldownPeriod
+          value: 120
+      - equal:
+          path: spec.initialCooldownPeriod
+          value: 60
+      - equal:
+          path: spec.fallback.failureThreshold
+          value: 3
+      - equal:
+          path: spec.advanced.restoreToOriginalReplicaCount
+          value: true
+      - equal:
+          path: spec.advanced.horizontalPodAutoscalerConfig.behavior.scaleDown.stabilizationWindowSeconds
+          value: 300
+
+  # ====== authenticationRef resolution ======
+  - it: should resolve authenticationRef against a chart-managed TriggerAuthentication
+    set:
+      kedaTriggerAuthentications:
+        sqs-auth:
+          secretTargetRef:
+            - parameter: awsAccessKeyID
+              name: aws-credentials
+              key: AWS_ACCESS_KEY_ID
+      deployments:
+        worker:
+          image: nginx:1.25
+          keda:
+            enabled: true
+            triggers:
+              - type: aws-sqs-queue
+                metadata: { queueURL: https://example, queueLength: "10", awsRegion: eu-west-1 }
+                authenticationRef:
+                  name: sqs-auth
+    asserts:
+      - equal:
+          path: spec.triggers[0].authenticationRef.name
+          value: RELEASE-NAME-global-chart-sqs-auth
+
+  - it: should pass an unknown authenticationRef through verbatim
+    set:
+      deployments:
+        worker:
+          image: nginx:1.25
+          keda:
+            enabled: true
+            triggers:
+              - type: aws-sqs-queue
+                metadata: { queueURL: https://example, queueLength: "10", awsRegion: eu-west-1 }
+                authenticationRef:
+                  name: externally-managed-auth
+    asserts:
+      - equal:
+          path: spec.triggers[0].authenticationRef.name
+          value: externally-managed-auth
+
+  - it: should keep other authenticationRef fields while resolving the name
+    set:
+      kedaTriggerAuthentications:
+        sqs-auth:
+          podIdentity:
+            provider: aws
+      deployments:
+        worker:
+          image: nginx:1.25
+          keda:
+            enabled: true
+            triggers:
+              - type: aws-sqs-queue
+                metadata: { queueURL: https://example, queueLength: "10", awsRegion: eu-west-1 }
+                authenticationRef:
+                  name: sqs-auth
+                  kind: TriggerAuthentication
+    asserts:
+      - equal:
+          path: spec.triggers[0].authenticationRef.kind
+          value: TriggerAuthentication
+      - equal:
+          path: spec.triggers[0].authenticationRef.name
+          value: RELEASE-NAME-global-chart-sqs-auth
+
+  # The map only ever renders namespaced TriggerAuthentications, so a
+  # cluster-scoped ref must survive even when its name collides with a key.
+  - it: should not rewrite a ClusterTriggerAuthentication ref that collides with a key
+    set:
+      kedaTriggerAuthentications:
+        sqs-auth:
+          podIdentity:
+            provider: aws
+      deployments:
+        worker:
+          image: nginx:1.25
+          keda:
+            enabled: true
+            triggers:
+              - type: aws-sqs-queue
+                metadata: { queueURL: https://example, queueLength: "10", awsRegion: eu-west-1 }
+                authenticationRef:
+                  name: sqs-auth
+                  kind: ClusterTriggerAuthentication
+    asserts:
+      - equal:
+          path: spec.triggers[0].authenticationRef.name
+          value: sqs-auth
+
+  - it: should leave triggers without authenticationRef untouched
+    set:
+      deployments:
+        worker:
+          image: nginx:1.25
+          keda:
+            enabled: true
+            triggers:
+              - type: cron
+                metadata: { timezone: UTC, start: "0 0 * * *", end: "59 23 * * *", desiredReplicas: "3" }
+    asserts:
+      - notExists:
+          path: spec.triggers[0].authenticationRef
+
+  # ====== Annotations ======
+  - it: should merge keda annotations over global commonAnnotations
+    set:
+      global:
+        commonAnnotations:
+          owner: platform
+          shared: from-global
+      deployments:
+        worker:
+          image: nginx:1.25
+          keda:
+            enabled: true
+            annotations:
+              autoscaling.keda.sh/paused-replicas: "0"
+              shared: from-keda
+            triggers:
+              - type: cron
+                metadata: { timezone: UTC, start: "0 0 * * *", end: "59 23 * * *", desiredReplicas: "3" }
+    asserts:
+      - equal:
+          path: metadata.annotations["autoscaling.keda.sh/paused-replicas"]
+          value: "0"
+      - equal:
+          path: metadata.annotations.owner
+          value: platform
+      - equal:
+          path: metadata.annotations.shared
+          value: from-keda
+
+  - it: should omit the annotations block when there is nothing to render
+    set:
+      deployments:
+        worker:
+          image: nginx:1.25
+          keda:
+            enabled: true
+            triggers:
+              - type: cron
+                metadata: { timezone: UTC, start: "0 0 * * *", end: "59 23 * * *", desiredReplicas: "3" }
+    asserts:
+      - notExists:
+          path: metadata.annotations
+
+  # ====== Multi-deployment ======
+  - it: should render one ScaledObject per KEDA-enabled deployment
+    set:
+      deployments:
+        worker:
+          image: nginx:1.25
+          keda:
+            enabled: true
+            triggers:
+              - type: cron
+                metadata: { timezone: UTC, start: "0 0 * * *", end: "59 23 * * *", desiredReplicas: "3" }
+        api:
+          image: nginx:1.25
+          keda:
+            enabled: true
+            triggers:
+              - type: cron
+                metadata: { timezone: UTC, start: "0 0 * * *", end: "59 23 * * *", desiredReplicas: "3" }
+        legacy:
+          image: nginx:1.25
+    asserts:
+      - hasDocuments:
+          count: 2
+
+

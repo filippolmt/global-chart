@@ -1,0 +1,63 @@
+{{- $root := . }}
+{{- range $name, $deploy := .Values.deployments }}
+{{- if $deploy }}
+{{- if eq (include "global-chart.deploymentEnabled" (dict "deploy" $deploy)) "true" }}
+{{- $keda := default (dict) $deploy.keda }}
+{{- if $keda.enabled }}
+{{- /* `triggers` is required by values.schema.json whenever keda.enabled is
+       true, and minItems keeps it non-empty — a ScaledObject with no trigger is
+       rejected by KEDA. No template-side check: the schema runs first. */ -}}
+{{- include "global-chart.requireKedaCrd" (dict "root" $root "source" (printf "deployments.%s.keda" $name)) }}
+{{- $depFullname := include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $name) }}
+{{- $labelCtx := dict "root" $root "deploymentName" $name }}
+{{- $annotations := deepCopy (default (dict) $keda.annotations) }}
+{{- $global := default (dict) $root.Values.global }}
+{{- $mergedAnnotations := merge $annotations (default (dict) $global.commonAnnotations) }}
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: {{ $depFullname }}
+  labels:
+    {{- include "global-chart.deploymentLabels" $labelCtx | nindent 4 }}
+  {{- with $mergedAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ $depFullname }}
+  {{- if hasKey $keda "minReplicaCount" }}
+  minReplicaCount: {{ $keda.minReplicaCount }}
+  {{- end }}
+  {{- if hasKey $keda "maxReplicaCount" }}
+  maxReplicaCount: {{ $keda.maxReplicaCount }}
+  {{- end }}
+  {{- if hasKey $keda "idleReplicaCount" }}
+  idleReplicaCount: {{ $keda.idleReplicaCount }}
+  {{- end }}
+  {{- if hasKey $keda "pollingInterval" }}
+  pollingInterval: {{ $keda.pollingInterval }}
+  {{- end }}
+  {{- if hasKey $keda "cooldownPeriod" }}
+  cooldownPeriod: {{ $keda.cooldownPeriod }}
+  {{- end }}
+  {{- if hasKey $keda "initialCooldownPeriod" }}
+  initialCooldownPeriod: {{ $keda.initialCooldownPeriod }}
+  {{- end }}
+  {{- with $keda.fallback }}
+  fallback:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with $keda.advanced }}
+  advanced:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  triggers:
+    {{- include "global-chart.kedaTriggers" (dict "root" $root "triggers" $keda.triggers) | nindent 4 }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}

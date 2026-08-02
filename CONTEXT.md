@@ -13,6 +13,20 @@ resources are created or updated only after hooks complete, so without the copy 
 hook Job would read stale data or reference an object that does not exist yet.
 _Avoid_: "the hook ConfigMap" (names one member of a family of three).
 
+**Derived HPA**:
+The HorizontalPodAutoscaler that KEDA creates from a ScaledObject, named
+`keda-hpa-<scaledobject>`. It is not rendered by the chart, not part of the
+release manifest, and not visible to `helm template` — KEDA owns its whole
+lifecycle. Distinct from the HPA the chart renders from
+`deployments.<name>.autoscaling`.
+_Avoid_: "the HPA" (ambiguous between the two).
+
+**Replica ownership**:
+The condition where an autoscaler — the chart's HPA or KEDA — owns a
+Deployment's `spec.replicas`, and the chart therefore stops emitting the field.
+Emitting it would make every upgrade overwrite the live replica count.
+_Avoid_: "replicas is disabled" (the field is absent, not set to something).
+
 **SA-object automount**:
 `automountServiceAccountToken` set on a ServiceAccount object the chart
 _creates_ (`serviceAccount.create: true`), via `serviceaccount.yaml` /

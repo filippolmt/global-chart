@@ -135,6 +135,38 @@ deployments: {}
   #       scaleUp: {}
   #       scaleDown: {}
   #
+  #   # -- KEDA event-driven autoscaling. Mutually exclusive with `autoscaling`:
+  #   # KEDA creates and owns its own HPA for the ScaledObject. Requires the
+  #   # keda.sh CRDs in the cluster. When enabled, the chart stops emitting
+  #   # spec.replicas on the Deployment.
+  #   keda:
+  #     enabled: false
+  #     # -- Annotations on the ScaledObject, e.g. autoscaling.keda.sh/paused-replicas
+  #     annotations: {}
+  #     minReplicaCount: 1
+  #     maxReplicaCount: 10
+  #     idleReplicaCount: 0
+  #     pollingInterval: 30
+  #     cooldownPeriod: 300
+  #     initialCooldownPeriod: 0
+  #     fallback:
+  #       failureThreshold: 3
+  #       replicas: 2
+  #     advanced:
+  #       restoreToOriginalReplicaCount: false
+  #       horizontalPodAutoscalerConfig:
+  #         behavior: {}
+  #     triggers:
+  #       - type: aws-sqs-queue
+  #         metadata:
+  #           queueURL: https://sqs.eu-west-1.amazonaws.com/000000000000/jobs
+  #           queueLength: "10"
+  #           awsRegion: eu-west-1
+  #         # `name` is a key of .Values.kedaTriggerAuthentications, resolved to
+  #         # the rendered name; any other value is passed through unchanged.
+  #         authenticationRef:
+  #           name: sqs-auth
+  #
   #   # -- Deployment rollout strategy
   #   strategy:
   #     type: RollingUpdate
@@ -432,6 +464,23 @@ externalSecrets: {}
   #   secretstore: { kind: ClusterSecretStore, name: my-store }
   #   dataFrom:
   #     - find: { name: { regexp: "^APP_.*" } }
+
+# -- KEDA TriggerAuthentication definitions, shared by the triggers of any
+# deployment. Rendered as `{release}-{chart}-{key}`; reference them from a
+# trigger by their key here and the chart resolves the full name.
+kedaTriggerAuthentications: {}
+  # sqs-auth:
+  #   secretTargetRef:
+  #     - parameter: awsAccessKeyID
+  #       name: aws-credentials
+  #       key: AWS_ACCESS_KEY_ID
+  #     - parameter: awsSecretAccessKey
+  #       name: aws-credentials
+  #       key: AWS_SECRET_ACCESS_KEY
+  #
+  # workload-identity:
+  #   podIdentity:
+  #     provider: aws
 
 # -- Default resource settings for CronJobs and Hooks when not specified per-job
 defaults:
