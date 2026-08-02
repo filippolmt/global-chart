@@ -60,6 +60,13 @@ midnight UTC will fail the scale assertion.
   never-floor-at-0 rule in pattern 6 above: with a floor, the prereq ConfigMap
   sorts after the Job and the Job starts without it. Keep a negative-weight hook
   in the scenario.
+
+Installing KEDA logs `Warning: unrecognized format "int32"` (and `int64`) three
+times. It comes from KEDA's own CRDs — the ScaledJob schema embeds `batch/v1`
+JobSpec, which carries 145 such formats — and Kubernetes warns on any format
+outside its closed list while validating on `type: integer` regardless. Nothing
+to fix here, and not worth filtering: suppressing it means swallowing the
+install's stderr, which would hide real server warnings too.
 Extend `tests/e2e/values.yaml` and the assertion block in the `e2e` target when
 adding runtime behaviour.
 
