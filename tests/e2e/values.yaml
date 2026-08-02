@@ -11,6 +11,16 @@
 # - the prereq ConfigMap/Secret copies feeding the hook's env
 # - deployment-level command/args (issue #72)
 # - a root-level hook, which creates its own ServiceAccount
+# - a KEDA-scaled deployment: only the CRDs are installed, no operator, so what
+#   is asserted is the chart's own invariant — with an autoscaler owning
+#   spec.replicas, `helm upgrade` must not reset the live replica count
+kedaTriggerAuthentications:
+  e2e-auth:
+    secretTargetRef:
+      - parameter: username
+        name: e2e-keda-credentials
+        key: username
+
 deployments:
   app:
     image: busybox:1.36
@@ -28,14 +38,49 @@ deployments:
     secret:
       DB_PASSWORD: supersecret
     hooks:
+      # The hook asserts the values rather than echoing them: `echo` exits 0
+      # whatever the env holds, so an empty FOO would still have marked the Job
+      # succeeded. A non-zero exit here fails the hook, and with it the release.
       pre-install:
         migration:
           command: ["sh", "-c"]
-          args: ["echo migrating FOO=$FOO DB_PASSWORD=$DB_PASSWORD"]
+          args: ['[ "$FOO" = bar ] && [ "$DB_PASSWORD" = supersecret ]']
+        # Negative weight on purpose. minJobWeight becomes -5, so the derived
+        # prereq ConfigMap/Secret land at -12 and the SA copy at -10. Were those
+        # ever floored at 0 they would sort AFTER this Job, which would then
+        # start without the ConfigMap it reads. Guards the weight invariant in
+        # CLAUDE.md pattern 6 at runtime, where helm-unittest cannot see it.
+        early:
+          weight: "-5"
+          command: ["sh", "-c"]
+          args: ['[ "$FOO" = bar ]']
       pre-upgrade:
         migration:
           command: ["sh", "-c"]
-          args: ["echo upgrading FOO=$FOO"]
+          args: ['[ "$FOO" = bar ]']
+
+  worker:
+    image: busybox:1.36
+    command: ["sh", "-c"]
+    args: ["sleep 3600"]
+    service:
+      enabled: false
+    keda:
+      enabled: true
+      minReplicaCount: 1
+      maxReplicaCount: 10
+      # cron needs no network and no external metric source. The window runs
+      # 00:00–23:59 UTC: a run started in the 23:59–00:00 minute would find the
+      # trigger inactive and the scale-to-3 assertion would fail.
+      triggers:
+        - type: cron
+          metadata:
+            timezone: UTC
+            start: "0 0 * * *"
+            end: "59 23 * * *"
+            desiredReplicas: "3"
+          authenticationRef:
+            name: e2e-auth
 
 hooks:
   post-install:

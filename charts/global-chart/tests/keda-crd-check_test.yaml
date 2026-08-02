@@ -1,0 +1,58 @@
+suite: keda CRD presence check
+templates:
+  - templates/scaledobject.yaml
+  - templates/triggerauthentication.yaml
+# Deliberately declares NO capabilities: this suite covers what happens when the
+# keda.sh group is missing. The two feature suites declare it instead — a
+# per-test `capabilities.apiVersions: []` does not clear a suite-level list, so
+# the failure path needs a suite of its own.
+tests:
+  - it: should fail when a KEDA-enabled deployment finds no keda.sh CRD
+    template: templates/scaledobject.yaml
+    set:
+      deployments:
+        worker:
+          image: nginx:1.25
+          keda:
+            enabled: true
+            triggers:
+              - type: cron
+                metadata: { timezone: UTC, start: "0 0 * * *", end: "59 23 * * *", desiredReplicas: "3" }
+    asserts:
+      - failedTemplate:
+          errorPattern: "deployments.worker.keda needs the CRD keda.sh/v1alpha1"
+
+  - it: should point at the --api-versions escape for offline rendering
+    template: templates/scaledobject.yaml
+    set:
+      deployments:
+        worker:
+          image: nginx:1.25
+          keda:
+            enabled: true
+            triggers:
+              - type: cron
+                metadata: { timezone: UTC, start: "0 0 * * *", end: "59 23 * * *", desiredReplicas: "3" }
+    asserts:
+      - failedTemplate:
+          errorPattern: "--api-versions keda.sh/v1alpha1"
+
+  - it: should fail when a TriggerAuthentication finds no keda.sh CRD
+    template: templates/triggerauthentication.yaml
+    set:
+      kedaTriggerAuthentications:
+        sqs-auth:
+          podIdentity:
+            provider: aws
+    asserts:
+      - failedTemplate:
+          errorPattern: "kedaTriggerAuthentications.sqs-auth needs the CRD keda.sh/v1alpha1"
+
+  - it: should not check the CRD when KEDA is not used
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+    asserts:
+      - hasDocuments:
+          count: 0

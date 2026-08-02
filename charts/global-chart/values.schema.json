@@ -32,6 +32,10 @@
       "type": "object",
       "additionalProperties": { "$ref": "#/$defs/externalSecret" }
     },
+    "kedaTriggerAuthentications": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/kedaTriggerAuthentication" }
+    },
     "defaults": { "$ref": "#/$defs/defaults" },
     "rbacs": { "$ref": "#/$defs/rbacs" }
   },
@@ -199,6 +203,95 @@
       },
       "additionalProperties": false
     },
+    "kedaScaledObject": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "annotations": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "minReplicaCount": { "type": "integer", "minimum": 0 },
+        "maxReplicaCount": { "type": "integer", "minimum": 0 },
+        "idleReplicaCount": { "type": "integer", "minimum": 0 },
+        "pollingInterval": { "type": "integer", "minimum": 0 },
+        "cooldownPeriod": { "type": "integer", "minimum": 0 },
+        "initialCooldownPeriod": { "type": "integer", "minimum": 0 },
+        "fallback": {
+          "type": "object",
+          "properties": {
+            "failureThreshold": { "type": "integer", "minimum": 0 },
+            "replicas": { "type": "integer", "minimum": 0 },
+            "behavior": { "type": "string" }
+          },
+          "additionalProperties": false
+        },
+        "advanced": {
+          "type": "object",
+          "properties": {
+            "restoreToOriginalReplicaCount": { "type": "boolean" },
+            "horizontalPodAutoscalerConfig": {
+              "type": "object",
+              "properties": {
+                "name": { "type": "string" },
+                "behavior": { "type": "object" }
+              },
+              "additionalProperties": false
+            },
+            "scalingModifiers": { "type": "object" }
+          },
+          "additionalProperties": false
+        },
+        "triggers": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/kedaTrigger" }
+        }
+      },
+      "additionalProperties": false,
+      "if": {
+        "properties": { "enabled": { "const": true } },
+        "required": ["enabled"]
+      },
+      "then": { "required": ["triggers"] }
+    },
+    "kedaTrigger": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": { "type": "string" },
+        "name": { "type": "string" },
+        "metricType": {
+          "type": "string",
+          "enum": ["AverageValue", "Value", "Utilization"]
+        },
+        "useCachedMetrics": { "type": "boolean" },
+        "metadata": { "type": "object" },
+        "authenticationRef": {
+          "type": "object",
+          "required": ["name"],
+          "properties": {
+            "name": { "type": "string" },
+            "kind": { "type": "string" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "kedaTriggerAuthentication": {
+      "type": "object",
+      "properties": {
+        "secretTargetRef": { "type": "array", "items": { "type": "object" } },
+        "env": { "type": "array", "items": { "type": "object" } },
+        "podIdentity": { "type": "object" },
+        "hashiCorpVault": { "type": "object" },
+        "azureKeyVault": { "type": "object" },
+        "awsSecretManager": { "type": "object" },
+        "gcpSecretManager": { "type": "object" }
+      },
+      "additionalProperties": false
+    },
     "pdb": {
       "type": "object",
       "properties": {
@@ -318,6 +411,7 @@
         "lifecycle": { "type": "object" },
         "terminationGracePeriodSeconds": { "type": "integer", "minimum": 0 },
         "autoscaling": { "$ref": "#/$defs/autoscaling" },
+        "keda": { "$ref": "#/$defs/kedaScaledObject" },
         "strategy": { "type": "object" },
         "revisionHistoryLimit": { "type": "integer", "minimum": 0 },
         "progressDeadlineSeconds": { "type": "integer", "minimum": 0 },

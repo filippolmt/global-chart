@@ -5,6 +5,7 @@
 {{- $depFullname := include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $name) }}
 {{- $labelCtx := dict "root" $root "deploymentName" $name }}
 {{- $autoscaling := default (dict) $deploy.autoscaling }}
+{{- $keda := default (dict) $deploy.keda }}
 {{- $podRecreation := default (dict) $deploy.podRecreation }}
 {{- $dnsConfig := default (dict) $deploy.dnsConfig }}
 {{- $svc := default (dict) $deploy.service }}
@@ -20,7 +21,11 @@ metadata:
     {{- . | nindent 4 }}
   {{- end }}
 spec:
-  {{- if not $autoscaling.enabled }}
+  {{- /* An autoscaler owns spec.replicas: emitting it here makes every upgrade
+         snap the Deployment back to this value before the autoscaler corrects
+         it — and with KEDA minReplicaCount: 0 it wakes a workload that was
+         deliberately scaled to zero. */}}
+  {{- if not (or $autoscaling.enabled $keda.enabled) }}
   replicas: {{ ternary $deploy.replicaCount 2 (hasKey $deploy "replicaCount") }}
   {{- end }}
   {{- with $deploy.strategy }}

@@ -6,3 +6,10 @@ backup
 *openspec*
 *opsx*
 .bin
+
+# Agent-facing docs: kept on the developer's machine, not shipped with the chart.
+# docs/adr/ stays tracked — CHANGELOG.md and hook.yaml link to it.
+CONTEXT.md
+docs/agents/
+docs/plans/
+docs/superpowers/

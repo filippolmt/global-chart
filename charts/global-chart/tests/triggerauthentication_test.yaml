@@ -1,0 +1,130 @@
+suite: triggerauthentication template tests
+templates:
+  - templates/triggerauthentication.yaml
+# See scaledobject_test.yaml: the KEDA group is not in .Capabilities offline.
+capabilities:
+  apiVersions:
+    - keda.sh/v1alpha1
+tests:
+  - it: should render nothing when no TriggerAuthentication is defined
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should render a TriggerAuthentication with the release-prefixed name
+    set:
+      kedaTriggerAuthentications:
+        sqs-auth:
+          secretTargetRef:
+            - parameter: awsAccessKeyID
+              name: aws-credentials
+              key: AWS_ACCESS_KEY_ID
+            - parameter: awsSecretAccessKey
+              name: aws-credentials
+              key: AWS_SECRET_ACCESS_KEY
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: TriggerAuthentication
+      - isAPIVersion:
+          of: keda.sh/v1alpha1
+      - equal:
+          path: metadata.name
+          value: RELEASE-NAME-global-chart-sqs-auth
+      - equal:
+          path: spec.secretTargetRef[0].parameter
+          value: awsAccessKeyID
+      - equal:
+          path: spec.secretTargetRef[1].key
+          value: AWS_SECRET_ACCESS_KEY
+
+  - it: should render one document per entry
+    set:
+      kedaTriggerAuthentications:
+        sqs-auth:
+          secretTargetRef:
+            - parameter: awsAccessKeyID
+              name: aws-credentials
+              key: AWS_ACCESS_KEY_ID
+        workload-identity:
+          podIdentity:
+            provider: aws
+    asserts:
+      - hasDocuments:
+          count: 2
+
+  - it: should render every credential source it is given
+    set:
+      kedaTriggerAuthentications:
+        multi:
+          env:
+            - parameter: connection
+              name: CONNECTION_STRING
+          podIdentity:
+            provider: azure-workload
+          hashiCorpVault:
+            address: https://vault.example
+            authentication: token
+          azureKeyVault:
+            vaultUri: https://kv.vault.azure.net
+          awsSecretManager:
+            region: eu-west-1
+          gcpSecretManager:
+            secrets:
+              - parameter: token
+                id: my-secret
+    asserts:
+      - equal:
+          path: spec.env[0].parameter
+          value: connection
+      - equal:
+          path: spec.podIdentity.provider
+          value: azure-workload
+      - equal:
+          path: spec.hashiCorpVault.address
+          value: https://vault.example
+      - equal:
+          path: spec.azureKeyVault.vaultUri
+          value: https://kv.vault.azure.net
+      - equal:
+          path: spec.awsSecretManager.region
+          value: eu-west-1
+      - equal:
+          path: spec.gcpSecretManager.secrets[0].id
+          value: my-secret
+
+  - it: should render global commonAnnotations
+    set:
+      global:
+        commonAnnotations:
+          owner: platform
+      kedaTriggerAuthentications:
+        sqs-auth:
+          podIdentity:
+            provider: aws
+    asserts:
+      - equal:
+          path: metadata.annotations.owner
+          value: platform
+
+  # ====== Failure paths ======
+  # An entry that is entirely empty ({} or null) is skipped like every other
+  # map-valued resource in the chart; one that carries only empty credential
+  # sources would render a TriggerAuthentication with a useless spec.
+  - it: should fail when an entry declares only empty credential sources
+    set:
+      kedaTriggerAuthentications:
+        broken:
+          secretTargetRef: []
+    asserts:
+      - failedTemplate:
+          errorPattern: "kedaTriggerAuthentications.broken declares no credential source"
+
+  - it: should skip an entry that is entirely empty
+    set:
+      kedaTriggerAuthentications:
+        empty: {}
+    asserts:
+      - hasDocuments:
+          count: 0

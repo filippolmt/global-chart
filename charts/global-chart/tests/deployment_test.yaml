@@ -512,6 +512,57 @@ tests:
           path: spec.replicas
           value: 3
 
+  # ====== replicas with KEDA ======
+  # An autoscaler owns spec.replicas. Emitting it makes every `helm upgrade`
+  # snap the Deployment back, and with minReplicaCount: 0 it wakes a workload
+  # that was deliberately scaled to zero.
+  - it: should not set replicas when keda is enabled
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          keda:
+            enabled: true
+            minReplicaCount: 0
+            maxReplicaCount: 10
+            triggers:
+              - type: cron
+                metadata: { timezone: UTC, start: "0 0 * * *", end: "59 23 * * *", desiredReplicas: "3" }
+    asserts:
+      - isNull:
+          path: spec.replicas
+
+  - it: should not set replicas when keda is enabled even with an explicit replicaCount
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          replicaCount: 3
+          keda:
+            enabled: true
+            triggers:
+              - type: cron
+                metadata: { timezone: UTC, start: "0 0 * * *", end: "59 23 * * *", desiredReplicas: "3" }
+    asserts:
+      - isNull:
+          path: spec.replicas
+
+  - it: should set replicas when keda is present but disabled
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          replicaCount: 3
+          keda:
+            enabled: false
+            triggers:
+              - type: cron
+                metadata: { timezone: UTC, start: "0 0 * * *", end: "59 23 * * *", desiredReplicas: "3" }
+    asserts:
+      - equal:
+          path: spec.replicas
+          value: 3
+
   # ====== deployment naming ======
   - it: should name deployment correctly
     release:

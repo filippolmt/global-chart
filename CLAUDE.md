@@ -32,10 +32,41 @@ resource exists at the moment a hook Job schedules. Anything touching
 `make e2e`.
 
 `make e2e` downloads `kind` into `.bin/` (gitignored), creates a throwaway
-cluster, installs `tests/e2e/values.yaml`, then asserts: release deployed →
+cluster, installs KEDA (operator + CRDs, `kind-keda`) so the whole autoscaling
+chain is exercised for real, installs `tests/e2e/values.yaml`, then asserts:
+release deployed →
 pre-install hook Job succeeded under the chart-created SA → the surviving SA is
-the real one, not the hook copy → deployment `command`/`args` rendered → upgrade
-kept the SA UID → uninstall leaves no orphaned ConfigMap/Secret/ServiceAccount.
+the real one, not the hook copy → deployment `command`/`args` rendered →
+ScaledObject/TriggerAuthentication applied with the `authenticationRef` resolved
+→ KEDA marked the ScaledObject `Ready` and created the derived HPA with the
+rendered bounds → the `cron` trigger actually scaled the Deployment to its
+`desiredReplicas` → upgrade kept the SA UID → upgrade did **not** reset
+`spec.replicas` on the KEDA-scaled Deployment → uninstall leaves no orphaned
+ConfigMap/Secret/ServiceAccount/ScaledObject/TriggerAuthentication, and the
+derived HPA is garbage-collected with its ScaledObject.
+
+The `cron` trigger is deliberate: no network, no external metric source. Its
+window is 00:00–23:59 UTC, so a run started in the one blind minute before
+midnight UTC will fail the scale assertion.
+
+`make e2e` also runs in CI as its own job in `.github/workflows/helm-ci.yml`
+(~2 min). Two things about it are deliberate and easy to undo by accident:
+
+- Hook bodies **assert** their environment instead of echoing it — `echo` exits
+  0 whatever the prereq copies contain, which would make the "hook Job
+  succeeded" assertion vacuous.
+- One `pre-install` hook carries `weight: "-5"`, which drives the derived prereq
+  weights negative (-12 and -10). That is the only runtime coverage of the
+  never-floor-at-0 rule in pattern 6 above: with a floor, the prereq ConfigMap
+  sorts after the Job and the Job starts without it. Keep a negative-weight hook
+  in the scenario.
+
+Installing KEDA logs `Warning: unrecognized format "int32"` (and `int64`) three
+times. It comes from KEDA's own CRDs — the ScaledJob schema embeds `batch/v1`
+JobSpec, which carries 145 such formats — and Kubernetes warns on any format
+outside its closed list while validating on `type: integer` regardless. Nothing
+to fix here, and not worth filtering: suppressing it means swallowing the
+install's stderr, which would hide real server warnings too.
 Extend `tests/e2e/values.yaml` and the assertion block in the `e2e` target when
 adding runtime behaviour.
 
@@ -65,7 +96,8 @@ When schema or user-visible values change (new fields, defaults, descriptions), 
 | `_image-helpers.tpl` | `imageString` (string/map/global registry/numeric tags), `imagePullPolicy` |
 | `_job-helpers.tpl` | `inheritedJobPodSpec` — shared pod spec for deployment-level hooks/cronjobs with full inheritance chain. Params: `inheritDnsConfig` (true=cronjob, false=hook), `renderInitContainers` (true=cronjob, false=hook). `jobImageString` — unified image resolution (`image` > `deploy.image` > `fromDeployment` lookup+fail), `errCtx` param preserves exact failure messages. `jobServiceAccount` — unified deployment-level SA resolution (name/create/automount/annotations), returns JSON consumed via `fromJson` |
 | `_render-helpers.tpl` | `renderVolume` (native + legacy), `renderImagePullSecrets`, `renderDnsConfig`, `renderResources`, `renderCommonAnnotations`, `renderExternalSecretRemoteRef` (shared remoteRef block for data-list + single-key ExternalSecret branches) |
-| `_validate-helpers.tpl` | `validateNameCollisions` — fails on truncation-induced name collisions |
+| `_keda-helpers.tpl` | `kedaTriggerAuthName` (trunc 63), `kedaAuthRefName` (resolves a trigger's `authenticationRef` against the `kedaTriggerAuthentications` map, passthrough when absent), `kedaTriggers` (trigger list with refs resolved), `requireKedaCrd` (fails when `keda.sh/v1alpha1` is not registered) |
+| `_validate-helpers.tpl` | `validateNameCollisions` — fails on truncation-induced name collisions. `validateRoutingConflict` — ingress vs httpRoute. `validateAutoscalingConflict` — HPA vs KEDA per deployment |
 
 ### Key Design Patterns
 
@@ -77,11 +109,12 @@ When schema or user-visible values change (new fields, defaults, descriptions), 
    - **Not inheritable**: `command` / `args`. A deployment-level hook or cronjob never picks up its parent's entrypoint — a migration hook inheriting `python -m app.worker` would silently run the worker. Locked by regression tests in `hook_test.yaml` / `cronjob_test.yaml`
    - **Asymmetry**: Root-level `.Values.cronJobs` and `.Values.hooks` do NOT auto-inherit anything from deployments — they are standalone. Reference deployment ConfigMaps/Secrets explicitly via `envFromConfigMaps` / `envFromSecrets` (or use `fromDeployment` for image only). Only `.Values.deployments.<name>.cronJobs` and `.Values.deployments.<name>.hooks` auto-inherit.
 6. **Hook weight ordering**: `prereq ConfigMap/Secret (w-7) < SA (w-5) < Job (w)`, derived from effective Job weight (default 10). `minJobWeight` across all hooks per deployment determines prereq weight. Derived weights are **never floored at 0** — Helm allows negative hook weights, and clamping a prereq to 0 would sort it *after* a Job whose weight is negative, which is the exact ordering failure the invariant exists to prevent
-7. **Hook prerequisite resources** (*hook-prerequisite copies*, see `CONTEXT.md`): Deployment ConfigMap/Secret are duplicated as hook-annotated resources because normal resources aren't updated until after hooks complete. The deployment ServiceAccount gets the same treatment, but **only for `pre-install`** and with delete policy `hook-succeeded,hook-failed` instead of `before-hook-creation` — the copy shares the real SA's name and must be gone before Helm creates it. See `docs/adr/0002-hook-prerequisite-serviceaccount-copy.md` before touching it
+7. **Hook prerequisite resources** (*hook-prerequisite copies*): Deployment ConfigMap/Secret are duplicated as hook-annotated resources because normal resources aren't updated until after hooks complete. The deployment ServiceAccount gets the same treatment, but **only for `pre-install`** and with delete policy `hook-succeeded,hook-failed` instead of `before-hook-creation` — the copy shares the real SA's name and must be gone before Helm creates it. See `docs/adr/0002-hook-prerequisite-serviceaccount-copy.md` before touching it
 8. **Hook resources clean themselves up**: hook resources are not part of the release manifest, so Helm never deletes them at uninstall. Plumbing (prereq ConfigMap/Secret, chart-created hook SAs) therefore defaults to `before-hook-creation,hook-succeeded` — the prereq Secret in particular holds the deployment's secret data and must not survive the release. Hook **Jobs** keep the plain `before-hook-creation` default on purpose: a completed hook Job is the record of what ran. All of them still honour an explicit `deletePolicy` on the hook
 9. **Global fallback chains**: job > deployment > global, using `hasKey` at every level. Explicit `[]` stops fallback
 10. **Schema**: `values.schema.json` validates during install/upgrade/lint. Does NOT use `required` on `mountedConfigFiles` items (templates handle runtime validation to allow `failedTemplate` tests)
-11. **No `appVersion`**: this is a generic chart with no app version to pin. `app.kubernetes.io/version` is emitted only when set — guarded with `{{- with .Chart.AppVersion }}` in the label helpers; consumers set it via `global.commonLabels`. Pod/Service selectors never included it.
+11. **Autoscaling is either/or**: `deployments.<name>.autoscaling` (chart-rendered HPA) and `deployments.<name>.keda` (ScaledObject) are mutually exclusive per deployment — KEDA owns its own *derived HPA*. Either one enabled means the Deployment omits `spec.replicas` entirely; see `docs/adr/0003-keda-alongside-hpa.md`. `.Capabilities.APIVersions` carries CRDs only during a real install/upgrade, so anything rendering a KEDA scenario offline needs `--api-versions keda.sh/v1alpha1` (`HELM_API_VERSIONS` in the Makefile; `capabilities.apiVersions` in the unit-test suites). `helm lint` neither evaluates template `fail` nor accepts the flag, so `lint-chart` needs nothing — it just logs the `fail` message at INFO level and passes
+12. **No `appVersion`**: this is a generic chart with no app version to pin. `app.kubernetes.io/version` is emitted only when set — guarded with `{{- with .Chart.AppVersion }}` in the label helpers; consumers set it via `global.commonLabels`. Pod/Service selectors never included it.
 
 ### Resource Naming Limits
 
@@ -149,6 +182,11 @@ imagePullSecrets:
 **Every template must have a corresponding `*_test.yaml`** in `charts/global-chart/tests/`
 
 ## Agent skills
+
+`CONTEXT.md` (glossario di dominio) e `docs/agents/` sono gitignorati: esistono
+solo sulla macchina di chi sviluppa, non nel repo. I riferimenti qui sotto
+funzionano in locale; se i file non ci sono, salta la sezione. `docs/adr/`
+invece è tracciato — è linkato da `CHANGELOG.md` e da `hook.yaml`.
 
 ### Issue tracker
 

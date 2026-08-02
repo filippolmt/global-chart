@@ -5,6 +5,13 @@ RAW_CHART_NAME := raw
 CHART_DIR := charts
 GENERATED_DIR := generated-manifests
 
+# CRD API versions the chart renders but that no cluster provides offline.
+# .Capabilities.APIVersions is populated from the cluster only during
+# install/upgrade, so `helm template` needs these declared explicitly or the
+# CRD presence check in _keda-helpers.tpl fails. (`helm lint` does not evaluate
+# template `fail` and has no equivalent flag, so lint-chart needs nothing.)
+HELM_API_VERSIONS := --api-versions keda.sh/v1alpha1
+
 # Docker images
 KUBE_LINTER_VERSION := 0.7.1
 KUBE_LINTER_IMAGE := ghcr.io/stackrox/kube-linter:v$(KUBE_LINTER_VERSION)
@@ -21,6 +28,17 @@ KIND_CLUSTER := global-chart-e2e
 KIND_BIN_DIR := $(CURDIR)/.bin
 KIND := $(KIND_BIN_DIR)/kind
 KIND_KUBECONFIG := $(CURDIR)/.bin/kind-kubeconfig
+# KEDA operator + CRDs, so the e2e exercises the whole chain: trigger fires →
+# KEDA reconciles → derived HPA → Deployment scales. The kedacore chart version
+# tracks the operator version.
+# HELM_REPOSITORY_* are pinned into .bin/ for the same reason KIND_KUBECONFIG is:
+# a make target must not write to the developer's helm configuration.
+# renovate: datasource=helm depName=keda registryUrl=https://kedacore.github.io/charts
+KEDA_VERSION := 2.20.2
+KEDA_REPO_URL := https://kedacore.github.io/charts
+KEDA_NAMESPACE := keda
+KEDA_HELM_ENV := HELM_REPOSITORY_CONFIG=$(KIND_BIN_DIR)/helm-repositories.yaml \
+	HELM_REPOSITORY_CACHE=$(KIND_BIN_DIR)/helm-repo-cache
 E2E_VALUES := tests/e2e/values.yaml
 E2E_RELEASE := e2e
 E2E_NAMESPACE := global-chart-e2e
@@ -48,7 +66,8 @@ TEST_CASES := \
 	tests/name-collision.yaml:default:name-collision \
 	tests/httproute-basic.yaml:httproute-basic:httproute-basic \
 	tests/httproute-canary.yaml:httproute-canary:httproute-canary \
-	tests/httproute-filters.yaml:httproute-filters:httproute-filters
+	tests/httproute-filters.yaml:httproute-filters:httproute-filters \
+	tests/keda.yaml:keda:keda
 
 # Default target
 .DEFAULT_GOAL := help
@@ -57,7 +76,7 @@ TEST_CASES := \
 .PHONY: help all lint-chart unit-test validate-bad-values generate-templates \
 	kubeconform kube-linter-manifests kube-linter generate-docs package \
 	install install-test01 render clean clean-all \
-	kind-install kind-cluster kind-delete e2e
+	kind-install kind-cluster kind-keda kind-delete e2e
 
 # ============================================================================
 # Help
@@ -118,6 +137,7 @@ define _helm_generate
 		mkdir -p "$${out_dir}"; \
 		helm template "test-$${slug}-$(GLOBAL_CHART_NAME)" "./$(CHART_DIR)/$(GLOBAL_CHART_NAME)" \
 			-f "$${values}" \
+			$(HELM_API_VERSIONS) \
 			--namespace "$${namespace}" \
 			--output-dir "$${out_dir}" \
 			--include-crds; \
@@ -146,6 +166,7 @@ kubeconform: generate-templates ## Validate generated manifests against K8s 1.29
 		-schema-location default \
 		-schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/external-secrets.io/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
 		-schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/gateway.networking.k8s.io/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
+		-schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/keda.sh/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
 		-output pretty \
 		/work/$(GENERATED_DIR)
 	@echo "==> Kubeconform validation passed!"
@@ -246,11 +267,23 @@ kind-cluster: kind-install ## Create the e2e kind cluster (isolated kubeconfig, 
 	fi
 	@KUBECONFIG=$(KIND_KUBECONFIG) kubectl wait --for=condition=Ready node --all --timeout=180s
 
+kind-keda: kind-cluster ## Install KEDA (operator + CRDs) into the e2e kind cluster
+	@echo "==> Installing KEDA $(KEDA_VERSION)..."
+	@mkdir -p $(KIND_BIN_DIR)
+	@$(KEDA_HELM_ENV) helm repo add kedacore $(KEDA_REPO_URL) --force-update >/dev/null
+	@KUBECONFIG=$(KIND_KUBECONFIG) $(KEDA_HELM_ENV) helm upgrade --install keda kedacore/keda \
+		--version $(KEDA_VERSION) \
+		--namespace $(KEDA_NAMESPACE) --create-namespace \
+		--wait --timeout 300s >/dev/null
+	@KUBECONFIG=$(KIND_KUBECONFIG) kubectl wait --for=condition=Established \
+		crd/scaledobjects.keda.sh crd/triggerauthentications.keda.sh --timeout=60s >/dev/null
+	@echo "    KEDA operator ready"
+
 kind-delete: ## Delete the e2e kind cluster
 	@if [ -x "$(KIND)" ]; then $(KIND) delete cluster --name "$(KIND_CLUSTER)"; fi
 	@rm -f "$(KIND_KUBECONFIG)"
 
-e2e: kind-cluster ## Install/upgrade/uninstall tests/e2e/values.yaml on kind and assert the hook lifecycle
+e2e: kind-cluster kind-keda ## Install/upgrade/uninstall tests/e2e/values.yaml on kind and assert the hook lifecycle
 	@set -e; \
 	export KUBECONFIG=$(KIND_KUBECONFIG); \
 	ns=$(E2E_NAMESPACE); rel=$(E2E_RELEASE); \
@@ -265,15 +298,40 @@ e2e: kind-cluster ## Install/upgrade/uninstall tests/e2e/values.yaml on kind and
 	echo "    release deployed"; \
 	kubectl -n $$ns get job -o name | grep -q pre-install \
 		|| { echo "FAIL: pre-install hook Job missing"; exit 1; }; \
-	[ "$$(kubectl -n $$ns get job -l app.kubernetes.io/component=app-hook -o jsonpath='{.items[0].status.succeeded}')" = "1" ] \
-		|| { echo "FAIL: pre-install hook Job did not succeed (issue #71 regression)"; exit 1; }; \
-	echo "    pre-install hook ran under the chart-created ServiceAccount"; \
+	for hook in migration early; do \
+		[ "$$(kubectl -n $$ns get job $$rel-$(GLOBAL_CHART_NAME)-app-pre-install-$$hook -o jsonpath='{.status.succeeded}' 2>/dev/null)" = "1" ] \
+			|| { echo "FAIL: pre-install hook Job '$$hook' did not succeed (issue #71 regression)"; exit 1; }; \
+	done; \
+	echo "    both pre-install hooks ran under the chart-created ServiceAccount"; \
+	echo "    the negative-weight hook found its prerequisite ConfigMap (weight invariant holds)"; \
 	kubectl -n $$ns get sa $$rel-$(GLOBAL_CHART_NAME)-app -o jsonpath='{.metadata.annotations}' | grep -q 'helm.sh/hook' \
 		&& { echo "FAIL: the surviving SA is the hook copy, not the real one"; exit 1; } || true; \
 	echo "    hook-prerequisite SA copy cleaned up, real SA in place"; \
 	[ "$$(kubectl -n $$ns get deploy $$rel-$(GLOBAL_CHART_NAME)-app -o jsonpath='{.spec.template.spec.containers[0].command}')" = '["sh","-c"]' ] \
 		|| { echo "FAIL: deployment command not rendered (issue #72 regression)"; exit 1; }; \
 	echo "    deployment command/args rendered"; \
+	[ "$$(kubectl -n $$ns get scaledobject $$rel-$(GLOBAL_CHART_NAME)-worker -o jsonpath='{.spec.maxReplicaCount}')" = "10" ] \
+		|| { echo "FAIL: ScaledObject missing or maxReplicaCount not rendered"; exit 1; }; \
+	[ "$$(kubectl -n $$ns get scaledobject $$rel-$(GLOBAL_CHART_NAME)-worker -o jsonpath='{.spec.scaleTargetRef.name}')" = "$$rel-$(GLOBAL_CHART_NAME)-worker" ] \
+		|| { echo "FAIL: ScaledObject scaleTargetRef does not point at its Deployment"; exit 1; }; \
+	[ "$$(kubectl -n $$ns get scaledobject $$rel-$(GLOBAL_CHART_NAME)-worker -o jsonpath='{.spec.triggers[0].authenticationRef.name}')" = "$$rel-$(GLOBAL_CHART_NAME)-e2e-auth" ] \
+		|| { echo "FAIL: authenticationRef was not resolved to the chart-rendered TriggerAuthentication name"; exit 1; }; \
+	kubectl -n $$ns get triggerauthentication $$rel-$(GLOBAL_CHART_NAME)-e2e-auth >/dev/null 2>&1 \
+		|| { echo "FAIL: TriggerAuthentication missing"; exit 1; }; \
+	echo "    ScaledObject and TriggerAuthentication applied, authenticationRef resolved"; \
+	kubectl -n $$ns wait --for=condition=Ready scaledobject/$$rel-$(GLOBAL_CHART_NAME)-worker --timeout=180s >/dev/null \
+		|| { echo "FAIL: KEDA never marked the ScaledObject Ready"; \
+		     kubectl -n $$ns get scaledobject $$rel-$(GLOBAL_CHART_NAME)-worker -o jsonpath='{.status.conditions}'; exit 1; }; \
+	echo "    ScaledObject accepted by the KEDA operator"; \
+	[ "$$(kubectl -n $$ns get hpa keda-hpa-$$rel-$(GLOBAL_CHART_NAME)-worker -o jsonpath='{.spec.maxReplicas}')" = "10" ] \
+		|| { echo "FAIL: derived HPA missing or maxReplicaCount did not reach it"; exit 1; }; \
+	[ "$$(kubectl -n $$ns get hpa keda-hpa-$$rel-$(GLOBAL_CHART_NAME)-worker -o jsonpath='{.spec.scaleTargetRef.name}')" = "$$rel-$(GLOBAL_CHART_NAME)-worker" ] \
+		|| { echo "FAIL: derived HPA does not target the chart's Deployment"; exit 1; }; \
+	echo "    KEDA created the derived HPA with the rendered bounds"; \
+	kubectl -n $$ns wait --for=jsonpath='{.spec.replicas}'=3 deployment/$$rel-$(GLOBAL_CHART_NAME)-worker --timeout=180s >/dev/null \
+		|| { echo "FAIL: the cron trigger never scaled the Deployment to desiredReplicas"; \
+		     kubectl -n $$ns get deployment $$rel-$(GLOBAL_CHART_NAME)-worker hpa -o wide; exit 1; }; \
+	echo "    cron trigger scaled the Deployment to 3 through the full KEDA chain"; \
 	echo "==> Upgrading (exercises the pre-upgrade hook)..."; \
 	sa_before=$$(kubectl -n $$ns get sa $$rel-$(GLOBAL_CHART_NAME)-app -o jsonpath='{.metadata.uid}'); \
 	helm upgrade $$rel ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) -f $(E2E_VALUES) \
@@ -281,12 +339,18 @@ e2e: kind-cluster ## Install/upgrade/uninstall tests/e2e/values.yaml on kind and
 	[ "$$sa_before" = "$$(kubectl -n $$ns get sa $$rel-$(GLOBAL_CHART_NAME)-app -o jsonpath='{.metadata.uid}')" ] \
 		|| { echo "FAIL: the ServiceAccount was recreated, bound tokens would be invalidated"; exit 1; }; \
 	echo "    upgrade kept the ServiceAccount identity"; \
+	{ [ "$$(kubectl -n $$ns get deployment $$rel-$(GLOBAL_CHART_NAME)-worker -o jsonpath='{.spec.replicas}')" = "3" ] \
+		|| { echo "FAIL: upgrade reset spec.replicas on a KEDA-scaled Deployment"; exit 1; }; }; \
+	echo "    upgrade left spec.replicas to the autoscaler"; \
 	echo "==> Uninstalling and checking for orphaned hook resources..."; \
 	helm uninstall $$rel -n $$ns >/dev/null; \
 	orphans=$$(kubectl -n $$ns get sa,cm,secret --no-headers 2>/dev/null \
 		| grep -v 'serviceaccount/default\|kube-root-ca.crt' || true); \
 	if [ -n "$$orphans" ]; then echo "FAIL: hook resources orphaned after uninstall:"; echo "$$orphans"; exit 1; fi; \
 	echo "    no orphaned ConfigMap/Secret/ServiceAccount"; \
+	keda_orphans=$$(kubectl -n $$ns get scaledobject,triggerauthentication,hpa --no-headers 2>/dev/null || true); \
+	if [ -n "$$keda_orphans" ]; then echo "FAIL: KEDA resources orphaned after uninstall:"; echo "$$keda_orphans"; exit 1; fi; \
+	echo "    no orphaned ScaledObject/TriggerAuthentication, derived HPA garbage-collected"; \
 	echo "==> e2e passed"
 
 install-test01: ## Install test01 (has kubectl pre-step; or use: make install SCENARIO=test01)
@@ -308,6 +372,7 @@ render: ## Render a single template (usage: make render VALUES=<file> TEMPLATE=<
 	fi
 	helm template test-release ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) \
 		-f $(VALUES) \
+		$(HELM_API_VERSIONS) \
 		-s templates/$(TEMPLATE)
 
 # ============================================================================

@@ -1,0 +1,32 @@
+{{- $root := . -}}
+{{- /* One list drives both the "did you declare anything?" guard and the body,
+       so adding a credential source is a schema change plus one word here. */ -}}
+{{- $sources := list "secretTargetRef" "env" "podIdentity" "hashiCorpVault" "azureKeyVault" "awsSecretManager" "gcpSecretManager" -}}
+{{- range $name, $auth := .Values.kedaTriggerAuthentications }}
+{{- if $auth }}
+{{- include "global-chart.requireKedaCrd" (dict "root" $root "source" (printf "kedaTriggerAuthentications.%s" $name)) }}
+{{- $declared := false }}
+{{- range $field := $sources }}{{- if index $auth $field }}{{- $declared = true }}{{- end }}{{- end }}
+{{- if not $declared }}
+{{- fail (printf "kedaTriggerAuthentications.%s declares no credential source (one of: %s)" $name (join ", " $sources)) }}
+{{- end }}
+---
+apiVersion: keda.sh/v1alpha1
+kind: TriggerAuthentication
+metadata:
+  name: {{ include "global-chart.kedaTriggerAuthName" (dict "root" $root "name" $name) | quote }}
+  labels:
+    {{- include "global-chart.labels" $root | nindent 4 }}
+  {{- with (include "global-chart.renderCommonAnnotations" $root) }}
+  annotations:
+    {{- . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- range $field := $sources }}
+  {{- with index $auth $field }}
+  {{ $field }}:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- end }}
+{{- end }}
+{{- end }}

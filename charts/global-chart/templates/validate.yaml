@@ -5,3 +5,4 @@
 */ -}}
 {{- include "global-chart.validateNameCollisions" . -}}
 {{- include "global-chart.validateRoutingConflict" . -}}
+{{- include "global-chart.validateAutoscalingConflict" . -}}

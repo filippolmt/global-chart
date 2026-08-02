@@ -6,7 +6,7 @@ Validation helpers for global-chart.
 Validate that all generated resource names are unique after truncation.
 Checks within each resource kind: Deployments, CronJobs, Jobs (hooks),
 hook-prerequisite ConfigMaps, and hook-prerequisite Secrets.
-Note: per-deployment resources (Service, SA, ConfigMap, Secret, HPA, PDB, NetworkPolicy)
+Note: per-deployment resources (Service, SA, ConfigMap, Secret, HPA, ScaledObject, PDB, NetworkPolicy)
 share the same name as the Deployment itself and are covered by the deployment name check.
 Called from validate.yaml.
 */}}
@@ -118,5 +118,26 @@ Called from validate.yaml. Emits nothing on success.
 {{- $rtEnabled := default false $rt.enabled -}}
 {{- if and $ingEnabled $rtEnabled -}}
 {{- fail "Both .Values.ingress.enabled and .Values.httpRoute.enabled are true. The chart supports only one routing layer per release. Disable one (set enabled: false) to proceed." -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+Validate that a deployment does not enable both the native HPA and KEDA.
+KEDA creates and owns its own HorizontalPodAutoscaler (the *derived HPA*) for
+every ScaledObject, so a chart-rendered HPA on the same Deployment gives two
+controllers writing spec.replicas.
+Called from validate.yaml. Emits nothing on success.
+*/}}
+{{- define "global-chart.validateAutoscalingConflict" -}}
+{{- range $name, $deploy := .Values.deployments -}}
+  {{- if $deploy -}}
+  {{- if eq (include "global-chart.deploymentEnabled" (dict "deploy" $deploy)) "true" -}}
+    {{- $hpa := default (dict) $deploy.autoscaling -}}
+    {{- $keda := default (dict) $deploy.keda -}}
+    {{- if and $hpa.enabled $keda.enabled -}}
+      {{- fail (printf "deployments.%s: autoscaling.enabled and keda.enabled are mutually exclusive. KEDA creates and owns its own HorizontalPodAutoscaler for the ScaledObject; a chart-rendered HPA on the same Deployment would fight it. Disable one of the two." $name) -}}
+    {{- end -}}
+  {{- end -}}
+  {{- end -}}
 {{- end -}}
 {{- end }}

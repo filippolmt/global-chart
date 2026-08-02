@@ -1,6 +1,6 @@
 # global-chart
 
-![Version: 2.2.0](https://img.shields.io/badge/Version-2.2.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square)
+![Version: 2.3.0](https://img.shields.io/badge/Version-2.3.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square)
 
 Reusable Helm chart providing common building blocks—Deployments, Services, Ingress, Jobs, and more—for broadly adaptable Kubernetes applications.
 
@@ -52,6 +52,7 @@ Kubernetes: `>=1.19.0-0`
 | cronJobs | object | `{}` | CronJobs configuration (map of named cronJobs). Can also be defined inside deployments to inherit image, configMap, secret, SA. |
 | hooks | object | `{}` | Hook jobs for chart lifecycle (install/upgrade). Can also be defined inside deployments to inherit image, configMap, secret, SA. |
 | externalSecrets | object | `{}` | ExternalSecrets definitions for secret management |
+| kedaTriggerAuthentications | object | `{}` | KEDA TriggerAuthentication definitions, shared by the triggers of any deployment. Rendered as `{release}-{chart}-{key}`; reference them from a trigger by their key here and the chart resolves the full name. |
 | defaults | object | `{"resources":{"requests":{"cpu":"100m","memory":"128Mi"}}}` | Default resource settings for CronJobs and Hooks when not specified per-job |
 | rbacs | object | `{"roles":[]}` | RBAC configuration: create multiple service accounts, roles and rolebindings |
 | rbacs.roles | list | `[]` | Set serviceAccount.create to false to bind to an existing account without creating it. |
