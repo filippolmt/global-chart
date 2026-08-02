@@ -50,9 +50,16 @@ window is 00:00–23:59 UTC, so a run started in the one blind minute before
 midnight UTC will fail the scale assertion.
 
 `make e2e` also runs in CI as its own job in `.github/workflows/helm-ci.yml`
-(~2 min). Hook bodies there **assert** their environment instead of echoing it
-— `echo` exits 0 whatever the prereq copies contain, which would make the
-"hook Job succeeded" assertion vacuous.
+(~2 min). Two things about it are deliberate and easy to undo by accident:
+
+- Hook bodies **assert** their environment instead of echoing it — `echo` exits
+  0 whatever the prereq copies contain, which would make the "hook Job
+  succeeded" assertion vacuous.
+- One `pre-install` hook carries `weight: "-5"`, which drives the derived prereq
+  weights negative (-12 and -10). That is the only runtime coverage of the
+  never-floor-at-0 rule in pattern 6 above: with a floor, the prereq ConfigMap
+  sorts after the Job and the Job starts without it. Keep a negative-weight hook
+  in the scenario.
 Extend `tests/e2e/values.yaml` and the assertion block in the `e2e` target when
 adding runtime behaviour.
 

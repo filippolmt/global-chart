@@ -297,9 +297,12 @@ e2e: kind-cluster kind-keda ## Install/upgrade/uninstall tests/e2e/values.yaml o
 	echo "    release deployed"; \
 	kubectl -n $$ns get job -o name | grep -q pre-install \
 		|| { echo "FAIL: pre-install hook Job missing"; exit 1; }; \
-	[ "$$(kubectl -n $$ns get job -l app.kubernetes.io/component=app-hook -o jsonpath='{.items[0].status.succeeded}')" = "1" ] \
-		|| { echo "FAIL: pre-install hook Job did not succeed (issue #71 regression)"; exit 1; }; \
-	echo "    pre-install hook ran under the chart-created ServiceAccount"; \
+	for hook in migration early; do \
+		[ "$$(kubectl -n $$ns get job $$rel-$(GLOBAL_CHART_NAME)-app-pre-install-$$hook -o jsonpath='{.status.succeeded}' 2>/dev/null)" = "1" ] \
+			|| { echo "FAIL: pre-install hook Job '$$hook' did not succeed (issue #71 regression)"; exit 1; }; \
+	done; \
+	echo "    both pre-install hooks ran under the chart-created ServiceAccount"; \
+	echo "    the negative-weight hook found its prerequisite ConfigMap (weight invariant holds)"; \
 	kubectl -n $$ns get sa $$rel-$(GLOBAL_CHART_NAME)-app -o jsonpath='{.metadata.annotations}' | grep -q 'helm.sh/hook' \
 		&& { echo "FAIL: the surviving SA is the hook copy, not the real one"; exit 1; } || true; \
 	echo "    hook-prerequisite SA copy cleaned up, real SA in place"; \

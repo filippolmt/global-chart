@@ -45,6 +45,15 @@ deployments:
         migration:
           command: ["sh", "-c"]
           args: ['[ "$FOO" = bar ] && [ "$DB_PASSWORD" = supersecret ]']
+        # Negative weight on purpose. minJobWeight becomes -5, so the derived
+        # prereq ConfigMap/Secret land at -12 and the SA copy at -10. Were those
+        # ever floored at 0 they would sort AFTER this Job, which would then
+        # start without the ConfigMap it reads. Guards the weight invariant in
+        # CLAUDE.md pattern 6 at runtime, where helm-unittest cannot see it.
+        early:
+          weight: "-5"
+          command: ["sh", "-c"]
+          args: ['[ "$FOO" = bar ]']
       pre-upgrade:
         migration:
           command: ["sh", "-c"]
