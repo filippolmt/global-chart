@@ -68,7 +68,7 @@ jobs:
           version: v4.2.3
 
       - name: Set up kubectl
-        uses: azure/setup-kubectl@v4
+        uses: azure/setup-kubectl@v5
 
       # Downloads kind into .bin/, creates a throwaway cluster, installs KEDA,
       # then runs the install/upgrade/uninstall assertions.
