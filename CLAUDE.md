@@ -48,6 +48,11 @@ derived HPA is garbage-collected with its ScaledObject.
 The `cron` trigger is deliberate: no network, no external metric source. Its
 window is 00:00–23:59 UTC, so a run started in the one blind minute before
 midnight UTC will fail the scale assertion.
+
+`make e2e` also runs in CI as its own job in `.github/workflows/helm-ci.yml`
+(~2 min). Hook bodies there **assert** their environment instead of echoing it
+— `echo` exits 0 whatever the prereq copies contain, which would make the
+"hook Job succeeded" assertion vacuous.
 Extend `tests/e2e/values.yaml` and the assertion block in the `e2e` target when
 adding runtime behaviour.
 

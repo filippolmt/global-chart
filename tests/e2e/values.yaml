@@ -38,14 +38,17 @@ deployments:
     secret:
       DB_PASSWORD: supersecret
     hooks:
+      # The hook asserts the values rather than echoing them: `echo` exits 0
+      # whatever the env holds, so an empty FOO would still have marked the Job
+      # succeeded. A non-zero exit here fails the hook, and with it the release.
       pre-install:
         migration:
           command: ["sh", "-c"]
-          args: ["echo migrating FOO=$FOO DB_PASSWORD=$DB_PASSWORD"]
+          args: ['[ "$FOO" = bar ] && [ "$DB_PASSWORD" = supersecret ]']
       pre-upgrade:
         migration:
           command: ["sh", "-c"]
-          args: ["echo upgrading FOO=$FOO"]
+          args: ['[ "$FOO" = bar ]']
 
   worker:
     image: busybox:1.36
