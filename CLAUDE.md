@@ -83,7 +83,7 @@ When schema or user-visible values change (new fields, defaults, descriptions), 
    - **Not inheritable**: `command` / `args`. A deployment-level hook or cronjob never picks up its parent's entrypoint — a migration hook inheriting `python -m app.worker` would silently run the worker. Locked by regression tests in `hook_test.yaml` / `cronjob_test.yaml`
    - **Asymmetry**: Root-level `.Values.cronJobs` and `.Values.hooks` do NOT auto-inherit anything from deployments — they are standalone. Reference deployment ConfigMaps/Secrets explicitly via `envFromConfigMaps` / `envFromSecrets` (or use `fromDeployment` for image only). Only `.Values.deployments.<name>.cronJobs` and `.Values.deployments.<name>.hooks` auto-inherit.
 6. **Hook weight ordering**: `prereq ConfigMap/Secret (w-7) < SA (w-5) < Job (w)`, derived from effective Job weight (default 10). `minJobWeight` across all hooks per deployment determines prereq weight. Derived weights are **never floored at 0** — Helm allows negative hook weights, and clamping a prereq to 0 would sort it *after* a Job whose weight is negative, which is the exact ordering failure the invariant exists to prevent
-7. **Hook prerequisite resources** (*hook-prerequisite copies*, see `CONTEXT.md`): Deployment ConfigMap/Secret are duplicated as hook-annotated resources because normal resources aren't updated until after hooks complete. The deployment ServiceAccount gets the same treatment, but **only for `pre-install`** and with delete policy `hook-succeeded,hook-failed` instead of `before-hook-creation` — the copy shares the real SA's name and must be gone before Helm creates it. See `docs/adr/0002-hook-prerequisite-serviceaccount-copy.md` before touching it
+7. **Hook prerequisite resources** (*hook-prerequisite copies*): Deployment ConfigMap/Secret are duplicated as hook-annotated resources because normal resources aren't updated until after hooks complete. The deployment ServiceAccount gets the same treatment, but **only for `pre-install`** and with delete policy `hook-succeeded,hook-failed` instead of `before-hook-creation` — the copy shares the real SA's name and must be gone before Helm creates it. See `docs/adr/0002-hook-prerequisite-serviceaccount-copy.md` before touching it
 8. **Hook resources clean themselves up**: hook resources are not part of the release manifest, so Helm never deletes them at uninstall. Plumbing (prereq ConfigMap/Secret, chart-created hook SAs) therefore defaults to `before-hook-creation,hook-succeeded` — the prereq Secret in particular holds the deployment's secret data and must not survive the release. Hook **Jobs** keep the plain `before-hook-creation` default on purpose: a completed hook Job is the record of what ran. All of them still honour an explicit `deletePolicy` on the hook
 9. **Global fallback chains**: job > deployment > global, using `hasKey` at every level. Explicit `[]` stops fallback
 10. **Schema**: `values.schema.json` validates during install/upgrade/lint. Does NOT use `required` on `mountedConfigFiles` items (templates handle runtime validation to allow `failedTemplate` tests)
@@ -156,6 +156,11 @@ imagePullSecrets:
 **Every template must have a corresponding `*_test.yaml`** in `charts/global-chart/tests/`
 
 ## Agent skills
+
+`CONTEXT.md` (glossario di dominio) e `docs/agents/` sono gitignorati: esistono
+solo sulla macchina di chi sviluppa, non nel repo. I riferimenti qui sotto
+funzionano in locale; se i file non ci sono, salta la sezione. `docs/adr/`
+invece è tracciato — è linkato da `CHANGELOG.md` e da `hook.yaml`.
 
 ### Issue tracker
 
