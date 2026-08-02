@@ -33,6 +33,7 @@ KIND_KUBECONFIG := $(CURDIR)/.bin/kind-kubeconfig
 # tracks the operator version.
 # HELM_REPOSITORY_* are pinned into .bin/ for the same reason KIND_KUBECONFIG is:
 # a make target must not write to the developer's helm configuration.
+# renovate: datasource=helm depName=keda registryUrl=https://kedacore.github.io/charts
 KEDA_VERSION := 2.20.2
 KEDA_REPO_URL := https://kedacore.github.io/charts
 KEDA_NAMESPACE := keda
