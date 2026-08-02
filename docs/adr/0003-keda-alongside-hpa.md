@@ -65,3 +65,6 @@ existing `autoscaling` users.
 - The KEDA templates require the `keda.sh/v1alpha1` CRDs. Offline rendering
   needs `--api-versions keda.sh/v1alpha1`; see `_keda-helpers.tpl` and the
   `HELM_API_VERSIONS` variable in the Makefile.
+- `make e2e` installs the KEDA operator into its kind cluster, so the whole
+  chain — trigger, derived HPA, scaled Deployment — is exercised rather than
+  assumed. It costs about a minute of image pulls per fresh cluster.

@@ -32,15 +32,22 @@ resource exists at the moment a hook Job schedules. Anything touching
 `make e2e`.
 
 `make e2e` downloads `kind` into `.bin/` (gitignored), creates a throwaway
-cluster, applies the KEDA **CRDs only** (`kind-keda-crds` — no operator: the
-target asserts this chart's runtime behaviour, not KEDA's reconciliation),
-installs `tests/e2e/values.yaml`, then asserts: release deployed →
+cluster, installs KEDA (operator + CRDs, `kind-keda`) so the whole autoscaling
+chain is exercised for real, installs `tests/e2e/values.yaml`, then asserts:
+release deployed →
 pre-install hook Job succeeded under the chart-created SA → the surviving SA is
 the real one, not the hook copy → deployment `command`/`args` rendered →
 ScaledObject/TriggerAuthentication applied with the `authenticationRef` resolved
-→ upgrade kept the SA UID → upgrade did **not** reset `spec.replicas` on the
-KEDA-scaled Deployment → uninstall leaves no orphaned
-ConfigMap/Secret/ServiceAccount/ScaledObject/TriggerAuthentication.
+→ KEDA marked the ScaledObject `Ready` and created the derived HPA with the
+rendered bounds → the `cron` trigger actually scaled the Deployment to its
+`desiredReplicas` → upgrade kept the SA UID → upgrade did **not** reset
+`spec.replicas` on the KEDA-scaled Deployment → uninstall leaves no orphaned
+ConfigMap/Secret/ServiceAccount/ScaledObject/TriggerAuthentication, and the
+derived HPA is garbage-collected with its ScaledObject.
+
+The `cron` trigger is deliberate: no network, no external metric source. Its
+window is 00:00–23:59 UTC, so a run started in the one blind minute before
+midnight UTC will fail the scale assertion.
 Extend `tests/e2e/values.yaml` and the assertion block in the `e2e` target when
 adding runtime behaviour.
 

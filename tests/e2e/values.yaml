@@ -57,7 +57,9 @@ deployments:
       enabled: true
       minReplicaCount: 1
       maxReplicaCount: 10
-      # cron needs no network and no external metric source
+      # cron needs no network and no external metric source. The window runs
+      # 00:00–23:59 UTC: a run started in the 23:59–00:00 minute would find the
+      # trigger inactive and the scale-to-3 assertion would fail.
       triggers:
         - type: cron
           metadata:
