@@ -51,7 +51,7 @@ Kubernetes: `>=1.19.0-0`
 | httpRoute.rules | list | `[]` | Routing rules. Each rule may declare matches, filters, backendRefs, timeouts. backendRefs accept either `deployment: <name>` (resolves to the chart-managed Service) or `service: { name, port }` for an external Service. |
 | cronJobs | object | `{}` | CronJobs configuration (map of named cronJobs). Can also be defined inside deployments to inherit image, configMap, secret, SA. |
 | hooks | object | `{}` | Hook jobs for chart lifecycle (install/upgrade). Can also be defined inside deployments to inherit image, configMap, secret, SA. |
-| externalSecrets | object | `{}` | ExternalSecrets definitions for secret management |
+| externalSecrets | object | `{}` | ExternalSecrets definitions for secret management. Each entry renders one ExternalSecret. The `remote` map (single-key form) and each `data[].remote` accept `key`, `property` (a gjson path selecting one key out of a JSON payload), `version` (string or number, quoted on render), `conversionStrategy`, `decodingStrategy` and `metadataPolicy`. `dataFrom` is rendered verbatim. |
 | kedaTriggerAuthentications | object | `{}` | KEDA TriggerAuthentication definitions, shared by the triggers of any deployment. Rendered as `{release}-{chart}-{key}`; reference them from a trigger by their key here and the chart resolves the full name. |
 | defaults | object | `{"resources":{"requests":{"cpu":"100m","memory":"128Mi"}}}` | Default resource settings for CronJobs and Hooks when not specified per-job |
 | rbacs | object | `{"roles":[]}` | RBAC configuration: create multiple service accounts, roles and rolebindings |

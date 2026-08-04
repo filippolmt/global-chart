@@ -442,7 +442,11 @@ hooks: {}
   #     weight: "10"
   #     deletePolicy: before-hook-creation
 
-# -- ExternalSecrets definitions for secret management
+# -- ExternalSecrets definitions for secret management. Each entry renders one
+# ExternalSecret. The `remote` map (single-key form) and each `data[].remote`
+# accept `key`, `property` (a gjson path selecting one key out of a JSON
+# payload), `version` (string or number, quoted on render), `conversionStrategy`,
+# `decodingStrategy` and `metadataPolicy`. `dataFrom` is rendered verbatim.
 externalSecrets: {}
   # Single-key form (one remote key -> one Secret key):
   # single:

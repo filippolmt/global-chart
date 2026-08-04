@@ -30,8 +30,13 @@ externalSecrets:
 
   Unlike the three strategy fields the chart applies no default to either — ESO
   defaults them at the CRD level — so both are omitted from the rendered
-  `remoteRef` when unset. `dataFrom[].extract` already accepted both, since it is
-  rendered verbatim. Additive and backwards compatible.
+  `remoteRef` when the key is absent. Presence is decided by `hasKey`, not
+  truthiness: an explicit `property: ""` is the user's input and is passed
+  through rather than silently dropped. `version` accepts a string or a number
+  and is quoted on render, so the natural `version: 3` works as well as
+  `version: "3"` — the same leniency `image.tag` already has.
+  `dataFrom[].extract` already accepted both, since it is rendered verbatim.
+  Additive and backwards compatible.
 
 ---
 
