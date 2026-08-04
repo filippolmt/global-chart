@@ -702,7 +702,9 @@
         "key": { "type": "string" },
         "conversionStrategy": { "type": "string" },
         "decodingStrategy": { "type": "string" },
-        "metadataPolicy": { "type": "string" }
+        "metadataPolicy": { "type": "string" },
+        "property": { "type": "string" },
+        "version": { "type": ["string", "number"] }
       },
       "additionalProperties": false
     },

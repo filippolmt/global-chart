@@ -442,7 +442,11 @@ hooks: {}
   #     weight: "10"
   #     deletePolicy: before-hook-creation
 
-# -- ExternalSecrets definitions for secret management
+# -- ExternalSecrets definitions for secret management. Each entry renders one
+# ExternalSecret. The `remote` map (single-key form) and each `data[].remote`
+# accept `key`, `property` (a gjson path selecting one key out of a JSON
+# payload), `version` (string or number, quoted on render), `conversionStrategy`,
+# `decodingStrategy` and `metadataPolicy`. `dataFrom` is rendered verbatim.
 externalSecrets: {}
   # Single-key form (one remote key -> one Secret key):
   # single:
@@ -458,6 +462,16 @@ externalSecrets: {}
   #   data:
   #     - { secretkey: DB_PASSWORD, remote: { key: MY_DB_PASSWORD } }
   #     - { secretkey: API_TOKEN,  remote: { key: MY_API_TOKEN } }
+  #
+  # remote.property picks a single key out of a remote secret whose payload is a
+  # JSON bundle (it is a gjson path); remote.version pins a specific version of
+  # the remote secret instead of the provider default. Both are omitted from the
+  # rendered remoteRef when unset:
+  # app-bundle:
+  #   secretstore: { kind: ClusterSecretStore, name: gcp-store }
+  #   data:
+  #     - { secretkey: DB_PASSWORD, remote: { key: apps/prod/bundle, property: db_password } }
+  #     - { secretkey: API_TOKEN,   remote: { key: apps/prod/bundle, property: api_token, version: "3" } }
   #
   # dataFrom form (extract / find), rendered verbatim:
   # app-bulk:

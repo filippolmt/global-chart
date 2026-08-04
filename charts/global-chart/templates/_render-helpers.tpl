@@ -192,12 +192,16 @@ Output: JSON string of the form {"name":"<svc>","port":<int>}
 {{- end }}
 
 {{/*
-Render an ExternalSecret remoteRef block (the four strategy/key fields), shared
-by both the data-list and single-key branches of externalsecret.yaml so their
-defaults can never drift.
+Render an ExternalSecret remoteRef block, shared by both the data-list and
+single-key branches of externalsecret.yaml so their defaults can never drift.
+`property` and `version` carry no chart-side default — ESO defaults them at the
+CRD level — so they are emitted only when the key is present, keyed on `hasKey`
+rather than truthiness: an explicit empty string is the user's input and is
+passed through, not silently dropped. `version` goes through `quote` because the
+schema accepts a number for it (`version: 3`) while the CRD wants a string.
 Usage: {{- include "global-chart.renderExternalSecretRemoteRef" (dict "remote" $remote "keyError" (printf "externalSecrets.%s.remote.key is mandatory" $name)) | nindent 8 }}
 Inputs (dict):
-  - remote    (required) — the remote map (key + optional conversion/decoding/metadata strategies)
+  - remote    (required) — the remote map (key + optional conversion/decoding/metadata strategies, property, version)
   - keyError  (required) — fail message when remote.key is missing (caller supplies the exact path)
 */}}
 {{- define "global-chart.renderExternalSecretRemoteRef" -}}
@@ -206,4 +210,10 @@ conversionStrategy: {{ ternary $remote.conversionStrategy "Default" (hasKey $rem
 decodingStrategy: {{ ternary $remote.decodingStrategy "None" (hasKey $remote "decodingStrategy") | quote }}
 key: {{ required .keyError $remote.key | quote }}
 metadataPolicy: {{ ternary $remote.metadataPolicy "None" (hasKey $remote "metadataPolicy") | quote }}
+{{- if hasKey $remote "property" }}
+property: {{ $remote.property | quote }}
+{{- end }}
+{{- if hasKey $remote "version" }}
+version: {{ $remote.version | quote }}
+{{- end }}
 {{- end }}
