@@ -464,6 +464,24 @@ externalSecrets: {}
   #   secretstore: { kind: ClusterSecretStore, name: my-store }
   #   dataFrom:
   #     - find: { name: { regexp: "^APP_.*" } }
+  #
+  # generator form: every dataFrom entry carries its own sourceRef
+  # (generatorRef, or a per-item storeRef), so secretstore is not required.
+  # target.template shapes the resulting Secret; it is passed through verbatim,
+  # so ESO's own templating functions survive untouched:
+  # basicauth:
+  #   dataFrom:
+  #     - sourceRef:
+  #         generatorRef:
+  #           apiVersion: generators.external-secrets.io/v1alpha1
+  #           kind: Password
+  #           name: stage-basicauth
+  #   target:
+  #     immutable: false
+  #     template:
+  #       engineVersion: v2
+  #       data:
+  #         .htpasswd: '{{ htpasswd "stage" .password "bcrypt" }}'
 
 # -- KEDA TriggerAuthentication definitions, shared by the triggers of any
 # deployment. Rendered as `{release}-{chart}-{key}`; reference them from a

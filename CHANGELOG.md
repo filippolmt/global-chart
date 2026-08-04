@@ -5,6 +5,57 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ---
 
+## [2.4.0] — 2026-08-03
+
+### Added
+
+- `externalSecrets.<name>.target.template` and `.target.immutable`. `template`
+  is passed through verbatim, so ESO's own templating survives untouched and the
+  chart cannot drift from the upstream schema — this is what shapes a generated
+  value into the file a workload expects:
+
+```yaml
+    target:
+      immutable: false
+      template:
+        engineVersion: v2
+        data:
+          .htpasswd: '{{ htpasswd "stage" .password "bcrypt" }}'
+```
+
+  `target.manifest` is deliberately not exposed: it creates a custom resource
+  *instead of* a Secret, so its interaction with the always-emitted `target.name`
+  and `creationPolicy` needs runtime verification against ESO that the current
+  e2e cluster (KEDA only) cannot provide.
+
+### Fixed
+
+- `externalSecrets.<name>.secretstore` is no longer mandatory when every
+  `dataFrom` entry carries its own `sourceRef`. The chart demanded a
+  spec-level store on every ExternalSecret, but `secretStoreRef` is optional in
+  the CRD: an ExternalSecret backed by an ESO *generator* has no store to point
+  at, and one whose entries each carry a per-item `sourceRef.storeRef` already
+  resolves its own. Both forms were unrenderable.
+
+```yaml
+externalSecrets:
+  basicauth:
+    # no secretstore: the generator produces the value
+    dataFrom:
+      - sourceRef:
+          generatorRef:
+            apiVersion: generators.external-secrets.io/v1alpha1
+            kind: Password
+            name: stage-basicauth
+```
+
+  The store stays mandatory for every other form. A `dataFrom` where only some
+  entries carry a `sourceRef` still fails, and so does an empty `dataFrom: []` —
+  it has no entry that could resolve a store, and letting it through would
+  render a store-less, data-less ExternalSecret.
+
+---
+
 ## [2.3.0] — 2026-08-02
 
 ### Added
