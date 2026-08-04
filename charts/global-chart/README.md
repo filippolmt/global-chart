@@ -1,6 +1,6 @@
 # global-chart
 
-![Version: 2.4.0](https://img.shields.io/badge/Version-2.4.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square)
+![Version: 2.5.0](https://img.shields.io/badge/Version-2.5.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square)
 
 Reusable Helm chart providing common building blocks—Deployments, Services, Ingress, Jobs, and more—for broadly adaptable Kubernetes applications.
 

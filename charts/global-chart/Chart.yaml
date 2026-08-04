@@ -15,7 +15,7 @@ type: application
 # This is the chart version. This version number should be incremented each time you make changes
 # to the chart and its templates.
 # Versions are expected to follow Semantic Versioning (https://semver.org/)
-version: 2.4.0
+version: 2.5.0
 
 # appVersion is intentionally omitted: this is a generic, reusable chart that
 # deploys arbitrary workloads, so there is no single application version to pin.
