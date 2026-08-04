@@ -5,6 +5,36 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ---
 
+## [Unreleased]
+
+### Added
+
+- `property` and `version` on `externalSecrets.<name>.remote` and
+  `externalSecrets.<name>.data[].remote`. `property` is a gjson path that selects
+  a single key out of a remote secret whose payload is a JSON bundle — previously
+  the only way to get one key out of a bundle was to pull the whole thing and
+  reshape it with `target.template` + `fromJson`. `version` pins a version of the
+  remote secret instead of the provider default (`latest` on Google Secret
+  Manager):
+
+```yaml
+externalSecrets:
+  app:
+    secretstore: { kind: ClusterSecretStore, name: gcp-store }
+    data:
+      - secretkey: DB_PASSWORD
+        remote: { key: apps/prod/bundle, property: db_password }
+      - secretkey: API_TOKEN
+        remote: { key: apps/prod/bundle, property: api_token, version: "3" }
+```
+
+  Unlike the three strategy fields the chart applies no default to either — ESO
+  defaults them at the CRD level — so both are omitted from the rendered
+  `remoteRef` when unset. `dataFrom[].extract` already accepted both, since it is
+  rendered verbatim. Additive and backwards compatible.
+
+---
+
 ## [2.4.0] — 2026-08-03
 
 ### Added
