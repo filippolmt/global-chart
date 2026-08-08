@@ -310,6 +310,22 @@ e2e: kind-cluster kind-keda ## Install/upgrade/uninstall tests/e2e/values.yaml o
 	[ "$$(kubectl -n $$ns get deploy $$rel-$(GLOBAL_CHART_NAME)-app -o jsonpath='{.spec.template.spec.containers[0].command}')" = '["sh","-c"]' ] \
 		|| { echo "FAIL: deployment command not rendered (issue #72 regression)"; exit 1; }; \
 	echo "    deployment command/args rendered"; \
+	echo "==> Waiting for Service endpoints..."; \
+	for d in app web; do \
+		kubectl -n $$ns rollout status deploy/$$rel-$(GLOBAL_CHART_NAME)-$$d --timeout=180s >/dev/null \
+			|| { echo "FAIL: deployment '$$d' never became available"; exit 1; }; \
+		kubectl -n $$ns wait --for=jsonpath='{.endpoints[0].conditions.ready}'=true \
+			endpointslice -l kubernetes.io/service-name=$$rel-$(GLOBAL_CHART_NAME)-$$d --timeout=120s >/dev/null \
+			|| { echo "FAIL: Service '$$d' never got a ready endpoint"; exit 1; }; \
+	done; \
+	for expected in app:admin=8081 web:api=8080 web:metrics=9090 web:metrics-alias=9090; do \
+		d=$${expected%%:*}; pair=$${expected#*:}; \
+		kubectl -n $$ns get endpointslice -l kubernetes.io/service-name=$$rel-$(GLOBAL_CHART_NAME)-$$d \
+			-o jsonpath='{range .items[*].ports[*]}{.name}={.port}{"\n"}{end}' | grep -qx "$$pair" \
+			|| { echo "FAIL: Service '$$d' port '$${pair%%=*}' resolved to no endpoint port $${pair#*=} (issue #82 regression)"; \
+			     kubectl -n $$ns get endpointslice -l kubernetes.io/service-name=$$rel-$(GLOBAL_CHART_NAME)-$$d -o yaml; exit 1; }; \
+	done; \
+	echo "    every Service targetPort resolved to a container port and got endpoints"; \
 	[ "$$(kubectl -n $$ns get scaledobject $$rel-$(GLOBAL_CHART_NAME)-worker -o jsonpath='{.spec.maxReplicaCount}')" = "10" ] \
 		|| { echo "FAIL: ScaledObject missing or maxReplicaCount not rendered"; exit 1; }; \
 	[ "$$(kubectl -n $$ns get scaledobject $$rel-$(GLOBAL_CHART_NAME)-worker -o jsonpath='{.spec.scaleTargetRef.name}')" = "$$rel-$(GLOBAL_CHART_NAME)-worker" ] \

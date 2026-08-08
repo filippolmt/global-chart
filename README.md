@@ -47,6 +47,42 @@ helm upgrade --install my-release global-chart/global-chart \
   --values path/to/values.yaml
 ```
 
+## Decide before the first install: the immutable selector
+
+A Deployment's `spec.selector` is immutable in Kubernetes. This chart builds it
+from three labels, and two of them are worth a decision *before* the release
+exists, because changing them later fails the upgrade:
+
+| Selector label | Value | Changed by |
+|----------------|-------|------------|
+| `app.kubernetes.io/name` | the **chart** name, `global-chart` | `nameOverride` |
+| `app.kubernetes.io/instance` | the release name | `helm upgrade --install <name>` |
+| `app.kubernetes.io/component` | the key under `deployments` | renaming that key |
+
+`app.kubernetes.io/name` defaults to the chart name rather than to your
+application's name — that is what a generic chart knows about itself. The
+application's identity lives in `helm.sh/chart`, the release name, and the
+deployment key. If you want the conventional per-application value, set
+`nameOverride` at the first install:
+
+```yaml
+nameOverride: dify   # app.kubernetes.io/name: dify, instead of global-chart
+```
+
+Setting or changing it on a release that already exists produces:
+
+```
+Deployment.apps "dify-api" is invalid: spec.selector: ... field is immutable
+```
+
+The only way through is to delete the Deployment and let Helm recreate it
+(safe for stateless workloads, a real outage window for everything else). The
+same applies to renaming a key under `deployments`: `web` → `frontend` orphans
+the old Deployment and creates a new one.
+
+Adopting a workload that another chart already manages hits the same wall
+whenever the two selectors differ — no chart can adopt an arbitrary selector.
+
 ## Example: Multi-deployment with inherited hooks/cronJobs
 
 ```yaml

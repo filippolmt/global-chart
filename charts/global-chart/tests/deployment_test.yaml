@@ -313,6 +313,205 @@ tests:
           path: spec.template.spec.containers[0].resources.limits.memory
           value: 512Mi
 
+  # ====== container port (issue #82) ======
+  - it: should default containerPort to service.port
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          service:
+            port: 8080
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].ports[0].containerPort
+          value: 8080
+
+  - it: should default containerPort to 80 when service.port is unset
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].ports[0].containerPort
+          value: 80
+
+  - it: should derive containerPort from a numeric service.targetPort
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          service:
+            port: 80
+            targetPort: 8080
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].ports[0].containerPort
+          value: 8080
+      - equal:
+          path: spec.template.spec.containers[0].ports[0].name
+          value: http
+
+  - it: should fall back to service.port when service.targetPort is a port name
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          service:
+            port: 8080
+            targetPort: http
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].ports[0].containerPort
+          value: 8080
+
+  - it: should name the derived containerPort with service.portName
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          service:
+            port: 80
+            targetPort: 9000
+            portName: api
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].ports[0].containerPort
+          value: 9000
+      - equal:
+          path: spec.template.spec.containers[0].ports[0].name
+          value: api
+
+  - it: should name the primary container port after service.portName and target it by default
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          service:
+            port: 8080
+            portName: api
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].ports[0].name
+          value: api
+      - equal:
+          path: spec.template.spec.containers[0].ports[0].containerPort
+          value: 8080
+
+  - it: should declare a container port for every numeric extraPorts targetPort
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          service:
+            port: 8069
+            portName: odoo
+            extraPorts:
+              - name: gevent
+                port: 8072
+                targetPort: 8072
+                protocol: TCP
+    asserts:
+      - lengthEqual:
+          path: spec.template.spec.containers[0].ports
+          count: 2
+      - equal:
+          path: spec.template.spec.containers[0].ports[1].name
+          value: gevent
+      - equal:
+          path: spec.template.spec.containers[0].ports[1].containerPort
+          value: 8072
+      - equal:
+          path: spec.template.spec.containers[0].ports[1].protocol
+          value: TCP
+
+  - it: should not declare a container port for a named extraPorts targetPort
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          service:
+            port: 8069
+            portName: odoo
+            extraPorts:
+              - name: gevent
+                port: 8072
+                targetPort: 8072
+              - name: ws
+                port: 8073
+                targetPort: gevent
+    asserts:
+      - lengthEqual:
+          path: spec.template.spec.containers[0].ports
+          count: 2
+
+  - it: should not declare a duplicate container port when extraPorts repeats the primary port
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          service:
+            port: 8069
+            extraPorts:
+              - name: same-number
+                port: 9000
+                targetPort: 8069
+    asserts:
+      - lengthEqual:
+          path: spec.template.spec.containers[0].ports
+          count: 1
+      - equal:
+          path: spec.template.spec.containers[0].ports[0].name
+          value: http
+
+  - it: should declare the same port number twice when the protocols differ
+    set:
+      deployments:
+        main:
+          image: coredns:1.11
+          service:
+            port: 53
+            portName: dns-tcp
+            targetPort: 53
+            protocol: TCP
+            extraPorts:
+              - name: dns-udp
+                port: 53
+                targetPort: 53
+                protocol: UDP
+    asserts:
+      - lengthEqual:
+          path: spec.template.spec.containers[0].ports
+          count: 2
+      - equal:
+          path: spec.template.spec.containers[0].ports[1].name
+          value: dns-udp
+      - equal:
+          path: spec.template.spec.containers[0].ports[1].containerPort
+          value: 53
+      - equal:
+          path: spec.template.spec.containers[0].ports[1].protocol
+          value: UDP
+
+  - it: should not declare a duplicate container port when extraPorts repeats the primary name
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          service:
+            port: 8069
+            extraPorts:
+              - name: http
+                port: 9000
+                targetPort: 9000
+    asserts:
+      - lengthEqual:
+          path: spec.template.spec.containers[0].ports
+          count: 1
+      - equal:
+          path: spec.template.spec.containers[0].ports[0].containerPort
+          value: 8069
+
   # ====== probes ======
   - it: should render liveness and readiness probes
     set:

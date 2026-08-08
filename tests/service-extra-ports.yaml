@@ -16,7 +16,14 @@ deployments:
           targetPort: 8072
           protocol: TCP
           appProtocol: http
+        # Numeric targetPort: the container declares port 9090 under this entry's
+        # name, so `metrics` becomes a name other ports may target.
         - name: metrics
           port: 9090
+          targetPort: 9090
+          protocol: TCP
+        # Named targetPort, resolving against the entry above.
+        - name: metrics-alias
+          port: 9191
           targetPort: metrics
           protocol: TCP

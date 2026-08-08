@@ -258,3 +258,75 @@ tests:
     asserts:
       - hasDocuments:
           count: 0
+
+  # ====== named service targetPort resolution (issue #82) ======
+  - it: should fail when service.targetPort names a port nothing declares
+    set:
+      deployments:
+        web:
+          image: nginx:1.25
+          service:
+            port: 8080
+            portName: api
+            targetPort: http
+    asserts:
+      - failedTemplate:
+          errorPattern: "deployments.web.service.targetPort names the port 'http', which no container port declares \\(declared: api\\)"
+
+  - it: should fail when an extraPorts targetPort names a port nothing declares
+    set:
+      deployments:
+        web:
+          image: nginx:1.25
+          service:
+            port: 8069
+            extraPorts:
+              - name: ws
+                port: 8072
+                targetPort: gevent
+    asserts:
+      - failedTemplate:
+          errorPattern: "deployments.web.service.extraPorts 'ws' has targetPort 'gevent', which no container port declares"
+
+  - it: should not fail when a named targetPort resolves to an extraPorts declaration
+    set:
+      deployments:
+        web:
+          image: nginx:1.25
+          service:
+            port: 8069
+            extraPorts:
+              - name: gevent
+                port: 8072
+                targetPort: 8072
+              - name: ws
+                port: 8073
+                targetPort: gevent
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should not fail when targetPort is omitted and portName is customised
+    set:
+      deployments:
+        web:
+          image: nginx:1.25
+          service:
+            port: 8080
+            portName: api
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should not validate target ports of a disabled service
+    set:
+      deployments:
+        web:
+          image: nginx:1.25
+          service:
+            enabled: false
+            portName: api
+            targetPort: http
+    asserts:
+      - hasDocuments:
+          count: 0

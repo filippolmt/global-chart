@@ -116,9 +116,11 @@ spec:
             {{- toYaml . | nindent 12 }}
           {{- end }}
           ports:
-            - name: {{ ternary $svc.portName "http" (hasKey $svc "portName") }}
-              containerPort: {{ ternary $svc.port 80 (hasKey $svc "port") }}
-              protocol: {{ (ternary $svc.protocol "TCP" (hasKey $svc "protocol")) | upper }}
+            {{- range (include "global-chart.containerPorts" $svc | fromJsonArray) }}
+            - name: {{ .name }}
+              containerPort: {{ .containerPort }}
+              protocol: {{ .protocol }}
+            {{- end }}
           {{- if $deploy.livenessProbe }}
           livenessProbe:
             {{- toYaml $deploy.livenessProbe | nindent 12 }}

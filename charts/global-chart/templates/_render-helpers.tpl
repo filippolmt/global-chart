@@ -217,3 +217,59 @@ property: {{ $remote.property | quote }}
 version: {{ $remote.version | quote }}
 {{- end }}
 {{- end }}
+
+{{/*
+Container ports for a deployment's pod spec, derived from its Service definition.
+Single source of truth for the pod side of the Service: deployment.yaml renders
+this list, and validateServiceTargetPorts checks named targetPorts against it,
+so the two can never drift — that drift is what made service.targetPort unusable
+(issue #82).
+
+The Service's targetPort decides the pod's port: a number IS the port, a name has
+to resolve to one of these entries. Every numeric targetPort under extraPorts is
+therefore declared here as well, named after its Service port, so that a named
+targetPort has something to bind to.
+
+Entries are deduplicated by name and by number+protocol. A numeric targetPort
+reaches a pod port whether or not the container declares it, so re-declaring an
+already-declared port would buy nothing and risk a duplicate name, which the API
+server rejects. The protocol is part of the key because the same number under
+two protocols is a distinct port — TCP and UDP on 53 is the ordinary DNS shape.
+Usage: {{ include "global-chart.containerPorts" $svc | fromJsonArray }}
+*/}}
+{{- define "global-chart.containerPorts" -}}
+{{- $svc := . -}}
+{{- $portName := ternary $svc.portName "http" (hasKey $svc "portName") -}}
+{{- $port := ternary $svc.port 80 (hasKey $svc "port") -}}
+{{- /* The default targetPort follows portName, not the literal "http": with a custom
+       portName and no targetPort, "http" would name a port nothing declares. */ -}}
+{{- $targetPort := ternary $svc.targetPort $portName (hasKey $svc "targetPort") -}}
+{{- $containerPort := kindIs "string" $targetPort | ternary $port $targetPort -}}
+{{- $protocol := ternary $svc.protocol "TCP" (hasKey $svc "protocol") | upper -}}
+{{- $ports := list (dict "name" $portName "containerPort" $containerPort "protocol" $protocol) -}}
+{{- $names := dict $portName true -}}
+{{- $numbers := dict (printf "%s/%s" (toString $containerPort) $protocol) true -}}
+{{- range (default (list) $svc.extraPorts) -}}
+  {{- if not (kindIs "string" .targetPort) -}}
+    {{- $extraProtocol := default "TCP" .protocol | upper -}}
+    {{- $key := printf "%s/%s" (toString .targetPort) $extraProtocol -}}
+    {{- if and (not (hasKey $names .name)) (not (hasKey $numbers $key)) -}}
+      {{- $ports = append $ports (dict "name" .name "containerPort" .targetPort "protocol" $extraProtocol) -}}
+      {{- $_ := set $names .name true -}}
+      {{- $_ := set $numbers $key true -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+{{- $ports | toJson -}}
+{{- end }}
+
+{{/*
+The effective targetPort of a Service's primary port: explicit when set,
+otherwise the port's own name. Shared by service.yaml and the validator so the
+default cannot drift from the name deployment.yaml gives the container port.
+Usage: {{ include "global-chart.serviceTargetPort" $svc }}
+*/}}
+{{- define "global-chart.serviceTargetPort" -}}
+{{- $svc := . -}}
+{{- ternary $svc.targetPort (ternary $svc.portName "http" (hasKey $svc "portName")) (hasKey $svc "targetPort") -}}
+{{- end }}

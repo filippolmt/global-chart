@@ -5,6 +5,87 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ---
 
+## [2.5.1] — 2026-08-08
+
+### Fixed
+
+- A numeric `deployments.<name>.service.targetPort` is now the container's
+  declared port ([#82]). It used to be accepted and then ignored: `containerPort`
+  came from `service.port`, so the only working configuration was
+  `targetPort == port`. The port *name* (`service.portName`, default `http`)
+  went with it, which is what actually broke — a probe or another Service
+  targeting the port by name resolved to a port the application does not listen
+  on, and the default `targetPort: http` resolved back to `service.port`,
+  undoing any attempt to point elsewhere.
+
+```yaml
+deployments:
+  web:
+    service:
+      port: 80          # Service exposes 80
+      targetPort: 8080  # container declares and names 8080
+```
+
+  Reviewing that fix turned up two more instances of the same defect — a Service
+  port whose `targetPort` names something no container port declares, which
+  Kubernetes accepts in silence and leaves without endpoints:
+
+- **`service.targetPort` no longer defaults to the literal `http`**, but to
+  `service.portName`. Setting only `portName: api` used to produce a Service
+  targeting `http` while the container port was named `api`, so a single option
+  was enough to get a Service with no endpoints.
+
+- **A numeric `targetPort` under `service.extraPorts` is now declared on the
+  container**, named after its Service port. Previously the pod declared exactly
+  one port, so a named `targetPort` in `extraPorts` could never resolve. Naming
+  them makes that form usable:
+
+```yaml
+extraPorts:
+  - { name: gevent, port: 8072, targetPort: 8072 }  # declares container port 8072 as "gevent"
+  - { name: ws,     port: 8073, targetPort: gevent }  # now resolves
+```
+
+- **A named `targetPort` that resolves to nothing now fails the render**
+  (`validateServiceTargetPorts`), instead of installing a Service that quietly
+  serves no traffic. The check caught the chart's own
+  `tests/service-extra-ports.yaml` fixture, which had been shipping the broken
+  shape.
+
+  `templates/_render-helpers.tpl` gains `containerPorts`, the single source of
+  truth for the pod side of the Service: `deployment.yaml` renders it and the
+  validator checks names against it, so the two cannot drift again — that drift
+  is what all three bugs were.
+
+  `make e2e` now installs every shape of Service port on a real cluster and
+  asserts the EndpointSlice ports, which is the only check that can see this
+  class of bug: the manifests are valid, kubeconform passes, Kubernetes creates
+  the Service without complaint, and the port simply never gets an endpoint.
+
+  Nothing changes for a release that never set a numeric `targetPort` and never
+  customised `portName`. Releases that did were already broken; their pod spec
+  changes, which costs one rollout on upgrade. A release relying on a named
+  `targetPort` that never resolved now fails at install with an actionable
+  message rather than serving nothing.
+
+### Documentation
+
+- `README.md` gains a section on the immutable `spec.selector` ([#83]).
+  `app.kubernetes.io/name` is the **chart** name, not the application's — a
+  generic chart has no application name to use, and the application's identity
+  is carried by `helm.sh/chart`, the release name, and the deployment key.
+  Because the label sits in the selector, `nameOverride` has to be decided
+  before the first install: changing it later fails the upgrade with
+  `field is immutable` and the Deployment must be deleted and recreated. The
+  same applies to renaming a key under `deployments`, which lands in
+  `app.kubernetes.io/component`. The default is unchanged — correcting it would
+  break every existing release for a cosmetic gain.
+
+[#82]: https://github.com/filippolmt/global-chart/issues/82
+[#83]: https://github.com/filippolmt/global-chart/issues/83
+
+---
+
 ## [2.5.0] — 2026-08-04
 
 ### Added

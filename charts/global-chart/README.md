@@ -1,6 +1,6 @@
 # global-chart
 
-![Version: 2.5.0](https://img.shields.io/badge/Version-2.5.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square)
+![Version: 2.5.1](https://img.shields.io/badge/Version-2.5.1-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square)
 
 Reusable Helm chart providing common building blocks—Deployments, Services, Ingress, Jobs, and more—for broadly adaptable Kubernetes applications.
 
@@ -29,7 +29,7 @@ Kubernetes: `>=1.19.0-0`
 | global.imagePullSecrets | list | `[]` | Global imagePullSecrets (used when deployment/cronJob/hook doesn't specify its own) |
 | global.commonLabels | object | `{}` | Global labels applied to metadata.labels of ALL resources (not added to selector labels) |
 | global.commonAnnotations | object | `{}` | Global annotations applied to metadata.annotations of ALL resources (including pod templates) |
-| nameOverride | string | `""` | Override the chart name |
+| nameOverride | string | `""` | Override the chart name. Sets `app.kubernetes.io/name`, which is part of the Deployment's immutable `spec.selector`: decide it before the first install, or every existing Deployment has to be deleted and recreated to change it. |
 | fullnameOverride | string | `""` | Override the chart fullname |
 | deployments | object | `{}` (empty map) | Multiple deployments configuration (map of named deployments). Each deployment supports an `enabled` field (bool, default `true`) to skip rendering of the Deployment and all its sub-resources (Service, ConfigMap, Secret, ServiceAccount, HPA, mounted ConfigMaps, CronJobs, Hooks). An Ingress that references a disabled deployment will fail with a clear error. |
 | ingress | object | `{"annotations":{},"className":"nginx","enabled":false,"hosts":[{"deployment":"","host":"chart-example.local","paths":[{"path":"/","pathType":"ImplementationSpecific"}],"service":{"name":"","port":0}}],"tls":[]}` | Ingress configuration |

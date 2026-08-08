@@ -36,7 +36,8 @@ cluster, installs KEDA (operator + CRDs, `kind-keda`) so the whole autoscaling
 chain is exercised for real, installs `tests/e2e/values.yaml`, then asserts:
 release deployed →
 pre-install hook Job succeeded under the chart-created SA → the surviving SA is
-the real one, not the hook copy → deployment `command`/`args` rendered →
+the real one, not the hook copy → deployment `command`/`args` rendered → every
+Service `targetPort` resolved to a container port and got endpoints →
 ScaledObject/TriggerAuthentication applied with the `authenticationRef` resolved
 → KEDA marked the ScaledObject `Ready` and created the derived HPA with the
 rendered bounds → the `cron` trigger actually scaled the Deployment to its
@@ -55,6 +56,10 @@ midnight UTC will fail the scale assertion.
 - Hook bodies **assert** their environment instead of echoing it — `echo` exits
   0 whatever the prereq copies contain, which would make the "hook Job
   succeeded" assertion vacuous.
+- The endpoint assertions read the **EndpointSlice ports**, not just whether the
+  Service exists. A Service whose `targetPort` names nothing is created happily
+  and its pod reports `serving: true`; only `ports: null` on the slice reveals
+  it. Asserting on the Service object alone would be vacuous in the same way.
 - One `pre-install` hook carries `weight: "-5"`, which drives the derived prereq
   weights negative (-12 and -10). That is the only runtime coverage of the
   never-floor-at-0 rule in pattern 6 above: with a floor, the prereq ConfigMap
@@ -95,9 +100,9 @@ When schema or user-visible values change (new fields, defaults, descriptions), 
 | `_helpers.tpl` | Core naming, labels (`fullname`, `deploymentFullname`, `labels`, `selectorLabels`, `deploymentEnabled`, `deploymentServiceAccountName`). Job-family name helpers — single home for each name + its truncation constant, consumed by both resource templates and `validateNameCollisions`: `rootCronJobName`/`deploymentCronJobName` (trunc 52), `deploymentHookName` (canonical single trunc 63), `hookPrereqConfigName`/`hookPrereqSecretName` (trunc 63) |
 | `_image-helpers.tpl` | `imageString` (string/map/global registry/numeric tags), `imagePullPolicy` |
 | `_job-helpers.tpl` | `inheritedJobPodSpec` — shared pod spec for deployment-level hooks/cronjobs with full inheritance chain. Params: `inheritDnsConfig` (true=cronjob, false=hook), `renderInitContainers` (true=cronjob, false=hook). `jobImageString` — unified image resolution (`image` > `deploy.image` > `fromDeployment` lookup+fail), `errCtx` param preserves exact failure messages. `jobServiceAccount` — unified deployment-level SA resolution (name/create/automount/annotations), returns JSON consumed via `fromJson` |
-| `_render-helpers.tpl` | `renderVolume` (native + legacy), `renderImagePullSecrets`, `renderDnsConfig`, `renderResources`, `renderCommonAnnotations`, `renderExternalSecretRemoteRef` (shared remoteRef block for data-list + single-key ExternalSecret branches) |
+| `_render-helpers.tpl` | `renderVolume` (native + legacy), `renderImagePullSecrets`, `renderDnsConfig`, `renderResources`, `renderCommonAnnotations`, `renderExternalSecretRemoteRef` (shared remoteRef block for data-list + single-key ExternalSecret branches). `containerPorts` — single source of truth for the pod side of the Service (see pattern 13), returns a JSON list consumed via `fromJsonArray`. `serviceTargetPort` — the primary port's effective targetPort (explicit, else `portName`) |
 | `_keda-helpers.tpl` | `kedaTriggerAuthName` (trunc 63), `kedaAuthRefName` (resolves a trigger's `authenticationRef` against the `kedaTriggerAuthentications` map, passthrough when absent), `kedaTriggers` (trigger list with refs resolved), `requireKedaCrd` (fails when `keda.sh/v1alpha1` is not registered) |
-| `_validate-helpers.tpl` | `validateNameCollisions` — fails on truncation-induced name collisions. `validateRoutingConflict` — ingress vs httpRoute. `validateAutoscalingConflict` — HPA vs KEDA per deployment |
+| `_validate-helpers.tpl` | `validateNameCollisions` — fails on truncation-induced name collisions. `validateRoutingConflict` — ingress vs httpRoute. `validateAutoscalingConflict` — HPA vs KEDA per deployment. `validateServiceTargetPorts` — fails when a named `targetPort` matches no declared container port (see pattern 13) |
 
 ### Key Design Patterns
 
@@ -115,6 +120,7 @@ When schema or user-visible values change (new fields, defaults, descriptions), 
 10. **Schema**: `values.schema.json` validates during install/upgrade/lint. Does NOT use `required` on `mountedConfigFiles` items (templates handle runtime validation to allow `failedTemplate` tests)
 11. **Autoscaling is either/or**: `deployments.<name>.autoscaling` (chart-rendered HPA) and `deployments.<name>.keda` (ScaledObject) are mutually exclusive per deployment — KEDA owns its own *derived HPA*. Either one enabled means the Deployment omits `spec.replicas` entirely; see `docs/adr/0003-keda-alongside-hpa.md`. `.Capabilities.APIVersions` carries CRDs only during a real install/upgrade, so anything rendering a KEDA scenario offline needs `--api-versions keda.sh/v1alpha1` (`HELM_API_VERSIONS` in the Makefile; `capabilities.apiVersions` in the unit-test suites). `helm lint` neither evaluates template `fail` nor accepts the flag, so `lint-chart` needs nothing — it just logs the `fail` message at INFO level and passes
 12. **No `appVersion`**: this is a generic chart with no app version to pin. `app.kubernetes.io/version` is emitted only when set — guarded with `{{- with .Chart.AppVersion }}` in the label helpers; consumers set it via `global.commonLabels`. Pod/Service selectors never included it.
+13. **Container ports have one source**: `containerPorts` in `_render-helpers.tpl` derives the pod's ports from `deployments.<name>.service`; `deployment.yaml` renders it and `validateServiceTargetPorts` checks named targetPorts against it. Never compute a container port anywhere else — a Service targeting a port name nothing declares is created happily by Kubernetes and simply has no endpoints, so the failure appears at request time, far from its cause. Three separate bugs came from `deployment.yaml` and `service.yaml` each deriving ports on their own (issue #82). A numeric `targetPort` **is** the container's port; a named one must resolve to a declared port, or the render fails. Entries dedupe by name and by number+protocol — never by number alone, since TCP and UDP on one number are two ports.
 
 ### Resource Naming Limits
 

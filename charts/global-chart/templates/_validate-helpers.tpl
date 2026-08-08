@@ -141,3 +141,40 @@ Called from validate.yaml. Emits nothing on success.
   {{- end -}}
 {{- end -}}
 {{- end }}
+
+{{/*
+Validate that every named Service targetPort resolves to a container port the
+chart declares.
+
+A targetPort naming a port that no container declares is the one Service
+misconfiguration Kubernetes accepts in silence: the Service is created, the pod
+is Ready, and the port simply has no endpoints. It surfaces at request time, far
+from its cause. Numbers need no check — a numeric targetPort reaches a pod port
+whether or not the container declares it.
+Called from validate.yaml. Emits nothing on success.
+*/}}
+{{- define "global-chart.validateServiceTargetPorts" -}}
+{{- range $name, $deploy := .Values.deployments -}}
+  {{- if $deploy -}}
+  {{- if eq (include "global-chart.deploymentEnabled" (dict "deploy" $deploy)) "true" -}}
+    {{- $svc := default (dict) $deploy.service -}}
+    {{- if or (not (hasKey $svc "enabled")) $svc.enabled -}}
+      {{- $declared := dict -}}
+      {{- range (include "global-chart.containerPorts" $svc | fromJsonArray) -}}
+        {{- $_ := set $declared .name true -}}
+      {{- end -}}
+      {{- $known := keys $declared | sortAlpha | join ", " -}}
+      {{- $targetPort := include "global-chart.serviceTargetPort" $svc -}}
+      {{- if and (hasKey $svc "targetPort") (kindIs "string" $svc.targetPort) (not (hasKey $declared $targetPort)) -}}
+        {{- fail (printf "deployments.%s.service.targetPort names the port '%s', which no container port declares (declared: %s). A Service port whose targetPort names nothing gets no endpoints. Use the port number, or a name one of the declared ports carries." $name $targetPort $known) -}}
+      {{- end -}}
+      {{- range (default (list) $svc.extraPorts) -}}
+        {{- if and (kindIs "string" .targetPort) (not (hasKey $declared .targetPort)) -}}
+          {{- fail (printf "deployments.%s.service.extraPorts '%s' has targetPort '%s', which no container port declares (declared: %s). A Service port whose targetPort names nothing gets no endpoints. Give it the port number instead, and it will be declared on the container under this name." $name .name .targetPort $known) -}}
+        {{- end -}}
+      {{- end -}}
+    {{- end -}}
+  {{- end -}}
+  {{- end -}}
+{{- end -}}
+{{- end }}
