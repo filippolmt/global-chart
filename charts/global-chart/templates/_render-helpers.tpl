@@ -230,10 +230,11 @@ to resolve to one of these entries. Every numeric targetPort under extraPorts is
 therefore declared here as well, named after its Service port, so that a named
 targetPort has something to bind to.
 
-Entries are deduplicated by name and by number. A numeric targetPort reaches a
-pod port whether or not the container declares it, so a second declaration of an
+Entries are deduplicated by name and by number+protocol. A numeric targetPort
+reaches a pod port whether or not the container declares it, so re-declaring an
 already-declared port would buy nothing and risk a duplicate name, which the API
-server rejects.
+server rejects. The protocol is part of the key because the same number under
+two protocols is a distinct port — TCP and UDP on 53 is the ordinary DNS shape.
 Usage: {{ include "global-chart.containerPorts" $svc | fromJsonArray }}
 */}}
 {{- define "global-chart.containerPorts" -}}
@@ -247,13 +248,15 @@ Usage: {{ include "global-chart.containerPorts" $svc | fromJsonArray }}
 {{- $protocol := ternary $svc.protocol "TCP" (hasKey $svc "protocol") | upper -}}
 {{- $ports := list (dict "name" $portName "containerPort" $containerPort "protocol" $protocol) -}}
 {{- $names := dict $portName true -}}
-{{- $numbers := dict (toString $containerPort) true -}}
+{{- $numbers := dict (printf "%s/%s" (toString $containerPort) $protocol) true -}}
 {{- range (default (list) $svc.extraPorts) -}}
   {{- if not (kindIs "string" .targetPort) -}}
-    {{- if and (not (hasKey $names .name)) (not (hasKey $numbers (toString .targetPort))) -}}
-      {{- $ports = append $ports (dict "name" .name "containerPort" .targetPort "protocol" (default "TCP" .protocol | upper)) -}}
+    {{- $extraProtocol := default "TCP" .protocol | upper -}}
+    {{- $key := printf "%s/%s" (toString .targetPort) $extraProtocol -}}
+    {{- if and (not (hasKey $names .name)) (not (hasKey $numbers $key)) -}}
+      {{- $ports = append $ports (dict "name" .name "containerPort" .targetPort "protocol" $extraProtocol) -}}
       {{- $_ := set $names .name true -}}
-      {{- $_ := set $numbers (toString .targetPort) true -}}
+      {{- $_ := set $numbers $key true -}}
     {{- end -}}
   {{- end -}}
 {{- end -}}

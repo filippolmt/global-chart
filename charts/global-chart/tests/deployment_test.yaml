@@ -464,6 +464,35 @@ tests:
           path: spec.template.spec.containers[0].ports[0].name
           value: http
 
+  - it: should declare the same port number twice when the protocols differ
+    set:
+      deployments:
+        main:
+          image: coredns:1.11
+          service:
+            port: 53
+            portName: dns-tcp
+            targetPort: 53
+            protocol: TCP
+            extraPorts:
+              - name: dns-udp
+                port: 53
+                targetPort: 53
+                protocol: UDP
+    asserts:
+      - lengthEqual:
+          path: spec.template.spec.containers[0].ports
+          count: 2
+      - equal:
+          path: spec.template.spec.containers[0].ports[1].name
+          value: dns-udp
+      - equal:
+          path: spec.template.spec.containers[0].ports[1].containerPort
+          value: 53
+      - equal:
+          path: spec.template.spec.containers[0].ports[1].protocol
+          value: UDP
+
   - it: should not declare a duplicate container port when extraPorts repeats the primary name
     set:
       deployments:
