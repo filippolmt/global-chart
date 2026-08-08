@@ -26,10 +26,42 @@ deployments:
       targetPort: 8080  # container declares and names 8080
 ```
 
-  A named `targetPort` still falls back to `service.port`, so nothing changes
-  for anyone who did not set a number — and anyone who did was already broken.
-  Rendering does change for those releases, which means one pod rollout on
-  upgrade.
+  Reviewing that fix turned up two more instances of the same defect — a Service
+  port whose `targetPort` names something no container port declares, which
+  Kubernetes accepts in silence and leaves without endpoints:
+
+- **`service.targetPort` no longer defaults to the literal `http`**, but to
+  `service.portName`. Setting only `portName: api` used to produce a Service
+  targeting `http` while the container port was named `api`, so a single option
+  was enough to get a Service with no endpoints.
+
+- **A numeric `targetPort` under `service.extraPorts` is now declared on the
+  container**, named after its Service port. Previously the pod declared exactly
+  one port, so a named `targetPort` in `extraPorts` could never resolve. Naming
+  them makes that form usable:
+
+```yaml
+extraPorts:
+  - { name: gevent, port: 8072, targetPort: 8072 }  # declares container port 8072 as "gevent"
+  - { name: ws,     port: 8073, targetPort: gevent }  # now resolves
+```
+
+- **A named `targetPort` that resolves to nothing now fails the render**
+  (`validateServiceTargetPorts`), instead of installing a Service that quietly
+  serves no traffic. The check caught the chart's own
+  `tests/service-extra-ports.yaml` fixture, which had been shipping the broken
+  shape.
+
+  `templates/_render-helpers.tpl` gains `containerPorts`, the single source of
+  truth for the pod side of the Service: `deployment.yaml` renders it and the
+  validator checks names against it, so the two cannot drift again — that drift
+  is what all three bugs were.
+
+  Nothing changes for a release that never set a numeric `targetPort` and never
+  customised `portName`. Releases that did were already broken; their pod spec
+  changes, which costs one rollout on upgrade. A release relying on a named
+  `targetPort` that never resolved now fails at install with an actionable
+  message rather than serving nothing.
 
 ### Documentation
 

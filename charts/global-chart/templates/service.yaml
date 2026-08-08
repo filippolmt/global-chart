@@ -28,7 +28,7 @@ spec:
   type: {{ ternary $svc.type "ClusterIP" (hasKey $svc "type") }}
   ports:
     - port: {{ ternary $svc.port 80 (hasKey $svc "port") }}
-      targetPort: {{ ternary $svc.targetPort "http" (hasKey $svc "targetPort") }}
+      targetPort: {{ include "global-chart.serviceTargetPort" $svc }}
       protocol: {{ (ternary $svc.protocol "TCP" (hasKey $svc "protocol")) | upper }}
       name: {{ ternary $svc.portName "http" (hasKey $svc "portName") }}
     {{- range (default (list) $svc.extraPorts) }}

@@ -89,14 +89,17 @@ deployments: {}
   #     type: ClusterIP
   #     # -- Port exposed by the Service
   #     port: 80
-  #     # -- Target port on the pod: a port name (default `http`, resolves to the
-  #     # container port) or a number. A number becomes the container's declared
-  #     # port, so use it when the app listens on a port other than `service.port`.
+  #     # -- Target port on the pod: a number, or the name of a declared container
+  #     # port. A number becomes the container's declared port, so use it when the
+  #     # app listens on a port other than `service.port`. Defaults to `portName`.
+  #     # A name that no container port declares fails the render.
   #     targetPort: http
   #     # -- Protocol for the service port (TCP|UDP)
   #     protocol: TCP
   #     # -- Additional ports exposed by the same Service (multi-port workloads)
   #     # Each entry requires: name, port, targetPort. Optional: protocol, appProtocol, nodePort.
+  #     # A numeric targetPort is declared on the container under the entry's name,
+  #     # so other ports may target it by that name.
   #     extraPorts: []
   #     # extraPorts:
   #     #   - name: gevent

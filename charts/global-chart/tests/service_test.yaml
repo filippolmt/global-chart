@@ -275,19 +275,22 @@ tests:
           path: spec.ports[1].nodePort
           value: 30081
 
-  - it: should accept named targetPort in extraPorts
+  - it: should accept a named targetPort in extraPorts that resolves to a declared port
     set:
       deployments:
         main:
           image: nginx:1.25
           service:
             extraPorts:
-              - name: ws
+              - name: gevent
                 port: 8072
+                targetPort: 8072
+              - name: ws
+                port: 8073
                 targetPort: gevent
     asserts:
       - equal:
-          path: spec.ports[1].targetPort
+          path: spec.ports[2].targetPort
           value: gevent
 
   - it: should render only primary port when extraPorts omitted
@@ -305,3 +308,19 @@ tests:
       - equal:
           path: spec.ports[0].port
           value: 8080
+
+  - it: should default targetPort to the port name rather than the literal http
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          service:
+            port: 8080
+            portName: api
+    asserts:
+      - equal:
+          path: spec.ports[0].targetPort
+          value: api
+      - equal:
+          path: spec.ports[0].name
+          value: api
