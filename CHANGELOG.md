@@ -57,6 +57,11 @@ extraPorts:
   validator checks names against it, so the two cannot drift again — that drift
   is what all three bugs were.
 
+  `make e2e` now installs every shape of Service port on a real cluster and
+  asserts the EndpointSlice ports, which is the only check that can see this
+  class of bug: the manifests are valid, kubeconform passes, Kubernetes creates
+  the Service without complaint, and the port simply never gets an endpoint.
+
   Nothing changes for a release that never set a numeric `targetPort` and never
   customised `portName`. Releases that did were already broken; their pod spec
   changes, which costs one rollout on upgrade. A release relying on a named

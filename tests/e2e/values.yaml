@@ -11,6 +11,11 @@
 # - the prereq ConfigMap/Secret copies feeding the hook's env
 # - deployment-level command/args (issue #72)
 # - a root-level hook, which creates its own ServiceAccount
+# - Service target ports actually resolving to container ports (issue #82). This
+#   is the only check that can see it: a targetPort naming a port nothing
+#   declares renders valid YAML and passes kubeconform, and Kubernetes creates
+#   the Service without complaint — the port just never gets an endpoint. Only a
+#   live endpoints controller reveals it.
 # - a KEDA-scaled deployment: only the CRDs are installed, no operator, so what
 #   is asserted is the chart's own invariant — with an autoscaler owning
 #   spec.replicas, `helm upgrade` must not reset the live replica count
@@ -27,8 +32,12 @@ deployments:
     command: ["sh", "-c"]
     args: ["sleep 3600"]
     replicaCount: 1
+    # No targetPort: it defaults to portName, so the Service targets "admin" and
+    # the container port is named "admin". Defaulting to the literal "http", as
+    # the chart used to, left this Service with no endpoints at all.
     service:
-      enabled: false
+      port: 8081
+      portName: admin
     serviceAccount:
       create: true
       annotations:
@@ -81,6 +90,31 @@ deployments:
             desiredReplicas: "3"
           authenticationRef:
             name: e2e-auth
+
+  # Every shape of Service port the chart supports, on one pod. The container
+  # listens on nothing — endpoints depend on pod readiness and on targetPort
+  # resolving, not on anything being bound, so busybox is enough to tell a
+  # resolved port from a dangling one.
+  web:
+    image: busybox:1.36
+    command: ["sh", "-c"]
+    args: ["sleep 3600"]
+    replicaCount: 1
+    service:
+      # Numeric targetPort differing from the Service port: the reported bug.
+      # The container port must follow targetPort, not port.
+      port: 80
+      portName: api
+      targetPort: 8080
+      extraPorts:
+        # Numeric: declared on the container under this entry's name.
+        - name: metrics
+          port: 9090
+          targetPort: 9090
+        # Named: resolves only because the entry above declares "metrics".
+        - name: metrics-alias
+          port: 9191
+          targetPort: metrics
 
 hooks:
   post-install:

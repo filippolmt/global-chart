@@ -36,7 +36,8 @@ cluster, installs KEDA (operator + CRDs, `kind-keda`) so the whole autoscaling
 chain is exercised for real, installs `tests/e2e/values.yaml`, then asserts:
 release deployed →
 pre-install hook Job succeeded under the chart-created SA → the surviving SA is
-the real one, not the hook copy → deployment `command`/`args` rendered →
+the real one, not the hook copy → deployment `command`/`args` rendered → every
+Service `targetPort` resolved to a container port and got endpoints →
 ScaledObject/TriggerAuthentication applied with the `authenticationRef` resolved
 → KEDA marked the ScaledObject `Ready` and created the derived HPA with the
 rendered bounds → the `cron` trigger actually scaled the Deployment to its
@@ -55,6 +56,10 @@ midnight UTC will fail the scale assertion.
 - Hook bodies **assert** their environment instead of echoing it — `echo` exits
   0 whatever the prereq copies contain, which would make the "hook Job
   succeeded" assertion vacuous.
+- The endpoint assertions read the **EndpointSlice ports**, not just whether the
+  Service exists. A Service whose `targetPort` names nothing is created happily
+  and its pod reports `serving: true`; only `ports: null` on the slice reveals
+  it. Asserting on the Service object alone would be vacuous in the same way.
 - One `pre-install` hook carries `weight: "-5"`, which drives the derived prereq
   weights negative (-12 and -10). That is the only runtime coverage of the
   never-floor-at-0 rule in pattern 6 above: with a floor, the prereq ConfigMap
