@@ -313,6 +313,75 @@ tests:
           path: spec.template.spec.containers[0].resources.limits.memory
           value: 512Mi
 
+  # ====== container port (issue #82) ======
+  - it: should default containerPort to service.port
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          service:
+            port: 8080
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].ports[0].containerPort
+          value: 8080
+
+  - it: should default containerPort to 80 when service.port is unset
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].ports[0].containerPort
+          value: 80
+
+  - it: should derive containerPort from a numeric service.targetPort
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          service:
+            port: 80
+            targetPort: 8080
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].ports[0].containerPort
+          value: 8080
+      - equal:
+          path: spec.template.spec.containers[0].ports[0].name
+          value: http
+
+  - it: should fall back to service.port when service.targetPort is a port name
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          service:
+            port: 8080
+            targetPort: http
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].ports[0].containerPort
+          value: 8080
+
+  - it: should name the derived containerPort with service.portName
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          service:
+            port: 80
+            targetPort: 9000
+            portName: api
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].ports[0].containerPort
+          value: 9000
+      - equal:
+          path: spec.template.spec.containers[0].ports[0].name
+          value: api
+
   # ====== probes ======
   - it: should render liveness and readiness probes
     set:

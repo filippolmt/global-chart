@@ -15,7 +15,9 @@ global:
   # @default -- `{}`
   commonAnnotations: {}
 
-# -- Override the chart name
+# -- Override the chart name. Sets `app.kubernetes.io/name`, which is part of the
+# Deployment's immutable `spec.selector`: decide it before the first install, or
+# every existing Deployment has to be deleted and recreated to change it.
 nameOverride: ""
 # -- Override the chart fullname
 fullnameOverride: ""
@@ -87,7 +89,9 @@ deployments: {}
   #     type: ClusterIP
   #     # -- Port exposed by the Service
   #     port: 80
-  #     # -- Target port on the pod
+  #     # -- Target port on the pod: a port name (default `http`, resolves to the
+  #     # container port) or a number. A number becomes the container's declared
+  #     # port, so use it when the app listens on a port other than `service.port`.
   #     targetPort: http
   #     # -- Protocol for the service port (TCP|UDP)
   #     protocol: TCP

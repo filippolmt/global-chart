@@ -115,9 +115,14 @@ spec:
           securityContext:
             {{- toYaml . | nindent 12 }}
           {{- end }}
+          {{- $svcPort := ternary $svc.port 80 (hasKey $svc "port") }}
+          {{- $svcTargetPort := ternary $svc.targetPort "http" (hasKey $svc "targetPort") }}
           ports:
             - name: {{ ternary $svc.portName "http" (hasKey $svc "portName") }}
-              containerPort: {{ ternary $svc.port 80 (hasKey $svc "port") }}
+              {{/* A numeric service.targetPort is the pod's port: declare and name it here,
+                   otherwise the Service targets a port the container never advertises.
+                   A named targetPort resolves back to this port, so it falls back to service.port. */}}
+              containerPort: {{ kindIs "string" $svcTargetPort | ternary $svcPort $svcTargetPort }}
               protocol: {{ (ternary $svc.protocol "TCP" (hasKey $svc "protocol")) | upper }}
           {{- if $deploy.livenessProbe }}
           livenessProbe:

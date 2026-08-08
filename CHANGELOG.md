@@ -5,6 +5,50 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ---
 
+## [2.5.1] — 2026-08-08
+
+### Fixed
+
+- A numeric `deployments.<name>.service.targetPort` is now the container's
+  declared port ([#82]). It used to be accepted and then ignored: `containerPort`
+  came from `service.port`, so the only working configuration was
+  `targetPort == port`. The port *name* (`service.portName`, default `http`)
+  went with it, which is what actually broke — a probe or another Service
+  targeting the port by name resolved to a port the application does not listen
+  on, and the default `targetPort: http` resolved back to `service.port`,
+  undoing any attempt to point elsewhere.
+
+```yaml
+deployments:
+  web:
+    service:
+      port: 80          # Service exposes 80
+      targetPort: 8080  # container declares and names 8080
+```
+
+  A named `targetPort` still falls back to `service.port`, so nothing changes
+  for anyone who did not set a number — and anyone who did was already broken.
+  Rendering does change for those releases, which means one pod rollout on
+  upgrade.
+
+### Documentation
+
+- `README.md` gains a section on the immutable `spec.selector` ([#83]).
+  `app.kubernetes.io/name` is the **chart** name, not the application's — a
+  generic chart has no application name to use, and the application's identity
+  is carried by `helm.sh/chart`, the release name, and the deployment key.
+  Because the label sits in the selector, `nameOverride` has to be decided
+  before the first install: changing it later fails the upgrade with
+  `field is immutable` and the Deployment must be deleted and recreated. The
+  same applies to renaming a key under `deployments`, which lands in
+  `app.kubernetes.io/component`. The default is unchanged — correcting it would
+  break every existing release for a cosmetic gain.
+
+[#82]: https://github.com/filippolmt/global-chart/issues/82
+[#83]: https://github.com/filippolmt/global-chart/issues/83
+
+---
+
 ## [2.5.0] — 2026-08-04
 
 ### Added
