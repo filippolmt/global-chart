@@ -2380,3 +2380,158 @@ tests:
         documentSelector:
           path: kind
           value: Job
+
+  # ====== hookAnnotations role table ======
+  # One render covering all four roles of the helper. Both hooks carry an
+  # explicit deletePolicy: it reaches the resources they own (their Job, and the
+  # ServiceAccount the chart creates for one of them) and never reaches the
+  # plumbing copies, which keep the fixed policy of their role. The plumbing
+  # roles are called with a weight and no command, so the assertion is on what
+  # renders, not on a flag inside the helper.
+  - it: should apply the hookAnnotations role table to every hook resource
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          serviceAccount:
+            create: true
+          configMap:
+            DB_HOST: postgres
+          secret:
+            DB_PASSWORD: secret123
+          hooks:
+            pre-install:
+              migrate:
+                command: ["./migrate.sh"]
+                deletePolicy: hook-failed
+            post-install:
+              notify:
+                command: ["./notify.sh"]
+                deletePolicy: hook-failed
+                serviceAccount:
+                  create: true
+    asserts:
+      # role prereq: w-7, fixed policy, explicit deletePolicy ignored
+      - isKind:
+          of: ConfigMap
+        documentIndex: 0
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "3"
+        documentIndex: 0
+      - equal:
+          path: metadata.annotations["helm.sh/hook-delete-policy"]
+          value: before-hook-creation,hook-succeeded
+        documentIndex: 0
+      - isKind:
+          of: Secret
+        documentIndex: 1
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "3"
+        documentIndex: 1
+      - equal:
+          path: metadata.annotations["helm.sh/hook-delete-policy"]
+          value: before-hook-creation,hook-succeeded
+        documentIndex: 1
+      # role pre-install-sa: w-5, fixed policy, explicit deletePolicy ignored
+      - isKind:
+          of: ServiceAccount
+        documentIndex: 2
+      - equal:
+          path: metadata.annotations["helm.sh/hook"]
+          value: pre-install
+        documentIndex: 2
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "5"
+        documentIndex: 2
+      - equal:
+          path: metadata.annotations["helm.sh/hook-delete-policy"]
+          value: hook-succeeded,hook-failed
+        documentIndex: 2
+      # role sa: w-5, explicit deletePolicy honoured
+      - isKind:
+          of: ServiceAccount
+        documentIndex: 3
+      - equal:
+          path: metadata.annotations["helm.sh/hook"]
+          value: post-install
+        documentIndex: 3
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "5"
+        documentIndex: 3
+      - equal:
+          path: metadata.annotations["helm.sh/hook-delete-policy"]
+          value: hook-failed
+        documentIndex: 3
+      # role job: w, explicit deletePolicy honoured
+      - isKind:
+          of: Job
+        documentIndex: 4
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "10"
+        documentIndex: 4
+      - equal:
+          path: metadata.annotations["helm.sh/hook-delete-policy"]
+          value: hook-failed
+        documentIndex: 4
+
+  # A weight the schema accepts as a string but that is not canonical must render
+  # the same number on the Job and on every resource derived from it.
+  - it: should coerce a non-canonical string weight consistently across roles
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          serviceAccount:
+            create: true
+          configMap:
+            DB_HOST: postgres
+          hooks:
+            pre-install:
+              migrate:
+                command: ["./migrate.sh"]
+                weight: "007"
+    asserts:
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "0"
+        documentIndex: 0
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "2"
+        documentIndex: 1
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "7"
+        documentIndex: 2
+
+  # The pre-install SA copy sorts against the hooks that actually bind the
+  # deployment SA, not against every pre-install hook.
+  - it: should derive the pre-install SA copy weight only from SA-binding hooks
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          serviceAccount:
+            create: true
+          hooks:
+            pre-install:
+              migrate:
+                command: ["./migrate.sh"]
+                weight: 4
+              seed:
+                command: ["./seed.sh"]
+                weight: 2
+                serviceAccountName: someone-elses-sa
+    asserts:
+      - isKind:
+          of: ServiceAccount
+        documentIndex: 0
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "-1"
+        documentIndex: 0

@@ -58,7 +58,27 @@ cronJobs:
   hooks honoured it. They agree now, on the reading that does what the values
   say.
 
+- **A hook `weight` written as a non-canonical string now renders the same
+  number everywhere.** `weight: "007"` used to reach the hook Job's
+  `helm.sh/hook-weight` verbatim while every resource derived from it — the
+  hook's ServiceAccount, the prerequisite ConfigMap/Secret — coerced it with
+  `int`, so one hook rendered `"007"` and `"2"` for what is the same weight.
+  All four hook roles coerce now, and `"007"` renders `"7"`. Weights already
+  written canonically (`10`, `"5"`, `-3`) are unaffected. The three
+  `helm.sh/hook*` annotations come from a single `hookAnnotations` helper, which
+  is also where the ordering invariant `prereq (w-7) < SA (w-5) < Job (w)` now
+  lives — see [ADR 0004].
+
+- **Documented: an explicit `deletePolicy` on a hook applies to the resources
+  that hook owns, not to the shared plumbing.** Its Job and the ServiceAccount
+  the chart creates for it honour it; the hook-prerequisite ConfigMap/Secret
+  (shared by every hook of the deployment, so no single hook owns the choice)
+  and the `pre-install` ServiceAccount copy of [ADR 0002] keep a fixed policy.
+  No behaviour changed here — `CLAUDE.md` pattern 8 claimed otherwise and has
+  been corrected.
+
 [ADR 0002]: docs/adr/0002-hook-prerequisite-serviceaccount-copy.md
+[ADR 0004]: docs/adr/0004-one-module-for-hook-lifecycle-annotations.md
 
 ### Migration guide from 2.5.x
 

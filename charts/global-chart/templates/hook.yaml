@@ -35,14 +35,7 @@ metadata:
     {{- with (include "global-chart.renderCommonAnnotations" $root) }}
     {{- . | nindent 4 }}
     {{- end }}
-    {{- /* Negative weights are legal in Helm and must stay negative: flooring at 0
-           would sort the SA AFTER a Job with a negative weight, breaking the
-           invariant prereq (w-7) < SA (w-5) < Job (w) this ordering exists for */ -}}
-    {{- $effectiveJobWeight := int (ternary $command.weight 10 (hasKey $command "weight")) }}
-    {{- $saWeight := sub $effectiveJobWeight 5 }}
-    "helm.sh/hook": {{ $hookType | quote }}
-    "helm.sh/hook-weight": {{ $saWeight | quote }}
-    "helm.sh/hook-delete-policy": {{ ternary $command.deletePolicy "before-hook-creation,hook-succeeded" (hasKey $command "deletePolicy") | quote }}
+    {{- include "global-chart.hookAnnotations" (dict "hookType" $hookType "role" "sa" "command" $command) | nindent 4 }}
     {{- with $sa.annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
@@ -59,9 +52,7 @@ metadata:
     {{- with (include "global-chart.renderCommonAnnotations" $root) }}
     {{- . | nindent 4 }}
     {{- end }}
-    "helm.sh/hook": {{ $hookType | quote }}
-    "helm.sh/hook-weight": {{ ternary $command.weight "10" (hasKey $command "weight") | quote }}
-    "helm.sh/hook-delete-policy": {{ ternary $command.deletePolicy "before-hook-creation" (hasKey $command "deletePolicy") | quote }}
+    {{- include "global-chart.hookAnnotations" (dict "hookType" $hookType "role" "job" "command" $command) | nindent 4 }}
 spec:
   template:
     metadata:
@@ -172,19 +163,9 @@ spec:
 {{- /* Aggregate ALL hook types for prerequisite resources (sorted for deterministic output) */ -}}
 {{- $allHookTypes := keys $deploy.hooks | sortAlpha | join "," -}}
 
-{{- /* Compute minimum Job weight across all hooks for this deployment */ -}}
-{{- $minJobWeight := 10 -}}
-{{- range $hookType, $commands := $deploy.hooks -}}
-  {{- if $commands -}}
-    {{- range $name, $command := $commands -}}
-      {{- if $command -}}
-        {{- $w := int (ternary $command.weight 10 (hasKey $command "weight")) -}}
-        {{- if lt $w $minJobWeight -}}{{ $minJobWeight = $w }}{{ end -}}
-      {{- end -}}
-    {{- end -}}
-  {{- end -}}
-{{- end -}}
-{{- $prereqWeight := sub $minJobWeight 7 -}}
+{{- /* Minimum effective Job weight across all hooks of this deployment: the
+       prereq copies must sort ahead of the earliest Job */ -}}
+{{- $minJobWeight := include "global-chart.minHookWeight" (dict "hooks" $deploy.hooks) -}}
 
 {{- /*
   Hook-specific ConfigMap/Secret: duplicates of the deployment's generated ConfigMap/Secret
@@ -201,15 +182,12 @@ kind: ConfigMap
 metadata:
   name: {{ include "global-chart.hookPrereqConfigName" (dict "deploymentFullname" $deployFullname) }}
   labels:
-    {{- include "global-chart.hookLabels" $root | nindent 4 }}
-    app.kubernetes.io/component: {{ $deployName }}-hook
+    {{- include "global-chart.deploymentHookLabels" (dict "root" $root "deploymentName" $deployName) | nindent 4 }}
   annotations:
     {{- with (include "global-chart.renderCommonAnnotations" $root) }}
     {{- . | nindent 4 }}
     {{- end }}
-    "helm.sh/hook": {{ $allHookTypes | quote }}
-    "helm.sh/hook-weight": {{ $prereqWeight | quote }}
-    "helm.sh/hook-delete-policy": "before-hook-creation,hook-succeeded"
+    {{- include "global-chart.hookAnnotations" (dict "hookType" $allHookTypes "role" "prereq" "weight" $minJobWeight) | nindent 4 }}
 data:
 {{- range $key, $value := $deploy.configMap }}
   {{- if or (kindIs "map" $value) (kindIs "slice" $value) }}
@@ -227,15 +205,12 @@ kind: Secret
 metadata:
   name: {{ include "global-chart.hookPrereqSecretName" (dict "deploymentFullname" $deployFullname) }}
   labels:
-    {{- include "global-chart.hookLabels" $root | nindent 4 }}
-    app.kubernetes.io/component: {{ $deployName }}-hook
+    {{- include "global-chart.deploymentHookLabels" (dict "root" $root "deploymentName" $deployName) | nindent 4 }}
   annotations:
     {{- with (include "global-chart.renderCommonAnnotations" $root) }}
     {{- . | nindent 4 }}
     {{- end }}
-    "helm.sh/hook": {{ $allHookTypes | quote }}
-    "helm.sh/hook-weight": {{ $prereqWeight | quote }}
-    "helm.sh/hook-delete-policy": "before-hook-creation,hook-succeeded"
+    {{- include "global-chart.hookAnnotations" (dict "hookType" $allHookTypes "role" "prereq" "weight" $minJobWeight) | nindent 4 }}
 type: Opaque
 data:
 {{- range $key, $value := $deploy.secret }}
@@ -280,8 +255,9 @@ data:
 {{- $deploySA := default (dict) $deploy.serviceAccount -}}
 {{- $deploySACreate := ternary $deploySA.create true (hasKey $deploySA "create") -}}
 {{- $deploySAName := "" -}}
-{{- $needsHookSA := false -}}
-{{- $preInstallMinWeight := 10 -}}
+{{- /* The pre-install hooks that actually bind the deployment SA; their minimum
+       weight is what the copy sorts against */ -}}
+{{- $preInstallSAHooks := dict -}}
 {{- if and $deploySACreate (hasKey $deploy.hooks "pre-install") -}}
   {{- $deploySAName = include "global-chart.deploymentServiceAccountName" (dict "root" $root "deploymentName" $deployName "deployment" $deploy) -}}
   {{- range $name, $command := (index $deploy.hooks "pre-install") -}}
@@ -290,15 +266,13 @@ data:
       {{- /* Only the hooks that actually bind the deployment SA matter: a hook with its
              own explicit or created SA already gets one with hook weight w-5 */ -}}
       {{- if and (not $resolvedSA.create) (eq $resolvedSA.name $deploySAName) -}}
-        {{- $needsHookSA = true -}}
-        {{- $w := int (ternary $command.weight 10 (hasKey $command "weight")) -}}
-        {{- if lt $w $preInstallMinWeight -}}{{ $preInstallMinWeight = $w }}{{ end -}}
+        {{- $_ := set $preInstallSAHooks $name $command -}}
       {{- end -}}
     {{- end -}}
   {{- end -}}
 {{- end -}}
-{{- if $needsHookSA }}
-{{- $saWeight := sub $preInstallMinWeight 5 }}
+{{- if $preInstallSAHooks }}
+{{- $preInstallMinWeight := include "global-chart.minHookWeight" (dict "hooks" (dict "pre-install" $preInstallSAHooks)) }}
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -306,15 +280,12 @@ metadata:
   name: {{ $deploySAName }}
   namespace: {{ $root.Release.Namespace | quote }}
   labels:
-    {{- include "global-chart.hookLabels" $root | nindent 4 }}
-    app.kubernetes.io/component: {{ $deployName }}-hook
+    {{- include "global-chart.deploymentHookLabels" (dict "root" $root "deploymentName" $deployName) | nindent 4 }}
   annotations:
     {{- with (include "global-chart.renderCommonAnnotations" $root) }}
     {{- . | nindent 4 }}
     {{- end }}
-    "helm.sh/hook": "pre-install"
-    "helm.sh/hook-weight": {{ $saWeight | quote }}
-    "helm.sh/hook-delete-policy": "hook-succeeded,hook-failed"
+    {{- include "global-chart.hookAnnotations" (dict "hookType" "pre-install" "role" "pre-install-sa" "weight" $preInstallMinWeight) | nindent 4 }}
     {{- with $deploySA.annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
@@ -350,17 +321,12 @@ metadata:
   name: {{ $saName }}
   namespace: {{ $root.Release.Namespace | quote }}
   labels:
-    {{- include "global-chart.hookLabels" $root | nindent 4 }}
-    app.kubernetes.io/component: {{ $deployName }}-hook
+    {{- include "global-chart.deploymentHookLabels" (dict "root" $root "deploymentName" $deployName) | nindent 4 }}
   annotations:
-    {{- $effectiveJobWeight := int (ternary $command.weight 10 (hasKey $command "weight")) }}
-    {{- $saWeight := sub $effectiveJobWeight 5 }}
     {{- with (include "global-chart.renderCommonAnnotations" $root) }}
     {{- . | nindent 4 }}
     {{- end }}
-    "helm.sh/hook": {{ $hookType | quote }}
-    "helm.sh/hook-weight": {{ $saWeight | quote }}
-    "helm.sh/hook-delete-policy": {{ ternary $command.deletePolicy "before-hook-creation,hook-succeeded" (hasKey $command "deletePolicy") | quote }}
+    {{- include "global-chart.hookAnnotations" (dict "hookType" $hookType "role" "sa" "command" $command) | nindent 4 }}
     {{- with $saAnnotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
@@ -372,22 +338,18 @@ kind: Job
 metadata:
   name: {{ $hookFullname }}
   labels:
-    {{- include "global-chart.hookLabels" $root | nindent 4 }}
-    app.kubernetes.io/component: {{ $deployName }}-hook
+    {{- include "global-chart.deploymentHookLabels" (dict "root" $root "deploymentName" $deployName) | nindent 4 }}
   annotations:
     {{- with (include "global-chart.renderCommonAnnotations" $root) }}
     {{- . | nindent 4 }}
     {{- end }}
-    "helm.sh/hook": {{ $hookType | quote }}
-    "helm.sh/hook-weight": {{ ternary $command.weight "10" (hasKey $command "weight") | quote }}
-    "helm.sh/hook-delete-policy": {{ ternary $command.deletePolicy "before-hook-creation" (hasKey $command "deletePolicy") | quote }}
+    {{- include "global-chart.hookAnnotations" (dict "hookType" $hookType "role" "job" "command" $command) | nindent 4 }}
 spec:
   template:
     metadata:
       name: {{ $hookFullname }}
       labels:
-        {{- include "global-chart.hookLabels" $root | nindent 8 }}
-        app.kubernetes.io/component: {{ $deployName }}-hook
+        {{- include "global-chart.deploymentHookLabels" (dict "root" $root "deploymentName" $deployName) | nindent 8 }}
       {{- with (include "global-chart.renderCommonAnnotations" $root) }}
       annotations:
         {{- . | nindent 8 }}

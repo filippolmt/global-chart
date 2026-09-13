@@ -142,6 +142,16 @@ Hook labels with component for root-level hooks.
 app.kubernetes.io/component: hook
 {{- end }}
 
+{{/*
+Hook labels with component for deployment-level hooks, mirroring
+hookLabelsWithComponent for the root-level ones.
+Usage: {{ include "global-chart.deploymentHookLabels" (dict "root" $root "deploymentName" $deployName) }}
+*/}}
+{{- define "global-chart.deploymentHookLabels" -}}
+{{ include "global-chart.hookLabels" .root }}
+app.kubernetes.io/component: {{ .deploymentName }}-hook
+{{- end }}
+
 {{- define "global-chart.hookfullname" -}}
 {{- $fullname := (include "global-chart.fullname" .) }}
 {{- printf "%s-%s-%s" $fullname .hookname .jobname | trunc 63 | trimSuffix "-" -}}
