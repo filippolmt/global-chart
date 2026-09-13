@@ -330,3 +330,36 @@ tests:
     asserts:
       - hasDocuments:
           count: 0
+
+  # ====== ServiceAccount name collision ======
+  # A root-level cronJob and a deployment keyed the same generate the same SA name
+  # (<release>-<chart>-<key>). Both create it, and the install dies on "already
+  # exists" halfway through the release.
+  - it: should fail when a root cronJob creates a ServiceAccount a deployment also creates
+    set:
+      deployments:
+        cleanup:
+          image: nginx:1.25
+      cronJobs:
+        cleanup:
+          schedule: "0 0 * * *"
+          image: busybox:1.36
+    asserts:
+      - failedTemplate:
+          errorPattern: "Name collision: ServiceAccount .* created for root cronJob"
+
+  - it: should not fail when the root cronJob binds the existing ServiceAccount instead
+    set:
+      deployments:
+        cleanup:
+          image: nginx:1.25
+      cronJobs:
+        cleanup:
+          schedule: "0 0 * * *"
+          image: busybox:1.36
+          serviceAccount:
+            create: false
+            name: t-global-chart-cleanup
+    asserts:
+      - notFailedTemplate: {}
+

@@ -152,7 +152,9 @@ volumes:
   {{- include "global-chart.renderVolume" . | nindent 2 }}
   {{- end }}
 {{- end }}
-serviceAccountName: {{ $saName | quote }}
+{{- with $saName }}
+serviceAccountName: {{ . | quote }}
+{{- end }}
 {{- /* NodeSelector: explicit > inherited from deployment */ -}}
 {{- $nodeSelector := ternary $job.nodeSelector $deploy.nodeSelector (hasKey $job "nodeSelector") -}}
 {{- with $nodeSelector }}
@@ -223,12 +225,15 @@ Helpers can only return strings, so this returns a JSON object; callers do
 Accepts a dict with:
   root         - top-level chart context
   job          - the cronjob/hook command map
-  deploy       - the parent deployment map
-  deployName   - the deployment key
+  deploy       - the parent deployment map; nil/absent for root-level jobs, which
+                 are simply the "no deployment SA applies" case
+  deployName   - the deployment key (unused when deploy is nil)
   jobFullname  - the job's own resource name (fallback when a SA is created)
 
 Resolution:
-  name:   explicit (serviceAccountName | serviceAccount.name) > deployment SA > jobFullname
+  name:   explicit (serviceAccountName | serviceAccount.name) > deployment SA > jobFullname.
+          Empty when serviceAccount.create is false and nothing names a SA: callers
+          then omit serviceAccountName and the pod runs as the namespace default
   create: true only when no explicit/deployment SA applies, unless serviceAccount.create overrides
   automount: serviceAccount.automount > job automountServiceAccountToken (default true)
   annotations: SA-map annotations > job.serviceAccountAnnotations
@@ -236,7 +241,7 @@ Resolution:
 {{- define "global-chart.jobServiceAccount" -}}
 {{- $root := .root -}}
 {{- $job := .job -}}
-{{- $deploy := .deploy -}}
+{{- $deploy := default (dict) .deploy -}}
 {{- $deployName := .deployName -}}
 {{- $jobFullname := .jobFullname -}}
 {{- $deploySA := default (dict) $deploy.serviceAccount -}}
@@ -245,7 +250,7 @@ Resolution:
 {{- /* Resolve deployment's SA name (created or referenced-existing) */ -}}
 {{- $deploymentSAName := "" -}}
 {{- $deploySACreate := ternary $deploySA.create true (hasKey $deploySA "create") -}}
-{{- if $deploySACreate -}}
+{{- if and $deploy $deploySACreate -}}
   {{- $deploymentSAName = include "global-chart.deploymentServiceAccountName" (dict "root" $root "deploymentName" $deployName "deployment" $deploy) -}}
 {{- else if $deploySA.name -}}
   {{- $deploymentSAName = $deploySA.name -}}
@@ -264,7 +269,12 @@ Resolution:
 {{- if hasKey $jobSAMap "create" -}}
   {{- $saCreate = $jobSAMap.create -}}
   {{- if $saCreate -}}
-    {{- $saName = ternary $jobSAMap.name $jobFullname (hasKey $jobSAMap "name") -}}
+    {{- /* Creating one: under the explicit name when given, else the job's own */ -}}
+    {{- $saName = default $jobFullname $jobSAExplicitName -}}
+  {{- else if and (not $jobSAExplicitName) (not $deploymentSAName) -}}
+    {{- /* Told not to create a SA and given no name to bind: leave the pod on the
+           namespace default rather than point it at a SA nothing creates */ -}}
+    {{- $saName = "" -}}
   {{- end -}}
 {{- end -}}
 {{- $saAutomount := true -}}

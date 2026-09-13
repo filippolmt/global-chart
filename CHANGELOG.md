@@ -5,6 +5,156 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ---
 
+## [Unreleased]
+
+### Fixed
+
+- **A root-level `cronJobs.<name>` with no `serviceAccount` now gets the
+  ServiceAccount its pod references.** It used to render
+  `serviceAccountName: <release>-global-chart-<name>` and create nothing, so
+  every Job the CronJob spawned failed to schedule with
+  `serviceaccount "…" not found`. The manifest is valid and kubeconform passes:
+  only a live cluster shows it. Root-level `hooks` already created the SA in
+  that case; the two scopes now behave the same.
+
+  If you already created a ServiceAccount with that exact generated name by
+  hand, outside Helm, the install will now report `already exists`. Point the
+  cronJob at it explicitly instead:
+
+```yaml
+cronJobs:
+  cleanup:
+    serviceAccount:
+      name: my-existing-sa   # or: create: false
+```
+
+- **A job told `serviceAccount.create: false` with no name to bind no longer
+  points its pod at a ServiceAccount nothing creates.** `serviceAccountName` is
+  now omitted in that case and the pod runs as the namespace `default` — the
+  only thing "do not create one, and here is no name" can honestly mean. Set
+  `serviceAccount.name` (or `serviceAccountName`) to bind a specific existing SA.
+
+- **Two chart-created ServiceAccounts can no longer share a name.** A root-level
+  `cronJobs.cleanup` next to a `deployments.cleanup` generates
+  `<release>-global-chart-cleanup` twice, and the install dies on `already
+  exists` partway through the release. `validateNameCollisions` now fails the
+  render instead, naming both sources. The hook-prerequisite SA copy of
+  [ADR 0002] is untouched: it shares the real SA's name on purpose, and being a
+  hook resource it never reaches the validator.
+
+### Changed
+
+- **`cronJobs.<name>.serviceAccount.name`, `.automount`, `.annotations` and
+  `.create: false` now do something.** The schema has always accepted them —
+  they share `$defs/serviceAccount` with every other job scope — but
+  `cronjob.yaml` read only `serviceAccount.create`, so the rest passed
+  validation and was silently dropped. Root-level cronJobs and hooks now resolve
+  their ServiceAccount through the same `jobServiceAccount` helper the
+  deployment-level ones use.
+
+- **`serviceAccountName` together with `serviceAccount.create: true` now names
+  the ServiceAccount the chart creates**, in every job scope. Deployment-level
+  jobs used to ignore the name and create the generated one instead; root-level
+  hooks honoured it. They agree now, on the reading that does what the values
+  say.
+
+[ADR 0002]: docs/adr/0002-hook-prerequisite-serviceaccount-copy.md
+
+### Migration guide from 2.5.x
+
+> No values change shape and no schema key is removed: every values file valid on
+> 2.5.x is still valid. What changes is **which ServiceAccount a job's pod runs
+> as**, in four cases. Run `helm template` (or `helm diff upgrade`) against your
+> own values before upgrading — every case below shows up there.
+
+#### 1. A root `cronJobs` entry keyed like a deployment now fails the render (HIGH)
+
+```yaml
+deployments:
+  cleanup: { image: nginx }
+cronJobs:
+  cleanup: { image: busybox, schedule: "0 0 * * *" }   # render now fails
+```
+
+Both generate `<release>-global-chart-cleanup`, and both now emit a
+ServiceAccount under that name — two manifests, one name, an install that dies
+partway with `already exists`. `validateNameCollisions` stops it at render time
+instead.
+
+This is the one case that used to *work*: the CronJob referenced the name the
+deployment's SA happened to occupy, so its pods borrowed that identity.
+
+**Who is affected:** anyone with a root-level `cronJobs` key equal to a
+`deployments` key.
+
+**Action:** keep the borrowed identity explicitly, or rename one of the two.
+
+```yaml
+cronJobs:
+  cleanup:
+    serviceAccount:
+      create: false
+      name: my-release-global-chart-cleanup   # the deployment's SA, as before
+```
+
+#### 2. Root `cronJobs` now get a ServiceAccount of their own (MEDIUM)
+
+Every other root-level cronJob referenced a SA that no manifest created, so its
+Jobs never scheduled (`serviceaccount "…" not found`). The chart now creates it.
+
+**Who is affected:** anyone whose root-level cronJobs never ran — and anyone who
+worked around it by creating that SA by hand, outside Helm. The hand-made one
+now collides (`already exists`).
+
+**Action:** if you created the SA yourself, either delete it and let the chart
+own it (check its annotations first — IRSA/Workload Identity bindings live
+there), or bind it explicitly with `serviceAccount: { create: false, name: … }`.
+If your cronJob needs RBAC, remember the new SA has none: the RoleBinding that
+used to name your hand-made SA must name the chart's.
+
+#### 3. `serviceAccountName` + `serviceAccount.create: true` now names the created SA (MEDIUM)
+
+```yaml
+deployments:
+  api:
+    hooks:
+      pre-install:
+        migrate:
+          serviceAccountName: custom-sa
+          serviceAccount: { create: true }
+```
+
+Deployment-level jobs used to ignore `custom-sa` and create the generated name
+instead; root-level hooks honoured it. They agree now, on `custom-sa`.
+
+**Who is affected:** deployment-level hooks/cronJobs that set both keys. The SA
+they run as changes name.
+
+**Action:** point any RoleBinding/ClusterRoleBinding at the new name, or drop
+`serviceAccountName` to keep the generated one.
+
+#### 4. `serviceAccount.create: false` with no name now means the namespace default (MEDIUM)
+
+The pod used to carry `serviceAccountName: <generated>` — a SA nothing creates —
+so it could only schedule if something outside Helm had created that exact name.
+The field is now omitted and the pod runs as `default`.
+
+**Who is affected:** jobs with `serviceAccount: { create: false }` and no
+`name`/`serviceAccountName`, and no deployment SA to inherit.
+
+**Action:** if an out-of-band SA was the point, name it:
+`serviceAccount: { create: false, name: my-sa }`.
+
+#### Migration checklist
+
+- [ ] `helm template` your values and diff the `ServiceAccount` documents against 2.5.x
+- [ ] Resolve any name collision the render now reports (point 1)
+- [ ] Check RBAC for every ServiceAccount whose name changed or appeared (points 2-4)
+- [ ] Check IRSA / Workload Identity annotations on hand-made SAs you hand over to the chart
+- [ ] `helm diff upgrade`, then upgrade
+
+---
+
 ## [2.5.1] — 2026-08-08
 
 ### Fixed

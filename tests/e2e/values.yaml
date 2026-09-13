@@ -11,6 +11,9 @@
 # - the prereq ConfigMap/Secret copies feeding the hook's env
 # - deployment-level command/args (issue #72)
 # - a root-level hook, which creates its own ServiceAccount
+# - a root-level cronJob with no serviceAccount at all: same class of bug as
+#   issue #82 — the manifest is valid, kubeconform passes, and the pod simply
+#   never schedules because the SA it names was never created
 # - Service target ports actually resolving to container ports (issue #82). This
 #   is the only check that can see it: a targetPort naming a port nothing
 #   declares renders valid YAML and passes kubeconform, and Kubernetes creates
@@ -122,3 +125,13 @@ hooks:
       image: busybox:1.36
       command: ["sh", "-c"]
       args: ["echo notified"]
+
+# No serviceAccount key on purpose: the chart must create the SA the pod
+# references. Suspended — nothing here needs it to actually run.
+cronJobs:
+  cleanup:
+    image: busybox:1.36
+    schedule: "0 0 1 1 *"
+    suspend: true
+    command: ["sh", "-c"]
+    args: ["true"]

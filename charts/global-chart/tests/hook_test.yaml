@@ -2253,3 +2253,130 @@ tests:
     asserts:
       - failedTemplate:
           errorPattern: "image is required for hooks.post-install.migrate"
+
+  # ====== Root-level SA parity with root-level cronJobs (see cronjob_test.yaml) ======
+  - it: should create the ServiceAccount the pod references when root hook sets none
+    release:
+      name: t
+    set:
+      hooks:
+        pre-install:
+          cleanup:
+            image: busybox:1.36
+    asserts:
+      - hasDocuments:
+          count: 2
+      - equal:
+          path: metadata.name
+          value: t-global-chart-pre-install-cleanup
+        documentSelector:
+          path: kind
+          value: ServiceAccount
+      - equal:
+          path: spec.template.spec.serviceAccountName
+          value: t-global-chart-pre-install-cleanup
+        documentSelector:
+          path: kind
+          value: Job
+
+  - it: should honor serviceAccount.name on a root-level hook
+    set:
+      hooks:
+        pre-install:
+          cleanup:
+            image: busybox:1.36
+            serviceAccount:
+              name: existing-sa
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: Job
+      - equal:
+          path: spec.template.spec.serviceAccountName
+          value: existing-sa
+
+  - it: should honor serviceAccount.automount on a created root-level hook SA
+    set:
+      hooks:
+        pre-install:
+          cleanup:
+            image: busybox:1.36
+            serviceAccount:
+              automount: false
+    asserts:
+      - equal:
+          path: automountServiceAccountToken
+          value: false
+        documentSelector:
+          path: kind
+          value: ServiceAccount
+
+  - it: should leave the pod on the namespace default SA when create is false and nothing names one
+    set:
+      hooks:
+        pre-install:
+          cleanup:
+            image: busybox:1.36
+            serviceAccount:
+              create: false
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: Job
+      # Not the generated name: nothing would create it, and the pod would never
+      # schedule. No name at all means the namespace default.
+      - isNull:
+          path: spec.template.spec.serviceAccountName
+
+  - it: should create the SA under an explicit serviceAccountName when create is true
+    set:
+      hooks:
+        pre-install:
+          cleanup:
+            image: busybox:1.36
+            serviceAccountName: custom-sa
+            serviceAccount:
+              create: true
+    asserts:
+      - hasDocuments:
+          count: 2
+      - equal:
+          path: metadata.name
+          value: custom-sa
+        documentSelector:
+          path: kind
+          value: ServiceAccount
+      - equal:
+          path: spec.template.spec.serviceAccountName
+          value: custom-sa
+        documentSelector:
+          path: kind
+          value: Job
+
+  - it: should create the deployment-level hook SA under an explicit serviceAccountName
+    set:
+      deployments:
+        backend:
+          image: myapp:v1
+          hooks:
+            pre-install:
+              migrate:
+                command: ["./migrate.sh"]
+                serviceAccountName: custom-hook-sa
+                serviceAccount:
+                  create: true
+    asserts:
+      - equal:
+          path: metadata.name
+          value: custom-hook-sa
+        documentSelector:
+          path: kind
+          value: ServiceAccount
+      - equal:
+          path: spec.template.spec.serviceAccountName
+          value: custom-hook-sa
+        documentSelector:
+          path: kind
+          value: Job

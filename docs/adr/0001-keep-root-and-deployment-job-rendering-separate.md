@@ -21,7 +21,13 @@ a templating language with no debugger and whitespace-sensitive output.
 
 The genuinely-shared, identical logic has already been extracted into deep
 helpers — `inheritedJobPodSpec` (pod spec), `jobImageString` (image resolution)
-and `jobServiceAccount` (deployment-level SA resolution) in `_job-helpers.tpl`.
+and `jobServiceAccount` (SA resolution, every scope) in `_job-helpers.tpl`.
+`jobServiceAccount` covered only deployment-level jobs until 2026-09: PART 1 of
+both templates resolved the SA inline, and the two root scopes had drifted into
+different answers (a root cronJob referenced a SA nothing created). Root-level
+jobs simply pass no `deploy` — that scope *is* the "no deployment SA applies"
+case the helper already handled — so this widened the shared logic without
+adding a `scope` parameter, which is what this ADR rejects.
 What remains in PART 1 / PART 2 is the scope-specific scaffolding, which is
 clearer read inline.
 

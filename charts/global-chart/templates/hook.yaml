@@ -16,34 +16,13 @@
 {{- /* Resolve image: explicit > fromDeployment > error (see jobImageString helper) */ -}}
 {{- $imageRef := required (printf "image is required for hooks.%s.%s (set hooks.%s.%s.image or hooks.%s.%s.fromDeployment)" $hookType $name $hookType $name $hookType $name) (include "global-chart.jobImageString" (dict "root" $root "job" $command "errCtx" (printf "hooks.%s.%s" $hookType $name))) }}
 
-{{- /* ServiceAccount handling */ -}}
-{{- $commandSAMap := (and (hasKey $command "serviceAccount") (kindIs "map" $command.serviceAccount)) | ternary $command.serviceAccount (dict) -}}
-{{- $commandSAExplicitName := coalesce $command.serviceAccountName $commandSAMap.name -}}
-{{- $saName := $hookFullname -}}
-{{- if $commandSAExplicitName -}}
-  {{- $saName = $commandSAExplicitName -}}
-{{- end -}}
-{{- $saCreate := false -}}
-{{- if hasKey $commandSAMap "create" -}}
-  {{- $saCreate = $commandSAMap.create -}}
-{{- end -}}
-{{- $saAutomount := true -}}
-{{- if hasKey $command "automountServiceAccountToken" -}}
-  {{- $saAutomount = $command.automountServiceAccountToken -}}
-{{- end -}}
-{{- if hasKey $commandSAMap "automountServiceAccountToken" -}}
-  {{- $saAutomount = $commandSAMap.automountServiceAccountToken -}}
-{{- end -}}
-{{- if hasKey $commandSAMap "automount" -}}
-  {{- $saAutomount = $commandSAMap.automount -}}
-{{- end -}}
-{{- $saAnnotations := $command.serviceAccountAnnotations -}}
-{{- if hasKey $commandSAMap "annotations" -}}
-  {{- $saAnnotations = $commandSAMap.annotations -}}
-{{- end -}}
+{{- /* ServiceAccount: explicit > create own (see jobServiceAccount helper; no
+       deployment to inherit from at root level) */ -}}
+{{- $sa := include "global-chart.jobServiceAccount" (dict "root" $root "job" $command "jobFullname" $hookFullname) | fromJson -}}
+{{- $saName := $sa.name -}}
 
 {{- /* ServiceAccount uses weight 5 so it exists before the Job (weight 10) */ -}}
-{{- if or $saCreate (not $commandSAExplicitName) }}
+{{- if $sa.create }}
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -64,10 +43,10 @@ metadata:
     "helm.sh/hook": {{ $hookType | quote }}
     "helm.sh/hook-weight": {{ $saWeight | quote }}
     "helm.sh/hook-delete-policy": {{ ternary $command.deletePolicy "before-hook-creation,hook-succeeded" (hasKey $command "deletePolicy") | quote }}
-    {{- with $saAnnotations }}
+    {{- with $sa.annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
-automountServiceAccountToken: {{ $saAutomount }}
+automountServiceAccountToken: {{ $sa.automount }}
 {{- end }}
 ---
 apiVersion: batch/v1
@@ -94,7 +73,9 @@ spec:
         {{- . | nindent 8 }}
       {{- end }}
     spec:
-      serviceAccountName: {{ $saName | quote }}
+      {{- with $saName }}
+      serviceAccountName: {{ . | quote }}
+      {{- end }}
       {{- /* ImagePullSecrets: hook-level > global (hasKey distinguishes unset from empty) */ -}}
       {{- $hookImagePullSecrets := list -}}
       {{- if hasKey $command "imagePullSecrets" -}}
@@ -266,6 +247,19 @@ data:
 {{- end }}
 {{- end }}
 
+{{- /* Each hook's name and ServiceAccount, resolved once: the pre-install prereq
+       copy below and the render loop further down both read this, so neither the
+       name nor the SA can be derived twice and drift */ -}}
+{{- $hooks := dict -}}
+{{- range $hookType, $jobs := $deploy.hooks -}}
+{{- range $name, $command := $jobs -}}
+{{- if $command -}}
+{{- $fn := include "global-chart.deploymentHookName" (dict "root" $root "deploymentName" $deployName "hookType" $hookType "jobName" $name) -}}
+{{- $_ := set $hooks (printf "%s/%s" $hookType $name) (dict "fullname" $fn "sa" (include "global-chart.jobServiceAccount" (dict "root" $root "job" $command "deploy" $deploy "deployName" $deployName "jobFullname" $fn) | fromJson)) -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+
 {{- /*
   Hook-prerequisite copy of the deployment's ServiceAccount.
 
@@ -292,8 +286,7 @@ data:
   {{- $deploySAName = include "global-chart.deploymentServiceAccountName" (dict "root" $root "deploymentName" $deployName "deployment" $deploy) -}}
   {{- range $name, $command := (index $deploy.hooks "pre-install") -}}
     {{- if $command -}}
-      {{- $hookFullname := include "global-chart.deploymentHookName" (dict "root" $root "deploymentName" $deployName "hookType" "pre-install" "jobName" $name) -}}
-      {{- $resolvedSA := include "global-chart.jobServiceAccount" (dict "root" $root "job" $command "deploy" $deploy "deployName" $deployName "jobFullname" $hookFullname) | fromJson -}}
+      {{- $resolvedSA := (index $hooks (printf "pre-install/%s" $name)).sa -}}
       {{- /* Only the hooks that actually bind the deployment SA matter: a hook with its
              own explicit or created SA already gets one with hook weight w-5 */ -}}
       {{- if and (not $resolvedSA.create) (eq $resolvedSA.name $deploySAName) -}}
@@ -333,14 +326,15 @@ automountServiceAccountToken: {{ hasKey $deploySA "automount" | ternary $deployS
 {{- range $name, $command := $jobs }}
 {{- if $command }}
 
-{{- /* Build hook fullname with deployment name for uniqueness */ -}}
-{{- $hookFullname := include "global-chart.deploymentHookName" (dict "root" $root "deploymentName" $deployName "hookType" $hookType "jobName" $name) }}
+{{- /* Hook fullname and ServiceAccount, both resolved once above */ -}}
+{{- $hook := index $hooks (printf "%s/%s" $hookType $name) }}
+{{- $hookFullname := $hook.fullname }}
 
 {{- /* Resolve image: explicit in hook > inherited from deployment (see jobImageString helper) */ -}}
 {{- $imageRef := required (printf "image is required for deployments.%s.hooks.%s.%s" $deployName $hookType $name) (include "global-chart.jobImageString" (dict "root" $root "job" $command "deploy" $deploy "errCtx" (printf "deployments.%s.hooks.%s.%s" $deployName $hookType $name))) }}
 
 {{- /* ServiceAccount: explicit in hook > inherited from deployment > create new for hook (see jobServiceAccount helper) */ -}}
-{{- $sa := include "global-chart.jobServiceAccount" (dict "root" $root "job" $command "deploy" $deploy "deployName" $deployName "jobFullname" $hookFullname) | fromJson -}}
+{{- $sa := $hook.sa -}}
 {{- $saName := $sa.name -}}
 {{- $saCreate := $sa.create -}}
 {{- $saAutomount := $sa.automount -}}

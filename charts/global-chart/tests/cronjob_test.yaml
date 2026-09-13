@@ -4,6 +4,9 @@ templates:
 tests:
   # ====== Root-level CronJob naming (52 char truncation) ======
   - it: should truncate root-level cronjob name to 52 chars
+    documentSelector:
+      path: kind
+      value: CronJob
     release:
       name: my-very-long-release-name
     set:
@@ -18,13 +21,15 @@ tests:
     asserts:
       - isKind:
           of: CronJob
-        documentIndex: 0
       - matchRegex:
           path: metadata.name
           pattern: "^.{1,52}$"
 
   # ====== Root-level CronJob basic ======
   - it: should render root-level cronjob with explicit image
+    documentSelector:
+      path: kind
+      value: CronJob
     set:
       cronJobs:
         backup:
@@ -44,6 +49,9 @@ tests:
 
   # ====== Root-level CronJob with fromDeployment ======
   - it: should resolve image from fromDeployment
+    documentSelector:
+      path: kind
+      value: CronJob
     set:
       deployments:
         api:
@@ -135,6 +143,9 @@ tests:
 
   # ====== CronJob default resources ======
   - it: should use default resources when not specified
+    documentSelector:
+      path: kind
+      value: CronJob
     set:
       cronJobs:
         simple:
@@ -379,6 +390,9 @@ tests:
 
   # ====== Root-level CronJob securityContext ======
   - it: should render podSecurityContext on root-level cronjob
+    documentSelector:
+      path: kind
+      value: CronJob
     set:
       deployments:
         main:
@@ -395,9 +409,11 @@ tests:
       - equal:
           path: spec.jobTemplate.spec.template.spec.securityContext.runAsUser
           value: 1000
-        documentIndex: 0
 
   - it: should render container securityContext on root-level cronjob
+    documentSelector:
+      path: kind
+      value: CronJob
     set:
       deployments:
         main:
@@ -414,7 +430,6 @@ tests:
       - equal:
           path: spec.jobTemplate.spec.template.spec.containers[0].securityContext.runAsNonRoot
           value: true
-        documentIndex: 0
 
   # ====== Deployment-level CronJob securityContext inheritance ======
   - it: should inherit podSecurityContext from deployment in deployment-level cronjob
@@ -507,6 +522,9 @@ tests:
 
   # ====== global imagePullSecrets ======
   - it: should use global.imagePullSecrets when cronjob has none
+    documentSelector:
+      path: kind
+      value: CronJob
     set:
       global:
         imagePullSecrets:
@@ -522,6 +540,9 @@ tests:
           value: "global-regcred"
 
   - it: should prepend global.imageRegistry to cronjob image
+    documentSelector:
+      path: kind
+      value: CronJob
     set:
       global:
         imageRegistry: registry.example.com
@@ -539,6 +560,9 @@ tests:
 
   # ====== falsy masking fixes ======
   - it: should render successfulJobsHistoryLimit 0 when explicitly set on root-level cronjob
+    documentSelector:
+      path: kind
+      value: CronJob
     set:
       cronJobs:
         cleanup:
@@ -552,6 +576,9 @@ tests:
           value: 0
 
   - it: should render failedJobsHistoryLimit 0 when explicitly set on root-level cronjob
+    documentSelector:
+      path: kind
+      value: CronJob
     set:
       cronJobs:
         cleanup:
@@ -642,6 +669,9 @@ tests:
         documentIndex: 0
 
   - it: should still default successfulJobsHistoryLimit to 2 when not set
+    documentSelector:
+      path: kind
+      value: CronJob
     set:
       cronJobs:
         cleanup:
@@ -654,6 +684,9 @@ tests:
           value: 2
 
   - it: should still default concurrencyPolicy to Forbid when not set
+    documentSelector:
+      path: kind
+      value: CronJob
     set:
       cronJobs:
         cleanup:
@@ -666,6 +699,9 @@ tests:
           value: "Forbid"
 
   - it: should still default restartPolicy to Never when not set
+    documentSelector:
+      path: kind
+      value: CronJob
     set:
       cronJobs:
         cleanup:
@@ -877,6 +913,9 @@ tests:
 
   # ====== restartPolicy null-safe ======
   - it: should default restartPolicy to Never when not set
+    documentSelector:
+      path: kind
+      value: CronJob
     set:
       cronJobs:
         backup:
@@ -912,6 +951,9 @@ tests:
           path: spec.jobTemplate.spec.template.metadata
 
   - it: should render jobTemplate.metadata.annotations when commonAnnotations set (root-level)
+    documentSelector:
+      path: kind
+      value: CronJob
     set:
       global:
         commonAnnotations:
@@ -950,6 +992,9 @@ tests:
 
   # ====== issue #48: CronJob spec hardening fields (root-level) ======
   - it: should render timeZone / suspend / startingDeadlineSeconds (root-level)
+    documentSelector:
+      path: kind
+      value: CronJob
     set:
       cronJobs:
         backup:
@@ -971,6 +1016,9 @@ tests:
           value: 60
 
   - it: should render jobTemplate.spec hardening fields (root-level)
+    documentSelector:
+      path: kind
+      value: CronJob
     set:
       cronJobs:
         backup:
@@ -1025,6 +1073,9 @@ tests:
           path: spec.jobTemplate.spec.completions
 
   - it: should render suspend false explicitly (root-level)
+    documentSelector:
+      path: kind
+      value: CronJob
     set:
       cronJobs:
         backup:
@@ -1204,3 +1255,130 @@ tests:
           content:
             secretRef:
               name: RELEASE-NAME-global-chart-backend
+
+  # ====== Root-level SA parity with root-level hooks (see hook_test.yaml) ======
+  - it: should create the ServiceAccount the pod references when root cronjob sets none
+    release:
+      name: t
+    set:
+      cronJobs:
+        cleanup:
+          schedule: "0 0 * * *"
+          image: busybox:1.36
+    asserts:
+      - hasDocuments:
+          count: 2
+      - equal:
+          path: metadata.name
+          value: t-global-chart-cleanup
+        documentSelector:
+          path: kind
+          value: ServiceAccount
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.serviceAccountName
+          value: t-global-chart-cleanup
+        documentSelector:
+          path: kind
+          value: CronJob
+
+  - it: should honor serviceAccount.name on a root-level cronjob
+    set:
+      cronJobs:
+        cleanup:
+          schedule: "0 0 * * *"
+          image: busybox:1.36
+          serviceAccount:
+            name: existing-sa
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: CronJob
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.serviceAccountName
+          value: existing-sa
+
+  - it: should honor serviceAccount.automount on a created root-level cronjob SA
+    set:
+      cronJobs:
+        cleanup:
+          schedule: "0 0 * * *"
+          image: busybox:1.36
+          serviceAccount:
+            automount: false
+    asserts:
+      - equal:
+          path: automountServiceAccountToken
+          value: false
+        documentSelector:
+          path: kind
+          value: ServiceAccount
+
+  - it: should leave the pod on the namespace default SA when create is false and nothing names one
+    set:
+      cronJobs:
+        cleanup:
+          schedule: "0 0 * * *"
+          image: busybox:1.36
+          serviceAccount:
+            create: false
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: CronJob
+      # Not the generated name: nothing would create it, and the pod would never
+      # schedule. No name at all means the namespace default.
+      - isNull:
+          path: spec.jobTemplate.spec.template.spec.serviceAccountName
+
+  - it: should create the SA under an explicit serviceAccountName when create is true
+    set:
+      cronJobs:
+        cleanup:
+          schedule: "0 0 * * *"
+          image: busybox:1.36
+          serviceAccountName: custom-sa
+          serviceAccount:
+            create: true
+    asserts:
+      - hasDocuments:
+          count: 2
+      - equal:
+          path: metadata.name
+          value: custom-sa
+        documentSelector:
+          path: kind
+          value: ServiceAccount
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.serviceAccountName
+          value: custom-sa
+        documentSelector:
+          path: kind
+          value: CronJob
+
+  - it: should create the deployment-level cronjob SA under an explicit serviceAccountName
+    set:
+      deployments:
+        backend:
+          image: myapp:v1
+          cronJobs:
+            backup:
+              schedule: "0 2 * * *"
+              command: ["./backup.sh"]
+              serviceAccountName: custom-cron-sa
+              serviceAccount:
+                create: true
+    asserts:
+      - equal:
+          path: metadata.name
+          value: custom-cron-sa
+        documentSelector:
+          path: kind
+          value: ServiceAccount
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.serviceAccountName
+          value: custom-cron-sa
+        documentSelector:
+          path: kind
+          value: CronJob
