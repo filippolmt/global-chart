@@ -21,7 +21,7 @@
 {{- $sa := include "global-chart.jobServiceAccount" (dict "root" $root "job" $command "jobFullname" $hookFullname) | fromJson -}}
 {{- $saName := $sa.name -}}
 
-{{- /* ServiceAccount uses weight 5 so it exists before the Job (weight 10) */ -}}
+{{- /* The SA sorts before its Job; hookAnnotations owns the offset */ -}}
 {{- if $sa.create }}
 ---
 apiVersion: v1
@@ -30,7 +30,7 @@ metadata:
   name: {{ $saName }}
   namespace: {{ $root.Release.Namespace | quote }}
   labels:
-    {{- include "global-chart.hookLabelsWithComponent" $root | nindent 4 }}
+    {{- include "global-chart.hookLabelsWithComponent" (dict "root" $root) | nindent 4 }}
   annotations:
     {{- with (include "global-chart.renderCommonAnnotations" $root) }}
     {{- . | nindent 4 }}
@@ -47,7 +47,7 @@ kind: Job
 metadata:
   name: {{ $hookFullname }}
   labels:
-    {{- include "global-chart.hookLabelsWithComponent" $root | nindent 4 }}
+    {{- include "global-chart.hookLabelsWithComponent" (dict "root" $root) | nindent 4 }}
   annotations:
     {{- with (include "global-chart.renderCommonAnnotations" $root) }}
     {{- . | nindent 4 }}
@@ -58,7 +58,7 @@ spec:
     metadata:
       name: {{ $hookFullname }}
       labels:
-        {{- include "global-chart.hookLabelsWithComponent" $root | nindent 8 }}
+        {{- include "global-chart.hookLabelsWithComponent" (dict "root" $root) | nindent 8 }}
       {{- with (include "global-chart.renderCommonAnnotations" $root) }}
       annotations:
         {{- . | nindent 8 }}
@@ -173,7 +173,7 @@ spec:
   Normal (non-hook) ConfigMap/Secret are NOT updated until after hooks complete,
   so the Job would reference stale values without these hook copies.
   Rendered ONCE per deployment (not per hook command) with ALL hook types aggregated.
-  Weight order: prereq ConfigMap/Secret (jobWeight-7) < SA (jobWeight-5) < Job (jobWeight)
+  Weight order: prereq < SA < Job, per the role table in hookAnnotations.
 */ -}}
 {{- if $hasDeployConfigMap }}
 ---
@@ -182,7 +182,7 @@ kind: ConfigMap
 metadata:
   name: {{ include "global-chart.hookPrereqConfigName" (dict "deploymentFullname" $deployFullname) }}
   labels:
-    {{- include "global-chart.deploymentHookLabels" (dict "root" $root "deploymentName" $deployName) | nindent 4 }}
+    {{- include "global-chart.hookLabelsWithComponent" (dict "root" $root "deploymentName" $deployName) | nindent 4 }}
   annotations:
     {{- with (include "global-chart.renderCommonAnnotations" $root) }}
     {{- . | nindent 4 }}
@@ -205,7 +205,7 @@ kind: Secret
 metadata:
   name: {{ include "global-chart.hookPrereqSecretName" (dict "deploymentFullname" $deployFullname) }}
   labels:
-    {{- include "global-chart.deploymentHookLabels" (dict "root" $root "deploymentName" $deployName) | nindent 4 }}
+    {{- include "global-chart.hookLabelsWithComponent" (dict "root" $root "deploymentName" $deployName) | nindent 4 }}
   annotations:
     {{- with (include "global-chart.renderCommonAnnotations" $root) }}
     {{- . | nindent 4 }}
@@ -263,8 +263,8 @@ data:
   {{- range $name, $command := (index $deploy.hooks "pre-install") -}}
     {{- if $command -}}
       {{- $resolvedSA := (index $hooks (printf "pre-install/%s" $name)).sa -}}
-      {{- /* Only the hooks that actually bind the deployment SA matter: a hook with its
-             own explicit or created SA already gets one with hook weight w-5 */ -}}
+      {{- /* Only the hooks that actually bind the deployment SA matter: a hook with
+             its own explicit or created SA already gets one at the "sa" offset */ -}}
       {{- if and (not $resolvedSA.create) (eq $resolvedSA.name $deploySAName) -}}
         {{- $_ := set $preInstallSAHooks $name $command -}}
       {{- end -}}
@@ -280,7 +280,7 @@ metadata:
   name: {{ $deploySAName }}
   namespace: {{ $root.Release.Namespace | quote }}
   labels:
-    {{- include "global-chart.deploymentHookLabels" (dict "root" $root "deploymentName" $deployName) | nindent 4 }}
+    {{- include "global-chart.hookLabelsWithComponent" (dict "root" $root "deploymentName" $deployName) | nindent 4 }}
   annotations:
     {{- with (include "global-chart.renderCommonAnnotations" $root) }}
     {{- . | nindent 4 }}
@@ -312,7 +312,7 @@ automountServiceAccountToken: {{ hasKey $deploySA "automount" | ternary $deployS
 {{- $saAnnotations := $sa.annotations -}}
 
 {{- /* Create SA only if needed (not using deployment's or explicit existing);
-       ServiceAccount uses weight 5 so it exists before the Job (weight 10) */ -}}
+       it sorts before its Job — hookAnnotations owns the offset */ -}}
 {{- if $saCreate }}
 ---
 apiVersion: v1
@@ -321,7 +321,7 @@ metadata:
   name: {{ $saName }}
   namespace: {{ $root.Release.Namespace | quote }}
   labels:
-    {{- include "global-chart.deploymentHookLabels" (dict "root" $root "deploymentName" $deployName) | nindent 4 }}
+    {{- include "global-chart.hookLabelsWithComponent" (dict "root" $root "deploymentName" $deployName) | nindent 4 }}
   annotations:
     {{- with (include "global-chart.renderCommonAnnotations" $root) }}
     {{- . | nindent 4 }}
@@ -338,7 +338,7 @@ kind: Job
 metadata:
   name: {{ $hookFullname }}
   labels:
-    {{- include "global-chart.deploymentHookLabels" (dict "root" $root "deploymentName" $deployName) | nindent 4 }}
+    {{- include "global-chart.hookLabelsWithComponent" (dict "root" $root "deploymentName" $deployName) | nindent 4 }}
   annotations:
     {{- with (include "global-chart.renderCommonAnnotations" $root) }}
     {{- . | nindent 4 }}
@@ -349,7 +349,7 @@ spec:
     metadata:
       name: {{ $hookFullname }}
       labels:
-        {{- include "global-chart.deploymentHookLabels" (dict "root" $root "deploymentName" $deployName) | nindent 8 }}
+        {{- include "global-chart.hookLabelsWithComponent" (dict "root" $root "deploymentName" $deployName) | nindent 8 }}
       {{- with (include "global-chart.renderCommonAnnotations" $root) }}
       annotations:
         {{- . | nindent 8 }}

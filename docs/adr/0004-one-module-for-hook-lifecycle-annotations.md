@@ -19,18 +19,20 @@ The interface is `hookAnnotations(hookType · role · command | weight)`. `role`
 of four values and is **orthogonal to scope**: a hook resource is a `job`, a `sa`
 (chart-created ServiceAccount for a single hook), a `prereq` (the ConfigMap/Secret
 copies) or a `pre-install-sa` (the ServiceAccount copy of ADR 0002). The role
-selects a row of a two-column table — weight offset and delete-policy default — and
-nothing else.
+selects a row of a table — weight offset, delete-policy default, and whether the
+resource belongs to one hook — and nothing else.
 
 The last argument says where the weight comes from, and that is also what decides
 whether an explicit `deletePolicy` applies. The roles a hook owns (`job`, `sa`) are
 called with that hook's own `command`, so its `deletePolicy` reaches them. The
 plumbing roles are called with a `weight` and no command, because their weight is a
-minimum across several hooks rather than one hook's own — and with no command there
-is no explicit policy to honour, which is the fixed-policy ruling below expressed as
-an interface rather than as a flag in the table. The minima come from
-`minHookWeight(hooks)`, and the `hasKey` → `int` → default-10 rule itself from
-`effectiveHookWeight(command)`, so that rule exists once for all of them.
+minimum across several hooks rather than one hook's own — and handing one a command
+is a template error, so the fixed-policy ruling below is enforced by the interface
+rather than left to convention. An unknown role fails too: without that guard it
+takes offset 0 and renders a null delete policy, an invalid annotation the API
+server rejects far from its cause. The minima come from `minHookWeight(hooks)`, and
+the default-10 rule itself from `effectiveHookWeight(command)`, so that rule exists
+once for all of them.
 
 Derived weights are still never floored at 0, for the reason ADR 0002 gives.
 Weights are coerced with `int` in every role, including the Job — today the Job
@@ -38,8 +40,9 @@ emits the raw value while its own ServiceAccount coerces it, so a non-canonical
 string weight already renders two inconsistent numbers for the same hook.
 
 The helper takes no `root`: it reads nothing from it. Deployment-level hook labels
-are a separate duplication and get their own helper, `deploymentHookLabels`,
-alongside the existing `hookLabelsWithComponent` in `_helpers.tpl`.
+are a separate duplication, folded into the existing `hookLabelsWithComponent` in
+`_helpers.tpl`: it now takes a dict and appends the component from an optional
+`deploymentName`, so both hook scopes call one helper the same way.
 
 `renderCommonAnnotations` and user-supplied ServiceAccount annotations stay at the
 call sites: they are not hook lifecycle, and their position around the three
@@ -76,10 +79,13 @@ clause that ADR 0001 chose and that `jobServiceAccount` already applies.
 
 ## Consequences
 
-- Rendered output is unchanged except for weights written as non-canonical strings
-  (`"007"`, `" 5"`), which now render coerced and consistent across a hook and its
-  ServiceAccount instead of diverging. The schema keeps accepting
-  `["string", "integer"]`.
+- Rendered output is unchanged except for weights written as non-canonical strings,
+  which now render consistently across a hook and its ServiceAccount instead of
+  diverging: `weight: "007"` rendered `"007"` on the Job and `"2"` on its SA, and
+  renders `"7"` and `"2"` now. The schema keeps accepting `["string", "integer"]`,
+  so a string `int` cannot parse still becomes 0 — `weight: " 5"` is weight 0, on
+  every resource rather than on all but the Job. Tightening the schema to reject it
+  would fail values that lint today and is left to its own decision.
 - The 24 `hook-weight` and 13 `hook-delete-policy` assertions in `hook_test.yaml`
   are **kept**, not collapsed: they pin the rendered output — which weight lands on
   which resource under which `helm.sh/hook` — not the helper. A table test for the

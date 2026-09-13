@@ -135,21 +135,14 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end }}
 
 {{/*
-Hook labels with component for root-level hooks.
+Hook labels plus the component, for both hook scopes.
+Params: root, and deploymentName for a deployment-level hook — omit it for a
+root-level one, whose component is just "hook".
+Usage: {{ include "global-chart.hookLabelsWithComponent" (dict "root" $root "deploymentName" $deployName) }}
 */}}
 {{- define "global-chart.hookLabelsWithComponent" -}}
-{{ include "global-chart.hookLabels" . }}
-app.kubernetes.io/component: hook
-{{- end }}
-
-{{/*
-Hook labels with component for deployment-level hooks, mirroring
-hookLabelsWithComponent for the root-level ones.
-Usage: {{ include "global-chart.deploymentHookLabels" (dict "root" $root "deploymentName" $deployName) }}
-*/}}
-{{- define "global-chart.deploymentHookLabels" -}}
 {{ include "global-chart.hookLabels" .root }}
-app.kubernetes.io/component: {{ .deploymentName }}-hook
+app.kubernetes.io/component: {{ with .deploymentName }}{{ . }}-{{ end }}hook
 {{- end }}
 
 {{- define "global-chart.hookfullname" -}}
