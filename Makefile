@@ -310,6 +310,10 @@ e2e: kind-cluster kind-keda ## Install/upgrade/uninstall tests/e2e/values.yaml o
 	[ "$$(kubectl -n $$ns get deploy $$rel-$(GLOBAL_CHART_NAME)-app -o jsonpath='{.spec.template.spec.containers[0].command}')" = '["sh","-c"]' ] \
 		|| { echo "FAIL: deployment command not rendered (issue #72 regression)"; exit 1; }; \
 	echo "    deployment command/args rendered"; \
+	cron_sa=$$(kubectl -n $$ns get cronjob $$rel-$(GLOBAL_CHART_NAME)-cleanup -o jsonpath='{.spec.jobTemplate.spec.template.spec.serviceAccountName}'); \
+	kubectl -n $$ns get sa "$$cron_sa" >/dev/null 2>&1 \
+		|| { echo "FAIL: root-level CronJob references ServiceAccount '$$cron_sa', which no manifest creates"; exit 1; }; \
+	echo "    root-level CronJob's ServiceAccount exists in the cluster"; \
 	echo "==> Waiting for Service endpoints..."; \
 	for d in app web; do \
 		kubectl -n $$ns rollout status deploy/$$rel-$(GLOBAL_CHART_NAME)-$$d --timeout=180s >/dev/null \

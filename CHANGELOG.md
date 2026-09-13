@@ -5,6 +5,63 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ---
 
+## [Unreleased]
+
+### Fixed
+
+- **A root-level `cronJobs.<name>` with no `serviceAccount` now gets the
+  ServiceAccount its pod references.** It used to render
+  `serviceAccountName: <release>-global-chart-<name>` and create nothing, so
+  every Job the CronJob spawned failed to schedule with
+  `serviceaccount "…" not found`. The manifest is valid and kubeconform passes:
+  only a live cluster shows it. Root-level `hooks` already created the SA in
+  that case; the two scopes now behave the same.
+
+  If you already created a ServiceAccount with that exact generated name by
+  hand, outside Helm, the install will now report `already exists`. Point the
+  cronJob at it explicitly instead:
+
+```yaml
+cronJobs:
+  cleanup:
+    serviceAccount:
+      name: my-existing-sa   # or: create: false
+```
+
+- **A job told `serviceAccount.create: false` with no name to bind no longer
+  points its pod at a ServiceAccount nothing creates.** `serviceAccountName` is
+  now omitted in that case and the pod runs as the namespace `default` — the
+  only thing "do not create one, and here is no name" can honestly mean. Set
+  `serviceAccount.name` (or `serviceAccountName`) to bind a specific existing SA.
+
+- **Two chart-created ServiceAccounts can no longer share a name.** A root-level
+  `cronJobs.cleanup` next to a `deployments.cleanup` generates
+  `<release>-global-chart-cleanup` twice, and the install dies on `already
+  exists` partway through the release. `validateNameCollisions` now fails the
+  render instead, naming both sources. The hook-prerequisite SA copy of
+  [ADR 0002] is untouched: it shares the real SA's name on purpose, and being a
+  hook resource it never reaches the validator.
+
+### Changed
+
+- **`cronJobs.<name>.serviceAccount.name`, `.automount`, `.annotations` and
+  `.create: false` now do something.** The schema has always accepted them —
+  they share `$defs/serviceAccount` with every other job scope — but
+  `cronjob.yaml` read only `serviceAccount.create`, so the rest passed
+  validation and was silently dropped. Root-level cronJobs and hooks now resolve
+  their ServiceAccount through the same `jobServiceAccount` helper the
+  deployment-level ones use.
+
+- **`serviceAccountName` together with `serviceAccount.create: true` now names
+  the ServiceAccount the chart creates**, in every job scope. Deployment-level
+  jobs used to ignore the name and create the generated one instead; root-level
+  hooks honoured it. They agree now, on the reading that does what the values
+  say.
+
+[ADR 0002]: docs/adr/0002-hook-prerequisite-serviceaccount-copy.md
+
+---
+
 ## [2.5.1] — 2026-08-08
 
 ### Fixed

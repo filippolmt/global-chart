@@ -17,10 +17,11 @@
 {{- /* Resolve image: explicit > fromDeployment > error (see jobImageString helper) */ -}}
 {{- $imageRef := required (printf "image is required for cronJobs.%s (set cronJobs.%s.image or cronJobs.%s.fromDeployment)" $name $name $name) (include "global-chart.jobImageString" (dict "root" $root "job" $job "errCtx" (printf "cronJobs.%s" $name))) }}
 
-{{- /* ServiceAccount - create own or use explicit name */ -}}
-{{- $saCreate := and (hasKey $job "serviceAccount") (hasKey $job.serviceAccount "create") $job.serviceAccount.create }}
-{{- $saName := ternary (default $jobFullname $job.serviceAccountName) $jobFullname (hasKey $job "serviceAccountName") }}
-{{- if $saCreate }}
+{{- /* ServiceAccount: explicit > create own (see jobServiceAccount helper; no
+       deployment to inherit from at root level) */ -}}
+{{- $sa := include "global-chart.jobServiceAccount" (dict "root" $root "job" $job "jobFullname" $jobFullname) | fromJson }}
+{{- $saName := $sa.name }}
+{{- if $sa.create }}
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -29,16 +30,16 @@ metadata:
   namespace: {{ $root.Release.Namespace | quote }}
   labels:
     {{- include "global-chart.labels" $root | nindent 4 }}
-  {{- if or (include "global-chart.renderCommonAnnotations" $root) $job.serviceAccountAnnotations }}
+  {{- if or (include "global-chart.renderCommonAnnotations" $root) $sa.annotations }}
   annotations:
     {{- with (include "global-chart.renderCommonAnnotations" $root) }}
     {{- . | nindent 4 }}
     {{- end }}
-    {{- with $job.serviceAccountAnnotations }}
+    {{- with $sa.annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
   {{- end }}
-automountServiceAccountToken: {{ ternary $job.automountServiceAccountToken true (hasKey $job "automountServiceAccountToken") }}
+automountServiceAccountToken: {{ $sa.automount }}
 {{- end }}
 ---
 apiVersion: batch/v1
@@ -171,7 +172,9 @@ spec:
             {{- include "global-chart.renderVolume" . | nindent 12 }}
             {{- end }}
           {{- end }}
-          serviceAccountName: {{ $saName | quote }}
+          {{- with $saName }}
+          serviceAccountName: {{ . | quote }}
+          {{- end }}
           {{- with $job.nodeSelector }}
           nodeSelector:
             {{- toYaml . | nindent 12 }}
