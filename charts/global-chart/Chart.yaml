@@ -1,6 +1,6 @@
 apiVersion: v2
 name: global-chart
-description: "Reusable Helm chart providing common building blocks—Deployments, Services, Ingress, Jobs, and more—for broadly adaptable Kubernetes applications."
+description: "Reusable Helm chart for multi-deployment Kubernetes applications—Deployments, Services, Ingress, CronJobs, Hooks, ExternalSecrets, RBAC, HPA, PDB, NetworkPolicy, and more."
 
 # A chart can be either an 'application' or a 'library' chart.
 #
@@ -26,14 +26,14 @@ version: 2.5.1
 icon: https://helm.sh/img/helm.svg
 
 # Project URLs
-home: https://github.com/filippomerante/global-chart
+home: https://github.com/filippolmt/global-chart
 sources:
-  - https://github.com/filippomerante/global-chart
+  - https://github.com/filippolmt/global-chart
 
 # Chart maintainers
 maintainers:
   - name: Filippo Merante Caparrotta
-    url: https://github.com/filippomerante
+    url: https://github.com/filippolmt
 
 # Search keywords
 keywords:
@@ -49,6 +49,11 @@ keywords:
   - hpa
   - autoscaling
   - keda
+  - gateway-api
+  - external-secrets
 
-# Minimum Kubernetes version
-kubeVersion: ">=1.19.0-0"
+# Minimum Kubernetes version. The floor is what the templates render:
+# autoscaling/v2 for the HPA (stable in 1.23) and policy/v1 for the PDB
+# (stable in 1.21). Raise it here when a template starts rendering a newer
+# apiVersion.
+kubeVersion: ">=1.23.0-0"

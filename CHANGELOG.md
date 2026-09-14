@@ -34,6 +34,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Fixed
 
+- **`kubeVersion` promised a floor the chart cannot honour.** `Chart.yaml`
+  declared `>=1.19.0-0`, so Helm let the chart install on clusters where it
+  cannot work: the HPA renders `autoscaling/v2`, stable in 1.23, and the PDB
+  renders `policy/v1`, stable in 1.21. On 1.19 the install failed at the API
+  server with an unrecognised kind, far from the metadata that had allowed it.
+  The floor is now `>=1.23.0-0`, with the two apiVersions that set it named
+  beside it so the next reader can recompute it instead of trusting it. A
+  cluster below 1.23 is now refused at install time, by the check that exists to
+  refuse it; nothing changes at or above 1.23.
+
+- **`home`, `sources` and the maintainer URL pointed at a user that does not
+  exist.** All three named `github.com/filippomerante`, which is a 404 — the
+  repository is `github.com/filippolmt/global-chart`. Those fields travel into
+  the published `index.yaml` and into Artifact Hub, so every release so far has
+  shipped three dead links. The chart `description` and `keywords` also lagged
+  behind what the templates render: the description now names the
+  multi-deployment shape, and `gateway-api` and `external-secrets` join the
+  keywords.
+
 - **Common and per-resource annotations were emitted as two YAML keys when they
   shared a name.** With `global.commonAnnotations.owner` and, say,
   `deployments.<name>.serviceAccount.annotations.owner` both set, the manifest
