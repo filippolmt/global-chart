@@ -42,10 +42,10 @@ deployments:
       port: 8069
       targetPort: 8069
       portName: odoo
-    additionalPorts:
-      - name: gevent
-        port: 8072
-        targetPort: 8072
+      extraPorts:
+        - name: gevent
+          port: 8072
+          targetPort: 8072
     configMap:
       HOST: "192.168.1.100"
       PORT: "5432"

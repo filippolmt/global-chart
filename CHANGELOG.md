@@ -7,6 +7,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
+### Changed
+
+- **Nine `$defs` in `values.schema.json` no longer accept undeclared keys.**
+  `deployment`, `networkPolicy`, `ingress`, `mountedConfigFiles` and
+  `externalSecret` gain `additionalProperties: false`; the four job definitions
+  `cronJob`, `deploymentCronJob`, `hookJob` and `deploymentHookJob` gain
+  `unevaluatedProperties: false`. A key that no template reads under
+  `deployments.<name>`, `cronJobs.<name>`, `hooks.<type>.<name>` or their
+  deployment-level counterparts now stops install and upgrade instead of being
+  silently ignored: `deployments.web.replicaz: 3` used to render a Deployment
+  without a word. The remedy is to remove the key, or to fix the typo — the
+  error names the path (`at '/deployments/web/replicaz'`). The four job
+  definitions need **Helm >= 3.18.6**: below it `unevaluatedProperties` is
+  ignored in silence and those four behave exactly as they do today, never
+  worse. The five flat definitions use `additionalProperties: false` and hold on
+  every Helm. `probe` stays open on purpose, along with the other Kubernetes
+  passthrough surfaces. `$schema` moves from Draft 7 to Draft 2019-09, which is
+  what `unevaluatedProperties` needs; nothing else in the file changes meaning
+  between the two drafts, and a fork that `$ref`s one of these definitions from
+  its own schema should follow. See [ADR 0006].
+
 ### Fixed
 
 - **Common and per-resource annotations were emitted as two YAML keys when they
@@ -248,6 +269,7 @@ data:
 [ADR 0002]: docs/adr/0002-hook-prerequisite-serviceaccount-copy.md
 [ADR 0004]: docs/adr/0004-one-module-for-hook-lifecycle-annotations.md
 [ADR 0005]: docs/adr/0005-one-module-for-configmap-and-secret-data.md
+[ADR 0006]: docs/adr/0006-close-the-schema-defs-that-declare-their-properties.md
 
 ### Migration guide from 2.5.x
 

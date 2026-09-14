@@ -1,5 +1,5 @@
 {
-  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$schema": "https://json-schema.org/draft/2019-09/schema",
   "type": "object",
   "additionalProperties": false,
   "properties": {
@@ -125,7 +125,7 @@
     },
     "probe": {
       "type": "object",
-      "description": "Kubernetes probe configuration (httpGet, tcpSocket, exec, grpc)"
+      "description": "Kubernetes probe configuration (httpGet, tcpSocket, exec, grpc). Accepts any key: this is a Kubernetes passthrough surface, left open by ADR 0006."
     },
     "serviceAccount": {
       "type": "object",
@@ -321,7 +321,8 @@
         },
         "ingress": { "type": "array" },
         "egress": { "type": "array" }
-      }
+      },
+      "additionalProperties": false
     },
     "dnsConfig": {
       "type": "object",
@@ -386,7 +387,8 @@
             "additionalProperties": false
           }
         }
-      }
+      },
+      "additionalProperties": false
     },
     "deployment": {
       "type": "object",
@@ -466,7 +468,8 @@
           "type": "object",
           "additionalProperties": { "$ref": "#/$defs/deploymentCronJob" }
         }
-      }
+      },
+      "additionalProperties": false
     },
     "jobCommon": {
       "type": "object",
@@ -563,28 +566,32 @@
         { "$ref": "#/$defs/jobCommon" },
         { "$ref": "#/$defs/cronJobSpec" },
         { "$ref": "#/$defs/rootJobSpec" }
-      ]
+      ],
+      "unevaluatedProperties": false
     },
     "deploymentCronJob": {
       "allOf": [
         { "$ref": "#/$defs/jobCommon" },
         { "$ref": "#/$defs/cronJobSpec" },
         { "$ref": "#/$defs/deploymentJobSpec" }
-      ]
+      ],
+      "unevaluatedProperties": false
     },
     "hookJob": {
       "allOf": [
         { "$ref": "#/$defs/jobCommon" },
         { "$ref": "#/$defs/hookJobSpec" },
         { "$ref": "#/$defs/rootJobSpec" }
-      ]
+      ],
+      "unevaluatedProperties": false
     },
     "deploymentHookJob": {
       "allOf": [
         { "$ref": "#/$defs/jobCommon" },
         { "$ref": "#/$defs/hookJobSpec" },
         { "$ref": "#/$defs/deploymentJobSpec" }
-      ]
+      ],
+      "unevaluatedProperties": false
     },
     "externalSecretRemote": {
       "type": "object",
@@ -651,7 +658,8 @@
           },
           "additionalProperties": false
         }
-      }
+      },
+      "additionalProperties": false
     },
     "ingress": {
       "type": "object",
@@ -702,7 +710,8 @@
             }
           }
         }
-      }
+      },
+      "additionalProperties": false
     },
     "httpRoute": {
       "type": "object",
