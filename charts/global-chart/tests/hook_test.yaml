@@ -2608,3 +2608,79 @@ tests:
           path: metadata.annotations["helm.sh/hook-weight"]
           value: "-1"
         documentIndex: 0
+
+  # ====== Root-level hooks inherit nothing from deployments ======
+  # Guards the omission of "deploy" in hook.yaml PART 1's jobPodSpec call: the
+  # helper carries the whole inheritance chain, and only the missing key keeps
+  # it inactive for root-level hooks (CLAUDE.md pattern 5, "Asymmetry").
+  - it: should inherit nothing from a deployment for a root-level hook
+    documentSelector:
+      path: kind
+      value: Job
+    set:
+      deployments:
+        backend:
+          image: myapp:v1
+          imagePullSecrets:
+            - name: deploy-pull-secret
+          hostAliases:
+            - ip: "127.0.0.1"
+              hostnames:
+                - "foo.local"
+          podSecurityContext:
+            runAsUser: 1000
+          securityContext:
+            readOnlyRootFilesystem: true
+          dnsConfig:
+            nameservers:
+              - "10.0.0.1"
+          nodeSelector:
+            disktype: ssd
+          tolerations:
+            - key: "node-role"
+              operator: "Exists"
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                  - matchExpressions:
+                      - key: kubernetes.io/os
+                        operator: In
+                        values: ["linux"]
+          additionalEnvs:
+            - name: FROM_DEPLOYMENT
+              value: "yes"
+          configMap:
+            DEPLOY_KEY: deploy-value
+          secret:
+            DEPLOY_SECRET: deploy-secret-value
+          envFromConfigMaps:
+            - deploy-external-cm
+          envFromSecrets:
+            - deploy-external-secret
+      hooks:
+        post-install:
+          standalone:
+            image: myapp:v1
+            command: ["./standalone.sh"]
+    asserts:
+      - isNull:
+          path: spec.template.spec.imagePullSecrets
+      - isNull:
+          path: spec.template.spec.hostAliases
+      - isNull:
+          path: spec.template.spec.securityContext
+      - isNull:
+          path: spec.template.spec.dnsConfig
+      - isNull:
+          path: spec.template.spec.nodeSelector
+      - isNull:
+          path: spec.template.spec.tolerations
+      - isNull:
+          path: spec.template.spec.affinity
+      - isNull:
+          path: spec.template.spec.containers[0].securityContext
+      - isNull:
+          path: spec.template.spec.containers[0].env
+      - isNull:
+          path: spec.template.spec.containers[0].envFrom

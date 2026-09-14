@@ -123,6 +123,26 @@ data:
   `toYaml | b64enc` for the Secret) was untested at all four call sites, and no
   test asserted `data` on the prerequisite copies at all.
 
+- **Root-level `hooks` and `cronJobs` now render their pod spec through the same
+  module as the deployment-level ones.** `hook.yaml` and `cronjob.yaml` each
+  carried their own copy of the pod spec for root-level jobs — imagePullSecrets
+  chain, hostAliases, securityContext, dnsConfig, container, volumes,
+  nodeSelector, affinity, tolerations, restartPolicy — so a field added to the
+  pod spec had to be added in three places, and the three had already drifted in
+  field order. Root-level jobs now pass no `deploy` to `jobPodSpec` (renamed from
+  `inheritedJobPodSpec`, since it is no longer only for the inheriting scope):
+  that scope simply *is* the "nothing to inherit from" case, which is how
+  `jobServiceAccount` was widened in this same cycle. Nothing is inherited that
+  was not inherited before, no key becomes active, and no field gains a fallback
+  it did not already have; see [ADR 0001].
+
+  **The only visible effect is field order** inside the pod spec of root-level
+  hooks: `serviceAccountName` now comes after `volumes`, `resources` after `env`,
+  and `restartPolicy` last, matching every other job the chart renders. Same
+  keys, same values, same semantics — a `helm diff` across the upgrade shows the
+  reordering and nothing else.
+
+[ADR 0001]: docs/adr/0001-keep-root-and-deployment-job-rendering-separate.md
 [ADR 0002]: docs/adr/0002-hook-prerequisite-serviceaccount-copy.md
 [ADR 0004]: docs/adr/0004-one-module-for-hook-lifecycle-annotations.md
 [ADR 0005]: docs/adr/0005-one-module-for-configmap-and-secret-data.md
