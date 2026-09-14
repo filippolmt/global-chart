@@ -1322,6 +1322,77 @@ tests:
               name: RELEASE-NAME-global-chart-backend-hook-secret
         documentIndex: 2
 
+  - it: should copy the deployment configMap and secret data verbatim onto the prereqs
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          configMap:
+            DB_HOST: postgres
+            PORT: 8080
+            app.yaml:
+              server:
+                port: 8080
+            FEATURES:
+              - alpha
+              - beta
+          secret:
+            DB_PASS: secret123
+            CONFIG:
+              user: admin
+            PORT: 8080
+          hooks:
+            post-upgrade:
+              migrate:
+                command: ["./migrate.sh"]
+    asserts:
+      # Prerequisite ConfigMap (documentIndex 0): same data as configmap.yaml renders
+      - isKind:
+          of: ConfigMap
+        documentIndex: 0
+      - equal:
+          path: metadata.name
+          value: RELEASE-NAME-global-chart-backend-hook-config
+        documentIndex: 0
+      - equal:
+          path: data.DB_HOST
+          value: "postgres"
+        documentIndex: 0
+      - equal:
+          path: data.PORT
+          value: "8080"
+        documentIndex: 0
+      - equal:
+          path: data["app.yaml"].server.port
+          value: 8080
+        documentIndex: 0
+      - equal:
+          path: data.FEATURES
+          value:
+            - alpha
+            - beta
+        documentIndex: 0
+      # Prerequisite Secret (documentIndex 1): same data as secret.yaml renders
+      - isKind:
+          of: Secret
+        documentIndex: 1
+      - equal:
+          path: metadata.name
+          value: RELEASE-NAME-global-chart-backend-hook-secret
+        documentIndex: 1
+      - equal:
+          path: data.DB_PASS
+          value: "c2VjcmV0MTIz"
+        documentIndex: 1
+      - equal:
+          path: data.CONFIG
+          value: "dXNlcjogYWRtaW4="
+        documentIndex: 1
+      - equal:
+          path: data.PORT
+          value: "ODA4MA=="
+        documentIndex: 1
+
   - it: should inherit envFromConfigMaps and envFromSecrets from deployment
     set:
       deployments:

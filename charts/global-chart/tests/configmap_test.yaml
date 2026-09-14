@@ -72,6 +72,30 @@ tests:
           path: data.ENABLED
           value: "true"
 
+  - it: should render configmap with map and slice values as YAML
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          configMap:
+            app.yaml:
+              server:
+                port: 8080
+            FEATURES:
+              - alpha
+              - beta
+    asserts:
+      - isKind:
+          of: ConfigMap
+      - equal:
+          path: data["app.yaml"].server.port
+          value: 8080
+      - equal:
+          path: data.FEATURES
+          value:
+            - alpha
+            - beta
+
   - it: should render multiple configmaps for multiple deployments
     set:
       deployments:

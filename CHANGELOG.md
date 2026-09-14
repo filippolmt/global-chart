@@ -84,8 +84,20 @@ cronJobs:
   No behaviour changed here — `CLAUDE.md` pattern 8 claimed otherwise and has
   been corrected.
 
+- **The hook-prerequisite ConfigMap and Secret can no longer drift from the real
+  ones.** Their `data` bodies must be byte-identical to what `configmap.yaml` and
+  `secret.yaml` render — a hook Job that reads different values than the
+  Deployment will get is a failure no manifest shows — yet `hook.yaml` re-derived
+  both serialization rules inline. The two bodies now come from
+  `renderConfigMapData` and `renderSecretData` in `_render-helpers.tpl`. Rendered
+  output is unchanged; see [ADR 0005]. The tests that close the gap ship with it:
+  the non-string branch (`map`/`slice` → `toYaml` for the ConfigMap, non-string →
+  `toYaml | b64enc` for the Secret) was untested at all four call sites, and no
+  test asserted `data` on the prerequisite copies at all.
+
 [ADR 0002]: docs/adr/0002-hook-prerequisite-serviceaccount-copy.md
 [ADR 0004]: docs/adr/0004-one-module-for-hook-lifecycle-annotations.md
+[ADR 0005]: docs/adr/0005-one-module-for-configmap-and-secret-data.md
 
 ### Migration guide from 2.5.x
 
