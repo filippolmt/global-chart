@@ -58,7 +58,34 @@ cronJobs:
   hooks honoured it. They agree now, on the reading that does what the values
   say.
 
+- **A hook `weight` written as a string must now look like an integer**
+  (`^-?[0-9]+$`), in `hooks` and `deployments.<name>.hooks` alike. `weight: " 5"`
+  or `weight: "5s"` used to pass the schema and render as weight **0** — silently,
+  in the one field whose whole purpose is relative order. They are rejected at
+  lint time now. Integers are untouched, and so is every canonical string:
+  `"10"`, `"007"`, `"-5"`.
+
+- **A hook `weight` written as a non-canonical string now renders the same
+  number everywhere.** `weight: "007"` used to reach the hook Job's
+  `helm.sh/hook-weight` verbatim while every resource derived from it — the
+  hook's ServiceAccount, the prerequisite ConfigMap/Secret — coerced it with
+  `int`, so one hook rendered `"007"` and `"2"` for what is the same weight.
+  All four hook roles coerce now, and `"007"` renders `"7"`. Weights already
+  written canonically (`10`, `"5"`, `-3`) are unaffected. The three
+  `helm.sh/hook*` annotations come from a single `hookAnnotations` helper, which
+  is also where the ordering invariant `prereq (w-7) < SA (w-5) < Job (w)` now
+  lives — see [ADR 0004].
+
+- **Documented: an explicit `deletePolicy` on a hook applies to the resources
+  that hook owns, not to the shared plumbing.** Its Job and the ServiceAccount
+  the chart creates for it honour it; the hook-prerequisite ConfigMap/Secret
+  (shared by every hook of the deployment, so no single hook owns the choice)
+  and the `pre-install` ServiceAccount copy of [ADR 0002] keep a fixed policy.
+  No behaviour changed here — `CLAUDE.md` pattern 8 claimed otherwise and has
+  been corrected.
+
 [ADR 0002]: docs/adr/0002-hook-prerequisite-serviceaccount-copy.md
+[ADR 0004]: docs/adr/0004-one-module-for-hook-lifecycle-annotations.md
 
 ### Migration guide from 2.5.x
 
@@ -145,12 +172,24 @@ The field is now omitted and the pod runs as `default`.
 **Action:** if an out-of-band SA was the point, name it:
 `serviceAccount: { create: false, name: my-sa }`.
 
+#### 5. A hook `weight` string that is not an integer now fails validation (LOW)
+
+`weight: " 5"` and `weight: "5s"` used to pass the schema and render as weight
+**0**, which silently reordered the hook against its own prerequisites. They are
+rejected at lint time now.
+
+**Who is affected:** values with a `weight` string containing anything but digits
+and a leading `-`. `helm lint` names the field.
+
+**Action:** write the integer you meant — `weight: 5`, or `weight: "5"`.
+
 #### Migration checklist
 
 - [ ] `helm template` your values and diff the `ServiceAccount` documents against 2.5.x
 - [ ] Resolve any name collision the render now reports (point 1)
 - [ ] Check RBAC for every ServiceAccount whose name changed or appeared (points 2-4)
 - [ ] Check IRSA / Workload Identity annotations on hand-made SAs you hand over to the chart
+- [ ] `helm lint` your values for a `weight` string that is not an integer (point 5)
 - [ ] `helm diff upgrade`, then upgrade
 
 ---

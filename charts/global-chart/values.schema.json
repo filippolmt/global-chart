@@ -630,7 +630,7 @@
           "type": "array",
           "items": { "type": "string" }
         },
-        "weight": { "type": ["string", "integer"] },
+        "weight": { "type": ["string", "integer"], "pattern": "^-?[0-9]+$" },
         "deletePolicy": { "type": "string" },
         "annotations": {
           "type": "object",
@@ -680,7 +680,7 @@
           "items": { "type": "string" }
         },
         "additionalEnvs": { "type": "array" },
-        "weight": { "type": ["string", "integer"] },
+        "weight": { "type": ["string", "integer"], "pattern": "^-?[0-9]+$" },
         "deletePolicy": { "type": "string" },
         "inheritDeploymentSecret": { "type": "boolean" },
         "inheritDeploymentConfigMap": { "type": "boolean" },

@@ -1,0 +1,7 @@
+# Same for a root-level hook: .Values.hooks has its own weight declaration.
+hooks:
+  pre-install:
+    migrate:
+      image: myapp:v1
+      command: ["./migrate.sh"]
+      weight: "5s"
