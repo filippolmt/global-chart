@@ -468,13 +468,10 @@
         }
       }
     },
-    "cronJob": {
+    "jobCommon": {
       "type": "object",
-      "required": ["schedule"],
       "properties": {
-        "schedule": { "type": "string" },
         "image": { "$ref": "#/$defs/image" },
-        "fromDeployment": { "type": "string" },
         "command": { "type": "array", "items": { "type": "string" } },
         "args": { "type": "array", "items": { "type": "string" } },
         "resources": { "$ref": "#/$defs/resources" },
@@ -506,6 +503,23 @@
           "type": "array",
           "items": { "type": "string" }
         },
+        "annotations": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "automountServiceAccountToken": { "type": "boolean" },
+        "volumes": { "type": "array" },
+        "volumeMounts": { "type": "array" },
+        "restartPolicy": { "type": "string" },
+        "podSecurityContext": { "type": "object" },
+        "securityContext": { "type": "object" }
+      }
+    },
+    "cronJobSpec": {
+      "type": "object",
+      "required": ["schedule"],
+      "properties": {
+        "schedule": { "type": "string" },
         "initContainers": { "type": "array" },
         "successfulJobsHistoryLimit": { "type": "integer", "minimum": 0 },
         "failedJobsHistoryLimit": { "type": "integer", "minimum": 0 },
@@ -517,190 +531,60 @@
         "completions": { "type": "integer", "minimum": 1 },
         "timeZone": { "type": "string" },
         "suspend": { "type": "boolean" },
-        "annotations": {
-          "type": "object",
-          "additionalProperties": { "type": "string" }
-        },
-        "automountServiceAccountToken": { "type": "boolean" },
-        "volumes": { "type": "array" },
-        "volumeMounts": { "type": "array" },
         "concurrencyPolicy": {
           "type": "string",
           "enum": ["Allow", "Forbid", "Replace"]
-        },
-        "restartPolicy": { "type": "string" },
-        "podSecurityContext": { "type": "object" },
-        "securityContext": { "type": "object" }
+        }
       }
+    },
+    "hookJobSpec": {
+      "type": "object",
+      "properties": {
+        "weight": { "type": ["string", "integer"], "pattern": "^-?[0-9]+$" },
+        "deletePolicy": { "type": "string" }
+      }
+    },
+    "rootJobSpec": {
+      "type": "object",
+      "properties": {
+        "fromDeployment": { "type": "string" }
+      }
+    },
+    "deploymentJobSpec": {
+      "type": "object",
+      "properties": {
+        "additionalEnvs": { "type": "array" },
+        "inheritDeploymentConfigMap": { "type": "boolean" },
+        "inheritDeploymentSecret": { "type": "boolean" }
+      }
+    },
+    "cronJob": {
+      "allOf": [
+        { "$ref": "#/$defs/jobCommon" },
+        { "$ref": "#/$defs/cronJobSpec" },
+        { "$ref": "#/$defs/rootJobSpec" }
+      ]
     },
     "deploymentCronJob": {
-      "type": "object",
-      "required": ["schedule"],
-      "properties": {
-        "schedule": { "type": "string" },
-        "image": { "$ref": "#/$defs/image" },
-        "command": { "type": "array", "items": { "type": "string" } },
-        "args": { "type": "array", "items": { "type": "string" } },
-        "resources": { "$ref": "#/$defs/resources" },
-        "serviceAccount": { "$ref": "#/$defs/serviceAccount" },
-        "serviceAccountName": { "type": ["string", "null"] },
-        "serviceAccountAnnotations": {
-          "type": "object",
-          "additionalProperties": { "type": "string" }
-        },
-        "imagePullPolicy": {
-          "type": "string",
-          "enum": ["Always", "IfNotPresent", "Never"]
-        },
-        "imagePullSecrets": { "type": "array" },
-        "nodeSelector": {
-          "type": "object",
-          "additionalProperties": { "type": "string" }
-        },
-        "tolerations": { "type": "array" },
-        "affinity": { "type": "object" },
-        "hostAliases": { "type": "array" },
-        "dnsConfig": { "$ref": "#/$defs/dnsConfig" },
-        "env": { "type": "array" },
-        "envFromConfigMaps": {
-          "type": "array",
-          "items": { "type": "string" }
-        },
-        "envFromSecrets": {
-          "type": "array",
-          "items": { "type": "string" }
-        },
-        "additionalEnvs": { "type": "array" },
-        "initContainers": { "type": "array" },
-        "successfulJobsHistoryLimit": { "type": "integer", "minimum": 0 },
-        "failedJobsHistoryLimit": { "type": "integer", "minimum": 0 },
-        "backoffLimit": { "type": "integer", "minimum": 0 },
-        "ttlSecondsAfterFinished": { "type": "integer", "minimum": 0 },
-        "activeDeadlineSeconds": { "type": "integer", "minimum": 1 },
-        "startingDeadlineSeconds": { "type": "integer", "minimum": 0 },
-        "parallelism": { "type": "integer", "minimum": 0 },
-        "completions": { "type": "integer", "minimum": 1 },
-        "timeZone": { "type": "string" },
-        "suspend": { "type": "boolean" },
-        "inheritDeploymentSecret": { "type": "boolean" },
-        "inheritDeploymentConfigMap": { "type": "boolean" },
-        "annotations": {
-          "type": "object",
-          "additionalProperties": { "type": "string" }
-        },
-        "automountServiceAccountToken": { "type": "boolean" },
-        "volumes": { "type": "array" },
-        "volumeMounts": { "type": "array" },
-        "concurrencyPolicy": {
-          "type": "string",
-          "enum": ["Allow", "Forbid", "Replace"]
-        },
-        "restartPolicy": { "type": "string" },
-        "podSecurityContext": { "type": "object" },
-        "securityContext": { "type": "object" }
-      }
+      "allOf": [
+        { "$ref": "#/$defs/jobCommon" },
+        { "$ref": "#/$defs/cronJobSpec" },
+        { "$ref": "#/$defs/deploymentJobSpec" }
+      ]
     },
     "hookJob": {
-      "type": "object",
-      "properties": {
-        "image": { "$ref": "#/$defs/image" },
-        "fromDeployment": { "type": "string" },
-        "command": { "type": "array", "items": { "type": "string" } },
-        "args": { "type": "array", "items": { "type": "string" } },
-        "resources": { "$ref": "#/$defs/resources" },
-        "serviceAccount": { "$ref": "#/$defs/serviceAccount" },
-        "serviceAccountName": { "type": ["string", "null"] },
-        "serviceAccountAnnotations": {
-          "type": "object",
-          "additionalProperties": { "type": "string" }
-        },
-        "imagePullPolicy": {
-          "type": "string",
-          "enum": ["Always", "IfNotPresent", "Never"]
-        },
-        "imagePullSecrets": { "type": "array" },
-        "nodeSelector": {
-          "type": "object",
-          "additionalProperties": { "type": "string" }
-        },
-        "tolerations": { "type": "array" },
-        "affinity": { "type": "object" },
-        "hostAliases": { "type": "array" },
-        "dnsConfig": { "$ref": "#/$defs/dnsConfig" },
-        "env": { "type": "array" },
-        "envFromConfigMaps": {
-          "type": "array",
-          "items": { "type": "string" }
-        },
-        "envFromSecrets": {
-          "type": "array",
-          "items": { "type": "string" }
-        },
-        "weight": { "type": ["string", "integer"], "pattern": "^-?[0-9]+$" },
-        "deletePolicy": { "type": "string" },
-        "annotations": {
-          "type": "object",
-          "additionalProperties": { "type": "string" }
-        },
-        "automountServiceAccountToken": { "type": "boolean" },
-        "volumes": { "type": "array" },
-        "volumeMounts": { "type": "array" },
-        "restartPolicy": { "type": "string" },
-        "podSecurityContext": { "type": "object" },
-        "securityContext": { "type": "object" }
-      }
+      "allOf": [
+        { "$ref": "#/$defs/jobCommon" },
+        { "$ref": "#/$defs/hookJobSpec" },
+        { "$ref": "#/$defs/rootJobSpec" }
+      ]
     },
     "deploymentHookJob": {
-      "type": "object",
-      "properties": {
-        "image": { "$ref": "#/$defs/image" },
-        "command": { "type": "array", "items": { "type": "string" } },
-        "args": { "type": "array", "items": { "type": "string" } },
-        "resources": { "$ref": "#/$defs/resources" },
-        "serviceAccount": { "$ref": "#/$defs/serviceAccount" },
-        "serviceAccountName": { "type": ["string", "null"] },
-        "serviceAccountAnnotations": {
-          "type": "object",
-          "additionalProperties": { "type": "string" }
-        },
-        "imagePullPolicy": {
-          "type": "string",
-          "enum": ["Always", "IfNotPresent", "Never"]
-        },
-        "imagePullSecrets": { "type": "array" },
-        "nodeSelector": {
-          "type": "object",
-          "additionalProperties": { "type": "string" }
-        },
-        "tolerations": { "type": "array" },
-        "affinity": { "type": "object" },
-        "hostAliases": { "type": "array" },
-        "dnsConfig": { "$ref": "#/$defs/dnsConfig" },
-        "env": { "type": "array" },
-        "envFromConfigMaps": {
-          "type": "array",
-          "items": { "type": "string" }
-        },
-        "envFromSecrets": {
-          "type": "array",
-          "items": { "type": "string" }
-        },
-        "additionalEnvs": { "type": "array" },
-        "weight": { "type": ["string", "integer"], "pattern": "^-?[0-9]+$" },
-        "deletePolicy": { "type": "string" },
-        "inheritDeploymentSecret": { "type": "boolean" },
-        "inheritDeploymentConfigMap": { "type": "boolean" },
-        "annotations": {
-          "type": "object",
-          "additionalProperties": { "type": "string" }
-        },
-        "automountServiceAccountToken": { "type": "boolean" },
-        "volumes": { "type": "array" },
-        "volumeMounts": { "type": "array" },
-        "restartPolicy": { "type": "string" },
-        "podSecurityContext": { "type": "object" },
-        "securityContext": { "type": "object" }
-      }
+      "allOf": [
+        { "$ref": "#/$defs/jobCommon" },
+        { "$ref": "#/$defs/hookJobSpec" },
+        { "$ref": "#/$defs/deploymentJobSpec" }
+      ]
     },
     "externalSecretRemote": {
       "type": "object",

@@ -1,0 +1,10 @@
+# The four job definitions are composed with `allOf` from five `$defs`, and the
+# pod/container core (`jobCommon`) is the branch no unit test can see — nothing
+# in CI reads the schema. A job field that lives only in that core keeps the
+# composition honest: if `jobCommon` ever falls out of one of the four `allOf`
+# lists, this file starts being accepted and `validate-bad-values` fails.
+cronJobs:
+  demo:
+    schedule: "0 3 * * *"
+    image: myapp:v1
+    imagePullPolicy: Bogus
