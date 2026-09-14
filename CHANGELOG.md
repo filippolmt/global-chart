@@ -70,6 +70,13 @@ data:
   carries a map, a list and a non-string secret value, so `make kubeconform` covers
   the branch at all four call sites.
 
+- **`helm test` now has a pod to run.** `.helmignore` carried an unanchored
+  `tests/` — meant for the helm-unittest suites at the chart root, but the
+  pattern matches at any depth, so `templates/tests/test-connection.yaml` was
+  stripped from the chart too. `helm test <release>` found no test hook and did
+  nothing, while `NOTES.txt` told the user to run it. The pattern is anchored
+  (`/tests/`) and the connection test ships again.
+
 ### Changed
 
 - **`cronJobs.<name>.serviceAccount.name`, `.automount`, `.annotations` and
