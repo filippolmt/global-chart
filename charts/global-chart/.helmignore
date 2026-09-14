@@ -21,6 +21,7 @@
 .idea/
 *.tmproj
 .vscode/
+# The helm-docs template, not its output: README.md itself ships in the
+# package, because that is where `helm show readme` and Artifact Hub read it.
 README.md.gotmpl
-README.md
 /tests/
