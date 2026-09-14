@@ -1,30 +1,44 @@
 {{/*
-Shared helper for deployment-level hooks and cronjobs pod spec.
-Renders the pod spec fields that are common to both, with parameterized differences.
+Shared helper for the hook and cronjob pod spec, in both scopes: the single
+implementation behind all four call sites.
+
+Root-level jobs pass no `deploy`. That scope simply *is* the "nothing to inherit
+from" case: with `deploy` empty every inheritance test fails and each field
+resolves to the job's own value — and, for `imagePullSecrets` only, to
+`global.imagePullSecrets` after that. No field gains a global fallback it did
+not already have. Same widening as `jobServiceAccount` (see ADR 0001).
 
 Accepts a dict with:
-  root                - top-level chart context (for global values, defaults)
-  job                 - the cronjob/hook command map
-  deploy              - the parent deployment map
-  saName              - pre-resolved ServiceAccount name
-  imageRef            - pre-resolved image string
-  containerName       - name for the container
-  configMapRef        - ConfigMap name for envFrom (hooks use hook-config, cronjobs use deploy name)
-  secretRef           - Secret name for envFrom (hooks use hook-secret, cronjobs use deploy name)
-  inheritDnsConfig    - whether to fall back to deploy.dnsConfig (false for hooks)
-  renderInitContainers - whether to render initContainers (false for hooks)
+  root           - top-level chart context (for global values, defaults)
+  job            - the cronjob/hook command map
+  kind           - "hook" or "cronjob"; selects the two behaviours that differ
+                   between the two (dnsConfig inheritance and initContainers).
+                   It is the job's kind, NOT its scope: ADR 0001 rejects a
+                   `scope` parameter, and this is not one
+  deploy         - the parent deployment map; omit for root-level jobs
+  saName         - pre-resolved ServiceAccount name
+  imageRef       - pre-resolved image string
+  containerName  - name for the container
+  configMapRef   - ConfigMap name for envFrom (hooks use hook-config, cronjobs
+                   use deploy name); read only when the deployment has a
+                   ConfigMap, so root-level callers omit it
+  secretRef      - same, for the deployment's Secret; root-level callers omit it
 */}}
-{{- define "global-chart.inheritedJobPodSpec" -}}
+{{- define "global-chart.jobPodSpec" -}}
 {{- $root := .root -}}
 {{- $job := .job -}}
-{{- $deploy := .deploy -}}
+{{- $deploy := default (dict) .deploy -}}
 {{- $saName := .saName -}}
 {{- $imageRef := .imageRef -}}
 {{- $containerName := .containerName -}}
 {{- $configMapRef := .configMapRef -}}
 {{- $secretRef := .secretRef -}}
-{{- $inheritDnsConfig := .inheritDnsConfig -}}
-{{- $renderInitContainers := .renderInitContainers -}}
+{{- /* An unknown kind would silently render as a hook: fail instead, like the
+       role table in hookAnnotations (ADR 0004) */ -}}
+{{- if not (has .kind (list "hook" "cronjob")) -}}
+  {{- fail (printf "jobPodSpec: unknown kind %q for %s (expected \"hook\" or \"cronjob\")" (toString .kind) .containerName) -}}
+{{- end -}}
+{{- $isCronJob := eq .kind "cronjob" -}}
 {{- /* ImagePullSecrets: explicit > inherited from deployment > global (hasKey distinguishes unset from empty) */ -}}
 {{- $imagePullSecrets := list -}}
 {{- if hasKey $job "imagePullSecrets" -}}
@@ -50,9 +64,9 @@ hostAliases:
 securityContext:
   {{- toYaml . | nindent 2 }}
 {{- end }}
-{{- /* DnsConfig: if inheritDnsConfig, fall back to deploy.dnsConfig; otherwise job only */ -}}
+{{- /* DnsConfig: cronjobs fall back to deploy.dnsConfig, hooks are job-only */ -}}
 {{- $dnsConfig := dict -}}
-{{- if $inheritDnsConfig -}}
+{{- if $isCronJob -}}
   {{- if hasKey $job "dnsConfig" -}}
     {{- $dnsConfig = default (dict) $job.dnsConfig -}}
   {{- else -}}
@@ -65,7 +79,7 @@ securityContext:
 {{ . }}
 {{- end }}
 {{- /* InitContainers: only for cronjobs */ -}}
-{{- if and $renderInitContainers $job.initContainers }}
+{{- if and $isCronJob $job.initContainers }}
 initContainers:
   {{- toYaml $job.initContainers | nindent 2 }}
 {{- end }}

@@ -102,92 +102,8 @@ spec:
             {{- $tplAnn | nindent 12 }}
         {{- end }}
         spec:
-          {{- /* ImagePullSecrets: job-level > global (hasKey distinguishes unset from empty) */ -}}
-          {{- $cronImagePullSecrets := list -}}
-          {{- if hasKey $job "imagePullSecrets" -}}
-            {{- $cronImagePullSecrets = $job.imagePullSecrets -}}
-          {{- else -}}
-            {{- $global := default (dict) $root.Values.global -}}
-            {{- $cronImagePullSecrets = $global.imagePullSecrets -}}
-          {{- end -}}
-          {{- with (include "global-chart.renderImagePullSecrets" $cronImagePullSecrets) }}
-{{- . | nindent 10 }}
-          {{- end }}
-          {{- with $job.hostAliases }}
-          hostAliases:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
-          {{- with $job.podSecurityContext }}
-          securityContext:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
-          {{- with (include "global-chart.renderDnsConfig" $job.dnsConfig) }}
-{{- . | nindent 10 }}
-          {{- end }}
-          {{- if $job.initContainers }}
-          initContainers:
-            {{- toYaml $job.initContainers | nindent 12 }}
-          {{- end }}
-          containers:
-          - name: {{ $name }}
-            image: {{ $imageRef | quote }}
-            imagePullPolicy: {{ include "global-chart.imagePullPolicy" (dict "override" $job.imagePullPolicy "image" $job.image) | quote }}
-            {{- if $job.command }}
-            command:
-              {{- toYaml $job.command | nindent 14 }}
-            {{- end }}
-            {{- if $job.args }}
-            args:
-              {{- toYaml $job.args | nindent 14 }}
-            {{- end }}
-            {{- with $job.securityContext }}
-            securityContext:
-              {{- toYaml . | nindent 14 }}
-            {{- end }}
-            {{- if or $job.envFromConfigMaps $job.envFromSecrets }}
-            envFrom:
-              {{- range $cm := $job.envFromConfigMaps }}
-              - configMapRef:
-                  name: {{ $cm | quote }}
-              {{- end }}
-              {{- range $sec := $job.envFromSecrets }}
-              - secretRef:
-                  name: {{ $sec | quote }}
-              {{- end }}
-            {{- end }}
-            {{- if $job.env }}
-            env:
-              {{- toYaml $job.env | nindent 14 }}
-            {{- end }}
-            {{- with (include "global-chart.renderResources" (dict "resources" $job.resources "hasResources" (hasKey $job "resources") "defaults" $root.Values.defaults)) }}
-{{- . | nindent 12 }}
-            {{- end }}
-            {{- with $job.volumeMounts }}
-            volumeMounts:
-              {{- toYaml . | nindent 14 }}
-            {{- end }}
-          {{- with $job.volumes }}
-          volumes:
-            {{- range . }}
-            {{- include "global-chart.renderVolume" . | nindent 12 }}
-            {{- end }}
-          {{- end }}
-          {{- with $saName }}
-          serviceAccountName: {{ . | quote }}
-          {{- end }}
-          {{- with $job.nodeSelector }}
-          nodeSelector:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
-          {{- with $job.affinity }}
-          affinity:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
-          {{- with $job.tolerations }}
-          tolerations:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
-          restartPolicy: {{ default "Never" (ternary $job.restartPolicy "" (hasKey $job "restartPolicy")) | quote }}
+          {{- $ctx := dict "root" $root "job" $job "saName" $saName "imageRef" $imageRef "containerName" $name "kind" "cronjob" }}
+          {{- include "global-chart.jobPodSpec" $ctx | trimPrefix "\n" | nindent 10 }}
 {{- end }}
 {{- end }}
 {{- end }}
@@ -299,8 +215,8 @@ spec:
             {{- $tplAnn | nindent 12 }}
         {{- end }}
         spec:
-          {{- $ctx := dict "root" $root "job" $job "deploy" $deploy "saName" $saName "imageRef" $imageRef "containerName" $name "configMapRef" $deployFullname "secretRef" $deployFullname "inheritDnsConfig" true "renderInitContainers" true }}
-          {{- include "global-chart.inheritedJobPodSpec" $ctx | trimPrefix "\n" | nindent 10 }}
+          {{- $ctx := dict "root" $root "job" $job "deploy" $deploy "saName" $saName "imageRef" $imageRef "containerName" $name "configMapRef" $deployFullname "secretRef" $deployFullname "kind" "cronjob" }}
+          {{- include "global-chart.jobPodSpec" $ctx | trimPrefix "\n" | nindent 10 }}
 {{ end }}
 {{- end }}
 {{- end }}

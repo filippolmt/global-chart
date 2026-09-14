@@ -64,88 +64,8 @@ spec:
         {{- . | nindent 8 }}
       {{- end }}
     spec:
-      {{- with $saName }}
-      serviceAccountName: {{ . | quote }}
-      {{- end }}
-      {{- /* ImagePullSecrets: hook-level > global (hasKey distinguishes unset from empty) */ -}}
-      {{- $hookImagePullSecrets := list -}}
-      {{- if hasKey $command "imagePullSecrets" -}}
-        {{- $hookImagePullSecrets = $command.imagePullSecrets -}}
-      {{- else -}}
-        {{- $global := default (dict) $root.Values.global -}}
-        {{- $hookImagePullSecrets = $global.imagePullSecrets -}}
-      {{- end -}}
-      {{- with (include "global-chart.renderImagePullSecrets" $hookImagePullSecrets) }}
-{{- . | nindent 6 }}
-      {{- end }}
-      {{- with $command.hostAliases }}
-      hostAliases:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      {{- with $command.podSecurityContext }}
-      securityContext:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      {{- with (include "global-chart.renderDnsConfig" $command.dnsConfig) }}
-{{- . | nindent 6 }}
-      {{- end }}
-      restartPolicy: {{ default "Never" (ternary $command.restartPolicy "" (hasKey $command "restartPolicy")) | quote }}
-      containers:
-      - name: {{ $hookFullname }}
-        image: {{ $imageRef | quote }}
-        imagePullPolicy: {{ include "global-chart.imagePullPolicy" (dict "override" $command.imagePullPolicy "image" $command.image) | quote }}
-        {{- if $command.command }}
-        command:
-          {{- toYaml $command.command | nindent 10 }}
-        {{- end }}
-        {{- if $command.args }}
-        args:
-          {{- toYaml $command.args | nindent 10 }}
-        {{- end }}
-        {{- with $command.securityContext }}
-        securityContext:
-          {{- toYaml . | nindent 10 }}
-        {{- end }}
-        {{- with (include "global-chart.renderResources" (dict "resources" $command.resources "hasResources" (hasKey $command "resources") "defaults" $root.Values.defaults)) }}
-{{- . | nindent 8 }}
-        {{- end }}
-        {{- if or $command.envFromConfigMaps $command.envFromSecrets }}
-        envFrom:
-          {{- range $cm := $command.envFromConfigMaps }}
-          - configMapRef:
-              name: {{ $cm | quote }}
-          {{- end }}
-          {{- range $sec := $command.envFromSecrets }}
-          - secretRef:
-              name: {{ $sec | quote }}
-          {{- end }}
-        {{- end }}
-        {{- if $command.env }}
-        env:
-          {{- toYaml $command.env | nindent 10 }}
-        {{- end }}
-        {{- with $command.volumeMounts }}
-        volumeMounts:
-          {{- toYaml . | nindent 10 }}
-        {{- end }}
-      {{- with $command.volumes }}
-      volumes:
-        {{- range . }}
-        {{- include "global-chart.renderVolume" . | nindent 8 }}
-        {{- end }}
-      {{- end }}
-      {{- with $command.nodeSelector }}
-      nodeSelector:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      {{- with $command.affinity }}
-      affinity:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      {{- with $command.tolerations }}
-      tolerations:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
+      {{- $ctx := dict "root" $root "job" $command "saName" $saName "imageRef" $imageRef "containerName" $hookFullname "kind" "hook" }}
+      {{- include "global-chart.jobPodSpec" $ctx | trimPrefix "\n" | nindent 6 }}
 {{- end }}
 {{- end }}
 {{- end }}
@@ -344,8 +264,8 @@ spec:
     spec:
       {{- $configMapRef := include "global-chart.hookPrereqConfigName" (dict "deploymentFullname" $deployFullname) }}
       {{- $secretRef := include "global-chart.hookPrereqSecretName" (dict "deploymentFullname" $deployFullname) }}
-      {{- $ctx := dict "root" $root "job" $command "deploy" $deploy "saName" $saName "imageRef" $imageRef "containerName" $name "configMapRef" $configMapRef "secretRef" $secretRef "inheritDnsConfig" false "renderInitContainers" false }}
-      {{- include "global-chart.inheritedJobPodSpec" $ctx | trimPrefix "\n" | nindent 6 }}
+      {{- $ctx := dict "root" $root "job" $command "deploy" $deploy "saName" $saName "imageRef" $imageRef "containerName" $name "configMapRef" $configMapRef "secretRef" $secretRef "kind" "hook" }}
+      {{- include "global-chart.jobPodSpec" $ctx | trimPrefix "\n" | nindent 6 }}
 {{ end }}
 {{- end }}
 {{- end }}
