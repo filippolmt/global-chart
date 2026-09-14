@@ -22,7 +22,8 @@ jobs:
           for img in \
             ghcr.io/stackrox/kube-linter:v0.7.1 \
             ghcr.io/yannh/kubeconform:v0.7.0 \
-            helmunittest/helm-unittest:3.19.0-1.0.3; do
+            helmunittest/helm-unittest:3.19.0-1.0.3 \
+            jnorwood/helm-docs:latest; do
             for i in 1 2 3; do
               docker pull "$img" && break || sleep 5
             done
@@ -45,6 +46,19 @@ jobs:
 
       - name: Lint manifests (kube-linter)
         run: make kube-linter
+
+      # The generated README ships inside the package, so a stale one is
+      # published to Artifact Hub. Nothing else notices it drifting: helm-docs
+      # reads Chart.yaml and values.yaml, and every other check here reads the
+      # templates.
+      - name: Verify the generated docs are current
+        run: |
+          make generate-docs
+          if ! git diff --quiet -- 'charts/*/README.md'; then
+            echo "::error::A generated README is out of date. Run 'make generate-docs' and commit the result."
+            git diff -- 'charts/*/README.md'
+            exit 1
+          fi
 
       - name: Upload generated manifests
         if: ${{ success() }}
