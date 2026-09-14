@@ -23,4 +23,4 @@
 .vscode/
 README.md.gotmpl
 README.md
-tests/
+/tests/
