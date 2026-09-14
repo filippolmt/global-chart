@@ -1,0 +1,13 @@
+# `name` drives the pod volume name `md-cm-file-<name>`, a DNS-1123 label capped
+# at 63 chars. 53 chars here overflows it by one, and the API server rejects the
+# Deployment; the schema stops it at lint time instead.
+deployments:
+  app:
+    image: nginx:1.25
+    mountedConfigFiles:
+      files:
+        - name: aaaaaaaaaabbbbbbbbbbccccccccccddddddddddeeeeeeeeeefff
+          filename: app.conf
+          targetPath: /etc/app/app.conf
+          content: |
+            key = value

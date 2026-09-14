@@ -13,7 +13,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ $depFullname }}-md-cm-{{ $f.name }}
+  name: {{ include "global-chart.mountedConfigMapName" (dict "deploymentFullname" $depFullname "fileName" $f.name) }}
   labels:
     {{- include "global-chart.deploymentLabels" $labelCtx | nindent 4 }}
   {{- with (include "global-chart.renderCommonAnnotations" $root) }}
@@ -34,7 +34,7 @@ data:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ $depFullname }}-md-cm-{{ $f.name }}
+  name: {{ include "global-chart.mountedConfigMapName" (dict "deploymentFullname" $depFullname "fileName" $f.name) }}
   labels:
     {{- include "global-chart.deploymentLabels" $labelCtx | nindent 4 }}
   {{- with (include "global-chart.renderCommonAnnotations" $root) }}

@@ -49,6 +49,28 @@ deployments:
       FOO: bar
     secret:
       DB_PASSWORD: supersecret
+    # Runtime coverage for the mounted config file names. No assertion of its
+    # own is needed: a volume pointing at a ConfigMap the chart did not render
+    # leaves the pod in ContainerCreating, and the existing
+    # `rollout status deploy/<rel>-global-chart-app` fails with "deployment 'app'
+    # never became available". NOT the "release deployed" assertion — `helm
+    # install` here carries no `--wait`, so the release reports deployed whatever
+    # the pods do. One `files` entry and one bundle, because the two branches
+    # derive the ConfigMap name through the same helper and share one name space.
+    mountedConfigFiles:
+      files:
+        - name: e2e-file
+          filename: app.conf
+          targetPath: /etc/e2e/app.conf
+          content: |
+            mounted = file
+      bundles:
+        - mountDir: /etc/e2e-bundle
+          files:
+            - name: e2e-bundle-entry
+              relPath: bundle.conf
+              content: |
+                mounted = bundle
     hooks:
       # The hook asserts the values rather than echoing them: `echo` exits 0
       # whatever the env holds, so an empty FOO would still have marked the Job

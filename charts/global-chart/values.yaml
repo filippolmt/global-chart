@@ -282,8 +282,15 @@ deployments: {}
   #     enabled: false
   #
   #   # -- Dynamic ConfigMaps to create from inline content or file bundles
+  #   # `name` must be a DNS-1123 label of at most 52 chars: it feeds the pod
+  #   # volume name `md-cm-file-<name>`, and `files` and `bundles` share one
+  #   # name space, so the same name on both sides is a collision.
+  #   # These files belong to the Deployment's runtime: a deployment-level hook
+  #   # or cronJob does NOT inherit them (see CLAUDE.md, "Not inheritable").
   #   mountedConfigFiles:
-  #     files: []
+  #     files: []      # each: name, filename, targetPath, content
+  #                    # (`mountPath` is deprecated and read by no template —
+  #                    #  it is `targetPath` that sets the mount path)
   #     bundles: []
   #
   #   # -- Hooks defined inside deployment (inherit image, configMap, secret, SA)

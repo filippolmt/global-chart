@@ -77,6 +77,41 @@ data:
   nothing, while `NOTES.txt` told the user to run it. The pattern is anchored
   (`/tests/`) and the connection test ships again.
 
+- **Two `mountedConfigFiles` entries can no longer collide into one ConfigMap.**
+  `files` and `bundles[].files` render into a single name space
+  (`<deployment>-md-cm-<name>`), so the same `name` on both sides produced two
+  ConfigMaps under one name with different content, and the pod mounted
+  whichever applied last. Both branches are now registered in the collision
+  validator and `helm lint` fails, naming the two entries.
+
+- **A long `mountedConfigFiles` name no longer renders a Deployment the API
+  server rejects.** `name` feeds the pod volume name `md-cm-file-<name>`, a
+  DNS-1123 label capped at 63 chars, and nothing bounded it: a 60-character name
+  came out at 71 and the Deployment was refused on apply, far from its cause.
+  The schema now bounds `name` at 52 chars and requires a DNS-1123 label, on
+  `files` and on `bundles[].files` alike.
+
+  **Breaking for values that were already invalid**: an uppercase or over-long
+  `name` now fails `helm lint` instead of failing in the cluster. Rename the
+  entry — the ConfigMap it generates is chart-internal and is not referenced
+  from anywhere else.
+
+- **A deployment's own ConfigMap or Secret can no longer be silently shadowed by a
+  generated one.** The collision validator tracked only the hook-prerequisite
+  copies, so a deployment named `<other>-md-cm-<file>` rendered a ConfigMap under
+  the very name another deployment derived for a mounted config file — two
+  manifests, one name, each valid on its own, and the apply kept the last. The
+  same held for a deployment named `<other>-hook-secret` against a
+  hook-prerequisite Secret. Every ConfigMap and Secret the chart generates is now
+  registered, whatever derived it, and the error names both sides.
+
+### Deprecated
+
+- **`deployments.<name>.mountedConfigFiles.files[].mountPath`.** The key has
+  never been read by any template: it is `targetPath` that sets where the file
+  is mounted. It is marked deprecated in the schema and will be removed in the
+  next major; setting it does nothing today and did nothing before.
+
 ### Changed
 
 - **`cronJobs.<name>.serviceAccount.name`, `.automount`, `.annotations` and
