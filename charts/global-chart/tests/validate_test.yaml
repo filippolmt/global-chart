@@ -203,6 +203,50 @@ tests:
       - hasDocuments:
           count: 0
 
+  # ====== Cross-kind ConfigMap/Secret collisions ======
+  # A kind's accumulator has to hold every name of that kind whatever derived it.
+  # Deployment "a-md-cm-x" renders a ConfigMap under the same name deployment "a"
+  # derives for its mounted file: two manifests, one name, neither invalid alone.
+  - it: should fail when a deployment ConfigMap collides with a mounted config file
+    set:
+      deployments:
+        a:
+          image: nginx:1.25
+          mountedConfigFiles:
+            files:
+              - name: x
+                filename: a.conf
+                targetPath: /etc/a.conf
+                content: FROM-MOUNTED-FILE
+        a-md-cm-x:
+          image: nginx:1.25
+          configMap:
+            FROM: DEPLOYMENT-CONFIGMAP
+    asserts:
+      - failedTemplate:
+          errorPattern: "Name collision: ConfigMap.*its own configMap"
+
+  # Same shape on the Secret side: the hook prerequisite copy appends
+  # "-hook-secret", which is a name a deployment can carry outright.
+  - it: should fail when a deployment Secret collides with a hook prerequisite Secret
+    set:
+      deployments:
+        a:
+          image: nginx:1.25
+          secret:
+            K: v
+          hooks:
+            pre-install:
+              m:
+                command: ["./m.sh"]
+        a-hook-secret:
+          image: nginx:1.25
+          secret:
+            K: v
+    asserts:
+      - failedTemplate:
+          errorPattern: "Name collision: Secret.*its own secret"
+
   # ====== Non-collision: false positive checks ======
 
   # Same hook command name across different hook types should NOT collide
@@ -238,6 +282,21 @@ tests:
           schedule: "0 2 * * *"
           image: nginx:1.25
           command: ["./report.sh"]
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  # A deployment's own ConfigMap and Secret share its name by design; registering
+  # both must not make the ordinary case collide with itself.
+  - it: should not fail when a deployment has both a configMap and a secret
+    set:
+      deployments:
+        app:
+          image: nginx:1.25
+          configMap:
+            FOO: bar
+          secret:
+            DB_PASSWORD: s3cret
     asserts:
       - hasDocuments:
           count: 0

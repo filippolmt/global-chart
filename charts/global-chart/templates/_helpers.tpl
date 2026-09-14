@@ -238,20 +238,19 @@ Usage: {{ include "global-chart.mountedConfigMapName" (dict "deploymentFullname"
 {{- end -}}
 
 {{/*
-Pod volume name for a mounted config file entry.
-`kind` is "file" (one ConfigMap volume per `files` entry, named after it) or
-"bundle" (one projected volume per bundle, indexed). Any other kind fails: it
-would otherwise render an empty volume name, which the API server rejects far
-from its cause.
-Usage: {{ include "global-chart.mountedVolumeName" (dict "kind" "file" "fileName" $f.name) }}
-       {{ include "global-chart.mountedVolumeName" (dict "kind" "bundle" "bundleIndex" $bi) }}
+Pod volume names for the two branches of mountedConfigFiles: one ConfigMap volume
+per `files` entry, named after it, and one projected volume per bundle, indexed.
+Two helpers rather than one taking a kind, following hookPrereqConfigName /
+hookPrereqSecretName above: the two take disjoint arguments and share no body, so
+a kind parameter would only be a flag every call site passes as a literal — plus
+a guard for an unreachable third value.
+Usage: {{ include "global-chart.mountedFileVolumeName" (dict "fileName" $f.name) }}
+       {{ include "global-chart.mountedBundleVolumeName" (dict "bundleIndex" $bi) }}
 */}}
-{{- define "global-chart.mountedVolumeName" -}}
-{{- if eq .kind "file" -}}
+{{- define "global-chart.mountedFileVolumeName" -}}
 {{- printf "md-cm-file-%s" .fileName -}}
-{{- else if eq .kind "bundle" -}}
-{{- printf "md-cm-bundle-%v" .bundleIndex -}}
-{{- else -}}
-{{- fail (printf "mountedVolumeName: unknown kind %q (expected \"file\" or \"bundle\")" .kind) -}}
 {{- end -}}
+
+{{- define "global-chart.mountedBundleVolumeName" -}}
+{{- printf "md-cm-bundle-%v" .bundleIndex -}}
 {{- end -}}

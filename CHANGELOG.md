@@ -96,6 +96,15 @@ data:
   entry — the ConfigMap it generates is chart-internal and is not referenced
   from anywhere else.
 
+- **A deployment's own ConfigMap or Secret can no longer be silently shadowed by a
+  generated one.** The collision validator tracked only the hook-prerequisite
+  copies, so a deployment named `<other>-md-cm-<file>` rendered a ConfigMap under
+  the very name another deployment derived for a mounted config file — two
+  manifests, one name, each valid on its own, and the apply kept the last. The
+  same held for a deployment named `<other>-hook-secret` against a
+  hook-prerequisite Secret. Every ConfigMap and Secret the chart generates is now
+  registered, whatever derived it, and the error names both sides.
+
 ### Deprecated
 
 - **`deployments.<name>.mountedConfigFiles.files[].mountPath`.** The key has
