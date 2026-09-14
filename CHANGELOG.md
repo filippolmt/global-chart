@@ -5,6 +5,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ---
 
+## [Unreleased]
+
+### Fixed
+
+- **The chart package carried no README.** `.helmignore` excluded `README.md`
+  alongside the `README.md.gotmpl` it is generated from, so the published
+  `.tgz` held only `Chart.yaml`, `values.yaml`, `values.schema.json` and the
+  templates. The generated values reference — the whole output of
+  `make generate-docs` — never reached the people it is written for:
+  `helm show readme global-chart/global-chart` returned nothing and the
+  Artifact Hub page showed no documentation at all. Only the `.gotmpl` template
+  is excluded now. The README appears on Artifact Hub with the next published
+  version; releases up to 2.6.0 stay as they are.
+
 ## [2.6.0] — 2026-09-14
 
 ### Fixed
@@ -426,6 +440,27 @@ older Helm those four behave exactly as they did on 2.5.x — never worse, but a
 typo there will not be caught until you upgrade Helm. The other definitions use
 `additionalProperties` and hold on every Helm.
 
+#### 7. Clusters below Kubernetes 1.23 are now refused at install time (MEDIUM)
+
+```
+Error: chart requires kubeVersion: >=1.23.0-0 which is incompatible with Kubernetes v1.22.0
+```
+
+`Chart.yaml` declared `>=1.19.0-0`, a floor the chart could not honour: the HPA
+renders `autoscaling/v2`, stable in 1.23, and the PDB renders `policy/v1`,
+stable in 1.21. On an older cluster Helm waved the install through and the API
+server rejected the manifest instead, far from the metadata that had allowed
+it. The floor now matches what the templates render.
+
+**Who is affected:** anyone on a cluster below 1.23. A release using only
+Deployments and Services worked there and is now turned away by the check,
+because the metadata cannot express "1.21 unless you enable the HPA".
+
+**Action:** upgrade the cluster, or stay on 2.5.x. Overriding the check with
+`helm install --no-verify`-style flags is not worth it — the moment such a
+release enables `autoscaling` or `podDisruptionBudget`, the API server rejects
+the manifest.
+
 #### Migration checklist
 
 - [ ] `helm lint` your values and remove any key the schema now rejects (point 6)
@@ -434,6 +469,7 @@ typo there will not be caught until you upgrade Helm. The other definitions use
 - [ ] Check RBAC for every ServiceAccount whose name changed or appeared (points 2-4)
 - [ ] Check IRSA / Workload Identity annotations on hand-made SAs you hand over to the chart
 - [ ] `helm lint` your values for a `weight` string that is not an integer (point 5)
+- [ ] Check your cluster is 1.23 or newer (point 7)
 - [ ] `helm diff upgrade`, then upgrade
 
 ---
