@@ -1,144 +1,190 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
-## Project Overview
-
-Global-chart is a reusable Helm chart providing multi-deployment Kubernetes building blocks. See `Chart.yaml` for the current version, `README.md` for the full feature list and examples, `CHANGELOG.md` for version history and migration guides.
+Global-chart is a reusable Helm chart providing multi-deployment Kubernetes
+building blocks. `README.md` — feature list and examples. `CHANGELOG.md` —
+version history and migration guides. `docs/adr/` — the decisions behind the
+rules below.
 
 ## Commands
 
 ```bash
-make all                    # Full pipeline: lint + test + bad-values + generate + kubeconform + kube-linter
-make lint-chart             # Lint every scenario in TEST_CASES (Makefile)
-make unit-test              # Run helm-unittest suites via Docker
-make validate-bad-values    # Verify schema rejects invalid values
-make kubeconform            # Validate manifests against K8s 1.29
-make kube-linter            # Lint manifests (addAllBuiltIn)
-make generate-docs          # Regenerate helm-docs README
-make render VALUES=tests/test01/values.01.yaml TEMPLATE=deployment.yaml  # Debug single template
-make e2e                    # Install/upgrade/uninstall on a throwaway kind cluster
-make kind-delete            # Tear the e2e cluster down
+make all                    # lint + test + bad-values + docs + kubeconform + kube-linter
+make lint-chart             # lint every scenario in TEST_CASES
+make unit-test              # helm-unittest suites via Docker
+make generate-docs          # regenerate the helm-docs README
+make e2e                    # install/upgrade/uninstall on a throwaway kind cluster
+make render VALUES=tests/test01/values.01.yaml TEMPLATE=deployment.yaml
 ```
 
-Always run `make lint-chart` and `make unit-test` after modifying templates or values.
+The Makefile carries the rest. Three rules about when to run what:
 
-### Install tests — always via `make e2e`, never a hand-rolled `helm install`
-
-`helm-unittest` renders YAML; it cannot see the *runtime* half of this chart —
-hook ordering, hook-weight sorting, `hook-delete-policy` cleanup, whether a
-resource exists at the moment a hook Job schedules. Anything touching
-`hook.yaml`, hook weights, delete policies or ServiceAccount lifecycle needs
-`make e2e`.
-
-`make e2e` downloads `kind` into `.bin/` (gitignored), creates a throwaway
-cluster, installs KEDA (operator + CRDs, `kind-keda`) so the whole autoscaling
-chain is exercised for real, installs `tests/e2e/values.yaml`, then asserts:
-release deployed →
-pre-install hook Job succeeded under the chart-created SA → the surviving SA is
-the real one, not the hook copy → deployment `command`/`args` rendered → the SA a
-root-level `cronJobs` entry references exists in the cluster → every
-Service `targetPort` resolved to a container port and got endpoints →
-ScaledObject/TriggerAuthentication applied with the `authenticationRef` resolved
-→ KEDA marked the ScaledObject `Ready` and created the derived HPA with the
-rendered bounds → the `cron` trigger actually scaled the Deployment to its
-`desiredReplicas` → upgrade kept the SA UID → upgrade did **not** reset
-`spec.replicas` on the KEDA-scaled Deployment → uninstall leaves no orphaned
-ConfigMap/Secret/ServiceAccount/ScaledObject/TriggerAuthentication, and the
-derived HPA is garbage-collected with its ScaledObject.
-
-The `cron` trigger is deliberate: no network, no external metric source. Its
-window is 00:00–23:59 UTC, so a run started in the one blind minute before
-midnight UTC will fail the scale assertion.
-
-`make e2e` also runs in CI as its own job in `.github/workflows/helm-ci.yml`
-(~2 min). Two things about it are deliberate and easy to undo by accident:
-
-- Hook bodies **assert** their environment instead of echoing it — `echo` exits
-  0 whatever the prereq copies contain, which would make the "hook Job
-  succeeded" assertion vacuous.
-- The endpoint assertions read the **EndpointSlice ports**, not just whether the
-  Service exists. A Service whose `targetPort` names nothing is created happily
-  and its pod reports `serving: true`; only `ports: null` on the slice reveals
-  it. Asserting on the Service object alone would be vacuous in the same way.
-- One `pre-install` hook carries `weight: "-5"`, which drives the derived prereq
-  weights negative (-12 and -10). That is the only runtime coverage of the
-  never-floor-at-0 rule in pattern 6 above: with a floor, the prereq ConfigMap
-  sorts after the Job and the Job starts without it. Keep a negative-weight hook
-  in the scenario.
-
-Installing KEDA logs `Warning: unrecognized format "int32"` (and `int64`) three
-times. It comes from KEDA's own CRDs — the ScaledJob schema embeds `batch/v1`
-JobSpec, which carries 145 such formats — and Kubernetes warns on any format
-outside its closed list while validating on `type: integer` regardless. Nothing
-to fix here, and not worth filtering: suppressing it means swallowing the
-install's stderr, which would hide real server warnings too.
-Extend `tests/e2e/values.yaml` and the assertion block in the `e2e` target when
-adding runtime behaviour.
-
-**Never run `helm install` against whatever `kubectl` context happens to be
-selected** — it can be production. `make e2e` pins `KUBECONFIG` to
-`.bin/kind-kubeconfig` and can only ever reach its own kind cluster; keep it
-that way. The target also repoints the API server at the control-plane
-container's address when it runs inside a container, where the kubeconfig's
-`127.0.0.1` is the Docker host rather than the caller.
-When schema or user-visible values change (new fields, defaults, descriptions), also run `make generate-docs` to refresh `charts/global-chart/README.md`.
+- Templates or values changed → `make lint-chart` and `make unit-test`.
+- Schema or user-visible values changed (new fields, defaults, descriptions) →
+  also `make generate-docs`, to refresh `charts/global-chart/README.md`.
+- Runtime behaviour touched — `hook.yaml`, hook weights, delete policies,
+  ServiceAccount lifecycle → `make e2e`. It is the only thing that sees the
+  runtime half of the chart; `helm-unittest` only renders YAML. What it asserts,
+  what in it is deliberate, and why a hand-rolled `helm install` is forbidden:
+  `tests/e2e/README.md`.
 
 ## Architecture
 
 ### File Layout
 
-- `charts/global-chart/templates/` — Helm templates
-- `charts/global-chart/templates/_*.tpl` — Helper files (domain-split, see below)
-- `charts/global-chart/values.schema.json` — JSON Schema Draft 2019-09
-- `charts/global-chart/tests/` — helm-unittest suites (one `*_test.yaml` per template)
-- `tests/` — Lint scenario values + `bad-values/` for rejection tests, split into `schema/` (rejected by `values.schema.json`) and `fail/` (rejected by a template `fail`). The directory *is* the declaration and `validate-bad-values` asserts it, so a schema hole covered by a `fail` cannot pass as coverage
+- `charts/global-chart/templates/` — Helm templates; `_*.tpl` are the
+  domain-split helpers below
+- `charts/global-chart/values.schema.json` — JSON Schema
+- `charts/global-chart/tests/` — helm-unittest suites, one `*_test.yaml` per
+  template
+- `tests/` — lint scenario values + `bad-values/` for rejection tests, split into
+  `schema/` (rejected by `values.schema.json`) and `fail/` (rejected by a
+  template `fail`). The directory *is* the declaration and `validate-bad-values`
+  asserts it, so a schema hole covered by a `fail` cannot pass as coverage
 
 ### Helper Files
 
+**Every helper opens with a header comment carrying its own rules, its
+rationale and its ADR link. Read that header before editing the domain** — it
+is the source of truth, this table is only the routing.
+
 | File | Domain |
 |------|--------|
-| `_helpers.tpl` | Core naming, labels (`mergeLabels` — the twin of `renderAnnotations` for labels, and the single home of the label precedence: the caller's `own` (`podLabels`) > the chart's identity labels > `global.commonLabels`. The identity labels win because the selectors are built from them alone, so a common label overwriting `app.kubernetes.io/name` used to leave the pod template not matching its own selector. `labels`/`deploymentLabels`/`hookLabels`/`hookLabelsWithComponent` are thin wrappers over it, each pairing it with its own `*OwnedLabels` — never concatenate a second labels block after one of them, pass `own` instead. `fullname`, `deploymentFullname`, `labels`, `selectorLabels`, `deploymentEnabled`, `serviceEnabled`, `deploymentServiceAccountName`, `hookLabelsWithComponent` — hook labels plus the component; pass `deploymentName` for a deployment-level hook, omit it for a root-level one). Job-family name helpers — single home for each name + its truncation constant, consumed by both resource templates and `validateNameCollisions`: `rootCronJobName`/`deploymentCronJobName` (trunc 52), `deploymentHookName` (canonical single trunc 63), `hookPrereqConfigName`/`hookPrereqSecretName` (trunc 63). Mounted-config-file name family, same idiom: `mountedConfigMapName` (`<deploymentFullname>-md-cm-<fileName>`, the ConfigMap for a `files` entry *and* for a `bundles[].files` entry — one name space, so `validateNameCollisions` fails when the two sides collide) and the two volume-name helpers `mountedFileVolumeName` / `mountedBundleVolumeName` (`md-cm-file-<name>` | `md-cm-bundle-<i>` — two helpers, not one taking a `kind`: they share no body and every call site passes a literal). Neither truncates: `values.schema.json` bounds `name` at 52 chars — 63 minus `len("md-cm-file-")` — because truncating would manufacture the very collision the validator catches |
-| `_image-helpers.tpl` | `imageString` (string/map/global registry/numeric tags), `imagePullPolicy` |
-| `_job-helpers.tpl` | `jobPodSpec` — the pod spec of **every** hook/cronjob, both scopes: one implementation, not three, so a new pod-level field is added once. Deployment-level callers pass `deploy` and get the full inheritance chain; root-level callers omit it and each field resolves to the job's own value (`imagePullSecrets` alone then falls back to `global`, as it always did — no field gains a global fallback). One `kind` param (`hook` | `cronjob`) selects the only two behaviours that differ — dnsConfig inheritance and initContainers — and **fails** on anything else; it is the job's kind, not its scope. `jobImageString` — unified image resolution (`image` > `deploy.image` > `fromDeployment` lookup+fail), `errCtx` param preserves exact failure messages. `jobServiceAccount` — unified SA resolution for **every** job scope (name/create/automount/annotations), returns JSON consumed via `fromJson`. Root-level jobs pass no `deploy`: that scope simply *is* the "no deployment SA applies" case, and falls out of the same resolution — so `hook.yaml`/`cronjob.yaml` PART 1 and PART 2 cannot drift apart again |
-| `_hook-helpers.tpl` | `hookAnnotations(hookType · role · command \| weight)` — the three `helm.sh/hook*` annotations for one resource. `role` is `job` \| `sa` \| `prereq` \| `pre-install-sa` and is orthogonal to scope; it selects a row of a table (weight offset, default delete policy, whether the resource belongs to one hook) and nothing else. The roles a hook owns (`job`, `sa`) are called with that hook's `command`, so an explicit `deletePolicy` reaches them; the plumbing roles take a `weight` and **fail** if handed a command. An unknown role fails too — without that guard it silently takes offset 0 and renders a null delete policy, an invalid annotation the API server rejects far from its cause. `minHookWeight(hooks)` — minimum across a hooks map. `effectiveHookWeight(command)` — one command's weight; the only place the default of 10 and its `int` coercion live. See `docs/adr/0004-one-module-for-hook-lifecycle-annotations.md` |
-| `_render-helpers.tpl` | `renderVolume` (native + legacy), `renderImagePullSecrets`, `renderDnsConfig`, `renderResources`, `renderAnnotations` (the annotations of one resource: `global.commonAnnotations` **merged** with the resource's own, the resource's own winning on a shared key — the two are never emitted as two concatenated blocks, which puts a shared key in the manifest twice: Helm takes the last one, `kubeconform -strict` rejects the file. `mergeOverwrite`, never `merge`: sprig's `merge` treats an empty destination value as absent, so a per-resource annotation blanked to `""` would lose. The three `helm.sh/hook*` keys the chart emits itself are dropped from the merged map — `hook.yaml` renders them right after the block), `renderExternalSecretRemoteRef` (shared remoteRef block for data-list + single-key ExternalSecret branches). `renderConfigMapData` / `renderSecretData` — the `data:` **body** of a ConfigMap/Secret (the `key: value` lines at indent 0; the caller keeps its own `data:` key and applies `nindent 2`), shared by the real resource and its hook-prerequisite copy so the two cannot diverge. A map/slice ConfigMap value goes through `toYaml` into a **block scalar**: `ConfigMap.data` is `map[string]string`, and a nested mapping is a manifest the API server rejects. `containerPorts` — single source of truth for the pod side of the Service (see pattern 13), returns a JSON list consumed via `fromJsonArray`. `servicePrimaryPort` — single source of truth for the Service side of the primary port (see pattern 13): the four defaults `port` 80 / `name` http / `protocol` TCP / `targetPort` following the name, as JSON consumed via `fromJson` |
-| `_keda-helpers.tpl` | `kedaTriggerAuthName` (trunc 63), `kedaAuthRefName` (resolves a trigger's `authenticationRef` against the `kedaTriggerAuthentications` map, passthrough when absent), `kedaTriggers` (trigger list with refs resolved), `requireKedaCrd` (fails when `keda.sh/v1alpha1` is not registered) |
-| `_validate-helpers.tpl` | `validateNameCollisions` — fails on truncation-induced name collisions. Every check routes through `registerName` (kind · name · owner · optional hint), never an inline `hasKey`/`fail`/`set`: a kind's accumulator must hold **every** name of that kind whatever derived it, because collisions cross sources — `$cmNames` carries the deployment's own ConfigMap, its `md-cm` copies and its hook-prerequisite copy alike. `registerSAName` keeps its own wording (an SA is *created for* an owner) and does not delegate. `validateRoutingConflict` — ingress vs httpRoute. `validateAutoscalingConflict` — HPA vs KEDA per deployment. `validateServiceTargetPorts` — fails when a named `targetPort` matches no declared container port (see pattern 13) |
+| `_helpers.tpl` | Naming and labels. `mergeLabels` is the single home of the label precedence; the Job-family and mounted-config-file name helpers are the single home of each generated name and its truncation constant |
+| `_image-helpers.tpl` | `imageString`, `imagePullPolicy` |
+| `_job-helpers.tpl` | One implementation of the pod spec, image resolution and SA resolution for **every** hook and cronjob, both scopes — root-level callers simply pass no `deploy` |
+| `_hook-helpers.tpl` | The three `helm.sh/hook*` annotations, weights and delete policies, driven by a role table |
+| `_render-helpers.tpl` | Shared render blocks, `renderAnnotations`, the ConfigMap/Secret `data:` bodies shared with the hook-prerequisite copies, and the two port helpers |
+| `_keda-helpers.tpl` | KEDA names, trigger and `authenticationRef` resolution, the CRD guard |
+| `_validate-helpers.tpl` | Name collisions, routing and autoscaling conflicts, named-`targetPort` resolution |
 
 ### Key Design Patterns
 
-1. **Multi-deployment iteration**: `range $name, $deploy := .Values.deployments` — each deployment generates Deployment, Service, SA, ConfigMap, Secret, HPA, PDB, NetworkPolicy
-2. **Naming**: `{release}-{chart}-{deploymentName}` (trunc 63). CronJobs trunc 52 (K8s adds 11-char timestamp)
-3. **Selector labels**: `app.kubernetes.io/component: {deploymentName}` ensures pods don't overlap
-4. **SA default**: `serviceAccount.create` defaults to `true`. Deployment-level hooks/cronjobs inherit the deployment SA via `hasKey/ternary` with default true
-5. **Inheritance**: Deployment-level hooks/cronjobs inherit image, configMap, secret, SA, envFrom, imagePullSecrets, hostAliases, securityContext, dnsConfig (cronjobs only), nodeSelector, tolerations, affinity. Override with explicit value; use empty `{}` or `[]` to stop inheritance. Toggle `inheritDeploymentConfigMap: false` / `inheritDeploymentSecret: false` to break ConfigMap/Secret env injection without removing them from the deployment (defensive: limits secret leak surface for narrow-scope cronjobs/hooks)
-   - **Not inheritable**: `command` / `args`. A deployment-level hook or cronjob never picks up its parent's entrypoint — a migration hook inheriting `python -m app.worker` would silently run the worker. Locked by regression tests in `hook_test.yaml` / `cronjob_test.yaml`
-   - **Not inheritable**: `mountedConfigFiles`. The mounted files describe the *Deployment's* runtime, and one can carry credentials (`odoo.conf` holds the DB password) — handing them to every hook and cronjob of the deployment is the leak surface `inheritDeploymentSecret: false` exists to narrow, and a migration hook is not that runtime. A job that genuinely needs one declares its own `volumes` / `volumeMounts`; the generated ConfigMap name is **not** a public interface — do not hardcode `<release>-<chart>-<deploy>-md-cm-<name>` into values
-   - **`envFrom` order is a rule, not a rendering detail** — the last source wins on a shared key. A Deployment orders **by type**: every non-secret source, then every secret one, so a secret always beats a plaintext configuration. A job orders **by proximity**: everything the deployment hands it, then everything it declares itself, so the nearest declarer wins. The two are not reconcilable — a job has one level the Deployment does not, its own, and ordering it by type would make it lose to a source that is not its — and they differ on exactly one pair: the deployment's generated Secret against its `envFromConfigMaps`. Fixed by an `equal` on the whole list in `deployment_test.yaml` and `cronjob_test.yaml`; `contains` passes whatever the order, which is how the two ends drifted unobserved. See *Sorgente d'ambiente* in `CONTEXT.md`
-   - **Asymmetry**: Root-level `.Values.cronJobs` and `.Values.hooks` do NOT auto-inherit anything from deployments — they are standalone. Reference deployment ConfigMaps/Secrets explicitly via `envFromConfigMaps` / `envFromSecrets` (or use `fromDeployment` for image only). Only `.Values.deployments.<name>.cronJobs` and `.Values.deployments.<name>.hooks` auto-inherit.
-6. **Hook weight ordering**: the invariant `prereq ConfigMap/Secret < SA < Job` lives in the role table of `hookAnnotations` (`_hook-helpers.tpl`) — read the offsets there, and never recompute a weight or a delete policy inline. Derived weights are **never floored at 0** — Helm allows negative hook weights, and clamping a prereq to 0 would sort it *after* a Job whose weight is negative, which is the exact ordering failure the invariant exists to prevent
-7. **Hook prerequisite resources** (*hook-prerequisite copies*): Deployment ConfigMap/Secret are duplicated as hook-annotated resources because normal resources aren't updated until after hooks complete. The deployment ServiceAccount gets the same treatment, but **only for `pre-install`** and with delete policy `hook-succeeded,hook-failed` instead of `before-hook-creation` — the copy shares the real SA's name and must be gone before Helm creates it. See `docs/adr/0002-hook-prerequisite-serviceaccount-copy.md` before touching it
-8. **Hook resources clean themselves up**: hook resources are not part of the release manifest, so Helm never deletes them at uninstall. Plumbing (prereq ConfigMap/Secret, chart-created hook SAs) therefore defaults to `before-hook-creation,hook-succeeded` — the prereq Secret in particular holds the deployment's secret data and must not survive the release. Hook **Jobs** keep the plain `before-hook-creation` default on purpose: a completed hook Job is the record of what ran. An explicit `deletePolicy` on the hook is honoured by the resources the hook owns — its **Job** (role `job`) and the SA the chart creates for it (role `sa`). The plumbing copies have a **fixed** policy per role: the prereq ConfigMap/Secret are shared by every hook of the deployment, so an explicit policy would have no owner, and the `pre-install` ServiceAccount copy is pinned to `hook-succeeded,hook-failed` (ADR 0002)
-9. **Global fallback chains**: job > deployment > global, using `hasKey` at every level. Explicit `[]` stops fallback
-10. **Schema**: `values.schema.json` validates during install/upgrade/lint. Draft 2019-09. Does NOT use `required` on `mountedConfigFiles` items (templates handle runtime validation to allow `failedTemplate` tests). A `$defs` that declares its properties is **closed**; a `$defs` that passes a Kubernetes surface through stays open until we decide how much to admit — `probe`, `volumes` (5 places), `networkPolicy.ingress`/`egress`, `dataFrom[].sourceRef`, `resources.claims[]`, `httpRouteRule` `filters[]` (both), `rbacs.roles[].rules[]`, `dnsConfig.options[]`, `kedaTrigger.metadata`, `autoscaling.behavior` and the `kedaTriggerAuthentication` provider blocks — see `docs/adr/0006-close-the-schema-defs-that-declare-their-properties.md`. The four job composites close with `unevaluatedProperties: false` (Helm >= 3.18.6; below it, ignored in silence); the five flat ones with `additionalProperties: false`. The five `allOf` branches (`jobCommon`, `cronJobSpec`, `hookJobSpec`, `rootJobSpec`, `deploymentJobSpec`) must **never** be closed: a branch validates the whole object alone, so closing one rejects every key the others contribute. **Every closed `$defs` carries its own fixture** in `tests/bad-values/schema/`, linked by a `# covers: <defsName>` line and enforced by `tests/bad-values/check-closure-coverage.py` (run from `validate-bad-values`): one file per definition, because one file with many typos is rejected by the first closure that holds and the rest go back to being invisible. Name the file after the scope and kind the values use (`root-cronjob-`, `deployment-hook-`), not after the `$defs` identifier — the `# covers:` line is what ties the two together
-11. **Autoscaling is either/or**: `deployments.<name>.autoscaling` (chart-rendered HPA) and `deployments.<name>.keda` (ScaledObject) are mutually exclusive per deployment — KEDA owns its own *derived HPA*. Either one enabled means the Deployment omits `spec.replicas` entirely; see `docs/adr/0003-keda-alongside-hpa.md`. `.Capabilities.APIVersions` carries CRDs only during a real install/upgrade, so anything rendering a KEDA scenario offline needs `--api-versions keda.sh/v1alpha1` (`HELM_API_VERSIONS` in the Makefile; `capabilities.apiVersions` in the unit-test suites). `helm lint` neither evaluates template `fail` nor accepts the flag, so `lint-chart` needs nothing — it just logs the `fail` message at INFO level and passes
-12. **No `appVersion`**: this is a generic chart with no app version to pin. `app.kubernetes.io/version` is emitted only when set — guarded with `{{- with .Chart.AppVersion }}` in the label helpers; consumers set it via `global.commonLabels`. Pod/Service selectors never included it.
-13. **The primary port has one source per side**: `servicePrimaryPort` owns the Service side — the four defaults (`port`, `name`, `protocol`, `targetPort`) that `service.yaml`, `containerPorts`, `validateServiceTargetPorts`, `resolveBackend` and `tests/test-connection.yaml` all consume (`NOTES.txt` shares only `serviceEnabled`). `containerPorts` owns the pod side, deriving the container's ports from that tuple and from `deployments.<name>.service.extraPorts`; Never re-derive one of those defaults inline. Two things stay out of the tuple on purpose: the container port itself (`kindIs "string" $targetPort | ternary $port $targetPort`) is the pod side and lives in `containerPorts`; and `resolveBackend`'s *other* `80`, the one for an explicit `ref.service`, belongs to an arbitrary Service the chart does not create — it only coincides with the primary port's default. `extraPorts` entries share no default (`name`/`port`/`targetPort` are all `required` in the schema), so they are not in the tuple either. `deployment.yaml` renders it and `validateServiceTargetPorts` checks named targetPorts against it. Never compute a container port anywhere else — a Service targeting a port name nothing declares is created happily by Kubernetes and simply has no endpoints, so the failure appears at request time, far from its cause. Three separate bugs came from `deployment.yaml` and `service.yaml` each deriving ports on their own (issue #82). A numeric `targetPort` **is** the container's port; a named one must resolve to a declared port, or the render fails. Entries dedupe by name and by number+protocol — never by number alone, since TCP and UDP on one number are two ports.
+1. **Multi-deployment iteration**: `range $name, $deploy := .Values.deployments`
+   — each deployment generates Deployment, Service, SA, ConfigMap, Secret, HPA,
+   PDB, NetworkPolicy
+2. **Naming**: `{release}-{chart}-{deploymentName}`
+3. **Selector labels**: `app.kubernetes.io/component: {deploymentName}` ensures
+   pods don't overlap
+4. **SA default**: `serviceAccount.create` defaults to `true`. Deployment-level
+   hooks/cronjobs inherit the deployment SA, default true
+5. **Inheritance**: Deployment-level hooks/cronjobs inherit image, configMap,
+   secret, SA, envFrom, imagePullSecrets, hostAliases, securityContext, dnsConfig
+   (cronjobs only), nodeSelector, tolerations, affinity. Override with an
+   explicit value; use empty `{}` or `[]` to stop inheritance. Toggle
+   `inheritDeploymentConfigMap: false` / `inheritDeploymentSecret: false` to
+   break ConfigMap/Secret env injection without removing them from the
+   deployment (defensive: limits the secret leak surface for narrow-scope
+   cronjobs/hooks)
+   - **Not inheritable**: `command` / `args`. A deployment-level hook or cronjob
+     never picks up its parent's entrypoint — a migration hook inheriting
+     `python -m app.worker` would silently run the worker. Locked by regression
+     tests in `hook_test.yaml` / `cronjob_test.yaml`
+   - **Not inheritable**: `mountedConfigFiles`. The mounted files describe the
+     *Deployment's* runtime, and one can carry credentials (`odoo.conf` holds the
+     DB password) — handing them to every hook and cronjob is the leak surface
+     `inheritDeploymentSecret: false` exists to narrow, and a migration hook is
+     not that runtime. A job that genuinely needs one declares its own `volumes`
+     / `volumeMounts`; the generated ConfigMap name is **not** a public
+     interface — do not hardcode it into values
+   - **`envFrom` order is a rule, not a rendering detail** — the last source wins
+     on a shared key. A Deployment orders **by type**: every non-secret source,
+     then every secret one, so a secret always beats a plaintext configuration. A
+     job orders **by proximity**: everything the deployment hands it, then
+     everything it declares itself, so the nearest declarer wins. The two are not
+     reconcilable — a job has one level the Deployment does not, its own, and
+     ordering it by type would make it lose to a source that is not its — and
+     they differ on exactly one pair: the deployment's generated Secret against
+     its `envFromConfigMaps`. Fixed by an `equal` on the whole list in
+     `deployment_test.yaml` and `cronjob_test.yaml`; `contains` passes whatever
+     the order, which is how the two ends drifted unobserved. See *Sorgente
+     d'ambiente* in `CONTEXT.md`
+   - **Asymmetry**: root-level `.Values.cronJobs` and `.Values.hooks` inherit
+     nothing — they are standalone. Reference deployment ConfigMaps/Secrets
+     explicitly via `envFromConfigMaps` / `envFromSecrets` (or `fromDeployment`
+     for the image only). Only `.Values.deployments.<name>.cronJobs` and
+     `.Values.deployments.<name>.hooks` auto-inherit
+6. **Hook weight ordering**: the invariant `prereq ConfigMap/Secret < SA < Job`
+   lives in the role table of `hookAnnotations` (`_hook-helpers.tpl`) — read the
+   offsets there, and never recompute a weight or a delete policy inline.
+   Derived weights are **never floored at 0** — Helm allows negative hook
+   weights, and clamping a prereq to 0 would sort it *after* a Job whose weight
+   is negative, the exact ordering failure the invariant exists to prevent
+7. **Hook prerequisite copies**: the deployment ConfigMap/Secret are duplicated
+   as hook-annotated resources, because normal resources are not updated until
+   after hooks complete. The ServiceAccount gets the same treatment, but **only
+   for `pre-install`** and with its own delete policy — the copy shares the real
+   SA's name and must be gone before Helm creates it. Read
+   `docs/adr/0002-hook-prerequisite-serviceaccount-copy.md` before touching it
+8. **Hook resources clean themselves up**: hook resources are not part of the
+   release manifest, so Helm never deletes them at uninstall. The plumbing
+   (prereq ConfigMap/Secret, chart-created hook SAs) therefore deletes itself —
+   the prereq Secret in particular holds the deployment's secret data and must
+   not survive the release. Hook **Jobs** keep the plain `before-hook-creation`
+   default on purpose: a completed hook Job is the record of what ran. An
+   explicit `deletePolicy` on the hook reaches the resources the hook owns, its
+   Job and its SA; the plumbing copies have a fixed policy per role, because a
+   copy shared by every hook of the deployment would have no owner to take it
+   from
+9. **Global fallback chains**: job > deployment > global, using `hasKey` at
+   every level. Explicit `[]` stops the fallback
+10. **Schema**: `values.schema.json` validates during install/upgrade/lint. It
+    does NOT use `required` on `mountedConfigFiles` items (templates handle that
+    at runtime, so `failedTemplate` tests stay possible). A `$defs` that declares
+    its properties is **closed**; one that passes a Kubernetes surface through
+    stays open until we decide how much to admit — see
+    `docs/adr/0006-close-the-schema-defs-that-declare-their-properties.md`. The
+    job composites close with `unevaluatedProperties: false` (Helm >= 3.18.6;
+    below it, ignored in silence), the flat ones with
+    `additionalProperties: false`. The `allOf` branches (`jobCommon`,
+    `cronJobSpec`, `hookJobSpec`, `rootJobSpec`, `deploymentJobSpec`) must
+    **never** be closed: a branch validates the whole object alone, so closing
+    one rejects every key the others contribute. **Every closed `$defs` carries
+    its own fixture** in `tests/bad-values/schema/`, linked by a
+    `# covers: <defsName>` line and enforced by
+    `tests/bad-values/check-closure-coverage.py`: one file per definition,
+    because one file with many typos is rejected by the first closure that holds
+    and the rest go back to being invisible. Name the file after the scope and
+    kind the values use (`root-cronjob-`, `deployment-hook-`), not after the
+    `$defs` identifier — the `# covers:` line is what ties the two together
+11. **Autoscaling is either/or**: `deployments.<name>.autoscaling` (a
+    chart-rendered HPA) and `deployments.<name>.keda` (a ScaledObject) are
+    mutually exclusive per deployment — KEDA owns its own *derived HPA*. Either
+    one enabled means the Deployment omits `spec.replicas` entirely; see
+    `docs/adr/0003-keda-alongside-hpa.md`. `.Capabilities.APIVersions` carries
+    CRDs only during a real install/upgrade, so anything rendering a KEDA
+    scenario offline needs `--api-versions keda.sh/v1alpha1`
+    (`HELM_API_VERSIONS` in the Makefile; `capabilities.apiVersions` in the
+    unit-test suites). `helm lint` neither evaluates a template `fail` nor
+    accepts the flag, so `lint-chart` needs nothing — it logs the `fail` message
+    at INFO level and passes
+12. **No `appVersion`**: a generic chart has no app version to pin.
+    `app.kubernetes.io/version` is emitted only when set; consumers set it via
+    `global.commonLabels`. Pod/Service selectors never included it
+13. **The primary port has one source per side**: `servicePrimaryPort` owns the
+    Service side, `containerPorts` owns the pod side. Every consumer —
+    `service.yaml`, `deployment.yaml`, `validateServiceTargetPorts`,
+    `resolveBackend`, `tests/test-connection.yaml` — reads one of the two; the
+    rules and the deduplication live in their header comments in
+    `_render-helpers.tpl`. **Never derive a port or one of its defaults inline.**
+    A Service targeting a port name nothing declares is created happily by
+    Kubernetes and simply has no endpoints, so the failure appears at request
+    time, far from its cause. Three separate bugs came from `deployment.yaml` and
+    `service.yaml` each deriving ports on their own (issue #82)
 
 ### Resource Naming Limits
 
-| Resource | Max |
-|----------|-----|
-| Most resources | 63 chars |
-| CronJobs | **52 chars** |
-| Hook prerequisite ConfigMap/Secret | 63 chars (name includes `-hook-config`/`-hook-secret` suffix) |
-| `mountedConfigFiles` `name` (both branches) | **52 chars**, DNS-1123 label, enforced by `values.schema.json` — it feeds the pod volume name `md-cm-file-<name>`, and a volume name is a DNS-1123 *label* capped at 63 |
-| Mounted config file ConfigMap | 253 chars — `mountedConfigMapName` deliberately does **not** truncate: a ConfigMap name is a DNS *subdomain*, so `<deploymentFullname>-md-cm-<name>` has room the volume does not. Truncating would manufacture the collision `validateNameCollisions` exists to catch |
+Kubernetes caps a name at 63 characters, so most resources truncate there. Three
+exceptions, each owned by a name helper in `_helpers.tpl`:
+
+| Resource | Limit |
+|----------|-------|
+| CronJobs | 52 — Kubernetes appends an 11-char timestamp to the Job it creates |
+| `mountedConfigFiles` `name` | 52, DNS-1123 label, enforced by `values.schema.json` — it feeds the pod volume name, and a volume name is a DNS-1123 *label* |
+| Mounted config file ConfigMap | Not truncated at all: a ConfigMap name is a DNS *subdomain*, so it has room the volume does not. Truncating would manufacture the collision `validateNameCollisions` exists to catch |
 
 ## Template Coding Rules
 
-These are the hard-won patterns from this codebase. Violating them causes subtle bugs.
+Hard-won. Violating them causes subtle bugs.
 
 **Boolean/numeric fields — never use `default`:**
 ```yaml
@@ -183,31 +229,32 @@ imagePullSecrets:
 **Schema ↔ Template consistency:**
 - Every field a template accesses must be declared in the schema
 - Every schema field must be used by a template
-- Run `make lint-chart` to verify schema doesn't reject valid test values
+- Run `make lint-chart` to verify the schema doesn't reject valid test values
 
-**Adding new helpers:** Place in the appropriate domain file, not `_helpers.tpl`
+**Adding a new helper:** place it in the appropriate domain file, not
+`_helpers.tpl`, and give it a header comment carrying its rules — that header is
+where the next reader looks
 
-**Adding `merge` on `.Values` maps:** Always `deepCopy` the first argument
+**Adding `merge` on `.Values` maps:** always `deepCopy` the first argument
 
-**Adding a hook role:** Add a row to the table in `hookAnnotations` (`_hook-helpers.tpl`), never a new weight or delete-policy derivation at the call site. The row is the enforcement: the two `fail` guards beside it exist because a missing row renders a null annotation instead of stopping
+**Adding a hook role:** add a row to the table in `hookAnnotations`
+(`_hook-helpers.tpl`), never a new weight or delete-policy derivation at the call
+site. The row is the enforcement: the two `fail` guards beside it exist because a
+missing row renders a null annotation instead of stopping
 
-**Every template must have a corresponding `*_test.yaml`** in `charts/global-chart/tests/`
+**Every template must have a corresponding `*_test.yaml`** in
+`charts/global-chart/tests/`
 
 ## Agent skills
 
 `CONTEXT.md` (glossario di dominio) e `docs/agents/` sono gitignorati: esistono
 solo sulla macchina di chi sviluppa, non nel repo. I riferimenti qui sotto
-funzionano in locale; se i file non ci sono, salta la sezione. `docs/adr/`
-invece è tracciato — è linkato da `CHANGELOG.md` e da `hook.yaml`.
+funzionano in locale; se i file non ci sono, salta la sezione. `docs/adr/` invece
+è tracciato — è linkato da `CHANGELOG.md` e da `hook.yaml`.
 
-### Issue tracker
-
-Issues e PRD su GitHub Issues (`filippolmt/global-chart`), via `gh` CLI. See `docs/agents/issue-tracker.md`.
-
-### Triage labels
-
-Cinque ruoli canonici, label = nome del ruolo (default). See `docs/agents/triage-labels.md`.
-
-### Domain docs
-
-Single-context: `CONTEXT.md` + `docs/adr/` alla root. See `docs/agents/domain.md`.
+- **Issue tracker** — issues e PRD su GitHub Issues (`filippolmt/global-chart`),
+  via `gh` CLI. See `docs/agents/issue-tracker.md`
+- **Triage labels** — cinque ruoli canonici, label = nome del ruolo (default).
+  See `docs/agents/triage-labels.md`
+- **Domain docs** — single-context: `CONTEXT.md` + `docs/adr/` alla root. See
+  `docs/agents/domain.md`
