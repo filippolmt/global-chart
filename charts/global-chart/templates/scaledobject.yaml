@@ -1,7 +1,7 @@
 {{- $root := . }}
 {{- range $name, $deploy := .Values.deployments }}
 {{- if $deploy }}
-{{- if eq (include "global-chart.deploymentEnabled" (dict "deploy" $deploy)) "true" }}
+{{- if eq (include "global-chart.deploymentEnabled" $deploy) "true" }}
 {{- $keda := default (dict) $deploy.keda }}
 {{- if $keda.enabled }}
 {{- /* `triggers` is required by values.schema.json whenever keda.enabled is

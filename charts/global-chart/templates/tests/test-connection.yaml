@@ -1,15 +1,14 @@
 {{- $root := . }}
 {{- $firstSvc := "" }}
-{{- $firstPort := 80 }}
+{{- $firstPort := 0 }}{{/* placeholder: overwritten with servicePrimaryPort below, and nothing renders unless it is */}}
 {{- range $name := keys .Values.deployments | sortAlpha }}
 {{- $deploy := index $.Values.deployments $name }}
 {{- if and $deploy (not $firstSvc) }}
-{{- if eq (include "global-chart.deploymentEnabled" (dict "deploy" $deploy)) "true" }}
+{{- if eq (include "global-chart.deploymentEnabled" $deploy) "true" }}
 {{- $svc := default (dict) $deploy.service }}
-{{- $svcEnabled := ternary $svc.enabled true (hasKey $svc "enabled") }}
-{{- if $svcEnabled }}
+{{- if eq (include "global-chart.serviceEnabled" $svc) "true" }}
 {{- $firstSvc = include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $name) }}
-{{- $firstPort = ternary $svc.port 80 (hasKey $svc "port") }}
+{{- $firstPort = (include "global-chart.servicePrimaryPort" $svc | fromJson).port }}
 {{- end }}
 {{- end }}
 {{- end }}

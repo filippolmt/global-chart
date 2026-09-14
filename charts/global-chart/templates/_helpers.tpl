@@ -94,11 +94,26 @@ app.kubernetes.io/managed-by: {{ .root.Release.Service }}
 
 {{/*
 Check if a deployment is enabled. Defaults to true if the field is not set.
-Usage: {{ include "global-chart.deploymentEnabled" (dict "deploy" $deploy) }}
+Usage: {{ include "global-chart.deploymentEnabled" $deploy }}
+Input: the deployment map. The caller has already guarded it against nil —
+`hasKey` on nil fails, and every call site sits inside `{{- if $deploy }}`.
 Returns the string "true" or "false".
 */}}
 {{- define "global-chart.deploymentEnabled" -}}
-{{- ternary .deploy.enabled true (hasKey .deploy "enabled") -}}
+{{- ternary .enabled true (hasKey . "enabled") -}}
+{{- end }}
+
+{{/*
+Check if a deployment's Service is enabled. Defaults to true if the field is not
+set. Sits next to deploymentEnabled because it answers the same question one
+level down, takes its argument the same way, and every call site asks both in
+the same breath.
+Usage: {{ include "global-chart.serviceEnabled" $svc }}
+Input: the deployment's service map, already defaulted to (dict) by the caller.
+Returns the string "true" or "false".
+*/}}
+{{- define "global-chart.serviceEnabled" -}}
+{{- ternary .enabled true (hasKey . "enabled") -}}
 {{- end }}
 
 {{/*
