@@ -34,10 +34,21 @@ deployments:
       DB_PORT: "5432"
       DB_NAME: myapp
       LOG_LEVEL: info
+      # non-string values: the branch that renders through toYaml, at both the real
+      # ConfigMap and its hook-prerequisite copy
+      pool.yaml:
+        min: 2
+        max: 10
+      FEATURE_FLAGS:
+        - tracing
+        - retries
 
     secret:
       DB_PASSWORD: supersecret123
       API_KEY: apikey456
+      # non-string value: toYaml | b64enc, real Secret and prerequisite copy alike
+      tls.yaml:
+        verify: true
 
     envFromConfigMaps:
       - shared-config

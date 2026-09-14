@@ -118,6 +118,50 @@ Accepts root context (.). Returns toYaml of global.commonAnnotations, or empty s
 {{- end }}
 
 {{/*
+Render the body of a ConfigMap "data:" block: one "key: value" line per entry, at
+indent 0. The caller owns the "data:" key and applies its own nindent 2.
+Usage: {{- include "global-chart.renderConfigMapData" $deploy.configMap | nindent 2 }}
+Map/slice values are serialized with toYaml into a block scalar, everything else
+stringified and quoted: ConfigMap.data is map[string]string, so every value has to
+render as a YAML string or the API server rejects the manifest.
+Returns empty string on an empty map; callers guard on the map being non-empty.
+Built by joining lines rather than by literal text + whitespace control, unlike the
+block helpers above: those own their block key and so start on literal text, while a
+body-only helper written as a literal range emits a leading newline, which the
+caller's nindent turns into a line of bare spaces.
+*/}}
+{{- define "global-chart.renderConfigMapData" -}}
+{{- $lines := list -}}
+{{- range $key, $value := . -}}
+{{- if or (kindIs "map" $value) (kindIs "slice" $value) -}}
+{{- $lines = append $lines (printf "%s: |-\n%s" $key (toYaml $value | indent 2)) -}}
+{{- else -}}
+{{- $lines = append $lines (printf "%s: %s" $key (toString $value | quote)) -}}
+{{- end -}}
+{{- end -}}
+{{- join "\n" $lines -}}
+{{- end }}
+
+{{/*
+Render the body of a Secret "data:" block: one "key: <base64>" line per entry, at
+indent 0. The caller owns the "data:" key and applies its own nindent 2.
+Usage: {{- include "global-chart.renderSecretData" $deploy.secret | nindent 2 }}
+Strings are base64-encoded as-is, everything else through toYaml first.
+Returns empty string on an empty map; callers guard on the map being non-empty.
+*/}}
+{{- define "global-chart.renderSecretData" -}}
+{{- $lines := list -}}
+{{- range $key, $value := . -}}
+{{- if kindIs "string" $value -}}
+{{- $lines = append $lines (printf "%s: %s" $key ($value | b64enc | quote)) -}}
+{{- else -}}
+{{- $lines = append $lines (printf "%s: %s" $key (toYaml $value | b64enc | quote)) -}}
+{{- end -}}
+{{- end -}}
+{{- join "\n" $lines -}}
+{{- end }}
+
+{{/*
 Resolve a backend reference to a {name, port} dict, emitted as JSON for the caller to parse via fromJson.
 Usage:
   {{- $b := include "global-chart.resolveBackend" (dict "root" $root "ref" $hostEntry "sourceKind" "ingress host") | fromJson -}}

@@ -42,6 +42,34 @@ cronJobs:
   [ADR 0002] is untouched: it shares the real SA's name on purpose, and being a
   hook resource it never reaches the validator.
 
+- **A `configMap` value that is a map or a list now renders as a string, so the
+  ConfigMap is a manifest the API server accepts.** `ConfigMap.data` is
+  `map[string]string`; the chart emitted a nested YAML mapping instead, and both the
+  real ConfigMap and its hook-prerequisite copy were rejected at apply time with
+  `got object, want null or string`. The value is now serialized with `toYaml` into a
+  block scalar:
+
+```yaml
+deployments:
+  backend:
+    configMap:
+      pool.yaml:
+        min: 2
+        max: 10
+```
+
+```yaml
+data:
+  pool.yaml: |-
+    max: 10
+    min: 2
+```
+
+  String, numeric and boolean values are untouched. `secret` was already correct
+  (`toYaml | b64enc` yields a string). `tests/deployment-hooks-cronjobs.yaml` now
+  carries a map, a list and a non-string secret value, so `make kubeconform` covers
+  the branch at all four call sites.
+
 ### Changed
 
 - **`cronJobs.<name>.serviceAccount.name`, `.automount`, `.annotations` and
@@ -84,8 +112,20 @@ cronJobs:
   No behaviour changed here — `CLAUDE.md` pattern 8 claimed otherwise and has
   been corrected.
 
+- **The hook-prerequisite ConfigMap and Secret can no longer drift from the real
+  ones.** Their `data` bodies must be byte-identical to what `configmap.yaml` and
+  `secret.yaml` render — a hook Job that reads different values than the
+  Deployment will get is a failure no manifest shows — yet `hook.yaml` re-derived
+  both serialization rules inline. The two bodies now come from
+  `renderConfigMapData` and `renderSecretData` in `_render-helpers.tpl`. Rendered
+  output is unchanged; see [ADR 0005]. The tests that close the gap ship with it:
+  the non-string branch (`map`/`slice` → `toYaml` for the ConfigMap, non-string →
+  `toYaml | b64enc` for the Secret) was untested at all four call sites, and no
+  test asserted `data` on the prerequisite copies at all.
+
 [ADR 0002]: docs/adr/0002-hook-prerequisite-serviceaccount-copy.md
 [ADR 0004]: docs/adr/0004-one-module-for-hook-lifecycle-annotations.md
+[ADR 0005]: docs/adr/0005-one-module-for-configmap-and-secret-data.md
 
 ### Migration guide from 2.5.x
 

@@ -16,14 +16,7 @@ metadata:
     {{- . | nindent 4 }}
   {{- end }}
 data:
-{{- range $key, $value := $deploy.configMap }}
-  {{- if or (kindIs "map" $value) (kindIs "slice" $value) }}
-  {{ $key }}:
-    {{- toYaml $value | nindent 4 }}
-  {{- else }}
-  {{ $key }}: {{ toString $value | quote }}
-  {{- end }}
-{{- end }}
+  {{- include "global-chart.renderConfigMapData" $deploy.configMap | nindent 2 }}
 {{- end }}
 {{- end }}
 {{- end }}

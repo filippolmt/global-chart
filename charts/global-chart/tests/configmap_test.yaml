@@ -72,6 +72,34 @@ tests:
           path: data.ENABLED
           value: "true"
 
+  - it: should render map and slice values as YAML strings
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          configMap:
+            app.yaml:
+              server:
+                port: 8080
+            FEATURES:
+              - alpha
+              - beta
+    asserts:
+      - isKind:
+          of: ConfigMap
+      # ConfigMap.data is map[string]string: a nested mapping here would be a
+      # manifest the API server rejects
+      - equal:
+          path: data["app.yaml"]
+          value: |-
+            server:
+              port: 8080
+      - equal:
+          path: data.FEATURES
+          value: |-
+            - alpha
+            - beta
+
   - it: should render multiple configmaps for multiple deployments
     set:
       deployments:
