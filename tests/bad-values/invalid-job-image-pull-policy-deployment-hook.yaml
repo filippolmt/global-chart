@@ -1,0 +1,10 @@
+# Same core violation on $defs/deploymentHookJob. See
+# invalid-job-image-pull-policy-root-cronjob.yaml for why there are four files.
+deployments:
+  backend:
+    image: myapp:v1
+    hooks:
+      pre-install:
+        demo:
+          command: ["./migrate.sh"]
+          imagePullPolicy: Bogus

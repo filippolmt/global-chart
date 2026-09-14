@@ -1,0 +1,9 @@
+# Same core violation on $defs/deploymentCronJob. See
+# invalid-job-image-pull-policy-root-cronjob.yaml for why there are four files.
+deployments:
+  backend:
+    image: myapp:v1
+    cronJobs:
+      demo:
+        schedule: "0 3 * * *"
+        imagePullPolicy: Bogus

@@ -1,0 +1,8 @@
+# Same core violation on $defs/hookJob. See
+# invalid-job-image-pull-policy-root-cronjob.yaml for why there are four files.
+hooks:
+  pre-install:
+    demo:
+      image: myapp:v1
+      command: ["./migrate.sh"]
+      imagePullPolicy: Bogus
