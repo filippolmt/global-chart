@@ -5,32 +5,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ---
 
-## [Unreleased]
-
-### Changed
-
-- **Nine `$defs` in `values.schema.json` no longer accept undeclared keys.**
-  `deployment`, `networkPolicy`, `ingress`, `mountedConfigFiles` and
-  `externalSecret` gain `additionalProperties: false`; the four job definitions
-  `cronJob`, `deploymentCronJob`, `hookJob` and `deploymentHookJob` gain
-  `unevaluatedProperties: false`. A key that no template reads under
-  `deployments.<name>`, `cronJobs.<name>`, `hooks.<type>.<name>` or their
-  deployment-level counterparts now stops install and upgrade instead of being
-  silently ignored: `deployments.web.replicaz: 3` used to render a Deployment
-  without a word. The remedy is to remove the key, or to fix the typo — the
-  error names the path (`at '/deployments/web/replicaz'`). The four job
-  definitions need **Helm >= 3.18.6**: below it `unevaluatedProperties` is
-  ignored in silence and those four behave exactly as they do today, never
-  worse. The five flat definitions use `additionalProperties: false` and hold on
-  every Helm. Applying the same criterion to the rest of the file closed five
-  more objects that are not definitions of their own: the entries of
-  `ingress.tls`, of `ingress.hosts` and of a host's `paths`, a host's explicit
-  `service` reference, and the entries of `rbacs.roles`. `probe` stays open on
-  purpose, along with every other Kubernetes passthrough surface — the register
-  is in the ADR. `$schema` moves from Draft 7 to Draft 2019-09, which is what
-  `unevaluatedProperties` needs; nothing else in the file changes meaning
-  between the two drafts, and a fork that `$ref`s one of these definitions from
-  its own schema should follow. See [ADR 0006].
+## [2.6.0] — 2026-09-14
 
 ### Fixed
 
@@ -171,6 +146,29 @@ data:
 
 ### Changed
 
+- **Nine `$defs` in `values.schema.json` no longer accept undeclared keys.**
+  `deployment`, `networkPolicy`, `ingress`, `mountedConfigFiles` and
+  `externalSecret` gain `additionalProperties: false`; the four job definitions
+  `cronJob`, `deploymentCronJob`, `hookJob` and `deploymentHookJob` gain
+  `unevaluatedProperties: false`. A key that no template reads under
+  `deployments.<name>`, `cronJobs.<name>`, `hooks.<type>.<name>` or their
+  deployment-level counterparts now stops install and upgrade instead of being
+  silently ignored: `deployments.web.replicaz: 3` used to render a Deployment
+  without a word. The remedy is to remove the key, or to fix the typo — the
+  error names the path (`at '/deployments/web/replicaz'`). The four job
+  definitions need **Helm >= 3.18.6**: below it `unevaluatedProperties` is
+  ignored in silence and those four behave exactly as they do today, never
+  worse. The five flat definitions use `additionalProperties: false` and hold on
+  every Helm. Applying the same criterion to the rest of the file closed five
+  more objects that are not definitions of their own: the entries of
+  `ingress.tls`, of `ingress.hosts` and of a host's `paths`, a host's explicit
+  `service` reference, and the entries of `rbacs.roles`. `probe` stays open on
+  purpose, along with every other Kubernetes passthrough surface — the register
+  is in the ADR. `$schema` moves from Draft 7 to Draft 2019-09, which is what
+  `unevaluatedProperties` needs; nothing else in the file changes meaning
+  between the two drafts, and a fork that `$ref`s one of these definitions from
+  its own schema should follow. See [ADR 0006].
+
 - **`cronJobs.<name>.serviceAccount.name`, `.automount`, `.annotations` and
   `.create: false` now do something.** The schema has always accepted them —
   they share `$defs/serviceAccount` with every other job scope — but
@@ -277,10 +275,12 @@ data:
 
 ### Migration guide from 2.5.x
 
-> No values change shape and no schema key is removed: every values file valid on
-> 2.5.x is still valid. What changes is **which ServiceAccount a job's pod runs
-> as**, in four cases. Run `helm template` (or `helm diff upgrade`) against your
-> own values before upgrading — every case below shows up there.
+> No values change shape and no schema key is removed. What changes is **which
+> ServiceAccount a job's pod runs as**, in four cases, and **which values the
+> schema accepts**: a key no template reads used to be ignored and is now
+> rejected (point 6). Run `helm lint` and then `helm template` (or `helm diff
+> upgrade`) against your own values before upgrading — every case below shows up
+> there.
 
 #### 1. A root `cronJobs` entry keyed like a deployment now fails the render (HIGH)
 
@@ -371,8 +371,45 @@ and a leading `-`. `helm lint` names the field.
 
 **Action:** write the integer you meant — `weight: 5`, or `weight: "5"`.
 
+#### 6. A key no template reads now fails validation (MEDIUM)
+
+```yaml
+deployments:
+  web:
+    image: nginx:1.25
+    replicaz: 3        # meant replicaCount; used to render a Deployment in silence
+```
+
+Nine `$defs` — `deployment`, `networkPolicy`, `ingress`, `mountedConfigFiles`,
+`externalSecret` and the four job definitions — used to accept any key and drop
+the ones they did not declare. They now reject them, naming the path:
+`at '/deployments/web/replicaz'`. Five nested objects that declare their
+properties the same way went with them: the entries of `ingress.tls`, of
+`ingress.hosts` and of a host's `paths`, a host's explicit `service` reference,
+and the entries of `rbacs.roles`.
+
+Kubernetes passthrough surfaces are deliberately untouched and still take
+anything — probes, `volumes`, `networkPolicy.ingress`/`egress`,
+`dataFrom[].sourceRef`, the `resources` maps, PolicyRules, HTTPRoute filters.
+See [ADR 0006] for the criterion.
+
+**Who is affected:** values carrying a key the chart never read — almost always a
+typo, occasionally a key left behind by an older chart version. It is a lint
+failure, not a render difference, so no manifest changes for anyone it does not
+affect.
+
+**Action:** run `helm lint` and remove the key, or fix the typo the error names.
+
+**One caveat on Helm's side.** The four job definitions (`cronJobs.<name>`,
+`hooks.<type>.<name>` and their deployment-level counterparts) close with
+`unevaluatedProperties`, which **Helm below 3.18.6 ignores in silence**. On an
+older Helm those four behave exactly as they did on 2.5.x — never worse, but a
+typo there will not be caught until you upgrade Helm. The other definitions use
+`additionalProperties` and hold on every Helm.
+
 #### Migration checklist
 
+- [ ] `helm lint` your values and remove any key the schema now rejects (point 6)
 - [ ] `helm template` your values and diff the `ServiceAccount` documents against 2.5.x
 - [ ] Resolve any name collision the render now reports (point 1)
 - [ ] Check RBAC for every ServiceAccount whose name changed or appeared (points 2-4)
