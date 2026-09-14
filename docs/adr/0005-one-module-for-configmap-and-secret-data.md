@@ -54,6 +54,15 @@ those guards already make unreachable.
 
 - The rendered manifests are unchanged. That is the acceptance criterion, and it is
   checked with a `helm template` diff over the lint scenarios, before and after.
+
+  *Amended after the fact:* the extraction itself left the output identical, and the
+  diff confirmed it. A separate bug the extraction made visible was then fixed in the
+  same PR, and it does change one branch of the output: a map/slice `configMap` value
+  rendered as a nested YAML mapping, which `ConfigMap.data` (`map[string]string`)
+  cannot hold — the manifest was rejected at apply time, at the real ConfigMap and at
+  its prerequisite copy alike. It renders as a block scalar now. No lint scenario
+  exercised that branch, which is why the diff was silent about it and kubeconform
+  never saw it; `tests/deployment-hooks-cronjobs.yaml` exercises it now.
 - A coverage gap surfaced while deciding this, and it is the more valuable half of
   the change: **no test asserts `data` on the prerequisite copies at all** (the
   existing prereq cases in `hook_test.yaml` assert kind, hook type, weight and

@@ -1363,12 +1363,14 @@ tests:
           value: "8080"
         documentIndex: 0
       - equal:
-          path: data["app.yaml"].server.port
-          value: 8080
+          path: data["app.yaml"]
+          value: |-
+            server:
+              port: 8080
         documentIndex: 0
       - equal:
           path: data.FEATURES
-          value:
+          value: |-
             - alpha
             - beta
         documentIndex: 0

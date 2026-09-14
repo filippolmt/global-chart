@@ -42,6 +42,34 @@ cronJobs:
   [ADR 0002] is untouched: it shares the real SA's name on purpose, and being a
   hook resource it never reaches the validator.
 
+- **A `configMap` value that is a map or a list now renders as a string, so the
+  ConfigMap is a manifest the API server accepts.** `ConfigMap.data` is
+  `map[string]string`; the chart emitted a nested YAML mapping instead, and both the
+  real ConfigMap and its hook-prerequisite copy were rejected at apply time with
+  `got object, want null or string`. The value is now serialized with `toYaml` into a
+  block scalar:
+
+```yaml
+deployments:
+  backend:
+    configMap:
+      pool.yaml:
+        min: 2
+        max: 10
+```
+
+```yaml
+data:
+  pool.yaml: |-
+    max: 10
+    min: 2
+```
+
+  String, numeric and boolean values are untouched. `secret` was already correct
+  (`toYaml | b64enc` yields a string). `tests/deployment-hooks-cronjobs.yaml` now
+  carries a map, a list and a non-string secret value, so `make kubeconform` covers
+  the branch at all four call sites.
+
 ### Changed
 
 - **`cronJobs.<name>.serviceAccount.name`, `.automount`, `.annotations` and
