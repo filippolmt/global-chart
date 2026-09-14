@@ -1,0 +1,13 @@
+# imagePullPolicy lives in $defs/jobCommon, the branch all four job definitions
+# share through their allOf. Must be rejected by values.schema.json
+# (jobCommon.imagePullPolicy enum: Always|IfNotPresent|Never).
+# No unit test reads the schema, so these four files are what would notice
+# jobCommon falling out of one allOf list — one file per job definition,
+# because validate-bad-values only asks that a file be rejected: four
+# violations in one file would still fail with three branches orphaned.
+# This one covers root-level cronJobs ($defs/cronJob).
+cronJobs:
+  demo:
+    schedule: "0 3 * * *"
+    image: myapp:v1
+    imagePullPolicy: Bogus

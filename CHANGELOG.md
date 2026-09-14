@@ -199,6 +199,19 @@ data:
   is a chart-internal helper and no values key is affected; only a fork that
   calls it from its own template needs the one-line update.
 
+- **The four job definitions in `values.schema.json` are composed instead of
+  copied.** `cronJob`, `deploymentCronJob`, `hookJob` and `deploymentHookJob`
+  were four hand-written lists: all four repeated the same 24 pod/container
+  properties, the two cron ones the same 13 `batch/v1` scheduling properties,
+  the two hook ones the same two Helm hook properties, and the scope keys were
+  repeated in pairs as well. They are now `allOf` over five `$defs` —
+  `jobCommon`, `cronJobSpec`, `hookJobSpec`, `rootJobSpec` and
+  `deploymentJobSpec` — so a new job field is declared once, on the axis it
+  belongs to. No key changes meaning: every value accepted before is accepted
+  now, every value rejected before is rejected now, and the rendered manifests
+  are byte-identical. Only a fork that `$ref`s one of the four definitions from
+  its own schema sees anything, and those `$ref`s still resolve.
+
 [ADR 0001]: docs/adr/0001-keep-root-and-deployment-job-rendering-separate.md
 [ADR 0002]: docs/adr/0002-hook-prerequisite-serviceaccount-copy.md
 [ADR 0004]: docs/adr/0004-one-module-for-hook-lifecycle-annotations.md
