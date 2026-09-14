@@ -30,7 +30,7 @@ The chart supports **multiple deployments** in a single release, each with indep
 ## Prerequisites
 
 - Helm 3.x
-- Kubernetes 1.19 or newer
+- Kubernetes 1.23 or newer — the floor is `autoscaling/v2` for the HPA and `policy/v1` for the PDB
 - Docker (for unit tests, kubeconform, kube-linter, helm-docs)
 
 ## Quick start
@@ -143,11 +143,11 @@ make help
 make all
 
 # Individual targets
-make lint-chart            # Lint all 17 test scenarios
-make unit-test             # Run 312 helm-unittest tests via Docker
+make lint-chart            # Lint every scenario in TEST_CASES (see the Makefile)
+make unit-test             # Run the helm-unittest suites via Docker
 make validate-bad-values   # Verify schema rejects invalid values
 make generate-templates    # Render manifests for visual inspection
-make kubeconform           # Validate manifests against K8s 1.29
+make kubeconform           # Validate manifests against the pinned K8s schema
 make kube-linter           # Lint manifests (addAllBuiltIn)
 make generate-docs         # Regenerate helm-docs
 
@@ -169,7 +169,7 @@ The chart has multiple layers of testing:
 - **Lint scenarios** (`make lint-chart`): Runs `helm lint --strict` across every scenario in `tests/` (the `TEST_CASES` list in the `Makefile`).
 - **Unit tests** (`make unit-test`): helm-unittest suites in `charts/global-chart/tests/` (one `*_test.yaml` per template), including negative `failedTemplate` tests.
 - **Schema validation** (`make validate-bad-values`): Verifies every fixture in `tests/bad-values/` is rejected, and by the right mechanism. The directory is the declaration: a file in `schema/` must be rejected by `values.schema.json` (the target asserts Helm's schema error message), a file in `fail/` by a template `fail` and *not* by the schema. Without the split, a schema hole covered by a `fail` is invisible. `tests/bad-values/check-closure-coverage.py` then checks that every closed `$defs` in the schema has a fixture of its own, so closing one without testing it fails here.
-- **Manifest validation** (`make kubeconform`): Validates the generated resources against the K8s 1.29 schema.
+- **Manifest validation** (`make kubeconform`): Validates the generated resources against the Kubernetes schema pinned in the `Makefile`.
 - **Best practices** (`make kube-linter`): Lints manifests with `addAllBuiltIn: true` and the documented exclusions.
 - **End-to-end** (`make e2e`): Installs `tests/e2e/values.yaml` on a throwaway kind cluster, then upgrades and uninstalls it. This is the only layer that exercises the *runtime* half of the chart — hook ordering, hook weights and `hook-delete-policy` cleanup — which helm-unittest cannot see because it only renders YAML. It uses its own kubeconfig under `.bin/`, so it can never reach a real cluster.
 
@@ -177,7 +177,8 @@ The GitHub Action (`.github/workflows/helm-ci.yml`) executes all steps on pushes
 
 ## Test scenarios
 
-See the `tests/` directory for concrete examples:
+The `tests/` directory is the list — `TEST_CASES` in the `Makefile` is what
+`make lint-chart` actually walks. This table is here for the intent of each one:
 
 | File                             | Description                                                                               |
 | -------------------------------- | ----------------------------------------------------------------------------------------- |
@@ -193,13 +194,19 @@ See the `tests/` directory for concrete examples:
 | `externalsecret-only.yaml`       | ExternalSecrets only                                                                      |
 | `ingress-custom.yaml`            | Ingress with deployment reference                                                         |
 | `external-ingress.yaml`          | Ingress pointing to external service                                                      |
+| `httproute-basic.yaml`           | Gateway API HTTPRoute, plain backend                                                      |
+| `httproute-canary.yaml`          | HTTPRoute with weighted backends                                                          |
+| `httproute-filters.yaml`         | HTTPRoute rule filters                                                                    |
+| `keda.yaml`                      | KEDA ScaledObject and TriggerAuthentication                                               |
 | `rbac.yaml`                      | RBAC with roles and service accounts                                                      |
 | `service-disabled.yaml`          | Deployment with service disabled                                                          |
+| `service-extra-ports.yaml`       | Service with extraPorts, and the container ports derived from them                        |
+| `common-annotations.yaml`        | `global.commonAnnotations` colliding with per-resource ones — catches a duplicate YAML key                |
 | `raw-deployment.yaml`            | Deployment with raw image string                                                          |
 | `name-collision.yaml`            | Name collision detection test                                                             |
 | `bad-values/schema/*.yaml`       | Values the schema must reject                                                             |
 | `bad-values/fail/*.yaml`         | Values a template `fail` must reject                                                      |
-| `e2e/values.yaml`                | End-to-end install scenario for `make e2e` (hook lifecycle on a real cluster)             |
+| `e2e/values.yaml`                | End-to-end install scenario for `make e2e` — see `tests/e2e/README.md`                    |
 
 ## Values reference
 
