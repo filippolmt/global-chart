@@ -9,6 +9,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Fixed
 
+- **The release published without waiting for the tests.** `Release Charts` and
+  `Helm CI` were two workflows on the same `push` to `main`, which GitHub starts
+  in parallel: `chart-releaser` cut the release while the lint, unit-test,
+  kubeconform, kube-linter and e2e jobs were still running — and cut it just the
+  same when they failed. Publishing is the one irreversible step in the pipeline
+  and it was the one with nothing in front of it. The release is now a job
+  inside `Helm CI` with `needs: [lint-and-test, e2e]`, so a red check stops it,
+  and it is gated on a push to `main` so a pull request never reaches it.
+
 - **The packaged README was three changes out of date.** `helm-docs` runs from
   `make generate-docs` and nothing in CI checked its output, so
   `charts/global-chart/README.md` still carried the 2.5.1 badge, the previous
