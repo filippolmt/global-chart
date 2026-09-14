@@ -172,7 +172,7 @@ spec:
             {{- end }}
             {{- if and $mountedConfigFiles $mountedConfigFiles.files }}
             {{- range $i, $f := $mountedConfigFiles.files }}
-            - name: md-cm-file-{{ $f.name }}
+            - name: {{ include "global-chart.mountedVolumeName" (dict "kind" "file" "fileName" $f.name) }}
               mountPath: {{ $f.targetPath }}
               subPath: {{ $f.filename }}
               readOnly: true
@@ -180,7 +180,7 @@ spec:
             {{- end }}
             {{- if and $mountedConfigFiles $mountedConfigFiles.bundles }}
             {{- range $bi, $b := $mountedConfigFiles.bundles }}
-            - name: md-cm-bundle-{{ $bi }}
+            - name: {{ include "global-chart.mountedVolumeName" (dict "kind" "bundle" "bundleIndex" $bi) }}
               mountPath: {{ $b.mountDir }}
               readOnly: true
             {{- end }}
@@ -201,19 +201,19 @@ spec:
         {{- end }}
         {{- if $hasMcfFiles }}
         {{- range $i, $f := $mountedConfigFiles.files }}
-        - name: md-cm-file-{{ $f.name }}
+        - name: {{ include "global-chart.mountedVolumeName" (dict "kind" "file" "fileName" $f.name) }}
           configMap:
-            name: {{ $depFullname }}-md-cm-{{ $f.name }}
+            name: {{ include "global-chart.mountedConfigMapName" (dict "deploymentFullname" $depFullname "fileName" $f.name) }}
         {{- end }}
         {{- end }}
         {{- if $hasMcfBundles }}
         {{- range $bi, $b := $mountedConfigFiles.bundles }}
-        - name: md-cm-bundle-{{ $bi }}
+        - name: {{ include "global-chart.mountedVolumeName" (dict "kind" "bundle" "bundleIndex" $bi) }}
           projected:
             sources:
             {{- range $fi, $f := $b.files }}
               - configMap:
-                  name: {{ $depFullname }}-md-cm-{{ $f.name }}
+                  name: {{ include "global-chart.mountedConfigMapName" (dict "deploymentFullname" $depFullname "fileName" $f.name) }}
                   items:
                     - key: {{ $f.relPath | base }}
                       path: {{ $f.relPath }}

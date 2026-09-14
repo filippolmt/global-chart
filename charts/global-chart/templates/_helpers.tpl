@@ -221,3 +221,37 @@ Usage: {{ include "global-chart.hookPrereqSecretName" (dict "deploymentFullname"
 {{- define "global-chart.hookPrereqSecretName" -}}
 {{- printf "%s-hook-secret" .deploymentFullname | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
+
+{{/*
+Mounted config file ConfigMap name.
+Covers both branches of `mountedConfigFiles`: `files` and `bundles[].files`
+render into one name space, so two entries sharing a `name` are a collision —
+validateNameCollisions fails on it.
+No trunc here: values.schema.json bounds `name` at 52 chars (63 minus
+len("md-cm-file-")), the tightest of the two sides, so the derived volume name
+stays a legal DNS-1123 label. Truncating instead would silently manufacture the
+very collision the validator exists to catch.
+Usage: {{ include "global-chart.mountedConfigMapName" (dict "deploymentFullname" $depFullname "fileName" $f.name) }}
+*/}}
+{{- define "global-chart.mountedConfigMapName" -}}
+{{- printf "%s-md-cm-%s" .deploymentFullname .fileName -}}
+{{- end -}}
+
+{{/*
+Pod volume name for a mounted config file entry.
+`kind` is "file" (one ConfigMap volume per `files` entry, named after it) or
+"bundle" (one projected volume per bundle, indexed). Any other kind fails: it
+would otherwise render an empty volume name, which the API server rejects far
+from its cause.
+Usage: {{ include "global-chart.mountedVolumeName" (dict "kind" "file" "fileName" $f.name) }}
+       {{ include "global-chart.mountedVolumeName" (dict "kind" "bundle" "bundleIndex" $bi) }}
+*/}}
+{{- define "global-chart.mountedVolumeName" -}}
+{{- if eq .kind "file" -}}
+{{- printf "md-cm-file-%s" .fileName -}}
+{{- else if eq .kind "bundle" -}}
+{{- printf "md-cm-bundle-%v" .bundleIndex -}}
+{{- else -}}
+{{- fail (printf "mountedVolumeName: unknown kind %q (expected \"file\" or \"bundle\")" .kind) -}}
+{{- end -}}
+{{- end -}}

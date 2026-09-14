@@ -341,6 +341,12 @@
       },
       "additionalProperties": false
     },
+    "mountedConfigFileName": {
+      "description": "Name of a mounted config file entry. Bounded at 52 chars because it feeds the pod volume name 'md-cm-file-<name>', a DNS-1123 label capped at 63. The same bound applies to bundle entries even though 'md-cm-bundle-<i>' has room: one number, taken from the tightest side.",
+      "type": "string",
+      "maxLength": 52,
+      "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+    },
     "mountedConfigFiles": {
       "type": "object",
       "properties": {
@@ -349,10 +355,10 @@
           "items": {
             "type": "object",
             "properties": {
-              "name": { "type": "string" },
+              "name": { "$ref": "#/$defs/mountedConfigFileName" },
               "filename": { "type": "string" },
               "targetPath": { "type": "string" },
-              "mountPath": { "type": "string" },
+              "mountPath": { "type": "string", "deprecated": true, "description": "DEPRECATED and read by no template: it is targetPath that sets where the file is mounted. Kept only because additionalProperties is false, which makes removal breaking; it goes at the next major. The one knowing exception to the 'every schema field is used by a template' rule in CLAUDE.md." },
               "content": { "type": "string" }
             },
             "additionalProperties": false
@@ -369,7 +375,7 @@
                 "items": {
                   "type": "object",
                   "properties": {
-                    "name": { "type": "string" },
+                    "name": { "$ref": "#/$defs/mountedConfigFileName" },
                     "relPath": { "type": "string" },
                     "content": { "type": "string" }
                   },

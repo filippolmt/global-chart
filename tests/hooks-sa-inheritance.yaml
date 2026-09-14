@@ -103,7 +103,6 @@ deployments:
       files:
         - name: odoo-config
           filename: odoo.conf
-          mountPath: /etc/odoo
           targetPath: /etc/odoo/odoo.conf
           content: |
             [options]
