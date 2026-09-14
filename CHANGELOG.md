@@ -149,6 +149,15 @@ data:
   keys, same values, same semantics — a `helm diff` across the upgrade shows the
   reordering and nothing else.
 
+- **The defaults of a Service's primary port have one home.** `port` (80),
+  `portName` (`http`), `protocol` (`TCP`) and `targetPort` (which follows the
+  port's name) were each re-derived inline in up to four templates, and
+  `service.enabled` in five, with three different idioms. They now come from
+  `servicePrimaryPort` and `serviceEnabled`; `serviceTargetPort` is gone, its
+  one field folded into the tuple. Rendered output is unchanged — this closes
+  the half of issue #82 that the container-port fix left open, on the Service
+  side.
+
 [ADR 0001]: docs/adr/0001-keep-root-and-deployment-job-rendering-separate.md
 [ADR 0002]: docs/adr/0002-hook-prerequisite-serviceaccount-copy.md
 [ADR 0004]: docs/adr/0004-one-module-for-hook-lifecycle-annotations.md

@@ -207,7 +207,12 @@ Output: JSON string of the form {"name":"<svc>","port":<int>}
 {{- $svcName := "" -}}
 {{- $svcPort := 80 -}}
 
-{{- /* Priority 1: Explicit service override */ -}}
+{{- /* Priority 1: Explicit service override.
+       This 80 is deliberately NOT servicePrimaryPort's: ref.service is an
+       arbitrary Service in the cluster, with only name/port — no portName, no
+       targetPort. Its default merely coincides with the chart's primary port;
+       sharing a home would couple a deployment's primary port to a foreign
+       Service's. */ -}}
 {{- if and (hasKey $ref "service") $ref.service $ref.service.name -}}
   {{- $svcName = $ref.service.name -}}
   {{- $svcPort = ternary $ref.service.port 80 (hasKey $ref.service "port") -}}
@@ -222,11 +227,11 @@ Output: JSON string of the form {"name":"<svc>","port":<int>}
     {{- fail (printf "%s '%s' references deployment '%s' which has enabled: false (its Service will not be created)" $sourceKind $ident $depName) -}}
   {{- end -}}
   {{- $depSvc := default (dict) $deploy.service -}}
-  {{- if and (hasKey $depSvc "enabled") (not $depSvc.enabled) -}}
+  {{- if ne (include "global-chart.serviceEnabled" $depSvc) "true" -}}
     {{- fail (printf "%s '%s' references deployment '%s' which has service.enabled: false. Enable the service or remove the %s." $sourceKindCapital $ident $depName $ruleNoun) -}}
   {{- end -}}
   {{- $svcName = include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $depName) -}}
-  {{- $svcPort = ternary $depSvc.port 80 (hasKey $depSvc "port") -}}
+  {{- $svcPort = (include "global-chart.servicePrimaryPort" $depSvc | fromJson).port -}}
 {{- /* Priority 3: Error - must specify deployment or service */ -}}
 {{- else -}}
   {{- fail (printf "%s '%s' must specify either 'deployment' (name of a deployment) or 'service.name' (explicit service name)" $sourceKind $ident) -}}
@@ -283,13 +288,11 @@ Usage: {{ include "global-chart.containerPorts" $svc | fromJsonArray }}
 */}}
 {{- define "global-chart.containerPorts" -}}
 {{- $svc := . -}}
-{{- $portName := ternary $svc.portName "http" (hasKey $svc "portName") -}}
-{{- $port := ternary $svc.port 80 (hasKey $svc "port") -}}
-{{- /* The default targetPort follows portName, not the literal "http": with a custom
-       portName and no targetPort, "http" would name a port nothing declares. */ -}}
-{{- $targetPort := ternary $svc.targetPort $portName (hasKey $svc "targetPort") -}}
-{{- $containerPort := kindIs "string" $targetPort | ternary $port $targetPort -}}
-{{- $protocol := ternary $svc.protocol "TCP" (hasKey $svc "protocol") | upper -}}
+{{- $primary := include "global-chart.servicePrimaryPort" $svc | fromJson -}}
+{{- $portName := $primary.name -}}
+{{- $targetPort := $primary.targetPort -}}
+{{- $containerPort := kindIs "string" $targetPort | ternary $primary.port $targetPort -}}
+{{- $protocol := $primary.protocol -}}
 {{- $ports := list (dict "name" $portName "containerPort" $containerPort "protocol" $protocol) -}}
 {{- $names := dict $portName true -}}
 {{- $numbers := dict (printf "%s/%s" (toString $containerPort) $protocol) true -}}
@@ -308,12 +311,28 @@ Usage: {{ include "global-chart.containerPorts" $svc | fromJsonArray }}
 {{- end }}
 
 {{/*
-The effective targetPort of a Service's primary port: explicit when set,
-otherwise the port's own name. Shared by service.yaml and the validator so the
-default cannot drift from the name deployment.yaml gives the container port.
-Usage: {{ include "global-chart.serviceTargetPort" $svc }}
+The primary port of a deployment's Service: the single home of its four
+defaults (`port` 80, `name` "http", `protocol` TCP, `targetPort` following the
+name). Consumed by service.yaml, containerPorts, validateServiceTargetPorts,
+resolveBackend and the connection test — every place that used to carry its own
+copy of one of them.
+
+The default targetPort follows the port's name, not the literal "http": with a
+custom portName and no targetPort, "http" would name a port nothing declares.
+
+Only the primary port is here. extraPorts entries have name/port/targetPort all
+required by the schema, so they share no default worth a home.
+Usage: {{ $primary := include "global-chart.servicePrimaryPort" $svc | fromJson }}
+Input: the deployment's service map, already defaulted to (dict) by the caller.
+Output: JSON of the form {"port":80,"name":"http","protocol":"TCP","targetPort":"http"}
 */}}
-{{- define "global-chart.serviceTargetPort" -}}
+{{- define "global-chart.servicePrimaryPort" -}}
 {{- $svc := . -}}
-{{- ternary $svc.targetPort (ternary $svc.portName "http" (hasKey $svc "portName")) (hasKey $svc "targetPort") -}}
+{{- $name := ternary $svc.portName "http" (hasKey $svc "portName") -}}
+{{- dict
+      "port" (ternary $svc.port 80 (hasKey $svc "port"))
+      "name" $name
+      "protocol" (ternary $svc.protocol "TCP" (hasKey $svc "protocol") | upper)
+      "targetPort" (ternary $svc.targetPort $name (hasKey $svc "targetPort"))
+    | toJson -}}
 {{- end }}

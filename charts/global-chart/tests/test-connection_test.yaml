@@ -1,0 +1,50 @@
+suite: test-connection template tests
+templates:
+  - templates/tests/test-connection.yaml
+tests:
+  # ====== Primary port defaults ======
+  - it: should target port 80 when the deployment declares no service
+    release:
+      name: myrel
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+    asserts:
+      - equal:
+          path: spec.containers[0].args[0]
+          value: "http://myrel-global-chart-main:80/"
+
+  - it: should target the custom service port
+    release:
+      name: myrel
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          service:
+            port: 3000
+    asserts:
+      - equal:
+          path: spec.containers[0].args[0]
+          value: "http://myrel-global-chart-main:3000/"
+
+  # ====== Service disabled ======
+  - it: should skip a deployment whose service is disabled
+    release:
+      name: myrel
+    set:
+      deployments:
+        alpha:
+          image: nginx:1.25
+          service:
+            enabled: false
+            port: 3000
+        beta:
+          image: nginx:1.25
+          service:
+            port: 9000
+    asserts:
+      - equal:
+          path: spec.containers[0].args[0]
+          value: "http://myrel-global-chart-beta:9000/"

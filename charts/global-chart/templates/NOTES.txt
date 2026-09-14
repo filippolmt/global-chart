@@ -17,8 +17,7 @@ Deployments created:
 {{- if $deploy }}
 {{- if eq (include "global-chart.deploymentEnabled" (dict "deploy" $deploy)) "true" }}
 {{- $svc := default (dict) $deploy.service }}
-{{- $enabled := ternary $svc.enabled true (hasKey $svc "enabled") }}
-{{- if $enabled }}
+{{- if eq (include "global-chart.serviceEnabled" $svc) "true" }}
 {{- $svcList = append $svcList $name }}
 {{- end }}
 {{- end }}

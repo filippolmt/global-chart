@@ -199,13 +199,13 @@ Called from validate.yaml. Emits nothing on success.
   {{- if $deploy -}}
   {{- if eq (include "global-chart.deploymentEnabled" (dict "deploy" $deploy)) "true" -}}
     {{- $svc := default (dict) $deploy.service -}}
-    {{- if or (not (hasKey $svc "enabled")) $svc.enabled -}}
+    {{- if eq (include "global-chart.serviceEnabled" $svc) "true" -}}
       {{- $declared := dict -}}
       {{- range (include "global-chart.containerPorts" $svc | fromJsonArray) -}}
         {{- $_ := set $declared .name true -}}
       {{- end -}}
       {{- $known := keys $declared | sortAlpha | join ", " -}}
-      {{- $targetPort := include "global-chart.serviceTargetPort" $svc -}}
+      {{- $targetPort := (include "global-chart.servicePrimaryPort" $svc | fromJson).targetPort -}}
       {{- if and (hasKey $svc "targetPort") (kindIs "string" $svc.targetPort) (not (hasKey $declared $targetPort)) -}}
         {{- fail (printf "deployments.%s.service.targetPort names the port '%s', which no container port declares (declared: %s). A Service port whose targetPort names nothing gets no endpoints. Use the port number, or a name one of the declared ports carries." $name $targetPort $known) -}}
       {{- end -}}

@@ -102,6 +102,18 @@ Returns the string "true" or "false".
 {{- end }}
 
 {{/*
+Check if a deployment's Service is enabled. Defaults to true if the field is not
+set. Sits next to deploymentEnabled because it answers the same question one
+level down, and every call site asks both in the same breath.
+Usage: {{ include "global-chart.serviceEnabled" $svc }}
+Input: the deployment's service map, already defaulted to (dict) by the caller.
+Returns the string "true" or "false".
+*/}}
+{{- define "global-chart.serviceEnabled" -}}
+{{- ternary .enabled true (hasKey . "enabled") -}}
+{{- end }}
+
+{{/*
 Create the name of the service account for a specific deployment.
 Usage: {{ include "global-chart.deploymentServiceAccountName" (dict "root" . "deploymentName" $name "deployment" $deploy) }}
 */}}

@@ -3,11 +3,8 @@
 {{- if $deploy }}
 {{- if eq (include "global-chart.deploymentEnabled" (dict "deploy" $deploy)) "true" }}
 {{- $svc := default (dict) $deploy.service }}
-{{- $svcEnabled := true }}
-{{- if and (hasKey $svc "enabled") (not $svc.enabled) }}
-{{- $svcEnabled = false }}
-{{- end }}
-{{- if $svcEnabled }}
+{{- if eq (include "global-chart.serviceEnabled" $svc) "true" }}
+{{- $primary := include "global-chart.servicePrimaryPort" $svc | fromJson }}
 {{- $depFullname := include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $name) }}
 {{- $labelCtx := dict "root" $root "deploymentName" $name }}
 ---
@@ -27,10 +24,10 @@ metadata:
 spec:
   type: {{ ternary $svc.type "ClusterIP" (hasKey $svc "type") }}
   ports:
-    - port: {{ ternary $svc.port 80 (hasKey $svc "port") }}
-      targetPort: {{ include "global-chart.serviceTargetPort" $svc }}
-      protocol: {{ (ternary $svc.protocol "TCP" (hasKey $svc "protocol")) | upper }}
-      name: {{ ternary $svc.portName "http" (hasKey $svc "portName") }}
+    - port: {{ $primary.port }}
+      targetPort: {{ $primary.targetPort }}
+      protocol: {{ $primary.protocol }}
+      name: {{ $primary.name }}
     {{- range (default (list) $svc.extraPorts) }}
     - name: {{ .name }}
       port: {{ .port }}
