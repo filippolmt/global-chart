@@ -9,6 +9,38 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Fixed
 
+- **Common and per-resource annotations were emitted as two YAML keys when they
+  shared a name.** With `global.commonAnnotations.owner` and, say,
+  `deployments.<name>.serviceAccount.annotations.owner` both set, the manifest
+  carried `owner:` twice. Helm's parser is not strict and took the last one, so
+  the effective value happened to be right; `kubeconform -strict` and any other
+  strict consumer rejected the file outright. The two sources are now merged into
+  one map, the per-resource value winning — an empty string included, which is how
+  you blank a common annotation on one resource — on every resource that has both:
+  ServiceAccounts, CronJobs, hook Jobs and the pod template's `podAnnotations`.
+  On a resource where they collided the rendered annotations lose the duplicate
+  line; elsewhere the merge only re-sorts the keys alphabetically.
+  `podAnnotations` also wins over the `checksum/*` annotations, as it already
+  did in practice. The three `helm.sh/hook*` annotations the chart emits itself
+  are dropped from the merged map instead of being rendered twice: they govern
+  hook ordering at runtime and the chart owns them.
+
+- **`global.commonLabels` collided with per-resource labels the same way.** With
+  `global.commonLabels.team` and `deployments.<name>.podLabels.team` both set,
+  the pod template carried `team:` twice; the same happened between a common
+  label and the chart's own `app.kubernetes.io/*` labels. The sources are now one
+  merged map too. The precedence differs from the annotations by one step: the
+  chart's identity labels win over `global.commonLabels`, because the selectors
+  are built from them alone — a common label overwriting
+  `app.kubernetes.io/name` used to leave the pod template no longer matching its
+  own Deployment selector, which the API server rejects. `podLabels` still wins
+  over a common label.
+
+- **`hooks.<type>.<name>.annotations` is now rendered**, at the root level and
+  under a deployment alike. The schema accepted the key and `hook.yaml` dropped
+  it without a word — `cronJobs` rendered the same key all along. It lands on the
+  hook Job, next to its `helm.sh/hook*` annotations.
+
 - **A root-level `cronJobs.<name>` with no `serviceAccount` now gets the
   ServiceAccount its pod references.** It used to render
   `serviceAccountName: <release>-global-chart-<name>` and create nothing, so

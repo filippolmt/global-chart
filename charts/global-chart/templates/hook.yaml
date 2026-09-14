@@ -32,13 +32,10 @@ metadata:
   labels:
     {{- include "global-chart.hookLabelsWithComponent" (dict "root" $root) | nindent 4 }}
   annotations:
-    {{- with (include "global-chart.renderCommonAnnotations" $root) }}
+    {{- with (include "global-chart.renderAnnotations" (dict "root" $root "own" $sa.annotations)) }}
     {{- . | nindent 4 }}
     {{- end }}
     {{- include "global-chart.hookAnnotations" (dict "hookType" $hookType "role" "sa" "command" $command) | nindent 4 }}
-    {{- with $sa.annotations }}
-    {{- toYaml . | nindent 4 }}
-    {{- end }}
 automountServiceAccountToken: {{ $sa.automount }}
 {{- end }}
 ---
@@ -49,7 +46,7 @@ metadata:
   labels:
     {{- include "global-chart.hookLabelsWithComponent" (dict "root" $root) | nindent 4 }}
   annotations:
-    {{- with (include "global-chart.renderCommonAnnotations" $root) }}
+    {{- with (include "global-chart.renderAnnotations" (dict "root" $root "own" $command.annotations)) }}
     {{- . | nindent 4 }}
     {{- end }}
     {{- include "global-chart.hookAnnotations" (dict "hookType" $hookType "role" "job" "command" $command) | nindent 4 }}
@@ -59,7 +56,7 @@ spec:
       name: {{ $hookFullname }}
       labels:
         {{- include "global-chart.hookLabelsWithComponent" (dict "root" $root) | nindent 8 }}
-      {{- with (include "global-chart.renderCommonAnnotations" $root) }}
+      {{- with (include "global-chart.renderAnnotations" (dict "root" $root)) }}
       annotations:
         {{- . | nindent 8 }}
       {{- end }}
@@ -104,7 +101,7 @@ metadata:
   labels:
     {{- include "global-chart.hookLabelsWithComponent" (dict "root" $root "deploymentName" $deployName) | nindent 4 }}
   annotations:
-    {{- with (include "global-chart.renderCommonAnnotations" $root) }}
+    {{- with (include "global-chart.renderAnnotations" (dict "root" $root)) }}
     {{- . | nindent 4 }}
     {{- end }}
     {{- include "global-chart.hookAnnotations" (dict "hookType" $allHookTypes "role" "prereq" "weight" $minJobWeight) | nindent 4 }}
@@ -120,7 +117,7 @@ metadata:
   labels:
     {{- include "global-chart.hookLabelsWithComponent" (dict "root" $root "deploymentName" $deployName) | nindent 4 }}
   annotations:
-    {{- with (include "global-chart.renderCommonAnnotations" $root) }}
+    {{- with (include "global-chart.renderAnnotations" (dict "root" $root)) }}
     {{- . | nindent 4 }}
     {{- end }}
     {{- include "global-chart.hookAnnotations" (dict "hookType" $allHookTypes "role" "prereq" "weight" $minJobWeight) | nindent 4 }}
@@ -189,13 +186,10 @@ metadata:
   labels:
     {{- include "global-chart.hookLabelsWithComponent" (dict "root" $root "deploymentName" $deployName) | nindent 4 }}
   annotations:
-    {{- with (include "global-chart.renderCommonAnnotations" $root) }}
+    {{- with (include "global-chart.renderAnnotations" (dict "root" $root "own" $deploySA.annotations)) }}
     {{- . | nindent 4 }}
     {{- end }}
     {{- include "global-chart.hookAnnotations" (dict "hookType" "pre-install" "role" "pre-install-sa" "weight" $preInstallMinWeight) | nindent 4 }}
-    {{- with $deploySA.annotations }}
-    {{- toYaml . | nindent 4 }}
-    {{- end }}
 automountServiceAccountToken: {{ hasKey $deploySA "automount" | ternary $deploySA.automount true }}
 {{- end }}
 
@@ -230,13 +224,10 @@ metadata:
   labels:
     {{- include "global-chart.hookLabelsWithComponent" (dict "root" $root "deploymentName" $deployName) | nindent 4 }}
   annotations:
-    {{- with (include "global-chart.renderCommonAnnotations" $root) }}
+    {{- with (include "global-chart.renderAnnotations" (dict "root" $root "own" $saAnnotations)) }}
     {{- . | nindent 4 }}
     {{- end }}
     {{- include "global-chart.hookAnnotations" (dict "hookType" $hookType "role" "sa" "command" $command) | nindent 4 }}
-    {{- with $saAnnotations }}
-    {{- toYaml . | nindent 4 }}
-    {{- end }}
 automountServiceAccountToken: {{ $saAutomount }}
 {{ end }}
 ---
@@ -247,7 +238,7 @@ metadata:
   labels:
     {{- include "global-chart.hookLabelsWithComponent" (dict "root" $root "deploymentName" $deployName) | nindent 4 }}
   annotations:
-    {{- with (include "global-chart.renderCommonAnnotations" $root) }}
+    {{- with (include "global-chart.renderAnnotations" (dict "root" $root "own" $command.annotations)) }}
     {{- . | nindent 4 }}
     {{- end }}
     {{- include "global-chart.hookAnnotations" (dict "hookType" $hookType "role" "job" "command" $command) | nindent 4 }}
@@ -257,7 +248,7 @@ spec:
       name: {{ $hookFullname }}
       labels:
         {{- include "global-chart.hookLabelsWithComponent" (dict "root" $root "deploymentName" $deployName) | nindent 8 }}
-      {{- with (include "global-chart.renderCommonAnnotations" $root) }}
+      {{- with (include "global-chart.renderAnnotations" (dict "root" $root)) }}
       annotations:
         {{- . | nindent 8 }}
       {{- end }}

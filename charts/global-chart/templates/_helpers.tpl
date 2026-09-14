@@ -31,19 +31,39 @@ Create chart name and version as used by the chart label.
 {{- end }}
 
 {{/*
+Merge the label sources of one resource into a single map and render it.
+Params: root · owned (the chart's own labels, as rendered YAML) · own (optional map
+of the caller's extra labels, e.g. podLabels).
+Precedence: the caller's own > the chart's identity labels > global.commonLabels.
+The chart's identity labels win because the selectors are built from them alone
+(`selectorLabels` / `deploymentSelectorLabels` never see commonLabels): letting a
+common label overwrite `app.kubernetes.io/name` used to make the pod template stop
+matching its own Deployment selector.
+Like renderAnnotations, this exists so the sources are never concatenated: two
+blocks that name the same label put the key in the manifest twice, which Helm
+accepts and `kubeconform -strict` rejects. `mergeOverwrite`, not `merge`, for the
+empty-string reason given there.
+*/}}
+{{- define "global-chart.mergeLabels" -}}
+{{- $common := default (dict) (default (dict) .root.Values.global).commonLabels -}}
+{{- $merged := mergeOverwrite (deepCopy $common) (fromYaml .owned) -}}
+{{- toYaml (mergeOverwrite $merged (default (dict) .own)) -}}
+{{- end }}
+
+{{/*
 Common labels (for non-deployment resources like Ingress)
 */}}
 {{- define "global-chart.labels" -}}
+{{- include "global-chart.mergeLabels" (dict "root" . "owned" (include "global-chart.chartOwnedLabels" .)) -}}
+{{- end }}
+
+{{- define "global-chart.chartOwnedLabels" -}}
 helm.sh/chart: {{ include "global-chart.chart" . }}
 {{ include "global-chart.selectorLabels" . }}
 {{- with .Chart.AppVersion }}
 app.kubernetes.io/version: {{ . | quote }}
 {{- end }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
-{{- $global := default (dict) .Values.global }}
-{{- with $global.commonLabels }}
-{{ toYaml . | trimSuffix "\n" }}
-{{- end }}
 {{- end }}
 
 {{/*
@@ -78,18 +98,20 @@ app.kubernetes.io/component: {{ .deploymentName }}
 {{/*
 Common labels for a specific deployment.
 Usage: {{ include "global-chart.deploymentLabels" (dict "root" . "deploymentName" $name) }}
+Pass an optional "own" map (podLabels) to fold it into the same merge instead of
+appending a second block after this one.
 */}}
 {{- define "global-chart.deploymentLabels" -}}
+{{- include "global-chart.mergeLabels" (dict "root" .root "own" .own "owned" (include "global-chart.deploymentOwnedLabels" .)) -}}
+{{- end }}
+
+{{- define "global-chart.deploymentOwnedLabels" -}}
 helm.sh/chart: {{ include "global-chart.chart" .root }}
 {{ include "global-chart.deploymentSelectorLabels" . }}
 {{- with .root.Chart.AppVersion }}
 app.kubernetes.io/version: {{ . | quote }}
 {{- end }}
 app.kubernetes.io/managed-by: {{ .root.Release.Service }}
-{{- $global := default (dict) .root.Values.global }}
-{{- with $global.commonLabels }}
-{{ toYaml . | trimSuffix "\n" }}
-{{- end }}
 {{- end }}
 
 {{/*
@@ -138,15 +160,15 @@ Hook-specific labels: do not include selectorLabels so hooks don't match Deploym
 Base labels without component (used when component is added separately).
 */}}
 {{- define "global-chart.hookLabels" -}}
+{{- include "global-chart.mergeLabels" (dict "root" . "owned" (include "global-chart.hookOwnedLabels" .)) -}}
+{{- end }}
+
+{{- define "global-chart.hookOwnedLabels" -}}
 helm.sh/chart: {{ include "global-chart.chart" . }}
 {{- with .Chart.AppVersion }}
 app.kubernetes.io/version: {{ . | quote }}
 {{- end }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
-{{- $global := default (dict) .Values.global }}
-{{- with $global.commonLabels }}
-{{ toYaml . | trimSuffix "\n" }}
-{{- end }}
 {{- end }}
 
 {{/*
@@ -156,8 +178,10 @@ root-level one, whose component is just "hook".
 Usage: {{ include "global-chart.hookLabelsWithComponent" (dict "root" $root "deploymentName" $deployName) }}
 */}}
 {{- define "global-chart.hookLabelsWithComponent" -}}
-{{ include "global-chart.hookLabels" .root }}
-app.kubernetes.io/component: {{ with .deploymentName }}{{ . }}-{{ end }}hook
+{{- $component := "hook" -}}
+{{- with .deploymentName }}{{- $component = printf "%s-hook" . }}{{- end -}}
+{{- $owned := printf "%s\napp.kubernetes.io/component: %s" (include "global-chart.hookOwnedLabels" .root) $component -}}
+{{- include "global-chart.mergeLabels" (dict "root" .root "owned" $owned) -}}
 {{- end }}
 
 {{- define "global-chart.hookfullname" -}}

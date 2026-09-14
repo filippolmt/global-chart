@@ -67,7 +67,8 @@ TEST_CASES := \
 	tests/httproute-basic.yaml:httproute-basic:httproute-basic \
 	tests/httproute-canary.yaml:httproute-canary:httproute-canary \
 	tests/httproute-filters.yaml:httproute-filters:httproute-filters \
-	tests/keda.yaml:keda:keda
+	tests/keda.yaml:keda:keda \
+	tests/common-annotations.yaml:common-annotations:common-annotations
 
 # Default target
 .DEFAULT_GOAL := help

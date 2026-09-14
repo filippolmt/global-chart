@@ -27,8 +27,8 @@ Kubernetes: `>=1.19.0-0`
 | global | object | `{"commonAnnotations":{},"commonLabels":{},"imagePullSecrets":[],"imageRegistry":""}` | Global values shared across all deployments, cronJobs, and hooks |
 | global.imageRegistry | string | `""` (no prefix) | Global image registry prefix (e.g., registry.example.com) |
 | global.imagePullSecrets | list | `[]` | Global imagePullSecrets (used when deployment/cronJob/hook doesn't specify its own) |
-| global.commonLabels | object | `{}` | Global labels applied to metadata.labels of ALL resources (not added to selector labels) |
-| global.commonAnnotations | object | `{}` | Global annotations applied to metadata.annotations of ALL resources (including pod templates) |
+| global.commonLabels | object | `{}` | Global labels applied to metadata.labels of ALL resources (not added to selector labels). A per-resource label of the same name wins; the chart's own `app.kubernetes.io/*` and `helm.sh/chart` labels win over both, since the selectors are built from them |
+| global.commonAnnotations | object | `{}` | Global annotations applied to metadata.annotations of ALL resources (including pod templates). A per-resource annotation of the same name wins, empty string included. The `helm.sh/hook*` annotations the chart emits itself are ignored here |
 | nameOverride | string | `""` | Override the chart name. Sets `app.kubernetes.io/name`, which is part of the Deployment's immutable `spec.selector`: decide it before the first install, or every existing Deployment has to be deleted and recreated to change it. |
 | fullnameOverride | string | `""` | Override the chart fullname |
 | deployments | object | `{}` (empty map) | Multiple deployments configuration (map of named deployments). Each deployment supports an `enabled` field (bool, default `true`) to skip rendering of the Deployment and all its sub-resources (Service, ConfigMap, Secret, ServiceAccount, HPA, mounted ConfigMaps, CronJobs, Hooks). An Ingress that references a disabled deployment will fail with a clear error. |
@@ -45,7 +45,7 @@ Kubernetes: `>=1.19.0-0`
 | ingress.hosts[0].paths | list | `[{"path":"/","pathType":"ImplementationSpecific"}]` | HTTP path definitions for this host |
 | httpRoute | object | `{"annotations":{},"enabled":false,"hostnames":[],"parentRefs":[],"rules":[]}` | HTTPRoute (Gateway API v1) — alternative to Ingress. The chart renders only the HTTPRoute resource; the referenced Gateway must be managed externally (e.g. by your platform team or a separate infra chart). Mutually exclusive with `ingress.enabled` — enabling both fails template render. |
 | httpRoute.enabled | bool | `false` | Enable HTTPRoute rendering. Requires Gateway API v1 CRDs in the cluster. |
-| httpRoute.annotations | object | `{}` | Annotations applied to the HTTPRoute resource (merged with global.commonAnnotations). |
+| httpRoute.annotations | object | `{}` | Annotations applied to the HTTPRoute resource. Like every annotations field, merged with global.commonAnnotations, this one winning |
 | httpRoute.parentRefs | list | `[]` | References to existing Gateway resources. At least one is required when enabled. Each entry: { name, namespace?, sectionName?, port?, kind?, group? } |
 | httpRoute.hostnames | list | `[]` | Hostnames the HTTPRoute responds to. Optional but typical for HTTP routing. |
 | httpRoute.rules | list | `[]` | Routing rules. Each rule may declare matches, filters, backendRefs, timeouts. backendRefs accept either `deployment: <name>` (resolves to the chart-managed Service) or `service: { name, port }` for an external Service. |

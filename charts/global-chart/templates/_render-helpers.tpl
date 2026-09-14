@@ -106,13 +106,28 @@ resources:
 {{- end }}
 
 {{/*
-Render global.commonAnnotations block.
-Usage: {{ include "global-chart.renderCommonAnnotations" . }}
-Accepts root context (.). Returns toYaml of global.commonAnnotations, or empty string if not set.
+Render the annotations of one resource: global.commonAnnotations merged with the
+resource's own, the resource's own winning on a shared key.
+Usage: {{- with (include "global-chart.renderAnnotations" (dict "root" $root "own" $sa.annotations)) }}
+Returns the "key: value" lines at indent 0, or empty string when both sides are
+empty; the caller owns the "annotations:" key and its nindent.
+The merge is the point, not a convenience: emitting the two sources as two
+concatenated blocks puts a shared key in the manifest twice. Helm's parser is not
+strict and takes the last one, so the precedence happens to come out right, but
+kubeconform -strict rejects the manifest outright. Never concatenate.
+`mergeOverwrite`, not `merge`: sprig's `merge` treats an empty destination value as
+absent, so a per-resource annotation deliberately blanked to "" would lose to the
+global one — the precedence would hold for every value but that one.
+The three helm.sh/hook* keys the chart emits itself are dropped from the merged map
+(ADR 0004): hook.yaml renders them right after this block, so leaving a values-supplied
+copy in would put the key in the manifest twice — the very defect this helper removes —
+and the chart owns them either way. helm.sh/hook-output-log-policy is not dropped: the
+chart never emits it, so there is nothing to collide with.
 */}}
-{{- define "global-chart.renderCommonAnnotations" -}}
-{{- $global := default (dict) .Values.global -}}
-{{- with $global.commonAnnotations -}}
+{{- define "global-chart.renderAnnotations" -}}
+{{- $common := default (dict) (default (dict) .root.Values.global).commonAnnotations -}}
+{{- $merged := mergeOverwrite (deepCopy $common) (default (dict) .own) -}}
+{{- with omit $merged "helm.sh/hook" "helm.sh/hook-weight" "helm.sh/hook-delete-policy" -}}
 {{- toYaml . -}}
 {{- end -}}
 {{- end }}

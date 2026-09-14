@@ -1,0 +1,77 @@
+# Common annotations colliding with per-resource ones.
+#
+# Every `shared.example.com/owner` below is also in global.commonAnnotations: the
+# scenario exists so a resource that emits the two sources as two YAML keys
+# instead of one merged map is caught by `make kubeconform` (-strict rejects a
+# duplicate key; helm install does not). Covers the four shapes that carry a
+# per-resource override — ServiceAccount, Service, Ingress, podAnnotations — plus
+# a hook and a cronjob, whose annotations block also concatenates. Labels get the
+# same treatment: `commonLabels` colliding with `podLabels` and with the chart's own
+# identity labels used to produce the same duplicate-key manifest.
+global:
+  commonAnnotations:
+    shared.example.com/owner: from-global
+    shared.example.com/team: platform
+    # The chart emits this one itself on every hook resource; it must be dropped from
+    # the merged map rather than rendered a second time.
+    helm.sh/hook-weight: "99"
+  commonLabels:
+    shared.example.com/tier: from-global
+    # The chart's identity labels win, or the pod template stops matching its selector.
+    app.kubernetes.io/component: hijacked
+
+deployments:
+  main:
+    image:
+      repository: nginx
+      tag: "1.25"
+    autoscaling:
+      enabled: false
+    podAnnotations:
+      shared.example.com/owner: from-pod
+      checksum/config: not-the-real-checksum
+      # Blanked on purpose: the per-resource value wins even when it is empty.
+      shared.example.com/team: ""
+    podLabels:
+      shared.example.com/tier: from-pod
+    serviceAccount:
+      create: true
+      annotations:
+        shared.example.com/owner: from-sa
+        eks.amazonaws.com/role-arn: arn:aws:iam::000000000000:role/example
+    service:
+      port: 80
+      annotations:
+        shared.example.com/owner: from-service
+    configMap:
+      APP_MODE: production
+    hooks:
+      pre-install:
+        migrate:
+          command: ["sh", "-c"]
+          args: ["echo migrate"]
+          annotations:
+            shared.example.com/owner: from-hook
+    cronJobs:
+      cleanup:
+        schedule: "0 3 * * *"
+        command: ["sh", "-c"]
+        args: ["echo cleanup"]
+        annotations:
+          shared.example.com/owner: from-cronjob
+        serviceAccount:
+          create: true
+          annotations:
+            shared.example.com/owner: from-cronjob-sa
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    shared.example.com/owner: from-ingress
+  hosts:
+    - host: annotations.example.com
+      deployment: main
+      paths:
+        - path: /
+          pathType: Prefix

@@ -1203,6 +1203,75 @@ tests:
           path: spec.template.metadata.annotations.owner
           value: ops-team
 
+  - it: should let podAnnotations win over global.commonAnnotations and the checksums
+    set:
+      global:
+        commonAnnotations:
+          owner: ops-team
+          shared: from-global
+      deployments:
+        main:
+          image: nginx:1.25
+          podAnnotations:
+            shared: from-pod
+            checksum/config: pinned-by-hand
+    asserts:
+      - equal:
+          path: spec.template.metadata.annotations.shared
+          value: from-pod
+      - equal:
+          path: spec.template.metadata.annotations["checksum/config"]
+          value: pinned-by-hand
+      - equal:
+          path: spec.template.metadata.annotations.owner
+          value: ops-team
+
+  - it: should let a blanked per-resource annotation win over global.commonAnnotations
+    set:
+      global:
+        commonAnnotations:
+          shared: from-global
+      deployments:
+        main:
+          image: nginx:1.25
+          podAnnotations:
+            shared: ""
+    asserts:
+      - equal:
+          path: spec.template.metadata.annotations.shared
+          value: ""
+
+  - it: should let podLabels win over global.commonLabels
+    set:
+      global:
+        commonLabels:
+          tier: from-global
+      deployments:
+        main:
+          image: nginx:1.25
+          podLabels:
+            tier: from-pod
+    asserts:
+      - equal:
+          path: spec.template.metadata.labels.tier
+          value: from-pod
+
+  - it: should not let global.commonLabels overwrite the identity labels the selector uses
+    set:
+      global:
+        commonLabels:
+          app.kubernetes.io/component: hijacked
+      deployments:
+        main:
+          image: nginx:1.25
+    asserts:
+      - equal:
+          path: spec.template.metadata.labels["app.kubernetes.io/component"]
+          value: main
+      - equal:
+          path: spec.selector.matchLabels["app.kubernetes.io/component"]
+          value: main
+
   - it: should not add global.commonLabels to selector matchLabels
     set:
       global:

@@ -1458,3 +1458,40 @@ tests:
           path: spec.jobTemplate.spec.template.spec.containers[0].env
       - isNull:
           path: spec.jobTemplate.spec.template.spec.containers[0].envFrom
+
+  # ====== global.commonAnnotations ======
+  - it: should merge cronJob and SA annotations over global.commonAnnotations
+    set:
+      global:
+        commonAnnotations:
+          owner: platform
+          shared: from-global
+      cronJobs:
+        cleanup:
+          image: busybox:1.36
+          schedule: "0 3 * * *"
+          command: ["sh", "-c"]
+          args: ["echo cleanup"]
+          annotations:
+            shared: from-cronjob
+          serviceAccount:
+            create: true
+            annotations:
+              shared: from-sa
+    asserts:
+      - equal:
+          path: metadata.annotations.shared
+          value: from-sa
+        documentIndex: 0
+      - equal:
+          path: metadata.annotations.shared
+          value: from-cronjob
+        documentIndex: 1
+      - equal:
+          path: metadata.annotations.owner
+          value: platform
+        documentIndex: 1
+      - equal:
+          path: spec.jobTemplate.metadata.annotations.owner
+          value: platform
+        documentIndex: 1
