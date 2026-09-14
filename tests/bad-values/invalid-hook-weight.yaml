@@ -1,0 +1,10 @@
+# A hook weight given as a string that `int` cannot parse used to lint fine and
+# render as weight 0 — silently, on every resource derived from the hook.
+deployments:
+  backend:
+    image: myapp:v1
+    hooks:
+      pre-install:
+        migrate:
+          command: ["./migrate.sh"]
+          weight: " 5"

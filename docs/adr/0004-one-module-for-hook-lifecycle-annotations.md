@@ -82,10 +82,13 @@ clause that ADR 0001 chose and that `jobServiceAccount` already applies.
 - Rendered output is unchanged except for weights written as non-canonical strings,
   which now render consistently across a hook and its ServiceAccount instead of
   diverging: `weight: "007"` rendered `"007"` on the Job and `"2"` on its SA, and
-  renders `"7"` and `"2"` now. The schema keeps accepting `["string", "integer"]`,
-  so a string `int` cannot parse still becomes 0 — `weight: " 5"` is weight 0, on
-  every resource rather than on all but the Job. Tightening the schema to reject it
-  would fail values that lint today and is left to its own decision.
+  renders `"7"` and `"2"` now.
+- The schema still accepts `["string", "integer"]`, but a string must now look like
+  an integer (`^-?[0-9]+$`). Coercing consistently made the remaining hole worse,
+  not better: a string `int` cannot parse becomes 0, so `weight: " 5"` used to mean
+  0 on every resource but the Job and would now mean 0 on all of them — silently, in
+  the one field whose whole purpose is relative order. It is rejected at lint time
+  instead. `"007"`, `"-5"` and every canonical form still validate.
 - The 24 `hook-weight` and 13 `hook-delete-policy` assertions in `hook_test.yaml`
   are **kept**, not collapsed: they pin the rendered output — which weight lands on
   which resource under which `helm.sh/hook` — not the helper. A table test for the

@@ -58,6 +58,13 @@ cronJobs:
   hooks honoured it. They agree now, on the reading that does what the values
   say.
 
+- **A hook `weight` written as a string must now look like an integer**
+  (`^-?[0-9]+$`), in `hooks` and `deployments.<name>.hooks` alike. `weight: " 5"`
+  or `weight: "5s"` used to pass the schema and render as weight **0** — silently,
+  in the one field whose whole purpose is relative order. They are rejected at
+  lint time now. Integers are untouched, and so is every canonical string:
+  `"10"`, `"007"`, `"-5"`.
+
 - **A hook `weight` written as a non-canonical string now renders the same
   number everywhere.** `weight: "007"` used to reach the hook Job's
   `helm.sh/hook-weight` verbatim while every resource derived from it — the
@@ -165,12 +172,24 @@ The field is now omitted and the pod runs as `default`.
 **Action:** if an out-of-band SA was the point, name it:
 `serviceAccount: { create: false, name: my-sa }`.
 
+#### 5. A hook `weight` string that is not an integer now fails validation (LOW)
+
+`weight: " 5"` and `weight: "5s"` used to pass the schema and render as weight
+**0**, which silently reordered the hook against its own prerequisites. They are
+rejected at lint time now.
+
+**Who is affected:** values with a `weight` string containing anything but digits
+and a leading `-`. `helm lint` names the field.
+
+**Action:** write the integer you meant — `weight: 5`, or `weight: "5"`.
+
 #### Migration checklist
 
 - [ ] `helm template` your values and diff the `ServiceAccount` documents against 2.5.x
 - [ ] Resolve any name collision the render now reports (point 1)
 - [ ] Check RBAC for every ServiceAccount whose name changed or appeared (points 2-4)
 - [ ] Check IRSA / Workload Identity annotations on hand-made SAs you hand over to the chart
+- [ ] `helm lint` your values for a `weight` string that is not an integer (point 5)
 - [ ] `helm diff upgrade`, then upgrade
 
 ---
