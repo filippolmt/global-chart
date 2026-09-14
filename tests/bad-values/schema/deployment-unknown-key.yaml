@@ -1,0 +1,9 @@
+# covers: deployment
+# An unknown key under deployments.<name> (typo of replicaCount). Must be
+# rejected by values.schema.json ($defs/deployment is closed). Without the
+# constraint the typo is silently dropped and the deployment keeps its default
+# replica count — the failure only shows up in the cluster.
+deployments:
+  web:
+    image: nginx:1.25
+    replicaz: 3

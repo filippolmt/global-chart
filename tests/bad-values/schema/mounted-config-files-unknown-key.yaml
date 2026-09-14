@@ -1,0 +1,15 @@
+# covers: mountedConfigFiles
+# An unknown key under deployments.<name>.mountedConfigFiles (typo of files).
+# Must be rejected by values.schema.json ($defs/mountedConfigFiles is closed).
+# Without the constraint no ConfigMap is generated and no volume is mounted,
+# while the values file reads as if the configuration were there.
+deployments:
+  web:
+    image: nginx:1.25
+    mountedConfigFiles:
+      fles:
+        - name: app-conf
+          filename: app.conf
+          targetPath: /etc/app
+          content: |
+            key = value

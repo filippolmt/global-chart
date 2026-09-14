@@ -1,0 +1,9 @@
+# covers: global
+# An unknown key under global (typo of imageRegistry). Without the constraint
+# every image renders from the default registry while the values file reads as
+# if it had been repointed.
+global:
+  imageRegistri: registry.example.com
+deployments:
+  web:
+    image: nginx:1.25

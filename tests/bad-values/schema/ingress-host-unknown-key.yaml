@@ -1,0 +1,15 @@
+# An unknown key inside an ingress.hosts entry (typo of deployment). Without
+# the constraint the host resolves against no deployment and the render fails
+# far from this line.
+deployments:
+  web:
+    image: nginx:1.25
+
+ingress:
+  enabled: true
+  hosts:
+    - host: example.com
+      deploymnet: web
+      paths:
+        - path: /
+          pathType: Prefix

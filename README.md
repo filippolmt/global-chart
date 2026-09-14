@@ -25,7 +25,7 @@ The chart supports **multiple deployments** in a single release, each with indep
 - **Global values**
   `global.imageRegistry`, `global.imagePullSecrets`, `global.commonLabels`, `global.commonAnnotations` apply across all resources.
 - **Validation**
-  JSON Schema Draft 7 (`values.schema.json`) for input validation and IDE autocomplete. Name collision detection at render time.
+  JSON Schema Draft 2019-09 (`values.schema.json`) for input validation and IDE autocomplete. Name collision detection at render time.
 
 ## Prerequisites
 
@@ -168,7 +168,7 @@ The chart has multiple layers of testing:
 
 - **Lint scenarios** (`make lint-chart`): Runs `helm lint --strict` across every scenario in `tests/` (the `TEST_CASES` list in the `Makefile`).
 - **Unit tests** (`make unit-test`): helm-unittest suites in `charts/global-chart/tests/` (one `*_test.yaml` per template), including negative `failedTemplate` tests.
-- **Schema validation** (`make validate-bad-values`): Verifies the schema rejects every fixture in `tests/bad-values/`.
+- **Schema validation** (`make validate-bad-values`): Verifies every fixture in `tests/bad-values/` is rejected, and by the right mechanism. The directory is the declaration: a file in `schema/` must be rejected by `values.schema.json` (the target asserts Helm's schema error message), a file in `fail/` by a template `fail` and *not* by the schema. Without the split, a schema hole covered by a `fail` is invisible. `tests/bad-values/check-closure-coverage.py` then checks that every closed `$defs` in the schema has a fixture of its own, so closing one without testing it fails here.
 - **Manifest validation** (`make kubeconform`): Validates the generated resources against the K8s 1.29 schema.
 - **Best practices** (`make kube-linter`): Lints manifests with `addAllBuiltIn: true` and the documented exclusions.
 - **End-to-end** (`make e2e`): Installs `tests/e2e/values.yaml` on a throwaway kind cluster, then upgrades and uninstalls it. This is the only layer that exercises the *runtime* half of the chart — hook ordering, hook weights and `hook-delete-policy` cleanup — which helm-unittest cannot see because it only renders YAML. It uses its own kubeconfig under `.bin/`, so it can never reach a real cluster.
@@ -197,7 +197,8 @@ See the `tests/` directory for concrete examples:
 | `service-disabled.yaml`          | Deployment with service disabled                                                          |
 | `raw-deployment.yaml`            | Deployment with raw image string                                                          |
 | `name-collision.yaml`            | Name collision detection test                                                             |
-| `bad-values/*.yaml`              | Schema rejection tests                                                                    |
+| `bad-values/schema/*.yaml`       | Values the schema must reject                                                             |
+| `bad-values/fail/*.yaml`         | Values a template `fail` must reject                                                      |
 | `e2e/values.yaml`                | End-to-end install scenario for `make e2e` (hook lifecycle on a real cluster)             |
 
 ## Values reference

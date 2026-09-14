@@ -1,0 +1,11 @@
+# An unknown key inside an rbacs.roles entry (typo of rules). Without the
+# constraint the Role renders with no rules and grants nothing, while the
+# values file reads as if it granted something. `rules` items stay open on
+# purpose: they are Kubernetes PolicyRules, passed through verbatim.
+rbacs:
+  roles:
+    - name: reader
+      rulez:
+        - apiGroups: [""]
+          resources: ["pods"]
+          verbs: ["get", "list"]

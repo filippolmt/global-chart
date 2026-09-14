@@ -1,0 +1,17 @@
+# covers: httpRoute
+# An unknown key under httpRoute (typo of hostnames). Without the constraint
+# the HTTPRoute matches every hostname the gateway listens on instead of the
+# one intended.
+deployments:
+  api:
+    image: nginx:1.25
+
+httpRoute:
+  enabled: true
+  hostname:
+    - api.example.com
+  parentRefs:
+    - name: public-gw
+  rules:
+    - backendRefs:
+        - deployment: api

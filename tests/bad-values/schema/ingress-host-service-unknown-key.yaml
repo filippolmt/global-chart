@@ -1,0 +1,13 @@
+# An unknown key inside an ingress host's explicit service reference (typo of
+# port). Without the constraint the backend falls back to port 80 and the
+# traffic lands on the wrong port of an existing Service.
+ingress:
+  enabled: true
+  hosts:
+    - host: example.com
+      service:
+        name: external-svc
+        prot: 8080
+      paths:
+        - path: /
+          pathType: Prefix

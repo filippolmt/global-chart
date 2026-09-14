@@ -1,0 +1,10 @@
+# covers: dnsConfig
+# An unknown key under a dnsConfig block (typo of nameservers). Without the
+# constraint the pod keeps the cluster resolvers and the intended override is
+# silently absent.
+deployments:
+  web:
+    image: nginx:1.25
+    dnsConfig:
+      nameserver:
+        - 1.1.1.1

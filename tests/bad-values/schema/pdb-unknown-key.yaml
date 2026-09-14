@@ -1,0 +1,10 @@
+# covers: pdb
+# An unknown key under deployments.<name>.pdb (typo of minAvailable). Without
+# the constraint the PodDisruptionBudget renders with neither bound and admits
+# every eviction.
+deployments:
+  web:
+    image: nginx:1.25
+    pdb:
+      enabled: true
+      minAvailabl: 1

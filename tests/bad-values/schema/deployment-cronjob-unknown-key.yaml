@@ -1,0 +1,16 @@
+# covers: deploymentCronJob
+# An unknown key under deployments.<name>.cronJobs.<name> (typo of
+# inheritDeploymentSecret). Must be rejected by values.schema.json
+# ($defs/deploymentCronJob, unevaluatedProperties:false). Without the
+# constraint the CronJob keeps inheriting the deployment Secret while the
+# values file reads as if it did not — the leak surface stays open.
+# Requires Helm >= 3.18.6: older Helm ignores unevaluatedProperties silently.
+deployments:
+  web:
+    image: nginx:1.25
+    secret:
+      PASSWORD: "fake-password-for-testing"
+    cronJobs:
+      cleanup:
+        schedule: "0 0 * * *"
+        inheritDeploymentSecrets: false

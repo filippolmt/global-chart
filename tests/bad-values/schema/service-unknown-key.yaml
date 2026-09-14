@@ -1,0 +1,10 @@
+# covers: service
+# An unknown key under deployments.<name>.service (typo of portName). Without
+# the constraint the primary port keeps the default name 'http', and a
+# targetPort referring to the intended name resolves to nothing.
+deployments:
+  web:
+    image: nginx:1.25
+    service:
+      port: 8080
+      portname: api
