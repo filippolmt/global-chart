@@ -260,15 +260,24 @@ install: ## Install a test scenario (usage: make install SCENARIO=test01)
 # End-to-end install tests (throwaway kind cluster)
 # ============================================================================
 
+# The download retries, and the recipe runs under `set -e` so a download that
+# never lands stops here. Without it the failure surfaced two lines down as
+# `chmod: cannot access .bin/kind`, which names the wrong thing: the file is
+# missing because curl wrote nothing, not because of a permission problem.
 kind-install: ## Download the kind binary into .bin/ (no-op if already there)
-	@if [ ! -x "$(KIND)" ]; then \
+	@set -e; if [ ! -x "$(KIND)" ]; then \
 		mkdir -p $(KIND_BIN_DIR); \
 		os=$$(uname -s | tr '[:upper:]' '[:lower:]'); \
 		arch=$$(uname -m); \
 		case "$$arch" in aarch64|arm64) arch=arm64 ;; x86_64|amd64) arch=amd64 ;; \
 			*) echo "Unsupported architecture: $$arch"; exit 1 ;; esac; \
 		echo "==> Downloading kind $(KIND_VERSION) ($$os/$$arch)..."; \
-		curl -sfLo "$(KIND)" "https://kind.sigs.k8s.io/dl/$(KIND_VERSION)/kind-$$os-$$arch"; \
+		for i in 1 2 3; do \
+			curl -sfLo "$(KIND)" "https://kind.sigs.k8s.io/dl/$(KIND_VERSION)/kind-$$os-$$arch" && break; \
+			echo "    download failed (attempt $$i/3)"; \
+			[ "$$i" = 3 ] && { echo "==> Could not download kind"; exit 1; }; \
+			sleep 5; \
+		done; \
 		chmod +x "$(KIND)"; \
 	fi
 	@$(KIND) version
