@@ -1162,6 +1162,46 @@ tests:
             secretRef:
               name: RELEASE-NAME-global-chart-backend
 
+  # The twin of "should order envFrom by type" in deployment_test.yaml, on the
+  # same four sources. A job orders **by proximity**: everything the deployment
+  # hands it first, then everything it declares itself, so the nearest declarer
+  # wins. That is not the Deployment's order and is not meant to be — a job has
+  # one level the Deployment does not, its own, and ordering by type would make
+  # it lose to a source that is not its. The two orders differ on exactly one
+  # pair, the deployment's generated Secret against its envFromConfigMaps.
+  - it: should order envFrom by proximity, the deployment's sources before its own
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          configMap:
+            APP_KEY: value
+          secret:
+            DB_PASSWORD: secret
+          envFromConfigMaps:
+            - external-cm
+          envFromSecrets:
+            - external-secret
+          cronJobs:
+            cleanup:
+              schedule: "0 4 * * *"
+              command: ["./cleanup.sh"]
+    documentSelector:
+      path: kind
+      value: CronJob
+    asserts:
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.containers[0].envFrom
+          value:
+            - configMapRef:
+                name: RELEASE-NAME-global-chart-backend
+            - secretRef:
+                name: RELEASE-NAME-global-chart-backend
+            - configMapRef:
+                name: external-cm
+            - secretRef:
+                name: external-secret
+
   - it: should opt out of deployment secret inheritance when inheritDeploymentSecret=false
     set:
       deployments:
