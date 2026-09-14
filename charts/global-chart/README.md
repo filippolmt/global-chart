@@ -1,24 +1,24 @@
 # global-chart
 
-![Version: 2.5.1](https://img.shields.io/badge/Version-2.5.1-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square)
+![Version: 2.6.0](https://img.shields.io/badge/Version-2.6.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square)
 
-Reusable Helm chart providing common building blocks—Deployments, Services, Ingress, Jobs, and more—for broadly adaptable Kubernetes applications.
+Reusable Helm chart for multi-deployment Kubernetes applications—Deployments, Services, Ingress, CronJobs, Hooks, ExternalSecrets, RBAC, HPA, PDB, NetworkPolicy, and more.
 
-**Homepage:** <https://github.com/filippomerante/global-chart>
+**Homepage:** <https://github.com/filippolmt/global-chart>
 
 ## Maintainers
 
 | Name | Email | Url |
 | ---- | ------ | --- |
-| Filippo Merante Caparrotta |  | <https://github.com/filippomerante> |
+| Filippo Merante Caparrotta |  | <https://github.com/filippolmt> |
 
 ## Source Code
 
-* <https://github.com/filippomerante/global-chart>
+* <https://github.com/filippolmt/global-chart>
 
 ## Requirements
 
-Kubernetes: `>=1.19.0-0`
+Kubernetes: `>=1.23.0-0`
 
 ## Values
 

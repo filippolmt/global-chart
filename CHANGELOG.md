@@ -9,6 +9,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Fixed
 
+- **The packaged README was three changes out of date.** `helm-docs` runs from
+  `make generate-docs` and nothing in CI checked its output, so
+  `charts/global-chart/README.md` still carried the 2.5.1 badge, the previous
+  chart description and the three dead `filippomerante` links that 2.6.0 had
+  just removed from `Chart.yaml`. It went unnoticed while the file stayed out of
+  the package; it became the front page of the chart the moment the fix below
+  put it in. The README is regenerated, and CI now runs `make generate-docs` and
+  fails when the result differs from what is committed — the same check the
+  manifests have had all along.
+
 - **The chart package carried no README.** `.helmignore` excluded `README.md`
   alongside the `README.md.gotmpl` it is generated from, so the published
   `.tgz` held only `Chart.yaml`, `values.yaml`, `values.schema.json` and the
