@@ -1,0 +1,19 @@
+# An unknown key inside an ingress.tls entry (typo of secretName). Without the
+# constraint the Ingress renders `secretName: ""` and the controller serves its
+# default certificate.
+deployments:
+  web:
+    image: nginx:1.25
+
+ingress:
+  enabled: true
+  hosts:
+    - host: example.com
+      deployment: web
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - hosts:
+        - example.com
+      secretname: example-tls

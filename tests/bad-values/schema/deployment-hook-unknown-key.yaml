@@ -1,3 +1,4 @@
+# covers: deploymentHookJob
 # An unknown key under deployments.<name>.hooks.<type>.<name> (typo of
 # deletePolicy). Must be rejected by values.schema.json
 # ($defs/deploymentHookJob, unevaluatedProperties:false). Without the

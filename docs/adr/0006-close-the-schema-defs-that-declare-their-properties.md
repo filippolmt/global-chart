@@ -28,16 +28,35 @@ surface to admit.**
 Closed here: `networkPolicy`, `ingress`, `mountedConfigFiles`, `deployment`,
 `externalSecret` (`additionalProperties: false`), and the four job composites
 `cronJob`, `deploymentCronJob`, `hookJob`, `deploymentHookJob`
-(`unevaluatedProperties: false`).
+(`unevaluatedProperties: false`). Applying the criterion to the rest of the file
+closed five more objects that are not `$defs` of their own but declare their
+properties all the same, and whose templates read exactly those: the entries of
+`ingress.tls`, of `ingress.hosts` and of a host's `paths`, a host's explicit
+`service` reference, and the entries of `rbacs.roles`. That brings the file to
+twenty-four closed `$defs` and four open ones.
 
 Left open, and why: `probe` is `{"type": "object"}` with zero properties and
 three `$ref`s pointing at it. Closing it means transcribing the Kubernetes probe
 surface — `httpGet`, `tcpSocket`, `exec`, `grpc` and their fields — which is the
-same "how much to admit" question that `volumes` (five places),
-`networkPolicy.ingress`/`egress` and `dataFrom[].sourceRef` pose. Those are one
-decision taken once, not four taken a resource at a time, and this ADR does not
-take it. Note that closure at one level leaves passthrough at the level below:
-`networkPolicy` is closed, its `ingress` and `egress` arrays are not.
+same "how much to admit" question that every other passthrough surface poses.
+Those are one decision taken once, not a dozen taken a resource at a time, and
+this ADR does not take it. Note that closure at one level leaves passthrough at
+the level below: `networkPolicy` is closed, its `ingress` and `egress` arrays are
+not; `resources` is closed, what it holds goes through `toYaml` verbatim.
+
+The register, as of this ADR: `probe`; `volumes` (five places — the deployment
+and the four job definitions); `networkPolicy.ingress` and `egress`;
+`dataFrom[].sourceRef`; `resources.claims[]` and the `requests`/`limits` maps,
+which stay open for extended resources like `nvidia.com/gpu`;
+`rbacs.roles[].rules[]`, which are PolicyRules; `dnsConfig.options[]`;
+`kedaTrigger.metadata` and `autoscaling.behavior`; the
+`kedaTriggerAuthentication` provider blocks; and the `filters[]` entries of an
+`httpRouteRule` and of its `backendRefs`, which declare `type` as a constraint
+but carry the Gateway API filter payload underneath.
+
+`kedaScaledObject` has an `if`/`then` pair whose `if` declares `enabled`. That is
+a conditional, not an object definition: closing it would stop it ever matching.
+The coverage check skips it for the same reason it skips the `allOf` branches.
 
 The five `allOf` branches — `jobCommon`, `cronJobSpec`, `hookJobSpec`,
 `rootJobSpec`, `deploymentJobSpec` — **must stay open**, and this is the trap for
@@ -80,10 +99,17 @@ directory *is* the declaration: a file in the wrong one fails immediately. The
 `schema/` half asserts Helm's message `values don't meet the specifications of
 the schema`, and the target errors out rather than going green if no file in
 `schema/` produces it any more — a Helm that rewords it arrives only with a
-deliberate bump of the `v4.3.0` pin, and that has to be visible. Nine new
-fixtures cover one closed definition each, one per file: a single file with nine
-typos would prove nothing, since one surviving closure is enough for it to be
-rejected and the other eight would go back to being invisible.
+deliberate bump of the `v4.3.0` pin, and that has to be visible. Each closed
+definition gets a fixture of its own, one per file: a single file with many typos
+would prove nothing, since one surviving closure is enough for it to be rejected
+and the rest would go back to being invisible.
+
+One fixture per definition is itself a rule nothing would enforce, so
+`tests/bad-values/check-closure-coverage.py` reads the closed `$defs` out of the
+schema, reads the `# covers: <defsName>` lines out of the fixtures, and fails on
+either mismatch — a closure with no fixture, a marker naming nothing, a
+definition covered twice. Closing a `$defs` without writing its fixture now fails
+in `validate-bad-values` rather than at the next person's typo.
 
 ## Considered options
 

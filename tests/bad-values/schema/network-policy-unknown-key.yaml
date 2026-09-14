@@ -1,3 +1,4 @@
+# covers: networkPolicy
 # An unknown key under deployments.<name>.networkPolicy (typo of policyTypes).
 # Must be rejected by values.schema.json ($defs/networkPolicy is closed).
 # Without the constraint the NetworkPolicy renders with the default policy

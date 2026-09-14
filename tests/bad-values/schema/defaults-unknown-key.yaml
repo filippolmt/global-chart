@@ -1,0 +1,12 @@
+# covers: defaults
+# An unknown key under defaults (typo of resources). Without the constraint no
+# chart-wide default applies and every container that declares none ships
+# without requests or limits.
+defaults:
+  resource:
+    requests:
+      cpu: 10m
+      memory: 64Mi
+deployments:
+  web:
+    image: nginx:1.25

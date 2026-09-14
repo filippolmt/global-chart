@@ -1,3 +1,4 @@
+# covers: mountedConfigFiles
 # An unknown key under deployments.<name>.mountedConfigFiles (typo of files).
 # Must be rejected by values.schema.json ($defs/mountedConfigFiles is closed).
 # Without the constraint no ConfigMap is generated and no volume is mounted,

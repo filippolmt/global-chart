@@ -1,3 +1,4 @@
+# covers: hookJob
 # An unknown key under hooks.<type>.<name> (typo of weight). Must be rejected
 # by values.schema.json ($defs/hookJob composes jobCommon + hookJobSpec +
 # rootJobSpec under unevaluatedProperties:false). Without the constraint the

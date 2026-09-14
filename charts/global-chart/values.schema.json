@@ -680,7 +680,8 @@
                 "items": { "type": "string" }
               },
               "secretName": { "type": "string" }
-            }
+            },
+            "additionalProperties": false
           }
         },
         "hosts": {
@@ -695,7 +696,8 @@
                 "properties": {
                   "name": { "type": "string" },
                   "port": { "type": "integer" }
-                }
+                },
+                "additionalProperties": false
               },
               "paths": {
                 "type": "array",
@@ -704,10 +706,12 @@
                   "properties": {
                     "path": { "type": "string" },
                     "pathType": { "type": "string" }
-                  }
+                  },
+                  "additionalProperties": false
                 }
               }
-            }
+            },
+            "additionalProperties": false
           }
         }
       },
@@ -900,7 +904,8 @@
                 "type": "array",
                 "items": { "type": "object" }
               }
-            }
+            },
+            "additionalProperties": false
           }
         }
       },

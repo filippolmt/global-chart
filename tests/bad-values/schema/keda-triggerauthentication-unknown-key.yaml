@@ -1,0 +1,10 @@
+# covers: kedaTriggerAuthentication
+# An unknown key under kedaTriggerAuthentications.<name> (typo of
+# secretTargetRef). Without the constraint the TriggerAuthentication renders
+# empty and KEDA authenticates with nothing.
+kedaTriggerAuthentications:
+  my-auth:
+    secretTargetRefs:
+      - parameter: password
+        name: my-secret
+        key: password

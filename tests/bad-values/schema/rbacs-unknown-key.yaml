@@ -1,0 +1,10 @@
+# covers: rbacs
+# An unknown key under rbacs (typo of roles). Without the constraint no Role
+# and no RoleBinding are rendered at all, and the workload runs unauthorized.
+rbacs:
+  role:
+    - name: reader
+      rules:
+        - apiGroups: [""]
+          resources: ["pods"]
+          verbs: ["get", "list"]

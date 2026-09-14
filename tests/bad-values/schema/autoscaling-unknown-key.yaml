@@ -1,0 +1,11 @@
+# covers: autoscaling
+# An unknown key under deployments.<name>.autoscaling (typo of maxReplicas).
+# Without the constraint the HPA renders with no upper bound declared and the
+# render fails far from this line.
+deployments:
+  web:
+    image: nginx:1.25
+    autoscaling:
+      enabled: true
+      minReplicas: 2
+      maxReplica: 10

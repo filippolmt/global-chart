@@ -1,0 +1,17 @@
+# covers: kedaScaledObject
+# An unknown key under deployments.<name>.keda (typo of cooldownPeriod).
+# Without the constraint KEDA keeps its own default cooldown and the intended
+# value never reaches the ScaledObject.
+deployments:
+  web:
+    image: nginx:1.25
+    keda:
+      enabled: true
+      cooldownPeriodd: 30
+      triggers:
+        - type: cron
+          metadata:
+            timezone: UTC
+            start: "0 0 * * *"
+            end: "59 23 * * *"
+            desiredReplicas: "2"

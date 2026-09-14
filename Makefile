@@ -145,6 +145,7 @@ validate-bad-values: ## Verify bad-values are rejected: schema/ by values.schema
 			echo "    OK: $$f rejected by a template fail"; \
 		fi; \
 	done
+	@python3 tests/bad-values/check-closure-coverage.py
 	@echo "==> All bad-values correctly rejected!"
 
 # Internal: generate templates to a given directory

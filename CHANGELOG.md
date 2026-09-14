@@ -22,9 +22,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   definitions need **Helm >= 3.18.6**: below it `unevaluatedProperties` is
   ignored in silence and those four behave exactly as they do today, never
   worse. The five flat definitions use `additionalProperties: false` and hold on
-  every Helm. `probe` stays open on purpose, along with the other Kubernetes
-  passthrough surfaces. `$schema` moves from Draft 7 to Draft 2019-09, which is
-  what `unevaluatedProperties` needs; nothing else in the file changes meaning
+  every Helm. Applying the same criterion to the rest of the file closed five
+  more objects that are not definitions of their own: the entries of
+  `ingress.tls`, of `ingress.hosts` and of a host's `paths`, a host's explicit
+  `service` reference, and the entries of `rbacs.roles`. `probe` stays open on
+  purpose, along with every other Kubernetes passthrough surface — the register
+  is in the ADR. `$schema` moves from Draft 7 to Draft 2019-09, which is what
+  `unevaluatedProperties` needs; nothing else in the file changes meaning
   between the two drafts, and a fork that `$ref`s one of these definitions from
   its own schema should follow. See [ADR 0006].
 

@@ -1,3 +1,4 @@
+# covers: cronJob
 # An unknown key under cronJobs.<name> (typo of image). Must be rejected by
 # values.schema.json ($defs/cronJob composes jobCommon + cronJobSpec +
 # rootJobSpec under unevaluatedProperties:false). Without the constraint the

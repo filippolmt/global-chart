@@ -1,0 +1,11 @@
+# covers: resources
+# An unknown key under a resources block (typo of requests). Without the
+# constraint the container ships with no requests at all and the scheduler
+# places it anywhere.
+deployments:
+  web:
+    image: nginx:1.25
+    resources:
+      requets:
+        cpu: 10m
+        memory: 64Mi

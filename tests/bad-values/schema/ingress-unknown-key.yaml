@@ -1,3 +1,4 @@
+# covers: ingress
 # An unknown key under ingress (typo of className). Must be rejected by
 # values.schema.json ($defs/ingress is closed). Without the constraint the
 # Ingress renders with no ingressClassName and no controller claims it.

@@ -1,0 +1,15 @@
+# An unknown key inside an ingress path entry (typo of pathType). Without the
+# constraint the path renders with no pathType, which the API server rejects at
+# apply time rather than here.
+deployments:
+  web:
+    image: nginx:1.25
+
+ingress:
+  enabled: true
+  hosts:
+    - host: example.com
+      deployment: web
+      paths:
+        - path: /
+          pathTipe: Prefix

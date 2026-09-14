@@ -1,0 +1,22 @@
+# httpRoute rule 'timeouts' uses an unknown key (requestTimeout instead of request).
+# Must be rejected by values.schema.json (additionalProperties:false on timeouts).
+# Without the constraint the typo is silently dropped and no timeout is applied.
+deployments:
+  api:
+    image: nginx:1.25
+    service:
+      port: 8080
+
+httpRoute:
+  enabled: true
+  parentRefs:
+    - name: public-gw
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - deployment: api
+      timeouts:
+        requestTimeout: 30s

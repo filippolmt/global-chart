@@ -1,3 +1,4 @@
+# covers: deploymentCronJob
 # An unknown key under deployments.<name>.cronJobs.<name> (typo of
 # inheritDeploymentSecret). Must be rejected by values.schema.json
 # ($defs/deploymentCronJob, unevaluatedProperties:false). Without the
