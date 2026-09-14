@@ -8,10 +8,10 @@ global:
   # -- Global imagePullSecrets (used when deployment/cronJob/hook doesn't specify its own)
   # @default -- `[]`
   imagePullSecrets: []
-  # -- Global labels applied to metadata.labels of ALL resources (not added to selector labels)
+  # -- Global labels applied to metadata.labels of ALL resources (not added to selector labels). A per-resource label of the same name wins; the chart's own `app.kubernetes.io/*` and `helm.sh/chart` labels win over both, since the selectors are built from them
   # @default -- `{}`
   commonLabels: {}
-  # -- Global annotations applied to metadata.annotations of ALL resources (including pod templates)
+  # -- Global annotations applied to metadata.annotations of ALL resources (including pod templates). A per-resource annotation of the same name wins, empty string included. The `helm.sh/hook*` annotations the chart emits itself are ignored here
   # @default -- `{}`
   commonAnnotations: {}
 
@@ -372,7 +372,7 @@ httpRoute:
   # -- Enable HTTPRoute rendering. Requires Gateway API v1 CRDs in the cluster.
   enabled: false
 
-  # -- Annotations applied to the HTTPRoute resource (merged with global.commonAnnotations).
+  # -- Annotations applied to the HTTPRoute resource. Like every annotations field, merged with global.commonAnnotations, this one winning
   annotations: {}
 
   # -- References to existing Gateway resources. At least one is required when enabled.

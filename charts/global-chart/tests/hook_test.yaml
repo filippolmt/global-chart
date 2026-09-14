@@ -2762,3 +2762,25 @@ tests:
           path: metadata.annotations["helm.sh/hook"]
           value: post-install
         documentIndex: 1
+
+  - it: should drop a helm.sh/hook key coming from global.commonAnnotations
+    set:
+      global:
+        commonAnnotations:
+          helm.sh/hook-weight: "99"
+          shared: from-global
+      hooks:
+        post-install:
+          migrate:
+            image: myapp:v1
+            weight: 3
+            command: ["./migrate.sh"]
+    asserts:
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "3"
+        documentIndex: 1
+      - equal:
+          path: metadata.annotations.shared
+          value: from-global
+        documentIndex: 1

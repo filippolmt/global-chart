@@ -8,7 +8,7 @@ metadata:
   name: {{ $fullName }}
   labels:
     {{- include "global-chart.labels" $root | nindent 4 }}
-  {{- with (include "global-chart.renderAnnotations" (dict "root" $root "extra" $ing.annotations)) }}
+  {{- with (include "global-chart.renderAnnotations" (dict "root" $root "own" $ing.annotations)) }}
   annotations:
     {{- . | nindent 4 }}
   {{- end }}

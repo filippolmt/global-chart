@@ -50,7 +50,11 @@ They are merged into a single map by `renderAnnotations`, and the three
 `helm.sh/hook*` deliberately stay out of that merge: they are the chart's own, and
 letting `global.commonAnnotations` overwrite one would silently change the hook
 ordering at runtime. `hookAnnotations` is rendered after the merged map, so the
-chart wins whatever the values say.
+chart wins whatever the values say — and `renderAnnotations` drops those three keys
+from the map it renders, so a values-supplied copy does not come out as a second
+YAML key with the same name, which Helm accepts and a strict validator rejects.
+`helm.sh/hook-output-log-policy` is not dropped: the chart never emits it, so there
+is nothing for it to collide with.
 
 This does not reopen ADR 0001. No `scope` parameter is introduced and PART 1 and
 PART 2 stay separate; `role` is a different axis, and root-level and

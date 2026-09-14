@@ -5,11 +5,20 @@
 # instead of one merged map is caught by `make kubeconform` (-strict rejects a
 # duplicate key; helm install does not). Covers the four shapes that carry a
 # per-resource override — ServiceAccount, Service, Ingress, podAnnotations — plus
-# a hook and a cronjob, whose annotations block also concatenates.
+# a hook and a cronjob, whose annotations block also concatenates. Labels get the
+# same treatment: `commonLabels` colliding with `podLabels` and with the chart's own
+# identity labels used to produce the same duplicate-key manifest.
 global:
   commonAnnotations:
     shared.example.com/owner: from-global
     shared.example.com/team: platform
+    # The chart emits this one itself on every hook resource; it must be dropped from
+    # the merged map rather than rendered a second time.
+    helm.sh/hook-weight: "99"
+  commonLabels:
+    shared.example.com/tier: from-global
+    # The chart's identity labels win, or the pod template stops matching its selector.
+    app.kubernetes.io/component: hijacked
 
 deployments:
   main:
@@ -21,6 +30,10 @@ deployments:
     podAnnotations:
       shared.example.com/owner: from-pod
       checksum/config: not-the-real-checksum
+      # Blanked on purpose: the per-resource value wins even when it is empty.
+      shared.example.com/team: ""
+    podLabels:
+      shared.example.com/tier: from-pod
     serviceAccount:
       create: true
       annotations:

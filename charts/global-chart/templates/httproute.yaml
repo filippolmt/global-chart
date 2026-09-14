@@ -25,7 +25,7 @@ metadata:
   name: {{ $fullName }}
   labels:
     {{- include "global-chart.labels" $root | nindent 4 }}
-  {{- with (include "global-chart.renderAnnotations" (dict "root" $root "extra" $rt.annotations)) }}
+  {{- with (include "global-chart.renderAnnotations" (dict "root" $root "own" $rt.annotations)) }}
   annotations:
     {{- . | nindent 4 }}
   {{- end }}

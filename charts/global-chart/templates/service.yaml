@@ -14,7 +14,7 @@ metadata:
   name: {{ $depFullname }}
   labels:
     {{- include "global-chart.deploymentLabels" $labelCtx | nindent 4 }}
-  {{- with (include "global-chart.renderAnnotations" (dict "root" $root "extra" $svc.annotations)) }}
+  {{- with (include "global-chart.renderAnnotations" (dict "root" $root "own" $svc.annotations)) }}
   annotations:
     {{- . | nindent 4 }}
   {{- end }}

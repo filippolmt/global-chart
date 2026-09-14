@@ -30,7 +30,7 @@ metadata:
   namespace: {{ $root.Release.Namespace | quote }}
   labels:
     {{- include "global-chart.labels" $root | nindent 4 }}
-  {{- with (include "global-chart.renderAnnotations" (dict "root" $root "extra" $sa.annotations)) }}
+  {{- with (include "global-chart.renderAnnotations" (dict "root" $root "own" $sa.annotations)) }}
   annotations:
     {{- . | nindent 4 }}
   {{- end }}
@@ -43,7 +43,7 @@ metadata:
   name: {{ $jobFullname }}
   labels:
     {{- include "global-chart.labels" $root | nindent 4 }}
-  {{- with (include "global-chart.renderAnnotations" (dict "root" $root "extra" $job.annotations)) }}
+  {{- with (include "global-chart.renderAnnotations" (dict "root" $root "own" $job.annotations)) }}
   annotations:
     {{- . | nindent 4 }}
   {{- end }}
@@ -126,9 +126,8 @@ metadata:
   name: {{ $saName }}
   namespace: {{ $root.Release.Namespace | quote }}
   labels:
-    {{- include "global-chart.labels" $root | nindent 4 }}
-    app.kubernetes.io/component: {{ $deployName }}
-  {{- with (include "global-chart.renderAnnotations" (dict "root" $root "extra" $saAnnotations)) }}
+    {{- include "global-chart.deploymentLabels" (dict "root" $root "deploymentName" $deployName) | nindent 4 }}
+  {{- with (include "global-chart.renderAnnotations" (dict "root" $root "own" $saAnnotations)) }}
   annotations:
     {{- . | nindent 4 }}
   {{- end }}
@@ -142,9 +141,8 @@ kind: CronJob
 metadata:
   name: {{ $jobFullname }}
   labels:
-    {{- include "global-chart.labels" $root | nindent 4 }}
-    app.kubernetes.io/component: {{ $deployName }}
-  {{- with (include "global-chart.renderAnnotations" (dict "root" $root "extra" $job.annotations)) }}
+    {{- include "global-chart.deploymentLabels" (dict "root" $root "deploymentName" $deployName) | nindent 4 }}
+  {{- with (include "global-chart.renderAnnotations" (dict "root" $root "own" $job.annotations)) }}
   annotations:
     {{- . | nindent 4 }}
   {{- end }}

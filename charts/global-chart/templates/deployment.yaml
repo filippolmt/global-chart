@@ -55,13 +55,12 @@ spec:
       {{- if $podRecreation.enabled }}
       {{- $_ := set $checksums "timestamp" (now | date "20060102150405") }}
       {{- end }}
+      {{- with (include "global-chart.renderAnnotations" (dict "root" $root "own" (mergeOverwrite $checksums (deepCopy (default (dict) $deploy.podAnnotations))))) }}
       annotations:
-        {{- include "global-chart.renderAnnotations" (dict "root" $root "extra" (merge (deepCopy (default (dict) $deploy.podAnnotations)) $checksums)) | nindent 8 }}
+        {{- . | nindent 8 }}
+      {{- end }}
       labels:
-        {{- include "global-chart.deploymentLabels" $labelCtx | nindent 8 }}
-        {{- with $deploy.podLabels }}
-        {{- toYaml . | nindent 8 }}
-        {{- end }}
+        {{- include "global-chart.deploymentLabels" (dict "root" $root "deploymentName" $name "own" $deploy.podLabels) | nindent 8 }}
     spec:
       {{- /* ImagePullSecrets: deployment-level > global (hasKey distinguishes unset from empty) */ -}}
       {{- $imagePullSecrets := list -}}
