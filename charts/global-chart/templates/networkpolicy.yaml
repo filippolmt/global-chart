@@ -1,7 +1,7 @@
 {{- $root := . }}
 {{- range $name, $deploy := .Values.deployments }}
 {{- if $deploy }}
-{{- if eq (include "global-chart.deploymentEnabled" (dict "deploy" $deploy)) "true" }}
+{{- if eq (include "global-chart.deploymentEnabled" $deploy) "true" }}
 {{- $np := default (dict) $deploy.networkPolicy }}
 {{- if $np.enabled }}
 {{- $depFullname := include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $name) }}

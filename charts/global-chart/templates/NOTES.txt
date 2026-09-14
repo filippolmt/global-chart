@@ -5,7 +5,7 @@ Thank you for installing {{ include "global-chart.fullname" . }}!
 Deployments created:
 {{- range $name, $deploy := .Values.deployments }}
 {{- if $deploy }}
-{{- if eq (include "global-chart.deploymentEnabled" (dict "deploy" $deploy)) "true" }}
+{{- if eq (include "global-chart.deploymentEnabled" $deploy) "true" }}
   - {{ $name }}
 {{- end }}
 {{- end }}
@@ -15,7 +15,7 @@ Deployments created:
 {{- $svcList := list }}
 {{- range $name, $deploy := .Values.deployments }}
 {{- if $deploy }}
-{{- if eq (include "global-chart.deploymentEnabled" (dict "deploy" $deploy)) "true" }}
+{{- if eq (include "global-chart.deploymentEnabled" $deploy) "true" }}
 {{- $svc := default (dict) $deploy.service }}
 {{- if eq (include "global-chart.serviceEnabled" $svc) "true" }}
 {{- $svcList = append $svcList $name }}
@@ -81,7 +81,7 @@ CronJobs:
 {{- $npList := list }}
 {{- range $name, $deploy := .Values.deployments }}
 {{- if $deploy }}
-{{- if eq (include "global-chart.deploymentEnabled" (dict "deploy" $deploy)) "true" }}
+{{- if eq (include "global-chart.deploymentEnabled" $deploy) "true" }}
 {{- $pdb := default (dict) $deploy.pdb }}
 {{- if $pdb.enabled }}
 {{- $pdbList = append $pdbList $name }}

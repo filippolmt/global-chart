@@ -223,7 +223,7 @@ Output: JSON string of the form {"name":"<svc>","port":<int>}
   {{- if not $deploy -}}
     {{- fail (printf "%s '%s' references deployment '%s' which does not exist in .Values.deployments" $sourceKind $ident $depName) -}}
   {{- end -}}
-  {{- if ne (include "global-chart.deploymentEnabled" (dict "deploy" $deploy)) "true" -}}
+  {{- if ne (include "global-chart.deploymentEnabled" $deploy) "true" -}}
     {{- fail (printf "%s '%s' references deployment '%s' which has enabled: false (its Service will not be created)" $sourceKind $ident $depName) -}}
   {{- end -}}
   {{- $depSvc := default (dict) $deploy.service -}}

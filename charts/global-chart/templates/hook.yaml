@@ -74,7 +74,7 @@ spec:
 {{/* ====== PART 2: Deployment-level hooks (inherit from deployment) ====== */}}
 {{- range $deployName, $deploy := .Values.deployments }}
 {{- if $deploy }}
-{{- if and (eq (include "global-chart.deploymentEnabled" (dict "deploy" $deploy)) "true") $deploy.hooks }}
+{{- if and (eq (include "global-chart.deploymentEnabled" $deploy) "true") $deploy.hooks }}
 
 {{- /* Compute deployment-level values ONCE per deployment (before hookType/command loops) */ -}}
 {{- $deployFullname := include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $deployName) -}}

@@ -158,6 +158,12 @@ data:
   the half of issue #82 that the container-port fix left open, on the Service
   side.
 
+  `deploymentEnabled` now takes the deployment map directly
+  (`include "global-chart.deploymentEnabled" $deploy`) instead of wrapping it in
+  `(dict "deploy" $deploy)`, matching `serviceEnabled` and `containerPorts`. It
+  is a chart-internal helper and no values key is affected; only a fork that
+  calls it from its own template needs the one-line update.
+
 [ADR 0001]: docs/adr/0001-keep-root-and-deployment-job-rendering-separate.md
 [ADR 0002]: docs/adr/0002-hook-prerequisite-serviceaccount-copy.md
 [ADR 0004]: docs/adr/0004-one-module-for-hook-lifecycle-annotations.md

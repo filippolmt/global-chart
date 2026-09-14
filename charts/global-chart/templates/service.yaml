@@ -1,7 +1,7 @@
 {{- $root := . }}
 {{- range $name, $deploy := .Values.deployments }}
 {{- if $deploy }}
-{{- if eq (include "global-chart.deploymentEnabled" (dict "deploy" $deploy)) "true" }}
+{{- if eq (include "global-chart.deploymentEnabled" $deploy) "true" }}
 {{- $svc := default (dict) $deploy.service }}
 {{- if eq (include "global-chart.serviceEnabled" $svc) "true" }}
 {{- $primary := include "global-chart.servicePrimaryPort" $svc | fromJson }}

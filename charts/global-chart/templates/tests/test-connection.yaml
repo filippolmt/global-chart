@@ -4,7 +4,7 @@
 {{- range $name := keys .Values.deployments | sortAlpha }}
 {{- $deploy := index $.Values.deployments $name }}
 {{- if and $deploy (not $firstSvc) }}
-{{- if eq (include "global-chart.deploymentEnabled" (dict "deploy" $deploy)) "true" }}
+{{- if eq (include "global-chart.deploymentEnabled" $deploy) "true" }}
 {{- $svc := default (dict) $deploy.service }}
 {{- if eq (include "global-chart.serviceEnabled" $svc) "true" }}
 {{- $firstSvc = include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $name) }}
