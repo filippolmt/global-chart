@@ -686,6 +686,39 @@ tests:
       - isNotNull:
           path: spec.template.spec.containers[0].envFrom
 
+  # The last envFrom source wins on a shared key, so the order is a domain rule,
+  # not a rendering detail. A Deployment orders its sources **by type**: every
+  # non-secret source first, then every secret one, so a secret always beats a
+  # plaintext configuration. Its jobs order **by proximity** instead, and the
+  # twin of this case in cronjob_test.yaml holds that end. Assert the whole list:
+  # `contains` passes whatever the order, which is how the two ends drifted
+  # unobserved in the first place.
+  - it: should order envFrom by type, non-secret sources before secret ones
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          configMap:
+            KEY: value
+          secret:
+            PASSWORD: secret
+          envFromConfigMaps:
+            - external-cm
+          envFromSecrets:
+            - external-secret
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].envFrom
+          value:
+            - configMapRef:
+                name: RELEASE-NAME-global-chart-main
+            - configMapRef:
+                name: external-cm
+            - secretRef:
+                name: RELEASE-NAME-global-chart-main
+            - secretRef:
+                name: external-secret
+
   # ====== replicas with autoscaling ======
   - it: should not set replicas when autoscaling is enabled
     set:
