@@ -23,14 +23,9 @@ metadata:
   namespace: {{ $root.Release.Namespace | quote }}
   labels:
     {{- include "global-chart.labels" $root | nindent 4 }}
-  {{- if or (include "global-chart.renderCommonAnnotations" $root) $sa.annotations }}
+  {{- with (include "global-chart.renderAnnotations" (dict "root" $root "extra" $sa.annotations)) }}
   annotations:
-    {{- with (include "global-chart.renderCommonAnnotations" $root) }}
     {{- . | nindent 4 }}
-    {{- end }}
-    {{- with $sa.annotations }}
-    {{- toYaml . | nindent 4 }}
-    {{- end }}
   {{- end }}
 automountServiceAccountToken: {{ hasKey $sa "automount" | ternary $sa.automount true }}
 ---
@@ -42,7 +37,7 @@ metadata:
   namespace: {{ $root.Release.Namespace | quote }}
   labels:
     {{- include "global-chart.labels" $root | nindent 4 }}
-  {{- with (include "global-chart.renderCommonAnnotations" $root) }}
+  {{- with (include "global-chart.renderAnnotations" (dict "root" $root)) }}
   annotations:
     {{- . | nindent 4 }}
   {{- end }}
@@ -66,7 +61,7 @@ metadata:
   namespace: {{ $root.Release.Namespace | quote }}
   labels:
     {{- include "global-chart.labels" $root | nindent 4 }}
-  {{- with (include "global-chart.renderCommonAnnotations" $root) }}
+  {{- with (include "global-chart.renderAnnotations" (dict "root" $root)) }}
   annotations:
     {{- . | nindent 4 }}
   {{- end }}

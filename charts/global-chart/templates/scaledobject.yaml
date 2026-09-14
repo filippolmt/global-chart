@@ -10,9 +10,6 @@
 {{- include "global-chart.requireKedaCrd" (dict "root" $root "source" (printf "deployments.%s.keda" $name)) }}
 {{- $depFullname := include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $name) }}
 {{- $labelCtx := dict "root" $root "deploymentName" $name }}
-{{- $annotations := deepCopy (default (dict) $keda.annotations) }}
-{{- $global := default (dict) $root.Values.global }}
-{{- $mergedAnnotations := merge $annotations (default (dict) $global.commonAnnotations) }}
 ---
 apiVersion: keda.sh/v1alpha1
 kind: ScaledObject
@@ -20,9 +17,9 @@ metadata:
   name: {{ $depFullname }}
   labels:
     {{- include "global-chart.deploymentLabels" $labelCtx | nindent 4 }}
-  {{- with $mergedAnnotations }}
+  {{- with (include "global-chart.renderAnnotations" (dict "root" $root "extra" $keda.annotations)) }}
   annotations:
-    {{- toYaml . | nindent 4 }}
+    {{- . | nindent 4 }}
   {{- end }}
 spec:
   scaleTargetRef:

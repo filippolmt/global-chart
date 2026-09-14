@@ -1203,6 +1203,29 @@ tests:
           path: spec.template.metadata.annotations.owner
           value: ops-team
 
+  - it: should let podAnnotations win over global.commonAnnotations and the checksums
+    set:
+      global:
+        commonAnnotations:
+          owner: ops-team
+          shared: from-global
+      deployments:
+        main:
+          image: nginx:1.25
+          podAnnotations:
+            shared: from-pod
+            checksum/config: pinned-by-hand
+    asserts:
+      - equal:
+          path: spec.template.metadata.annotations.shared
+          value: from-pod
+      - equal:
+          path: spec.template.metadata.annotations["checksum/config"]
+          value: pinned-by-hand
+      - equal:
+          path: spec.template.metadata.annotations.owner
+          value: ops-team
+
   - it: should not add global.commonLabels to selector matchLabels
     set:
       global:

@@ -17,7 +17,7 @@ metadata:
   name: {{ include "global-chart.kedaTriggerAuthName" (dict "root" $root "name" $name) | quote }}
   labels:
     {{- include "global-chart.labels" $root | nindent 4 }}
-  {{- with (include "global-chart.renderCommonAnnotations" $root) }}
+  {{- with (include "global-chart.renderAnnotations" (dict "root" $root)) }}
   annotations:
     {{- . | nindent 4 }}
   {{- end }}

@@ -9,6 +9,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Fixed
 
+- **Common and per-resource annotations were emitted as two YAML keys when they
+  shared a name.** With `global.commonAnnotations.owner` and, say,
+  `deployments.<name>.serviceAccount.annotations.owner` both set, the manifest
+  carried `owner:` twice. Helm's parser is not strict and took the last one, so
+  the effective value happened to be right; `kubeconform -strict` and any other
+  strict consumer rejected the file outright. The two sources are now merged into
+  one map, the per-resource value winning, on every resource that has both —
+  ServiceAccounts, CronJobs, hook Jobs and the pod template's `podAnnotations`
+  included. On a resource where they collided the rendered annotations lose the
+  duplicate line; elsewhere the merge only re-sorts the keys alphabetically.
+  `podAnnotations` also wins over the `checksum/*` annotations, as it already
+  did in practice. The three `helm.sh/hook*` annotations stay out of the merge:
+  they are the chart's own and govern hook ordering at runtime.
+
+- **`deployments.<name>.hooks.<type>.<name>.annotations` is now rendered.** The
+  schema accepted the key and `hook.yaml` dropped it without a word, in both the
+  root and the deployment scope — `cronJobs` rendered the same key all along. It
+  lands on the hook Job, next to its `helm.sh/hook*` annotations.
+
 - **A root-level `cronJobs.<name>` with no `serviceAccount` now gets the
   ServiceAccount its pod references.** It used to render
   `serviceAccountName: <release>-global-chart-<name>` and create nothing, so

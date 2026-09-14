@@ -16,7 +16,7 @@ metadata:
   name: {{ include "global-chart.mountedConfigMapName" (dict "deploymentFullname" $depFullname "fileName" $f.name) }}
   labels:
     {{- include "global-chart.deploymentLabels" $labelCtx | nindent 4 }}
-  {{- with (include "global-chart.renderCommonAnnotations" $root) }}
+  {{- with (include "global-chart.renderAnnotations" (dict "root" $root)) }}
   annotations:
     {{- . | nindent 4 }}
   {{- end }}
@@ -37,7 +37,7 @@ metadata:
   name: {{ include "global-chart.mountedConfigMapName" (dict "deploymentFullname" $depFullname "fileName" $f.name) }}
   labels:
     {{- include "global-chart.deploymentLabels" $labelCtx | nindent 4 }}
-  {{- with (include "global-chart.renderCommonAnnotations" $root) }}
+  {{- with (include "global-chart.renderAnnotations" (dict "root" $root)) }}
   annotations:
     {{- . | nindent 4 }}
   {{- end }}

@@ -16,7 +16,7 @@ metadata:
   name: {{ $depFullname }}
   labels:
     {{- include "global-chart.deploymentLabels" $labelCtx | nindent 4 }}
-  {{- with (include "global-chart.renderCommonAnnotations" $root) }}
+  {{- with (include "global-chart.renderAnnotations" (dict "root" $root)) }}
   annotations:
     {{- . | nindent 4 }}
   {{- end }}
@@ -43,19 +43,20 @@ spec:
       {{- include "global-chart.deploymentSelectorLabels" $labelCtx | nindent 6 }}
   template:
     metadata:
+      {{- /* One merged map, not four concatenated blocks: podAnnotations and the
+             common annotations can name the same key, and so can podAnnotations and
+             a checksum. podAnnotations wins either way, which is what the duplicate
+             keys already did — Helm took the last one — minus the manifest a strict
+             validator rejects. */ -}}
+      {{- $checksums := dict
+            "checksum/config" (toYaml $deploy.configMap | sha256sum)
+            "checksum/secret" (toYaml $deploy.secret | sha256sum)
+            "checksum/mounted-config-files" (toYaml $deploy.mountedConfigFiles | sha256sum) }}
+      {{- if $podRecreation.enabled }}
+      {{- $_ := set $checksums "timestamp" (now | date "20060102150405") }}
+      {{- end }}
       annotations:
-        {{- with (include "global-chart.renderCommonAnnotations" $root) }}
-        {{- . | nindent 8 }}
-        {{- end }}
-        checksum/config: {{ toYaml $deploy.configMap | sha256sum }}
-        checksum/secret: {{ toYaml $deploy.secret | sha256sum }}
-        checksum/mounted-config-files: {{ toYaml $deploy.mountedConfigFiles | sha256sum }}
-        {{- if $podRecreation.enabled }}
-        timestamp: "{{ now | date "20060102150405" }}"
-        {{- end }}
-        {{- with $deploy.podAnnotations }}
-        {{- toYaml . | nindent 8 }}
-        {{- end }}
+        {{- include "global-chart.renderAnnotations" (dict "root" $root "extra" (merge (deepCopy (default (dict) $deploy.podAnnotations)) $checksums)) | nindent 8 }}
       labels:
         {{- include "global-chart.deploymentLabels" $labelCtx | nindent 8 }}
         {{- with $deploy.podLabels }}

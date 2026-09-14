@@ -332,3 +332,36 @@ tests:
       - equal:
           path: metadata.labels.team
           value: platform
+
+  # ====== global.commonAnnotations ======
+  - it: should merge ingress annotations over global.commonAnnotations
+    set:
+      global:
+        commonAnnotations:
+          owner: platform
+          shared: from-global
+      deployments:
+        main:
+          image: nginx:1.25
+      ingress:
+        enabled: true
+        className: nginx
+        annotations:
+          nginx.ingress.kubernetes.io/rewrite-target: /
+          shared: from-ingress
+        hosts:
+          - host: example.com
+            deployment: main
+            paths:
+              - path: /
+                pathType: Prefix
+    asserts:
+      - equal:
+          path: metadata.annotations.shared
+          value: from-ingress
+      - equal:
+          path: metadata.annotations.owner
+          value: platform
+      - equal:
+          path: metadata.annotations["nginx.ingress.kubernetes.io/rewrite-target"]
+          value: /

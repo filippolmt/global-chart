@@ -2684,3 +2684,81 @@ tests:
           path: spec.template.spec.containers[0].env
       - isNull:
           path: spec.template.spec.containers[0].envFrom
+
+  # ====== global.commonAnnotations ======
+  - it: should merge hook and SA annotations over global.commonAnnotations, hook annotations last
+    set:
+      global:
+        commonAnnotations:
+          owner: platform
+          shared: from-global
+      hooks:
+        post-install:
+          migrate:
+            image: myapp:v1
+            command: ["./migrate.sh"]
+            annotations:
+              shared: from-hook
+            serviceAccount:
+              create: true
+              annotations:
+                shared: from-sa
+    asserts:
+      - equal:
+          path: metadata.annotations.shared
+          value: from-sa
+        documentIndex: 0
+      - equal:
+          path: metadata.annotations.owner
+          value: platform
+        documentIndex: 0
+      - equal:
+          path: metadata.annotations["helm.sh/hook"]
+          value: post-install
+        documentIndex: 0
+      - equal:
+          path: metadata.annotations.shared
+          value: from-hook
+        documentIndex: 1
+      - equal:
+          path: metadata.annotations.owner
+          value: platform
+        documentIndex: 1
+      - equal:
+          path: metadata.annotations["helm.sh/hook"]
+          value: post-install
+        documentIndex: 1
+
+  - it: should render annotations of a deployment-level hook on its Job
+    set:
+      global:
+        commonAnnotations:
+          shared: from-global
+      deployments:
+        main:
+          image: nginx:1.25
+          serviceAccount:
+            create: false
+          hooks:
+            post-install:
+              migrate:
+                command: ["./migrate.sh"]
+                annotations:
+                  shared: from-hook
+                  sidecar.istio.io/inject: "false"
+    asserts:
+      - isKind:
+          of: Job
+        documentIndex: 1
+      - equal:
+          path: metadata.annotations.shared
+          value: from-hook
+        documentIndex: 1
+      - equal:
+          path: metadata.annotations["sidecar.istio.io/inject"]
+          value: "false"
+        documentIndex: 1
+      - equal:
+          path: metadata.annotations["helm.sh/hook"]
+          value: post-install
+        documentIndex: 1

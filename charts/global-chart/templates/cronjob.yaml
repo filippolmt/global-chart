@@ -30,14 +30,9 @@ metadata:
   namespace: {{ $root.Release.Namespace | quote }}
   labels:
     {{- include "global-chart.labels" $root | nindent 4 }}
-  {{- if or (include "global-chart.renderCommonAnnotations" $root) $sa.annotations }}
+  {{- with (include "global-chart.renderAnnotations" (dict "root" $root "extra" $sa.annotations)) }}
   annotations:
-    {{- with (include "global-chart.renderCommonAnnotations" $root) }}
     {{- . | nindent 4 }}
-    {{- end }}
-    {{- with $sa.annotations }}
-    {{- toYaml . | nindent 4 }}
-    {{- end }}
   {{- end }}
 automountServiceAccountToken: {{ $sa.automount }}
 {{- end }}
@@ -48,14 +43,9 @@ metadata:
   name: {{ $jobFullname }}
   labels:
     {{- include "global-chart.labels" $root | nindent 4 }}
-  {{- if or (include "global-chart.renderCommonAnnotations" $root) $job.annotations }}
+  {{- with (include "global-chart.renderAnnotations" (dict "root" $root "extra" $job.annotations)) }}
   annotations:
-    {{- with (include "global-chart.renderCommonAnnotations" $root) }}
     {{- . | nindent 4 }}
-    {{- end }}
-    {{- with $job.annotations }}
-    {{- toYaml . | nindent 4 }}
-    {{- end }}
   {{- end }}
 spec:
   schedule: {{ $job.schedule | quote }}
@@ -72,11 +62,10 @@ spec:
   successfulJobsHistoryLimit: {{ ternary $job.successfulJobsHistoryLimit 2 (hasKey $job "successfulJobsHistoryLimit") }}
   failedJobsHistoryLimit: {{ ternary $job.failedJobsHistoryLimit 2 (hasKey $job "failedJobsHistoryLimit") }}
   jobTemplate:
-    {{- $jtAnn := include "global-chart.renderCommonAnnotations" $root }}
-    {{- if $jtAnn }}
+    {{- with (include "global-chart.renderAnnotations" (dict "root" $root)) }}
     metadata:
       annotations:
-        {{- $jtAnn | nindent 8 }}
+        {{- . | nindent 8 }}
     {{- end }}
     spec:
       {{- if hasKey $job "backoffLimit" }}
@@ -95,11 +84,10 @@ spec:
       completions: {{ $job.completions }}
       {{- end }}
       template:
-        {{- $tplAnn := include "global-chart.renderCommonAnnotations" $root }}
-        {{- if $tplAnn }}
+        {{- with (include "global-chart.renderAnnotations" (dict "root" $root)) }}
         metadata:
           annotations:
-            {{- $tplAnn | nindent 12 }}
+            {{- . | nindent 12 }}
         {{- end }}
         spec:
           {{- $ctx := dict "root" $root "job" $job "saName" $saName "imageRef" $imageRef "containerName" $name "kind" "cronjob" }}
@@ -140,14 +128,9 @@ metadata:
   labels:
     {{- include "global-chart.labels" $root | nindent 4 }}
     app.kubernetes.io/component: {{ $deployName }}
-  {{- if or (include "global-chart.renderCommonAnnotations" $root) $saAnnotations }}
+  {{- with (include "global-chart.renderAnnotations" (dict "root" $root "extra" $saAnnotations)) }}
   annotations:
-    {{- with (include "global-chart.renderCommonAnnotations" $root) }}
     {{- . | nindent 4 }}
-    {{- end }}
-    {{- with $saAnnotations }}
-    {{- toYaml . | nindent 4 }}
-    {{- end }}
   {{- end }}
 automountServiceAccountToken: {{ $saAutomount }}
 {{ end -}}
@@ -161,14 +144,9 @@ metadata:
   labels:
     {{- include "global-chart.labels" $root | nindent 4 }}
     app.kubernetes.io/component: {{ $deployName }}
-  {{- if or (include "global-chart.renderCommonAnnotations" $root) $job.annotations }}
+  {{- with (include "global-chart.renderAnnotations" (dict "root" $root "extra" $job.annotations)) }}
   annotations:
-    {{- with (include "global-chart.renderCommonAnnotations" $root) }}
     {{- . | nindent 4 }}
-    {{- end }}
-    {{- with $job.annotations }}
-    {{- toYaml . | nindent 4 }}
-    {{- end }}
   {{- end }}
 spec:
   schedule: {{ $job.schedule | quote }}
@@ -185,11 +163,10 @@ spec:
   successfulJobsHistoryLimit: {{ ternary $job.successfulJobsHistoryLimit 2 (hasKey $job "successfulJobsHistoryLimit") }}
   failedJobsHistoryLimit: {{ ternary $job.failedJobsHistoryLimit 2 (hasKey $job "failedJobsHistoryLimit") }}
   jobTemplate:
-    {{- $jtAnn := include "global-chart.renderCommonAnnotations" $root }}
-    {{- if $jtAnn }}
+    {{- with (include "global-chart.renderAnnotations" (dict "root" $root)) }}
     metadata:
       annotations:
-        {{- $jtAnn | nindent 8 }}
+        {{- . | nindent 8 }}
     {{- end }}
     spec:
       {{- if hasKey $job "backoffLimit" }}
@@ -208,11 +185,10 @@ spec:
       completions: {{ $job.completions }}
       {{- end }}
       template:
-        {{- $tplAnn := include "global-chart.renderCommonAnnotations" $root }}
-        {{- if $tplAnn }}
+        {{- with (include "global-chart.renderAnnotations" (dict "root" $root)) }}
         metadata:
           annotations:
-            {{- $tplAnn | nindent 12 }}
+            {{- . | nindent 12 }}
         {{- end }}
         spec:
           {{- $ctx := dict "root" $root "job" $job "deploy" $deploy "saName" $saName "imageRef" $imageRef "containerName" $name "configMapRef" $deployFullname "secretRef" $deployFullname "kind" "cronjob" }}

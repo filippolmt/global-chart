@@ -44,9 +44,13 @@ are a separate duplication, folded into the existing `hookLabelsWithComponent` i
 `_helpers.tpl`: it now takes a dict and appends the component from an optional
 `deploymentName`, so both hook scopes call one helper the same way.
 
-`renderCommonAnnotations` and user-supplied ServiceAccount annotations stay at the
-call sites: they are not hook lifecycle, and their position around the three
-`helm.sh/…` keys differs by role.
+Common and user-supplied annotations stay at the call sites: they are not hook
+lifecycle, and their position around the three `helm.sh/…` keys differs by role.
+They are merged into a single map by `renderAnnotations`, and the three
+`helm.sh/hook*` deliberately stay out of that merge: they are the chart's own, and
+letting `global.commonAnnotations` overwrite one would silently change the hook
+ordering at runtime. `hookAnnotations` is rendered after the merged map, so the
+chart wins whatever the values say.
 
 This does not reopen ADR 0001. No `scope` parameter is introduced and PART 1 and
 PART 2 stay separate; `role` is a different axis, and root-level and
@@ -73,7 +77,7 @@ clause that ADR 0001 chose and that `jobServiceAccount` already applies.
   table** — rejected. `int (ternary $command.weight 10 (hasKey $command "weight"))`
   would stay duplicated at four sites, which is the duplication this ADR exists to
   remove.
-- **Absorb `renderCommonAnnotations` and produce a complete `annotations:` block** —
+- **Absorb `renderAnnotations` and produce a complete `annotations:` block** —
   rejected. It adds a parameter and a role-conditional ordering inside the helper to
   save one line per call site.
 
