@@ -6,7 +6,7 @@ entries:
     description: Reusable Helm chart for multi-deployment Kubernetes applications—Deployments,
       Services, Ingress, CronJobs, Hooks, ExternalSecrets, RBAC, HPA, PDB, NetworkPolicy,
       and more.
-    digest: 40113cea74899086d3359112b874b206792b5e971f8ea3fcc7c7cc3624afaec8
+    digest: 3c68eb2dffb565a8f164e1eca52e9a0d222443c20f222a80a8a9ab4525d0e6a8
     home: https://github.com/filippolmt/global-chart
     icon: https://helm.sh/img/helm.svg
     keywords:
