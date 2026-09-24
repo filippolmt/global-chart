@@ -1,4 +1,5 @@
 # The key becomes the TriggerAuthentication name: a DNS-1123 subdomain.
+# `Redis_Auth` renders and passes `helm lint`, then the API server rejects it.
 kedaTriggerAuthentications:
   Redis_Auth:
     secretTargetRef:
