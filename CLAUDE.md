@@ -157,7 +157,9 @@ is the source of truth, this table is only the routing.
     A map key that becomes part of a name (`deployments`, `cronJobs`, `hooks`
     and its types, `externalSecrets`, `kedaTriggerAuthentications`, both
     scopes) is constrained by `propertyNames` to what the tightest place it
-    lands in accepts — a new such map needs one too, with its own fixture. See
+    lands in accepts — a new such map needs one too, with its own fixture. A
+    list field that identifies its entry and becomes a name is held to the same
+    rule, by a `$ref` on the field: `rbacs.roles[].name` (ADR 0008). See
     *Chiave nominante* in `CONTEXT.md`
 11. **Autoscaling is either/or**: `deployments.<name>.autoscaling` (a
     chart-rendered HPA) and `deployments.<name>.keda` (a ScaledObject) are

@@ -1,12 +1,10 @@
 {{- $root := . }}
-{{- if $root.Values.rbacs.roles }}
 {{- range $role := $root.Values.rbacs.roles }}
-{{- $roleName := $role.name }}
 {{- $sa := $role.serviceAccount }}
 {{- $saName := "" }}
 {{- $saCreate := false }}
 {{- if $sa }}
-{{- $defaultSaName := printf "%s-sa" $roleName | trunc 63 | trimSuffix "-" }}
+{{- $defaultSaName := printf "%s-sa" $role.name | trunc 63 | trimSuffix "-" }}
 {{- $saName = ternary $sa.name $defaultSaName (hasKey $sa "name") }}
 {{- $saCreate = true }}
 {{- if hasKey $sa "create" }}
@@ -31,7 +29,7 @@ automountServiceAccountToken: {{ hasKey $sa "automount" | ternary $sa.automount 
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: {{ $roleName }}
+  name: {{ $role.name }}
   namespace: {{ $root.Release.Namespace | quote }}
   labels:
     {{- include "global-chart.labels" $root | nindent 4 }}
@@ -47,11 +45,7 @@ rules:
 {{- end }}
 ---
 {{- if $saName }}
-{{- $bindingBase := $roleName }}
-{{- if hasSuffix "-role" $roleName }}
-  {{- $bindingBase = trimSuffix "-role" $roleName }}
-{{- end }}
-{{- $roleBindingName := printf "%s-rolebinding" $bindingBase | trunc 63 | trimSuffix "-" }}
+{{- $roleBindingName := printf "%s-rolebinding" (trimSuffix "-role" $role.name) | trunc 63 | trimSuffix "-" }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
@@ -66,12 +60,11 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: {{ $roleName }}
+  name: {{ $role.name }}
 subjects:
   - kind: ServiceAccount
     name: {{ $saName }}
     namespace: {{ $root.Release.Namespace | quote }}
 ---
-{{- end }}
 {{- end }}
 {{- end }}
