@@ -159,14 +159,12 @@ data:
   delete a live SA mid-upgrade, invalidating the bound tokens of running pods.
   See docs/adr/0002-hook-prerequisite-serviceaccount-copy.md.
 */ -}}
-{{- $deploySA := default (dict) $deploy.serviceAccount -}}
-{{- $deploySACreate := ternary $deploySA.create true (hasKey $deploySA "create") -}}
-{{- $deploySAName := "" -}}
+{{- $deploySA := include "global-chart.deploymentServiceAccount" (dict "root" $root "deploymentName" $deployName "deployment" $deploy) | fromJson -}}
+{{- $deploySAName := $deploySA.name -}}
 {{- /* The pre-install hooks that actually bind the deployment SA; their minimum
        weight is what the copy sorts against */ -}}
 {{- $preInstallSAHooks := dict -}}
-{{- if and $deploySACreate (hasKey $deploy.hooks "pre-install") -}}
-  {{- $deploySAName = include "global-chart.deploymentServiceAccountName" (dict "root" $root "deploymentName" $deployName "deployment" $deploy) -}}
+{{- if and $deploySA.create (hasKey $deploy.hooks "pre-install") -}}
   {{- range $name, $command := (index $deploy.hooks "pre-install") -}}
     {{- if $command -}}
       {{- $resolvedSA := (index $hooks (printf "pre-install/%s" $name)).sa -}}
@@ -193,7 +191,7 @@ metadata:
     {{- . | nindent 4 }}
     {{- end }}
     {{- include "global-chart.hookAnnotations" (dict "hookType" "pre-install" "role" "pre-install-sa" "weight" $preInstallMinWeight) | nindent 4 }}
-automountServiceAccountToken: {{ hasKey $deploySA "automount" | ternary $deploySA.automount true }}
+automountServiceAccountToken: {{ $deploySA.automount }}
 {{- end }}
 
 {{- /* Per hook type and command: SA + Job */ -}}

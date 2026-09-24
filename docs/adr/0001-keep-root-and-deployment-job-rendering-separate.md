@@ -28,7 +28,9 @@ a templating language with no debugger and whitespace-sensitive output.
 
 The genuinely-shared, identical logic has already been extracted into deep
 helpers — `jobPodSpec` (pod spec), `jobImageString` (image resolution)
-and `jobServiceAccount` (SA resolution, every scope) in `_job-helpers.tpl`.
+and `jobServiceAccount` (SA resolution, every scope) in `_job-helpers.tpl`
+(`jobServiceAccount` has since moved to `_serviceaccount-helpers.tpl`, with the
+other ServiceAccount resolvers — issue #126).
 `jobServiceAccount` covered only deployment-level jobs until 2026-09: PART 1 of
 both templates resolved the SA inline, and the two root scopes had drifted into
 different answers (a root cronJob referenced a SA nothing created). Root-level

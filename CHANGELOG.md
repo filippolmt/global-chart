@@ -73,6 +73,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   at apply, and a ScaledObject meant for the first read the second's
   credentials.
 
+### Changed
+
+- **ServiceAccount resolution has one home** (issue #126), the new
+  `_serviceaccount-helpers.tpl`. The `create` and `automount` defaults were
+  re-derived in `serviceaccount.yaml`, `rbac.yaml`, `hook.yaml` and two helpers;
+  every template now reads the resolved ServiceAccount instead. No rendered
+  output changes.
+
 ---
 
 ## [2.7.0] — 2026-09-24
