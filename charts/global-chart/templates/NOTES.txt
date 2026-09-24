@@ -113,3 +113,15 @@ Run 'helm test {{ .Release.Name }}' to verify connectivity.
 {{- end }}
 
 For more information, visit: {{ .Chart.Home }}
+
+{{- /* Below Helm 3.18.6 the unevaluatedProperties closures of the four job
+       composites in values.schema.json are ignored without a word (issue #116).
+       Warn rather than fail: a fail would break installs whose values are clean.
+       helm template and Argo CD never show NOTES, so this reaches only helm
+       install/upgrade users; the README Prerequisites state the floor for the rest. */}}
+{{- if semverCompare "<3.18.6" .Capabilities.HelmVersion.Version }}
+
+WARNING: Helm {{ .Capabilities.HelmVersion.Version }} is below 3.18.6. On this version values.schema.json
+does not reject unknown keys in cronJobs and hooks (both scopes): a typo such as
+`deletePolicie` renders without an error. Upgrade Helm to 3.18.6 or later.
+{{- end }}

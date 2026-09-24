@@ -49,13 +49,13 @@ is the source of truth, this table is only the routing.
 
 | File | Domain |
 |------|--------|
-| `_helpers.tpl` | Naming and labels. `mergeLabels` is the single home of the label precedence; the Job-family and mounted-config-file name helpers are the single home of each generated name and its truncation constant |
+| `_helpers.tpl` | Naming and labels. `truncName` is the single home of the truncation trim; `mergeLabels` is the single home of the label precedence; the Job-family and mounted-config-file name helpers are the single home of each generated name and its truncation constant |
 | `_image-helpers.tpl` | `imageString`, `imagePullPolicy` |
 | `_job-helpers.tpl` | One implementation of the pod spec, image resolution and SA resolution for **every** hook and cronjob, both scopes — root-level callers simply pass no `deploy` |
 | `_hook-helpers.tpl` | The three `helm.sh/hook*` annotations, weights and delete policies, driven by a role table |
 | `_render-helpers.tpl` | Shared render blocks, `renderAnnotations`, the ConfigMap/Secret `data:` bodies shared with the hook-prerequisite copies, and the two port helpers |
 | `_keda-helpers.tpl` | KEDA names, trigger and `authenticationRef` resolution, the CRD guard |
-| `_validate-helpers.tpl` | Name collisions, routing and autoscaling conflicts, named-`targetPort` resolution |
+| `_validate-helpers.tpl` | The fullname against the labels it leads, name collisions, routing and autoscaling conflicts, named-`targetPort` resolution |
 
 ### Key Design Patterns
 

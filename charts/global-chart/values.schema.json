@@ -4,8 +4,14 @@
   "additionalProperties": false,
   "properties": {
     "global": { "$ref": "#/$defs/global" },
-    "nameOverride": { "type": "string" },
-    "fullnameOverride": { "type": "string" },
+    "nameOverride": {
+      "description": "Replaces the chart name in the fullname and in app.kubernetes.io/name. A DNS-1123 subdomain, the loosest name it reaches; the stricter labels it can reach are checked at render time, where the release name is visible (issue #120). The empty string means no override.",
+      "anyOf": [{ "const": "" }, { "$ref": "#/$defs/dns1123Subdomain" }]
+    },
+    "fullnameOverride": {
+      "description": "Replaces the fullname that heads every generated name. A DNS-1123 subdomain, the loosest name it reaches; the stricter labels it can reach are checked at render time, where the release name is visible (issue #120). The empty string means no override.",
+      "anyOf": [{ "const": "" }, { "$ref": "#/$defs/dns1123Subdomain" }]
+    },
     "deployments": {
       "type": "object",
       "propertyNames": { "$ref": "#/$defs/deploymentName" },
@@ -398,7 +404,7 @@
       ]
     },
     "dns1123Subdomain": {
-      "description": "A DNS-1123 subdomain: dot-separated DNS-1123 labels. Constrains the keys of the externalSecrets and kedaTriggerAuthentications maps, which become part of a resource name, rbacs.roles[].name, which becomes the Role, RoleBinding and default ServiceAccount names, and serviceAccount.name / serviceAccountName in every scope. No maxLength here: the map keys are prefixed by the fullname, which the schema cannot see; the names used verbatim add maxLength 253 at their call site.",
+      "description": "A DNS-1123 subdomain: dot-separated DNS-1123 labels. Constrains the keys of the externalSecrets and kedaTriggerAuthentications maps, which become part of a resource name, rbacs.roles[].name, which becomes the Role, RoleBinding and default ServiceAccount names, serviceAccount.name / serviceAccountName in every scope, and nameOverride / fullnameOverride. No maxLength here: the map keys are prefixed by the fullname, which the schema cannot see; the names used verbatim add maxLength 253 at their call site.",
       "type": "string",
       "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
     },

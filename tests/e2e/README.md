@@ -28,6 +28,13 @@ post-delete hook read the ExternalSecret through its copy → uninstall leaves n
 ConfigMap/Secret/ServiceAccount/ScaledObject/TriggerAuthentication/ExternalSecret, and the
 derived HPA is garbage-collected with its ScaledObject.
 
+Before all that, `check-helm-floor` runs `helm install --dry-run=client` through
+`alpine/helm:3.18.5` and asserts that `NOTES.txt` warns about the Helm floor
+(issue #116). It needs the cluster only because Helm 3 checks it is reachable
+even on a client dry-run; nothing is applied. It reaches the API server on the
+`kind` Docker network by the control-plane container's name, through its own
+copy of the kubeconfig, so it never touches `~/.kube/config` either.
+
 It also runs in CI as its own job in `.github/workflows/helm-ci.yml`.
 
 Extend `values.yaml` and the assertion block in the `e2e` target when adding

@@ -9,6 +9,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Fixed
 
+- **A fullname that can never be applied is now rejected** (issue #120). A
+  dotted release name such as `my.app`, or a `fullnameOverride` like `My_App`,
+  rendered container and Service names the API server rejects.
+  `nameOverride` and `fullnameOverride` are now DNS-1123 subdomains in the
+  schema (`""` still means no override). A render-time `fail` catches the rest,
+  for releases that need it: a dot in the fullname when an enabled Deployment or
+  a root-level hook names a container after it, and a leading digit when an
+  enabled deployment renders a Service. A cronjob-only release with a dotted
+  name keeps rendering. The fix is `fullnameOverride`. Every truncated name now
+  also drops a trailing `.` or `_`, not only `-`. See
+  [ADR 0009](docs/adr/0009-the-fullname-constraint-follows-what-the-release-renders.md).
+- **`helm install`/`upgrade` warn below Helm 3.18.6** (issue #116). The schema
+  closures of the four job composites need it, and older Helm ignored them in
+  silence. `NOTES.txt` now says so; `helm template` and Argo CD do not show
+  NOTES, so the README Prerequisites state the floor as well.
 - **`rbacs.roles[].name` is now validated by the schema** (issue #121). It was
   any string, and it becomes the Role, the RoleBinding and — when
   `serviceAccount` has no `name` of its own — the ServiceAccount `<name>-sa`,

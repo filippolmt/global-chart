@@ -1621,3 +1621,18 @@ tests:
     asserts:
       - failedTemplate:
           errorPattern: "deployments.app.cronJobs.nightly.externalSecrets references 'missing', which is not a key of externalSecrets"
+
+  # ====== Truncation never leaves a trailing dot (issue #120) ======
+  # 51 a's + ".b-x" cut at 52 ends on the dot; trimSuffix "-" used to keep it.
+  - it: should trim a trailing dot left by truncation
+    set:
+      fullnameOverride: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.b
+      cronJobs:
+        x:
+          schedule: "0 2 * * *"
+          image: busybox:1.36
+          command: ["true"]
+    asserts:
+      - equal:
+          path: metadata.name
+          value: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa

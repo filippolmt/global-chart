@@ -682,3 +682,74 @@ tests:
           - { name: writer, serviceAccount: { name: shared, create: false }, rules: [] }
     asserts:
       - notFailedTemplate: {}
+
+  # ====== fullname that can never reach a label (issue #120) ======
+  # Helm accepts a dotted release name; a Deployment's container name and a root
+  # hook's container name are the fullname plus a suffix, and a label has no dot.
+  - it: should fail when a dotted release name reaches a Deployment
+    release:
+      name: my.app
+    set:
+      deployments:
+        web:
+          image: nginx:1.25
+    asserts:
+      - failedTemplate:
+          errorPattern: "contains a dot"
+
+  - it: should fail when a dotted fullnameOverride reaches a root hook
+    set:
+      fullnameOverride: my.app
+      hooks:
+        pre-install:
+          migrate:
+            image: busybox:1.36
+            command: ["true"]
+    asserts:
+      - failedTemplate:
+          errorPattern: "contains a dot"
+
+  # A cronjob-only release names nothing but subdomains with the fullname: it
+  # renders today and must keep rendering.
+  - it: should accept a dotted release name on a cronjob-only release
+    release:
+      name: my.app
+    set:
+      cronJobs:
+        backup:
+          schedule: "0 2 * * *"
+          image: busybox:1.36
+          command: ["true"]
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  # A Service name is a DNS-1035 label: it cannot start with a digit.
+  - it: should fail when a release name starting with a digit reaches a Service
+    release:
+      name: 1app
+    set:
+      deployments:
+        web:
+          image: nginx:1.25
+    asserts:
+      - failedTemplate:
+          errorPattern: "starts with a digit"
+
+  - it: should accept a release name starting with a digit when no Service renders
+    release:
+      name: 1app
+    set:
+      deployments:
+        web:
+          image: nginx:1.25
+          service:
+            enabled: false
+      hooks:
+        pre-install:
+          migrate:
+            image: busybox:1.36
+            command: ["true"]
+    asserts:
+      - hasDocuments:
+          count: 0
