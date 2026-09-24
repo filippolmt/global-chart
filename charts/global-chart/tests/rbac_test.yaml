@@ -61,3 +61,38 @@ tests:
       - isKind:
           of: RoleBinding
         documentIndex: 2
+
+  - it: should derive the SA and RoleBinding names from the role name, trimming a -role suffix
+    set:
+      rbacs:
+        roles:
+          - name: reader-role
+            serviceAccount:
+              create: true
+            rules: []
+    asserts:
+      - equal:
+          path: metadata.name
+          value: reader-role-sa
+        documentIndex: 0
+      - equal:
+          path: metadata.name
+          value: reader-role
+        documentIndex: 1
+      - equal:
+          path: metadata.name
+          value: reader-rolebinding
+        documentIndex: 2
+      - equal:
+          path: roleRef.name
+          value: reader-role
+        documentIndex: 2
+      - equal:
+          path: subjects[0].name
+          value: reader-role-sa
+        documentIndex: 2
+
+  - it: should render nothing when no roles are declared
+    asserts:
+      - hasDocuments:
+          count: 0
