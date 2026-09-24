@@ -4,7 +4,7 @@
 rbacs:
   roles:
     - name: Reader_Role
-      serviceAccount: {}
+      serviceAccount: { create: true }
       rules:
         - apiGroups: [""]
           resources: ["pods"]

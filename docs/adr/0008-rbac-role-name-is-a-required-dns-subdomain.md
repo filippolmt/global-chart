@@ -8,7 +8,7 @@ status: accepted
 #121). It becomes three names: the Role and the RoleBinding, which Kubernetes
 validates only as path segments, and — when `serviceAccount` has no `name` of
 its own — the ServiceAccount `<name>-sa`, which must be a DNS-1123 subdomain.
-`Reader_Role` with `serviceAccount: {}` rendered, passed `helm lint`, and was
+`Reader_Role` with `serviceAccount: { create: true }` rendered, passed `helm lint`, and was
 rejected by the API server.
 
 ## Decisions

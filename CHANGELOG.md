@@ -12,7 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 - **`rbacs.roles[].name` is now validated by the schema** (issue #121). It was
   any string, and it becomes the Role, the RoleBinding and — when
   `serviceAccount` has no `name` of its own — the ServiceAccount `<name>-sa`,
-  which must be a DNS-1123 subdomain. `Reader_Role` with `serviceAccount: {}`
+  which must be a DNS-1123 subdomain. `Reader_Role` with `serviceAccount: { create: true }`
   rendered, passed `helm lint`, and was rejected by the API server. The name is
   now a DNS-1123 subdomain of at most 253 characters, whether or not a
   `serviceAccount` sits next to it. The unreachable default
