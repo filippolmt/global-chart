@@ -3094,3 +3094,44 @@ tests:
         documentSelector:
           path: metadata.name
           value: RELEASE-NAME-global-chart-app-pre-install-unbounded
+
+  # ====== backoffLimit (issue #113) ======
+  # No fallback from the deployment or global: a retry budget is the hook's own.
+  - it: should render backoffLimit on a root-level hook Job
+    set:
+      hooks:
+        pre-install:
+          migrate:
+            image: busybox:1.36
+            backoffLimit: 0
+    asserts:
+      - equal:
+          path: spec.backoffLimit
+          value: 0
+        documentSelector:
+          path: kind
+          value: Job
+
+  - it: should render backoffLimit on a deployment-level hook Job, and omit it when unset
+    set:
+      deployments:
+        app:
+          image: nginx:1.25
+          hooks:
+            pre-install:
+              once:
+                backoffLimit: 1
+              default:
+                command: ["true"]
+    asserts:
+      - equal:
+          path: spec.backoffLimit
+          value: 1
+        documentSelector:
+          path: metadata.name
+          value: RELEASE-NAME-global-chart-app-pre-install-once
+      - notExists:
+          path: spec.backoffLimit
+        documentSelector:
+          path: metadata.name
+          value: RELEASE-NAME-global-chart-app-pre-install-default

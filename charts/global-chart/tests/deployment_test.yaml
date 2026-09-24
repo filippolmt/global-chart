@@ -1506,3 +1506,31 @@ tests:
       - equal:
           path: spec.template.spec.automountServiceAccountToken
           value: false
+
+  # ====== Per-resource annotations (issue #112) ======
+  - it: should merge the Deployment's own annotations over the common ones, apart from podAnnotations
+    set:
+      global:
+        commonAnnotations:
+          team: platform
+          argocd.argoproj.io/sync-wave: "0"
+      deployments:
+        web:
+          image: nginx:1.25
+          annotations:
+            argocd.argoproj.io/sync-wave: "1"
+          podAnnotations:
+            prometheus.io/scrape: "true"
+    asserts:
+      - equal:
+          path: metadata.annotations
+          value:
+            team: platform
+            argocd.argoproj.io/sync-wave: "1"
+      # The pod template keeps the common value: the Deployment's own does not reach it
+      - equal:
+          path: spec.template.metadata.annotations["argocd.argoproj.io/sync-wave"]
+          value: "0"
+      - equal:
+          path: spec.template.metadata.annotations["prometheus.io/scrape"]
+          value: "true"

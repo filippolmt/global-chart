@@ -286,3 +286,33 @@ Resolution order:
 {{- end -}}
 {{- $img -}}
 {{- end -}}
+
+{{/*
+The Job spec fields a job sets verbatim, for both kinds and both scopes (issue
+#113). Each renders only when the job sets it — hasKey, so 0 is kept — and
+nothing falls back to the deployment or global: a retry budget or a deadline is
+the job's own. The table below is the one home of which kind admits which field,
+so the two scopes of a kind can no longer drift apart:
+- cronjob: all five.
+- hook: activeDeadlineSeconds and backoffLimit only. Not ttlSecondsAfterFinished:
+  a completed hook Job is kept as the record of what ran (CLAUDE.md pattern 8),
+  and a TTL controller deleting it races before-hook-creation — deletePolicy
+  hook-succeeded already covers cleanup. Not parallelism/completions: a hook is
+  one run.
+Params: job (the job map) · kind ("hook" | "cronjob").
+Returns "field: value" lines at indent 0, or "" when none is set.
+Usage: {{- with (include "global-chart.jobSpecFields" (dict "job" $job "kind" "hook")) }}
+*/}}
+{{- define "global-chart.jobSpecFields" -}}
+{{- $fields := dict
+    "cronjob" (list "backoffLimit" "ttlSecondsAfterFinished" "activeDeadlineSeconds" "parallelism" "completions")
+    "hook" (list "activeDeadlineSeconds" "backoffLimit") -}}
+{{- $job := .job -}}
+{{- $lines := list -}}
+{{- range (required (printf "jobSpecFields: unknown kind %q" (toString .kind)) (get $fields (toString .kind))) -}}
+  {{- if hasKey $job . -}}
+    {{- $lines = append $lines (printf "%s: %v" . (index $job .)) -}}
+  {{- end -}}
+{{- end -}}
+{{- join "\n" $lines -}}
+{{- end -}}

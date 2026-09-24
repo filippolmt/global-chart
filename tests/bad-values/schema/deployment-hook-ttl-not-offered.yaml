@@ -1,0 +1,11 @@
+# ttlSecondsAfterFinished is deliberately not offered on a hook (issue #113): a
+# completed hook Job is the record of what ran, and a TTL deletion races
+# before-hook-creation. See jobSpecFields in _job-helpers.tpl.
+deployments:
+  app:
+    image: nginx:1.25
+    hooks:
+      pre-install:
+        migrate:
+          command: ["true"]
+          ttlSecondsAfterFinished: 600

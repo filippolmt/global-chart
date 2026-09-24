@@ -51,7 +51,7 @@ is the source of truth, this table is only the routing.
 |------|--------|
 | `_helpers.tpl` | Naming and labels. `truncName` is the single home of the truncation trim; `mergeLabels` is the single home of the label precedence; the Job-family and mounted-config-file name helpers are the single home of each generated name and its truncation constant |
 | `_image-helpers.tpl` | `imageString`, `imagePullPolicy` |
-| `_job-helpers.tpl` | One implementation of the pod spec and image resolution for **every** hook and cronjob, both scopes — root-level callers simply pass no `deploy` |
+| `_job-helpers.tpl` | One implementation of the pod spec, image resolution and the Job spec fields table (`jobSpecFields`) for **every** hook and cronjob, both scopes — root-level callers simply pass no `deploy` |
 | `_serviceaccount-helpers.tpl` | Every ServiceAccount the chart renders or binds, resolved to `{create, name, automount, annotations}`: deployment, rbac and job resolvers, with the deployment and rbac defaults in `resolveServiceAccount`; the job resolver keeps its own chain. Templates never read `serviceAccount.*` from values |
 | `_hook-helpers.tpl` | The three `helm.sh/hook*` annotations, weights and delete policies, driven by a role table |
 | `_render-helpers.tpl` | Shared render blocks, `renderAnnotations`, the ConfigMap/Secret `data:` bodies shared with the hook-prerequisite copies, and the two port helpers |

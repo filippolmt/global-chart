@@ -68,6 +68,9 @@ deployments: {}
   #   # automountServiceAccountToken: false, or false to opt out.
   #   automountServiceAccountToken: true
   #
+  #   # -- Annotations on the Deployment itself (e.g. argocd.argoproj.io/sync-wave),
+  #   # merged over global.commonAnnotations. Not the pods', not the Service's.
+  #   annotations: {}
   #   # -- Pod annotations
   #   podAnnotations: {}
   #   # -- Pod labels
@@ -467,6 +470,7 @@ hooks: {}
   #     args: ["./migrate.sh"]
   #     weight: "10"
   #     deletePolicy: before-hook-creation
+  #     # backoffLimit: 0             # retries before Helm sees the failure; k8s default 6
   #     # Secrets of the externalSecrets map, by key (see deployments.*.externalSecrets).
   #     # activeDeadlineSeconds: 300  # bounds a pod waiting for a Secret; backoffLimit cannot
   #     # A pre-* or post-delete hook reads a hook-prerequisite copy, which exists before the hook runs:
@@ -491,6 +495,7 @@ externalSecrets: {}
   # data list form (many keys collapsed into one Secret):
   # app:
   #   secretstore: { kind: ClusterSecretStore, name: my-store }
+  #   annotations: { argocd.argoproj.io/sync-wave: "-1" }  # not copied onto the hook copy
   #   refreshInterval: 1h
   #   target: { name: app-secrets }
   #   data:

@@ -5,7 +5,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ---
 
-## [Unreleased]
+## [2.8.0] — 2026-09-24
+
+### Added
+
+- **Per-resource annotations on Deployments and ExternalSecrets** (issue #112).
+  `deployments.<name>.annotations` sets the Deployment's own `metadata`
+  annotations — distinct from `podAnnotations`, and not propagated to the
+  Service, ServiceAccount, HPA or any other resource of the deployment.
+  `externalSecrets.<name>.annotations` does the same for the ExternalSecret.
+  Both merge over `global.commonAnnotations`, the resource's own winning on a
+  shared key, so an Argo CD user can order the sync with
+  `argocd.argoproj.io/sync-wave`. The hook-prerequisite copy of an
+  ExternalSecret does **not** take them: it is a hook resource, ordered by hook
+  phase and weight, and a sync-wave copied onto it would contradict that.
+- **`backoffLimit` on hook Jobs, both scopes** (issue #113). A failing migration
+  hook was retried six times, the Kubernetes default, before Helm saw the
+  failure. No fallback from the deployment or `global`. `ttlSecondsAfterFinished`
+  is deliberately not offered: a completed hook Job is kept as the record of
+  what ran, a TTL deletion races `before-hook-creation`, and `deletePolicy:
+  hook-succeeded` already covers cleanup. `parallelism` / `completions` are left
+  out too: a hook is one run. The Job spec fields of hooks and cronjobs now
+  render from one table (`jobSpecFields`), so the two scopes of a kind cannot
+  drift apart again.
 
 ### Changed
 

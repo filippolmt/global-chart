@@ -465,6 +465,11 @@
         "args": { "type": "array", "items": { "type": "string" } },
         "imagePullSecrets": { "type": "array" },
         "serviceAccount": { "$ref": "#/$defs/serviceAccount" },
+        "annotations": {
+          "description": "Annotations on the Deployment's own metadata, merged over global.commonAnnotations. Not podAnnotations, and not propagated to the Service, ServiceAccount, HPA or any other resource of the deployment.",
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
         "podAnnotations": {
           "type": "object",
           "additionalProperties": { "type": "string" }
@@ -632,6 +637,11 @@
           "description": "Bound on the hook Job's run time. The only bound on a hook pod that waits for a Secret: it never reaches Failed, so backoffLimit never counts it.",
           "type": "integer",
           "minimum": 1
+        },
+        "backoffLimit": {
+          "description": "Retries before the hook Job is marked failed; Kubernetes defaults to 6. The hook's own: no fallback from the deployment or global. Why the other Job spec fields are not offered on a hook: see jobSpecFields in _job-helpers.tpl.",
+          "type": "integer",
+          "minimum": 0
         }
       }
     },
@@ -706,6 +716,11 @@
     "externalSecret": {
       "type": "object",
       "properties": {
+        "annotations": {
+          "description": "Annotations on the ExternalSecret, merged over global.commonAnnotations. Not copied onto its hook-prerequisite copy, which is ordered by hook phase (ADR 0007).",
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
         "remote": { "$ref": "#/$defs/externalSecretRemote" },
         "data": {
           "type": "array",

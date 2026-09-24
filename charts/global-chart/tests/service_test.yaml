@@ -324,3 +324,15 @@ tests:
       - equal:
           path: spec.ports[0].name
           value: api
+
+  # ====== Deployment annotations stay on the Deployment (issue #112) ======
+  - it: should not propagate the Deployment's own annotations to its Service
+    set:
+      deployments:
+        web:
+          image: nginx:1.25
+          annotations:
+            argocd.argoproj.io/sync-wave: "1"
+    asserts:
+      - notExists:
+          path: metadata.annotations
