@@ -1,0 +1,11 @@
+# An IANA_SVC_NAME needs at least one letter, so a port name cannot be mistaken
+# for a port number. `9090` matches the shape pattern and fails only the second,
+# the one that stands in for the lookahead Go regexp lacks.
+deployments:
+  app:
+    image: nginx:1.25
+    service:
+      extraPorts:
+        - name: "9090"
+          port: 9090
+          targetPort: 9090

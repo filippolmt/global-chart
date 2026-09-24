@@ -150,7 +150,7 @@
       "type": "object",
       "properties": {
         "enabled": { "type": "boolean" },
-        "portName": { "type": "string" },
+        "portName": { "anyOf": [{ "const": "" }, { "$ref": "#/$defs/ianaSvcName" }] },
         "type": {
           "type": "string",
           "enum": ["ClusterIP", "NodePort", "LoadBalancer", "ExternalName"]
@@ -158,7 +158,7 @@
         "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
         "targetPort": {
           "oneOf": [
-            { "type": "string" },
+            { "anyOf": [{ "const": "" }, { "$ref": "#/$defs/ianaSvcName" }] },
             { "type": "integer", "minimum": 1, "maximum": 65535 }
           ]
         },
@@ -175,11 +175,11 @@
           "items": {
             "type": "object",
             "properties": {
-              "name": { "type": "string" },
+              "name": { "$ref": "#/$defs/ianaSvcName" },
               "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
               "targetPort": {
                 "oneOf": [
-                  { "type": "string" },
+                  { "anyOf": [{ "const": "" }, { "$ref": "#/$defs/ianaSvcName" }] },
                   { "type": "integer", "minimum": 1, "maximum": 65535 }
                 ]
               },
@@ -195,7 +195,10 @@
           }
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "if": { "required": ["extraPorts"], "properties": { "extraPorts": { "minItems": 1 } } },
+      "then": { "properties": { "portName": { "minLength": 1 } } },
+      "description": "An empty portName is accepted only while the Service has one port: with extraPorts it is multi-port, and the API server requires every port of a multi-port Service to be named."
     },
     "autoscaling": {
       "type": "object",
@@ -378,6 +381,15 @@
       "description": "A DNS-1123 label: lowercase alphanumerics and '-', starting and ending with an alphanumeric. The length bound is the caller's, via maxLength next to the $ref: it depends on what the value is joined to.",
       "type": "string",
       "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+    },
+    "ianaSvcName": {
+      "description": "An IANA_SVC_NAME, as Kubernetes validates a Service port name, a container port name and a named targetPort: at most 15 characters, lowercase alphanumerics and '-', no leading, trailing or doubled '-', and at least one letter. Two patterns under allOf because Go regexp has no lookahead: the first fixes the shape, the second the letter. portName and targetPort also accept \"\": the API server takes it on a single-port Service (targetPort defaults to port), so it is not rejected here; extraPorts[].name never does, since extra ports make the Service multi-port.",
+      "type": "string",
+      "maxLength": 15,
+      "allOf": [
+        { "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+        { "pattern": "[a-z]" }
+      ]
     },
     "dns1123Subdomain": {
       "description": "A DNS-1123 subdomain: dot-separated DNS-1123 labels. Constrains the keys of the externalSecrets and kedaTriggerAuthentications maps, which become part of a resource name, and rbacs.roles[].name, which becomes the Role, RoleBinding and default ServiceAccount names. No maxLength here: the map keys are prefixed by the fullname, which the schema cannot see; rbacs.roles[].name is used verbatim, so it adds maxLength 253 at its call site.",

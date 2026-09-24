@@ -19,6 +19,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   `<fullname>-role-<index>` is removed from `rbac.yaml`: `name` was already
   required by the schema. See
   [ADR 0008](docs/adr/0008-rbac-role-name-is-a-required-dns-subdomain.md).
+- **Service port names are now validated by the schema** (issue #118).
+  `service.portName`, `service.extraPorts[].name` and a named `targetPort` (on
+  the primary port and on each extra port) were any string, and they become the
+  Service port names and the container port names, which Kubernetes validates as
+  `IANA_SVC_NAME`. `http-management-api` rendered, passed `helm lint`, and was
+  rejected by the API server. They are now held to that rule by a shared
+  `$defs/ianaSvcName`: at most 15 characters, lowercase alphanumerics and `-`, at
+  least one letter, no leading, trailing or doubled `-`. An empty `portName` or
+  `targetPort` stays accepted: the API server takes it on a single-port Service.
+  With `extraPorts` the Service is multi-port, and an empty `portName` is
+  rejected: every port of a multi-port Service must be named.
 
 ---
 

@@ -1,0 +1,9 @@
+# An empty portName next to extraPorts: the Service is multi-port, and the API
+# server requires every port of a multi-port Service to be named (issue #118).
+deployments:
+  web:
+    image: nginx:1.25
+    service:
+      portName: ""
+      extraPorts:
+        - { name: metrics, port: 9090, targetPort: 9090 }
