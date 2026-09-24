@@ -1,9 +1,7 @@
 {{- $root := . }}
-{{- $fullname := include "global-chart.fullname" $root }}
 {{- if $root.Values.rbacs.roles }}
-{{- range $index, $role := $root.Values.rbacs.roles }}
-{{- $defaultRoleName := printf "%s-role-%d" $fullname $index | trunc 63 | trimSuffix "-" }}
-{{- $roleName := ternary $role.name $defaultRoleName (hasKey $role "name") }}
+{{- range $role := $root.Values.rbacs.roles }}
+{{- $roleName := $role.name }}
 {{- $sa := $role.serviceAccount }}
 {{- $saName := "" }}
 {{- $saCreate := false }}

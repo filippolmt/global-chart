@@ -1,0 +1,11 @@
+# The name becomes the Role, the RoleBinding and, with no serviceAccount.name,
+# the ServiceAccount `<name>-sa`: a DNS-1123 subdomain. `Reader_Role` renders
+# and passes `helm lint`, then the API server rejects the ServiceAccount.
+rbacs:
+  roles:
+    - name: Reader_Role
+      serviceAccount: {}
+      rules:
+        - apiGroups: [""]
+          resources: ["pods"]
+          verbs: ["get"]
