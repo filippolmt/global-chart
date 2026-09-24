@@ -24,7 +24,7 @@ with the `authenticationRef` resolved → KEDA marked the ScaledObject `Ready` a
 created the derived HPA with the rendered bounds → the `cron` trigger actually
 scaled the Deployment to its `desiredReplicas` → upgrade kept the SA UID →
 upgrade did **not** reset `spec.replicas` on the KEDA-scaled Deployment →
-uninstall leaves no orphaned
+post-delete hook read the ExternalSecret through its copy → uninstall leaves no orphaned
 ConfigMap/Secret/ServiceAccount/ScaledObject/TriggerAuthentication/ExternalSecret, and the
 derived HPA is garbage-collected with its ScaledObject.
 

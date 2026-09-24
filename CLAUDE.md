@@ -116,7 +116,8 @@ is the source of truth, this table is only the routing.
    for `pre-install`** and with its own delete policy — the copy shares the real
    SA's name and must be gone before Helm creates it. Read
    `docs/adr/0002-hook-prerequisite-serviceaccount-copy.md` before touching it.
-   An ExternalSecret a `pre-*` hook references (`externalSecrets: [{name: <key>}]`)
+   An ExternalSecret a `pre-*` or `post-delete` hook references (`externalSecrets: [{name: <key>}]`,
+   the phase cut in `hookReadsExternalSecretCopy`)
    gets a copy too, keyed by ExternalSecret rather than by deployment, under its
    **own** target `<target>-hook` — sharing the real target is `ErrSecretIsOwned`,
    and the copy's deletion would garbage-collect the live Secret. Its spec comes

@@ -144,11 +144,9 @@ spec:
           {{- /* externalSecrets: the Deployment always reads the real Secret, never
                  the hook copy (ADR 0007). A mountPath makes the entry a volume;
                  any other entry is a secret source, in the secret group */ -}}
-          {{- $esEnv := list }}
-          {{- $esMounted := list }}
-          {{- range (include "global-chart.resolveExternalSecretRefs" (dict "root" $root "refs" $deploy.externalSecrets "hook" false "errCtx" (printf "deployments.%s" $name)) | fromJsonArray) }}
-          {{- if .mountPath }}{{- $esMounted = append $esMounted . }}{{- else }}{{- $esEnv = append $esEnv . }}{{- end }}
-          {{- end }}
+          {{- $es := include "global-chart.resolveExternalSecretRefs" (dict "root" $root "refs" $deploy.externalSecrets "hook" false "volumes" $deploy.volumes "errCtx" (printf "deployments.%s" $name)) | fromJson }}
+          {{- $esEnv := $es.env }}
+          {{- $esMounted := $es.mounted }}
           {{- if or $deploy.configMap $deploy.envFromConfigMaps $deploy.secret $deploy.envFromSecrets $esEnv }}
           envFrom:
             {{- if $deploy.configMap }}
@@ -169,7 +167,7 @@ spec:
             {{- end }}
             {{- range $esEnv }}
             - secretRef:
-                name: {{ .secretName | quote }}
+                name: {{ . | quote }}
             {{- end }}
           {{- end }}
           {{- if $deploy.additionalEnvs }}
@@ -197,10 +195,8 @@ spec:
               readOnly: true
             {{- end }}
             {{- end }}
-            {{- range $esMounted }}
-            - name: {{ .volumeName }}
-              mountPath: {{ .mountPath | quote }}
-              readOnly: true
+            {{- with $esMounted }}
+            {{- include "global-chart.renderExternalSecretVolumeMounts" . | nindent 12 }}
             {{- end }}
           {{- end }}
       {{- with $deploy.extraContainers }}
@@ -237,10 +233,8 @@ spec:
             {{- end }}
         {{- end }}
         {{- end }}
-        {{- range $esMounted }}
-        - name: {{ .volumeName }}
-          secret:
-            secretName: {{ .secretName | quote }}
+        {{- with $esMounted }}
+        {{- include "global-chart.renderExternalSecretVolumes" . | nindent 8 }}
         {{- end }}
       {{- end }}
       {{- with $deploy.nodeSelector }}

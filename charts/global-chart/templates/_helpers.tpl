@@ -312,14 +312,10 @@ secret (the externalSecrets.<key> map), whose target.name overrides the default.
 {{/*
 Pod volume name for an externalSecrets entry mounted with a mountPath. Not a
 public interface, like the md-cm volume names above. A volume name is a
-DNS-1123 label, which an externalSecrets key need not be: fail here, at render
-time, rather than at apply time far from the cause.
+DNS-1123 label, which an externalSecrets key need not be:
+resolveExternalSecretRefs checks it, and the collisions, at render time.
 Usage: {{ include "global-chart.externalSecretVolumeName" (dict "key" $key) }}
 */}}
 {{- define "global-chart.externalSecretVolumeName" -}}
-{{- $name := printf "es-%s" .key -}}
-{{- if or (gt (len $name) 63) (not (regexMatch "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$" $name)) -}}
-{{- fail (printf "externalSecrets key '%s' cannot be mounted: its volume name '%s' is not a DNS-1123 label of at most 63 characters. Rename the key, or inject it without a mountPath." .key $name) -}}
-{{- end -}}
-{{- $name -}}
+{{- printf "es-%s" .key -}}
 {{- end -}}

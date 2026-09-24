@@ -145,19 +145,22 @@ Called from validate.yaml.
        $esOwnedNames holds the Secrets an ExternalSecret *owns*: two owners of
        one Secret is ErrSecretIsOwned, and the copy's deletion would take the
        other's Secret with it. A real target under Merge or None is written
-       into, not owned, so several of them sharing a target stays legal. The
+       into, not owned, so several of them sharing a target stays legal — but
+       not one a copy owns, which the copy's deletion would garbage-collect:
+       those are checked against the copies alone, on a throwaway copy of
+       $copyTargets, so that two of them still never meet each other. The
        copy's target also joins $secretNames, against the chart's own Secrets. */ -}}
 {{- $consumers := include "global-chart.externalSecretHookConsumers" $root | fromJson -}}
 {{- range $key, $secret := .Values.externalSecrets -}}
   {{- if $secret -}}
     {{- $nameCtx := dict "root" $root "key" $key "secret" $secret -}}
     {{- include "global-chart.registerName" (dict "names" $esNames "kind" "ExternalSecret" "name" (include "global-chart.externalSecretName" $nameCtx) "owner" (printf "externalSecrets '%s'" $key)) -}}
-    {{- $target := default (dict) $secret.target -}}
-    {{- if eq (ternary $target.creationPolicy "Owner" (hasKey $target "creationPolicy")) "Owner" -}}
+    {{- if eq (include "global-chart.externalSecretCreationPolicy" $secret) "Owner" -}}
       {{- include "global-chart.registerName" (dict "names" $esOwnedNames "kind" "Secret" "name" (include "global-chart.externalSecretTargetName" $nameCtx) "owner" (printf "externalSecrets '%s'" $key)) -}}
     {{- end -}}
   {{- end -}}
 {{- end -}}
+{{- $copyTargets := dict -}}
 {{- range $key, $secret := .Values.externalSecrets -}}
   {{- if and $secret (hasKey $consumers $key) -}}
     {{- $nameCtx := dict "root" $root "key" $key "secret" $secret -}}
@@ -166,6 +169,13 @@ Called from validate.yaml.
     {{- include "global-chart.registerName" (dict "names" $esNames "kind" "ExternalSecret" "name" (include "global-chart.externalSecretHookName" $nameCtx) "owner" $owner) -}}
     {{- include "global-chart.registerName" (dict "names" $esOwnedNames "kind" "Secret" "name" $copyTarget "owner" $owner) -}}
     {{- include "global-chart.registerName" (dict "names" $secretNames "kind" "Secret" "name" $copyTarget "owner" $owner) -}}
+    {{- $_ := set $copyTargets $copyTarget $owner -}}
+  {{- end -}}
+{{- end -}}
+{{- range $key, $secret := .Values.externalSecrets -}}
+  {{- if and $secret (ne (include "global-chart.externalSecretCreationPolicy" $secret) "Owner") -}}
+    {{- $target := include "global-chart.externalSecretTargetName" (dict "root" $root "key" $key "secret" $secret) -}}
+    {{- include "global-chart.registerName" (dict "names" (deepCopy $copyTargets) "kind" "Secret" "name" $target "owner" (printf "externalSecrets '%s' (%s)" $key (include "global-chart.externalSecretCreationPolicy" $secret))) -}}
   {{- end -}}
 {{- end -}}
 

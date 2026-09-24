@@ -20,7 +20,7 @@ The chart supports **multiple deployments** in a single release, each with indep
   - **Root level** (`hooks.*`, `cronJobs.*`): Standalone, use `fromDeployment` to copy image from a deployment
   - **Inside deployments** (`deployments.*.hooks`, `deployments.*.cronJobs`): Inherit image, configMap, secret, serviceAccount, hostAliases, podSecurityContext, securityContext, dnsConfig (cronJobs), nodeSelector, tolerations, affinity, and more from the parent deployment
   - Hook prerequisite ConfigMap/Secret are created automatically with correct weight ordering
-  - A `pre-*` hook can read a Secret produced by the release's own `externalSecrets`: reference it by key (see [Reading an ExternalSecret from a hook](#reading-an-externalsecret-from-a-hook))
+  - A `pre-*` or `post-delete` hook can read a Secret produced by the release's own `externalSecrets`: reference it by key (see [Reading an ExternalSecret from a hook](#reading-an-externalsecret-from-a-hook))
 - **Secret management**
   ExternalSecret resources with required field validation to avoid silent misconfigurations. Each entry maps a single remote key (`remote`/`secretkey`), many keys into one Secret via a `data` list, or pulls in bulk via `dataFrom` (`extract`/`find`).
 - **RBAC**
@@ -142,7 +142,8 @@ An ExternalSecret is a normal resource, so Helm applies it *after* the `pre-*`
 hooks: a migration hook that reads the Secret it produces waits for a Secret
 nothing has created yet, on the first install and on the upgrade that adds it.
 Under Argo CD, which maps `pre-install` and `pre-upgrade` to `PreSync`, the sync
-never gets past it.
+never gets past it. A `post-delete` hook has the same problem from the other
+end: it runs after the ExternalSecret and its Secret are gone.
 
 Reference the Secret by its **`externalSecrets` key**, never by the name it
 produces:
@@ -167,10 +168,10 @@ deployments:
           command: ["./migrate.sh"]
 ```
 
-For every key a `pre-*` hook references, the chart renders a hook-prerequisite
-copy of the ExternalSecret — same spec, its own Secret `<target>-hook`, owned by
-the copy and gone with it — and the hook reads that one. The Deployment, its
-cronjobs and `post-*` hooks read the real Secret. A deployment's hooks and
+For every key a `pre-*` or `post-delete` hook references, the chart renders a
+hook-prerequisite copy of the ExternalSecret — same spec, its own Secret
+`<target>-hook`, owned by the copy and gone with it — and the hook reads that
+one. The Deployment, its cronjobs and every other hook read the real Secret. A deployment's hooks and
 cronjobs inherit its list; a job's own `externalSecrets` (`[]` included)
 replaces it. Root-level hooks and cronjobs declare their own.
 
@@ -181,7 +182,7 @@ When the store cannot deliver, the two runtimes differ. **Helm** does not wait
 for custom resources, so it starts the Job at once; the pod stays in
 `CreateContainerConfigError` (envFrom) or `ContainerCreating` (volume) and never
 reaches `Failed`, so `backoffLimit` does not bound it: `--timeout` (default 5m)
-does. **Argo CD** checks the copy's health
+and the hook's own `activeDeadlineSeconds` do. **Argo CD** checks the copy's health
 before the next wave and fails the sync as soon as it reports `Ready=False` —
 a transient provider error during the hook phase fails the sync.
 

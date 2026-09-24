@@ -91,24 +91,26 @@ Usage:
 {{/*
 Whether a hook of this phase reads the ExternalSecret hook-prerequisite copy
 rather than the real Secret: "true" for a pre-* phase, which runs before the
-real ExternalSecret is applied. The ONE place the cut is made — the consumer
+real ExternalSecret is applied, and for post-delete, which runs after it — and,
+through its ownerReference, its Secret — is gone. Every other phase finds the
+real Secret in place. The ONE place the cut is made — the consumer
 scan below (which emits the copy) and jobPodSpec (which points the hook at it)
 both ask here, so a hook can never read a copy that was not rendered.
 Usage: {{ include "global-chart.hookReadsExternalSecretCopy" $hookType }}
 */}}
 {{- define "global-chart.hookReadsExternalSecretCopy" -}}
-{{- hasPrefix "pre-" (toString .) -}}
+{{- or (hasPrefix "pre-" (toString .)) (eq (toString .) "post-delete") -}}
 {{- end -}}
 
 {{/*
-The pre-* hooks that read each ExternalSecret, in both scopes: the input of the
+The hooks that read the copy of each ExternalSecret, in both scopes: the input of the
 ExternalSecret hook-prerequisite copy (ADR 0007), for externalsecret.yaml, which
 emits it, and for validateNameCollisions, which registers its names.
 Returns JSON: key -> hookType -> "<scope>/<job>" -> command, the shape
 minHookWeight reads, so the copy's weight and phases come from the hooks that
-actually read it. A key no pre-* hook references is absent: it gets no copy.
-Only pre-* phases: a post-* hook runs after the real ExternalSecret is applied
-and reads the real Secret (jobPodSpec makes the same cut).
+actually read it. A key no such hook references is absent: it gets no copy.
+Only the phases hookReadsExternalSecretCopy names; a hook of any other phase
+reads the real Secret.
 Usage: {{ $consumers := include "global-chart.externalSecretHookConsumers" $root | fromJson }}
 */}}
 {{- define "global-chart.externalSecretHookConsumers" -}}

@@ -18,18 +18,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   which references a key of the root `externalSecrets` map — as an `envFrom`
   source, or as a read-only volume with `mountPath`. A deployment's hooks and
   cronjobs inherit its list (`hasKey`; `[]` stops it). For every key a `pre-*`
-  hook references, the chart renders a hook-prerequisite copy of the
-  ExternalSecret — same spec, its own target `<target>-hook`,
+  or `post-delete` hook references, the chart renders a hook-prerequisite copy
+  of the ExternalSecret — same spec, its own target `<target>-hook`,
   `creationPolicy: Owner`, the `prereq` weight and delete policy — and the hook
-  reads that Secret; the Deployment, cronjobs and `post-*` hooks read the real
-  one. A key that `externalSecrets` does not define fails the render. Name
-  collisions of the copy's ExternalSecret and Secret are detected, as are two
-  ExternalSecrets owning one target. See
+  reads that Secret; the Deployment, cronjobs and every other hook read the real
+  one. `post-delete` is there because it runs after the real ExternalSecret and
+  its Secret are gone. Failing at render time rather than at apply: a key that
+  `externalSecrets` does not define; a mounted key that is not a DNS-1123 label,
+  mounted twice, or landing on a volume the pod declares; name collisions of the
+  copy's ExternalSecret and Secret; two ExternalSecrets owning one target; a
+  `Merge`/`None` ExternalSecret writing into the Secret a copy owns. See
   [ADR 0007](docs/adr/0007-hook-prerequisite-externalsecret-copy.md).
 
   `envFromSecrets` with the literal generated name keeps working, gets no copy
   and does not protect the first install. Migration: replace it with
   `externalSecrets: [{name: <key>}]`.
+
+- **`activeDeadlineSeconds` on hook Jobs**, root and deployment level. A hook
+  pod waiting for a Secret never reaches `Failed`, so `backoffLimit` does not
+  bound it; before this only `helm --timeout` did.
 
 ### Changed
 

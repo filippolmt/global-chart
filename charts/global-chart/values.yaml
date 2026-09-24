@@ -275,7 +275,7 @@ deployments: {}
   #   # the generated Secret name). Without mountPath: an envFrom source, after
   #   # envFromSecrets. With mountPath: a read-only volume. Inherited by the
   #   # deployment's hooks and cronJobs (a job's own list, `[]` included,
-  #   # replaces it). pre-* hooks read a hook-prerequisite copy of the
+  #   # replaces it). pre-* and post-delete hooks read a hook-prerequisite copy of the
   #   # ExternalSecret, so they work on the first install (ADR 0007).
   #   externalSecrets: []
   #   #   - name: app-env
@@ -468,7 +468,8 @@ hooks: {}
   #     weight: "10"
   #     deletePolicy: before-hook-creation
   #     # Secrets of the externalSecrets map, by key (see deployments.*.externalSecrets).
-  #     # A pre-* hook reads a hook-prerequisite copy, which exists before the hook runs:
+  #     # activeDeadlineSeconds: 300  # bounds a pod waiting for a Secret; backoffLimit cannot
+  #     # A pre-* or post-delete hook reads a hook-prerequisite copy, which exists before the hook runs:
   #     # externalSecrets:
   #     #   - name: app-env
 
@@ -478,7 +479,7 @@ hooks: {}
 # payload), `version` (string or number, quoted on render), `conversionStrategy`,
 # `decodingStrategy` and `metadataPolicy`. `dataFrom` is rendered verbatim.
 # Jobs and deployments read the produced Secret through their own
-# `externalSecrets: [{name: <key>}]` list; for every key a pre-* hook reads, the
+# `externalSecrets: [{name: <key>}]` list; for every key a pre-* or post-delete hook reads, the
 # chart also renders a hook-prerequisite copy producing `<target>-hook`.
 externalSecrets: {}
   # Single-key form (one remote key -> one Secret key):

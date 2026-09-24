@@ -2970,3 +2970,127 @@ tests:
     asserts:
       - failedTemplate:
           errorPattern: "hooks.pre-install.migrate.externalSecrets references 'missing', which is not a key of externalSecrets"
+
+  # A post-delete hook runs after the real ExternalSecret — and, through its
+  # ownerReference, its Secret — is gone: it reads the copy, like a pre-* hook.
+  - it: should read the hook copy from a post-delete hook
+    set:
+      externalSecrets:
+        app-env:
+          secretstore: { kind: ClusterSecretStore, name: store }
+          secretkey: PASSWORD
+          remote: { key: app/password }
+      hooks:
+        post-delete:
+          cleanup:
+            image: busybox:1.36
+            externalSecrets:
+              - name: app-env
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].envFrom[0].secretRef.name
+          value: RELEASE-NAME-global-chart-app-env-hook
+        documentSelector:
+          path: kind
+          value: Job
+
+  - it: should fail when a mounted externalSecrets entry lands on the name of a volume the job declares
+    set:
+      externalSecrets:
+        app-conf:
+          secretstore: { kind: ClusterSecretStore, name: store }
+          secretkey: app.conf
+          remote: { key: app/conf }
+      hooks:
+        pre-install:
+          migrate:
+            image: busybox:1.36
+            volumes:
+              - name: es-app-conf
+                emptyDir: {}
+            externalSecrets:
+              - name: app-conf
+                mountPath: /etc/app
+    asserts:
+      - failedTemplate:
+          errorPattern: "hooks.pre-install.migrate.externalSecrets: the volume 'es-app-conf' generated for 'app-conf' is already declared"
+
+  - it: should fail when the same key is mounted twice
+    set:
+      externalSecrets:
+        app-conf:
+          secretstore: { kind: ClusterSecretStore, name: store }
+          secretkey: app.conf
+          remote: { key: app/conf }
+      hooks:
+        pre-install:
+          migrate:
+            image: busybox:1.36
+            externalSecrets:
+              - name: app-conf
+                mountPath: /etc/a
+              - name: app-conf
+                mountPath: /etc/b
+    asserts:
+      - failedTemplate:
+          errorPattern: "hooks.pre-install.migrate.externalSecrets: the volume 'es-app-conf' generated for 'app-conf' is already declared"
+
+  - it: should fail when a mounted key is not a DNS-1123 label
+    set:
+      externalSecrets:
+        app.conf:
+          secretstore: { kind: ClusterSecretStore, name: store }
+          secretkey: app.conf
+          remote: { key: app/conf }
+      hooks:
+        pre-install:
+          migrate:
+            image: busybox:1.36
+            externalSecrets:
+              - name: app.conf
+                mountPath: /etc/app
+    asserts:
+      - failedTemplate:
+          errorPattern: "externalSecrets key 'app.conf' cannot be mounted"
+
+  # ====== activeDeadlineSeconds on hook Jobs ======
+  # The one bound on a hook pod that waits for a Secret: it never reaches
+  # Failed, so backoffLimit never counts it (ADR 0007).
+  - it: should render activeDeadlineSeconds on a root-level hook Job
+    set:
+      hooks:
+        pre-install:
+          migrate:
+            image: busybox:1.36
+            activeDeadlineSeconds: 300
+    asserts:
+      - equal:
+          path: spec.activeDeadlineSeconds
+          value: 300
+        documentSelector:
+          path: kind
+          value: Job
+
+  - it: should render activeDeadlineSeconds on a deployment-level hook Job, and omit it when unset
+    set:
+      deployments:
+        app:
+          image: nginx:1.25
+          hooks:
+            pre-install:
+              bounded:
+                activeDeadlineSeconds: 120
+              unbounded:
+                command: ["true"]
+    asserts:
+      - equal:
+          path: spec.activeDeadlineSeconds
+          value: 120
+        documentSelector:
+          path: metadata.name
+          value: RELEASE-NAME-global-chart-app-pre-install-bounded
+      - notExists:
+          path: spec.activeDeadlineSeconds
+        documentSelector:
+          path: metadata.name
+          value: RELEASE-NAME-global-chart-app-pre-install-unbounded

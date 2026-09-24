@@ -51,6 +51,9 @@ metadata:
     {{- end }}
     {{- include "global-chart.hookAnnotations" (dict "hookType" $hookType "role" "job" "command" $command) | nindent 4 }}
 spec:
+  {{- if hasKey $command "activeDeadlineSeconds" }}
+  activeDeadlineSeconds: {{ $command.activeDeadlineSeconds }}
+  {{- end }}
   template:
     metadata:
       name: {{ $hookFullname }}
@@ -243,6 +246,9 @@ metadata:
     {{- end }}
     {{- include "global-chart.hookAnnotations" (dict "hookType" $hookType "role" "job" "command" $command) | nindent 4 }}
 spec:
+  {{- if hasKey $command "activeDeadlineSeconds" }}
+  activeDeadlineSeconds: {{ $command.activeDeadlineSeconds }}
+  {{- end }}
   template:
     metadata:
       name: {{ $hookFullname }}

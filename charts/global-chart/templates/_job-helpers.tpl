@@ -23,9 +23,10 @@ Accepts a dict with:
                    use deploy name); read only when the deployment has a
                    ConfigMap, so root-level callers omit it
   secretRef      - same, for the deployment's Secret; root-level callers omit it
-  hookType       - the hook's phase; hooks only. A pre-* hook reads the
-                   hook-prerequisite copy of every externalSecrets entry, any
-                   other job the real Secret (ADR 0007)
+  hookType       - the hook's phase; hooks only. A hook whose phase
+                   hookReadsExternalSecretCopy names (pre-*, post-delete) reads
+                   the hook-prerequisite copy of every externalSecrets entry,
+                   any other job the real Secret (ADR 0007)
   deployName     - the deployment key, for the fail message of an inherited
                    externalSecrets entry; root-level callers omit it
   errCtx         - values path of the job, for the fail message of its own
@@ -119,17 +120,14 @@ containers:
          envFrom source. Each group keeps its level: proximity, see CONTEXT.md */ -}}
   {{- $esRefs := include "global-chart.jobExternalSecretRefs" (dict "job" $job "deploy" $deploy) | fromJson -}}
   {{- $esReadsCopy := and (eq .kind "hook") (eq (include "global-chart.hookReadsExternalSecretCopy" .hookType) "true") -}}
-  {{- $esInherited := include "global-chart.resolveExternalSecretRefs" (dict "root" $root "refs" $esRefs.inherited "hook" $esReadsCopy "errCtx" (printf "deployments.%s" (toString .deployName))) | fromJsonArray -}}
-  {{- $esOwn := include "global-chart.resolveExternalSecretRefs" (dict "root" $root "refs" $esRefs.own "hook" $esReadsCopy "errCtx" .errCtx) | fromJsonArray -}}
-  {{- $esEnvInherited := list -}}
-  {{- $esEnvOwn := list -}}
-  {{- $esMounted := list -}}
-  {{- range $esInherited -}}
-    {{- if .mountPath -}}{{- $esMounted = append $esMounted . -}}{{- else -}}{{- $esEnvInherited = append $esEnvInherited . -}}{{- end -}}
-  {{- end -}}
-  {{- range $esOwn -}}
-    {{- if .mountPath -}}{{- $esMounted = append $esMounted . -}}{{- else -}}{{- $esEnvOwn = append $esEnvOwn . -}}{{- end -}}
-  {{- end -}}
+  {{- /* Only one of the two lists is ever non-empty (a job's own replaces the
+         inherited one), so checking each against the job's volumes alone is
+         enough to catch every volume-name collision */ -}}
+  {{- $esInherited := include "global-chart.resolveExternalSecretRefs" (dict "root" $root "refs" $esRefs.inherited "hook" $esReadsCopy "volumes" $job.volumes "errCtx" (printf "deployments.%s" (toString .deployName))) | fromJson -}}
+  {{- $esOwn := include "global-chart.resolveExternalSecretRefs" (dict "root" $root "refs" $esRefs.own "hook" $esReadsCopy "volumes" $job.volumes "errCtx" .errCtx) | fromJson -}}
+  {{- $esEnvInherited := $esInherited.env -}}
+  {{- $esEnvOwn := $esOwn.env -}}
+  {{- $esMounted := concat $esInherited.mounted $esOwn.mounted -}}
   {{- $hasEnvFrom := or $hasDeployConfigMap $hasDeploySecret $job.envFromConfigMaps $job.envFromSecrets $deploy.envFromConfigMaps $deploy.envFromSecrets $esEnvInherited $esEnvOwn -}}
   {{- if $hasEnvFrom }}
   envFrom:
@@ -156,7 +154,7 @@ containers:
     {{- /* Deployment's externalSecrets, inherited */ -}}
     {{- range $esEnvInherited }}
     - secretRef:
-        name: {{ .secretName | quote }}
+        name: {{ . | quote }}
     {{- end }}
     {{- /* Job's explicit external ConfigMaps */ -}}
     {{- range $cm := $job.envFromConfigMaps }}
@@ -171,7 +169,7 @@ containers:
     {{- /* Job's own externalSecrets */ -}}
     {{- range $esEnvOwn }}
     - secretRef:
-        name: {{ .secretName | quote }}
+        name: {{ . | quote }}
     {{- end }}
   {{- end }}
   {{- /* Env: deployment's additionalEnvs + job's env */ -}}
@@ -194,10 +192,8 @@ containers:
     {{- with $job.volumeMounts }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
-    {{- range $esMounted }}
-    - name: {{ .volumeName }}
-      mountPath: {{ .mountPath | quote }}
-      readOnly: true
+    {{- with $esMounted }}
+    {{- include "global-chart.renderExternalSecretVolumeMounts" . | nindent 4 }}
     {{- end }}
   {{- end }}
 {{- if or $job.volumes $esMounted }}
@@ -205,10 +201,8 @@ volumes:
   {{- range $job.volumes }}
   {{- include "global-chart.renderVolume" . | nindent 2 }}
   {{- end }}
-  {{- range $esMounted }}
-  - name: {{ .volumeName }}
-    secret:
-      secretName: {{ .secretName | quote }}
+  {{- with $esMounted }}
+  {{- include "global-chart.renderExternalSecretVolumes" . | nindent 2 }}
   {{- end }}
 {{- end }}
 {{- with $saName }}

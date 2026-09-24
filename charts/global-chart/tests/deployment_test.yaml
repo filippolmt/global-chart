@@ -769,6 +769,26 @@ tests:
               secret:
                 secretName: RELEASE-NAME-global-chart-app-conf
 
+  - it: should fail when a mounted externalSecrets entry lands on the name of a deployment volume
+    set:
+      externalSecrets:
+        app-conf:
+          secretstore: { kind: ClusterSecretStore, name: store }
+          secretkey: app.conf
+          remote: { key: app/conf }
+      deployments:
+        main:
+          image: nginx:1.25
+          volumes:
+            - name: es-app-conf
+              emptyDir: {}
+          externalSecrets:
+            - name: app-conf
+              mountPath: /etc/app
+    asserts:
+      - failedTemplate:
+          errorPattern: "deployments.main.externalSecrets: the volume 'es-app-conf' generated for 'app-conf' is already declared"
+
   - it: should fail when the deployment names an unknown ExternalSecret key
     set:
       deployments:

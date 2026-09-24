@@ -364,13 +364,13 @@ Params:
   creationPolicy    - optional; overrides target.creationPolicy (the copy's Owner)
 */}}
 {{- define "global-chart.renderExternalSecretSpec" -}}
-{{- $name := .key -}}
+{{- $key := .key -}}
 {{- $secret := .secret -}}
 {{- $target := default (dict) $secret.target -}}
 {{- $hasData := hasKey $secret "data" -}}
 {{- $hasDataFrom := hasKey $secret "dataFrom" -}}
 {{- if and (or $hasData $hasDataFrom) (or (hasKey $secret "remote") (hasKey $secret "secretkey")) -}}
-{{- fail (printf "externalSecrets.%s: single-key form ('remote'/'secretkey') cannot be combined with 'data' or 'dataFrom'" $name) -}}
+{{- fail (printf "externalSecrets.%s: single-key form ('remote'/'secretkey') cannot be combined with 'data' or 'dataFrom'" $key) -}}
 {{- end -}}
 {{/* A dataFrom whose every entry carries its own sourceRef (generatorRef or
      per-item storeRef) needs no spec-level store: the CRD makes secretStoreRef
@@ -388,16 +388,16 @@ Params:
 {{- end -}}
 {{- $secretStore := $secret.secretstore -}}
 {{- if not $selfContainedDataFrom -}}
-{{- $secretStore = required (printf "externalSecrets.%s.secretstore is mandatory unless every dataFrom entry carries its own sourceRef (generatorRef or storeRef)" $name) $secret.secretstore -}}
+{{- $secretStore = required (printf "externalSecrets.%s.secretstore is mandatory unless every dataFrom entry carries its own sourceRef (generatorRef or storeRef)" $key) $secret.secretstore -}}
 {{- end -}}
 {{- if or $hasData $hasDataFrom }}
 {{- if $hasData }}
 data:
   {{- range $item := $secret.data }}
-  {{- $itemRemote := required (printf "externalSecrets.%s.data[].remote is mandatory" $name) $item.remote }}
+  {{- $itemRemote := required (printf "externalSecrets.%s.data[].remote is mandatory" $key) $item.remote }}
   - remoteRef:
-      {{- include "global-chart.renderExternalSecretRemoteRef" (dict "remote" $itemRemote "keyError" (printf "externalSecrets.%s.data[].remote.key is mandatory" $name)) | nindent 6 }}
-    secretKey: {{ required (printf "externalSecrets.%s.data[].secretkey is mandatory" $name) $item.secretkey | quote }}
+      {{- include "global-chart.renderExternalSecretRemoteRef" (dict "remote" $itemRemote "keyError" (printf "externalSecrets.%s.data[].remote.key is mandatory" $key)) | nindent 6 }}
+    secretKey: {{ required (printf "externalSecrets.%s.data[].secretkey is mandatory" $key) $item.secretkey | quote }}
   {{- end }}
 {{- end }}
 {{- if $hasDataFrom }}
@@ -405,10 +405,10 @@ dataFrom:
   {{- toYaml $secret.dataFrom | nindent 2 }}
 {{- end }}
 {{- else }}
-{{- $remote := required (printf "externalSecrets.%s.remote is mandatory" $name) $secret.remote }}
+{{- $remote := required (printf "externalSecrets.%s.remote is mandatory" $key) $secret.remote }}
 data:
   - remoteRef:
-      {{- include "global-chart.renderExternalSecretRemoteRef" (dict "remote" $remote "keyError" (printf "externalSecrets.%s.remote.key is mandatory" $name)) | nindent 6 }}
+      {{- include "global-chart.renderExternalSecretRemoteRef" (dict "remote" $remote "keyError" (printf "externalSecrets.%s.remote.key is mandatory" $key)) | nindent 6 }}
     secretKey: {{ required "secretkey is mandatory" $secret.secretkey | quote }}
 {{- end }}
 refreshInterval: {{ ternary $secret.refreshInterval "1h" (hasKey $secret "refreshInterval") | quote }}
@@ -419,11 +419,11 @@ refreshInterval: {{ ternary $secret.refreshInterval "1h" (hasKey $secret "refres
        is the one case that renders neither: nothing to emit, nothing needed. */}}
 {{- if or (not $selfContainedDataFrom) $secretStore }}
 secretStoreRef:
-  kind: {{ required (printf "externalSecrets.%s.secretstore.kind is mandatory" $name) $secretStore.kind | quote }}
-  name: {{ required (printf "externalSecrets.%s.secretstore.name is mandatory" $name) $secretStore.name | quote }}
+  kind: {{ required (printf "externalSecrets.%s.secretstore.kind is mandatory" $key) $secretStore.kind | quote }}
+  name: {{ required (printf "externalSecrets.%s.secretstore.name is mandatory" $key) $secretStore.name | quote }}
 {{- end }}
 target:
-  creationPolicy: {{ default (ternary $target.creationPolicy "Owner" (hasKey $target "creationPolicy")) .creationPolicy | quote }}
+  creationPolicy: {{ default (include "global-chart.externalSecretCreationPolicy" $secret) .creationPolicy | quote }}
   deletionPolicy: {{ ternary $target.deletionPolicy "Retain" (hasKey $target "deletionPolicy") | quote }}
   name: {{ default (include "global-chart.externalSecretTargetName" .) .targetName | quote }}
   {{- if hasKey $target "immutable" }}
@@ -437,32 +437,84 @@ target:
 
 {{/*
 Resolve a list of externalSecrets references ({name, mountPath?}) to what a pod
-consumes: the Secret name and, for a mounted entry, the volume name and mount
-path. Returns a JSON list; callers do `include ... | fromJsonArray`.
+consumes, split by form: `env` holds the Secret names to inject as envFrom
+sources, `mounted` the {secretName, volumeName, mountPath} of the entries that
+carry a mountPath. Returns JSON {env: [...], mounted: [...]}; callers do
+`include ... | fromJson` and render `mounted` through
+renderExternalSecretVolumeMounts / renderExternalSecretVolumes.
 A reference names a key of the root externalSecrets map, never a Secret name:
-the generated names are not a public interface (ADR 0007). A key that names
-nothing is a template fail.
+the generated names are not a public interface (ADR 0007). Fails at render
+time, rather than at apply time far from the cause, on a key that names
+nothing, on a mounted key that is not a DNS-1123 label, and on a generated
+volume name the pod already declares — a user volume or the same key mounted
+twice.
 Params:
-  root   - chart context
-  refs   - the list of references
-  hook   - true to read the hook-prerequisite copy's Secret instead of the real one
-  errCtx - values path of the list's owner, for the fail message
+  root    - chart context
+  refs    - the list of references
+  hook    - true to read the hook-prerequisite copy's Secret instead of the real one
+  volumes - the volumes the pod declares itself, for the collision check
+  errCtx  - values path of the list's owner, for the fail message
 */}}
 {{- define "global-chart.resolveExternalSecretRefs" -}}
 {{- $root := .root -}}
-{{- $out := list -}}
+{{- $readsCopy := and (hasKey . "hook") .hook -}}
+{{- $taken := dict -}}
+{{- range (default (list) .volumes) -}}{{- $_ := set $taken (toString .name) true -}}{{- end -}}
+{{- $out := dict "env" (list) "mounted" (list) -}}
 {{- range $ref := (default (list) .refs) -}}
   {{- $secret := index (default (dict) $root.Values.externalSecrets) $ref.name -}}
   {{- if not $secret -}}
     {{- fail (printf "%s.externalSecrets references '%s', which is not a key of externalSecrets. Name the key of the externalSecrets entry, not the Secret it produces." $.errCtx $ref.name) -}}
   {{- end -}}
   {{- $nameCtx := dict "root" $root "key" $ref.name "secret" $secret -}}
-  {{- $entry := dict "secretName" (include (ternary "global-chart.externalSecretHookTargetName" "global-chart.externalSecretTargetName" (and (hasKey $ "hook") $.hook)) $nameCtx) -}}
-  {{- with $ref.mountPath -}}
-    {{- $_ := set $entry "mountPath" . -}}
-    {{- $_ := set $entry "volumeName" (include "global-chart.externalSecretVolumeName" (dict "key" $ref.name)) -}}
+  {{- $secretName := include (ternary "global-chart.externalSecretHookTargetName" "global-chart.externalSecretTargetName" $readsCopy) $nameCtx -}}
+  {{- if $ref.mountPath -}}
+    {{- $volumeName := include "global-chart.externalSecretVolumeName" (dict "key" $ref.name) -}}
+    {{- if or (gt (len $volumeName) 63) (not (regexMatch "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$" $volumeName)) -}}
+      {{- fail (printf "externalSecrets key '%s' cannot be mounted: its volume name '%s' is not a DNS-1123 label of at most 63 characters. Rename the key, or inject it without a mountPath." $ref.name $volumeName) -}}
+    {{- end -}}
+    {{- if hasKey $taken $volumeName -}}
+      {{- fail (printf "%s.externalSecrets: the volume '%s' generated for '%s' is already declared in this pod. Mount a key once, and do not name your own volumes after it." $.errCtx $volumeName $ref.name) -}}
+    {{- end -}}
+    {{- $_ := set $taken $volumeName true -}}
+    {{- $_ := set $out "mounted" (append $out.mounted (dict "secretName" $secretName "volumeName" $volumeName "mountPath" $ref.mountPath)) -}}
+  {{- else -}}
+    {{- $_ := set $out "env" (append $out.env $secretName) -}}
   {{- end -}}
-  {{- $out = append $out $entry -}}
 {{- end -}}
 {{- toJson $out -}}
+{{- end -}}
+
+{{/*
+The volumeMounts and the volumes of the mounted externalSecrets entries, one
+per entry of a resolveExternalSecretRefs `mounted` list, as list items at
+indent 0. Shared by deployment.yaml and jobPodSpec, so the two render the same
+read-only mount of the same Secret.
+Usage: {{- include "global-chart.renderExternalSecretVolumeMounts" $mounted | nindent 4 }}
+*/}}
+{{- define "global-chart.renderExternalSecretVolumeMounts" -}}
+{{- $out := list -}}
+{{- range . -}}
+{{- $out = append $out (dict "name" .volumeName "mountPath" .mountPath "readOnly" true) -}}
+{{- end -}}
+{{- toYaml $out -}}
+{{- end -}}
+
+{{- define "global-chart.renderExternalSecretVolumes" -}}
+{{- $out := list -}}
+{{- range . -}}
+{{- $out = append $out (dict "name" .volumeName "secret" (dict "secretName" .secretName)) -}}
+{{- end -}}
+{{- toYaml $out -}}
+{{- end -}}
+
+{{/*
+The effective creationPolicy of an externalSecrets entry: its own, or Owner.
+The ONE place the default is spelled out — renderExternalSecretSpec renders it
+and validateNameCollisions decides from it whether the entry owns its target.
+Usage: {{ include "global-chart.externalSecretCreationPolicy" $secret }}
+*/}}
+{{- define "global-chart.externalSecretCreationPolicy" -}}
+{{- $target := default (dict) .target -}}
+{{- ternary $target.creationPolicy "Owner" (hasKey $target "creationPolicy") -}}
 {{- end -}}

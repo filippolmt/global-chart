@@ -44,7 +44,8 @@ so the user never writes a generated name.
   `validateNameCollisions` must cover the new name.
 - **The content of the copy.** The `spec` of the copy is the `spec` of the real
   ExternalSecret, with exactly two changes: `target.name` is the name of the copy, and
-  `target.creationPolicy` is forced to `Owner`. `deletionPolicy` is left at its default.
+  `target.creationPolicy` is forced to `Owner`. `deletionPolicy` is not overridden: the
+  copy carries the original's (or the chart's `Retain` when the original sets none).
   The `spec` body moves into one helper that both `externalsecret.yaml` and the copy
   call, for the reason in ADR 0005: a copy that re-derives the body inline diverges in
   silence.
@@ -54,9 +55,14 @@ so the user never writes a generated name.
   that references the key, with `helm.sh/hook` aggregated across those hooks and the
   weight derived from the minimum of their Job weights.
 - **Phases.** The copy is emitted for every `pre-*` phase of a hook that references it,
-  not only for `pre-install`. Its own name means it never touches the real Secret, so
-  it is safe on every phase. The chart cannot know at render time whether an upgrade
-  adds the ExternalSecret (ADR 0002 rejects `lookup`).
+  not only for `pre-install`, and for `post-delete`. Its own name means it never touches
+  the real Secret, so it is safe on every phase. The chart cannot know at render time
+  whether an upgrade adds the ExternalSecret (ADR 0002 rejects `lookup`). A
+  `post-delete` hook runs after Helm has deleted the real ExternalSecret, and the
+  garbage collector its Secret with it, so it has the same problem from the other end.
+  Every other phase finds the real Secret in place, and its hooks read it: a hook reads
+  the copy exactly when a copy is emitted for its phase. One predicate,
+  `hookReadsExternalSecretCopy`, makes that cut for both sides.
 - **`envFromSecrets` with a literal name stays valid.** It gets no copy and does not
   protect the first install. The README documents it as the path that does not.
 
@@ -94,7 +100,8 @@ so the user never writes a generated name.
   the hook stays in `CreateContainerConfigError` (`envFrom`) or `ContainerCreating`
   (volume) and the kubelet retries. The pod never reaches `Failed`, so `backoffLimit`
   does not bound the wait. `--timeout` (default 5m) and the Job's
-  `activeDeadlineSeconds` do. The README documents it.
+  `activeDeadlineSeconds` do; hooks accept `activeDeadlineSeconds` for this reason. The
+  README documents it.
 - **Under Argo CD, a broken store fails the sync fast.** Argo CD checks the health of
   hook resources that are not Jobs before the next wave, and its built-in
   `ExternalSecret` check maps `Ready=False` to Degraded. A transient provider error
