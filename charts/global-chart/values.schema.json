@@ -195,7 +195,10 @@
           }
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "if": { "required": ["extraPorts"], "properties": { "extraPorts": { "minItems": 1 } } },
+      "then": { "properties": { "portName": { "minLength": 1 } } },
+      "description": "An empty portName is accepted only while the Service has one port: with extraPorts it is multi-port, and the API server requires every port of a multi-port Service to be named."
     },
     "autoscaling": {
       "type": "object",

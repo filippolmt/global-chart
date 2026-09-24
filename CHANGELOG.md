@@ -28,6 +28,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   `$defs/ianaSvcName`: at most 15 characters, lowercase alphanumerics and `-`, at
   least one letter, no leading, trailing or doubled `-`. An empty `portName` or
   `targetPort` stays accepted: the API server takes it on a single-port Service.
+  With `extraPorts` the Service is multi-port, and an empty `portName` is
+  rejected: every port of a multi-port Service must be named.
 
 ---
 
