@@ -150,7 +150,7 @@
       "type": "object",
       "properties": {
         "enabled": { "type": "boolean" },
-        "portName": { "$ref": "#/$defs/ianaSvcName" },
+        "portName": { "anyOf": [{ "const": "" }, { "$ref": "#/$defs/ianaSvcName" }] },
         "type": {
           "type": "string",
           "enum": ["ClusterIP", "NodePort", "LoadBalancer", "ExternalName"]
@@ -158,7 +158,7 @@
         "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
         "targetPort": {
           "oneOf": [
-            { "$ref": "#/$defs/ianaSvcName" },
+            { "anyOf": [{ "const": "" }, { "$ref": "#/$defs/ianaSvcName" }] },
             { "type": "integer", "minimum": 1, "maximum": 65535 }
           ]
         },
@@ -179,7 +179,7 @@
               "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
               "targetPort": {
                 "oneOf": [
-                  { "$ref": "#/$defs/ianaSvcName" },
+                  { "anyOf": [{ "const": "" }, { "$ref": "#/$defs/ianaSvcName" }] },
                   { "type": "integer", "minimum": 1, "maximum": 65535 }
                 ]
               },
@@ -380,7 +380,7 @@
       "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
     },
     "ianaSvcName": {
-      "description": "An IANA_SVC_NAME, as Kubernetes validates a Service port name, a container port name and a named targetPort: at most 15 characters, lowercase alphanumerics and '-', no leading, trailing or doubled '-', and at least one letter. Two patterns under allOf because Go regexp has no lookahead: the first fixes the shape, the second the letter.",
+      "description": "An IANA_SVC_NAME, as Kubernetes validates a Service port name, a container port name and a named targetPort: at most 15 characters, lowercase alphanumerics and '-', no leading, trailing or doubled '-', and at least one letter. Two patterns under allOf because Go regexp has no lookahead: the first fixes the shape, the second the letter. portName and targetPort also accept \"\": the API server takes it on a single-port Service (targetPort defaults to port), so it is not rejected here; extraPorts[].name never does, since extra ports make the Service multi-port.",
       "type": "string",
       "maxLength": 15,
       "allOf": [

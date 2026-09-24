@@ -26,10 +26,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   `IANA_SVC_NAME`. `http-management-api` rendered, passed `helm lint`, and was
   rejected by the API server. They are now held to that rule by a shared
   `$defs/ianaSvcName`: at most 15 characters, lowercase alphanumerics and `-`, at
-  least one letter, no leading, trailing or doubled `-`. One edge the API server
-  tolerated is now rejected too: an empty `portName` or `targetPort`, which it
-  reads as "no name" on a single-port Service. It is not a name, and omitting
-  the key already gives the `http` default.
+  least one letter, no leading, trailing or doubled `-`. An empty `portName` or
+  `targetPort` stays accepted: the API server takes it on a single-port Service.
 
 ---
 
