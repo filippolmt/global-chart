@@ -152,6 +152,15 @@ Returns the string "true" or "false".
 {{- end }}
 
 {{/*
+Default ServiceAccount name of an rbacs.roles entry, <role>-sa, used whether the
+SA is created or bound. The single home of that name and its truncation.
+Usage: {{ include "global-chart.rbacDefaultServiceAccountName" $role.name }}
+*/}}
+{{- define "global-chart.rbacDefaultServiceAccountName" -}}
+{{- include "global-chart.truncName" (list (printf "%s-sa" .) 63) -}}
+{{- end }}
+
+{{/*
 RoleBinding name of an rbacs.roles entry: a trailing -role is dropped, so
 `foo` and `foo-role` land on the same name — validateNameCollisions catches it.
 Usage: {{ include "global-chart.rbacRoleBindingName" $role.name }}

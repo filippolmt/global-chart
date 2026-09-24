@@ -6,7 +6,8 @@ Root-level jobs pass no `deploy`. That scope simply *is* the "nothing to inherit
 from" case: with `deploy` empty every inheritance test fails and each field
 resolves to the job's own value — and, for `imagePullSecrets` only, to
 `global.imagePullSecrets` after that. No field gains a global fallback it did
-not already have. Same widening as `jobServiceAccount` (see ADR 0001).
+not already have. Same widening as `jobServiceAccount`, in
+_serviceaccount-helpers.tpl (see ADR 0001).
 
 Accepts a dict with:
   root           - top-level chart context (for global values, defaults)

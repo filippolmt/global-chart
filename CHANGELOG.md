@@ -7,6 +7,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
+### Changed
+
+- **ServiceAccount resolution has one home** (issue #126), the new
+  `_serviceaccount-helpers.tpl`. The `create` and `automount` defaults were
+  re-derived in `serviceaccount.yaml`, `rbac.yaml`, `hook.yaml` and two helpers;
+  every template now reads the resolved ServiceAccount instead. No rendered
+  output changes.
+
 ### Fixed
 
 - **A fullname that can never be applied is now rejected** (issue #120). A
@@ -72,14 +80,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   render** (issue #117). The second TriggerAuthentication overwrote the first
   at apply, and a ScaledObject meant for the first read the second's
   credentials.
-
-### Changed
-
-- **ServiceAccount resolution has one home** (issue #126), the new
-  `_serviceaccount-helpers.tpl`. The `create` and `automount` defaults were
-  re-derived in `serviceaccount.yaml`, `rbac.yaml`, `hook.yaml` and two helpers;
-  every template now reads the resolved ServiceAccount instead. No rendered
-  output changes.
 
 ---
 
