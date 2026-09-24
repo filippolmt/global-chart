@@ -1,0 +1,8 @@
+# The key becomes the container name raw: a DNS-1123 label, so no `.`.
+deployments:
+  app:
+    image: nginx:1.25
+    cronJobs:
+      report.nightly:
+        schedule: "0 3 * * *"
+        command: ["sh", "-c", "true"]

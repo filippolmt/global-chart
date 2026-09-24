@@ -1,0 +1,7 @@
+# A `deployments` key lands raw in the `app.kubernetes.io/component` label value
+# (63 chars) and, once the deployment has hooks, as `<key>-hook`. The schema caps
+# it at 58 even without hooks, so adding a hook later cannot invalidate a key
+# that was valid. 59 chars here: it used to pass `helm install`.
+deployments:
+  aaaaaaaaaabbbbbbbbbbccccccccccddddddddddeeeeeeeeeefffffffff:
+    image: nginx:1.25

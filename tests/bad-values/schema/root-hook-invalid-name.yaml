@@ -1,0 +1,7 @@
+# A hook key is part of the Job name: a DNS-1123 label, the same rule as at
+# deployment scope even though the root scope truncates.
+hooks:
+  pre-install:
+    Migrate:
+      image: busybox:1.36
+      command: ["sh", "-c", "true"]

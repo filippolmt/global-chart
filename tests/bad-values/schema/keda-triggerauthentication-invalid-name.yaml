@@ -1,0 +1,7 @@
+# The key becomes the TriggerAuthentication name: a DNS-1123 subdomain.
+kedaTriggerAuthentications:
+  Redis_Auth:
+    secretTargetRef:
+      - parameter: password
+        name: redis
+        key: password
