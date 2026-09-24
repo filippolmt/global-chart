@@ -68,20 +68,8 @@ spec:
         {{- . | nindent 8 }}
     {{- end }}
     spec:
-      {{- if hasKey $job "backoffLimit" }}
-      backoffLimit: {{ $job.backoffLimit }}
-      {{- end }}
-      {{- if hasKey $job "ttlSecondsAfterFinished" }}
-      ttlSecondsAfterFinished: {{ $job.ttlSecondsAfterFinished }}
-      {{- end }}
-      {{- if hasKey $job "activeDeadlineSeconds" }}
-      activeDeadlineSeconds: {{ $job.activeDeadlineSeconds }}
-      {{- end }}
-      {{- if hasKey $job "parallelism" }}
-      parallelism: {{ $job.parallelism }}
-      {{- end }}
-      {{- if hasKey $job "completions" }}
-      completions: {{ $job.completions }}
+      {{- with (include "global-chart.jobSpecVerbatimFields" (dict "job" $job "kind" "cronjob")) }}
+      {{- . | nindent 6 }}
       {{- end }}
       template:
         {{- with (include "global-chart.renderAnnotations" (dict "root" $root)) }}
@@ -167,20 +155,8 @@ spec:
         {{- . | nindent 8 }}
     {{- end }}
     spec:
-      {{- if hasKey $job "backoffLimit" }}
-      backoffLimit: {{ $job.backoffLimit }}
-      {{- end }}
-      {{- if hasKey $job "ttlSecondsAfterFinished" }}
-      ttlSecondsAfterFinished: {{ $job.ttlSecondsAfterFinished }}
-      {{- end }}
-      {{- if hasKey $job "activeDeadlineSeconds" }}
-      activeDeadlineSeconds: {{ $job.activeDeadlineSeconds }}
-      {{- end }}
-      {{- if hasKey $job "parallelism" }}
-      parallelism: {{ $job.parallelism }}
-      {{- end }}
-      {{- if hasKey $job "completions" }}
-      completions: {{ $job.completions }}
+      {{- with (include "global-chart.jobSpecVerbatimFields" (dict "job" $job "kind" "cronjob")) }}
+      {{- . | nindent 6 }}
       {{- end }}
       template:
         {{- with (include "global-chart.renderAnnotations" (dict "root" $root)) }}

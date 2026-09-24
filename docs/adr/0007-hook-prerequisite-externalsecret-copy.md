@@ -91,7 +91,10 @@ so the user never writes a generated name.
 - **Per-resource `annotations` on `externalSecrets.<name>` and on the Deployment**, so
   that Argo CD users order the sync with `argocd.argoproj.io/sync-wave` — not rejected,
   but out of scope. It fixes nothing under Helm, and it only helps users who wire the
-  waves themselves. It is a separate issue.
+  waves themselves. It is a separate issue. (Since built, issue #112: both take
+  `annotations`, and the hook copy deliberately does **not** inherit the
+  ExternalSecret's own — it is a hook resource, ordered by phase and weight, and a
+  sync-wave copied onto it would contradict them.)
 
 ## Consequences
 

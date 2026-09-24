@@ -1,0 +1,10 @@
+# A hook does not admit ttlSecondsAfterFinished (issue #113); jobSpecVerbatimFields in
+# _job-helpers.tpl records why. Deployment scope; the root scope has its own.
+deployments:
+  app:
+    image: nginx:1.25
+    hooks:
+      pre-install:
+        migrate:
+          command: ["true"]
+          ttlSecondsAfterFinished: 600

@@ -7,6 +7,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
+### Added
+
+- **Per-resource annotations on Deployments and ExternalSecrets** (issue #112).
+  `deployments.<name>.annotations` sets the Deployment's own `metadata`
+  annotations — distinct from `podAnnotations`, and not propagated to the
+  Service, ServiceAccount, HPA or any other resource of the deployment.
+  `externalSecrets.<name>.annotations` does the same for the ExternalSecret.
+  Both merge over `global.commonAnnotations`, the resource's own winning on a
+  shared key, so an Argo CD user can order the sync with
+  `argocd.argoproj.io/sync-wave`. The hook-prerequisite copy of an
+  ExternalSecret does **not** take them: it is a hook resource, ordered by hook
+  phase and weight, and a sync-wave copied onto it would contradict that.
+- **`backoffLimit` on hook Jobs, both scopes** (issue #113). A failing migration
+  hook was retried six times, the Kubernetes default, before Helm saw the
+  failure. No fallback from the deployment or `global`. `ttlSecondsAfterFinished`
+  is deliberately not offered: a completed hook Job is kept as the record of
+  what ran, a TTL deletion races `before-hook-creation`, and `deletePolicy:
+  hook-succeeded` already covers cleanup. `parallelism` / `completions` are left
+  out too: a hook is one run. The Job spec fields of hooks and cronjobs now
+  render from one table (`jobSpecVerbatimFields`), so the two scopes of a kind cannot
+  drift apart again.
+
 ### Changed
 
 - **ServiceAccount resolution has one home** (issue #126), the new
@@ -17,6 +39,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Fixed
 
+- **Large Job spec integers render in plain digits** — `activeDeadlineSeconds`,
+  `ttlSecondsAfterFinished`, `backoffLimit`, `parallelism` and `completions`,
+  on hooks and cronjobs. Helm reads a number from a values file as a float64,
+  and `activeDeadlineSeconds: 10000000` rendered as `1e+07`, which the API
+  server rejects for an integer field.
 - **A fullname that can never be applied is now rejected** (issue #120). A
   dotted release name such as `my.app`, or a `fullnameOverride` like `My_App`,
   rendered container and Service names the API server rejects.
