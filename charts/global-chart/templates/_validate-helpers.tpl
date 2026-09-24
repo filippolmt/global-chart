@@ -199,11 +199,14 @@ Called from validate.yaml.
 {{- range $i, $role := (default (dict) .Values.rbacs).roles -}}
   {{- $owner := printf "rbacs.roles[%d] ('%s')" $i $role.name -}}
   {{- include "global-chart.registerName" (dict "names" $roleNames "kind" "Role" "name" $role.name "owner" $owner) -}}
+  {{- /* SA before RoleBinding: the binding keeps fewer characters of the role
+         name, so two names whose default SA truncates alike always clash on the
+         binding too — checked first, it would blame the wrong kind */ -}}
   {{- $sa := include "global-chart.rbacServiceAccount" $role | fromJson -}}
+  {{- include "global-chart.registerSAName" (dict "names" $saNames "sa" $sa "owner" $owner) -}}
   {{- if $sa.name -}}
     {{- include "global-chart.registerName" (dict "names" $bindingNames "kind" "RoleBinding" "name" (include "global-chart.rbacRoleBindingName" $role.name) "owner" $owner) -}}
   {{- end -}}
-  {{- include "global-chart.registerSAName" (dict "names" $saNames "sa" $sa "owner" $owner) -}}
 {{- end -}}
 
 {{- end }}

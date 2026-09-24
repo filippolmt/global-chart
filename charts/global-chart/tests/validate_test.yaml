@@ -615,7 +615,8 @@ tests:
           errorPattern: "Name collision: Secret 'shared-hook'"
 
   # ====== kedaTriggerAuthentications name collision (issue #117) ======
-  # Same 26-char prefix: two 38-char keys share their first 37 chars
+  # "RELEASE-NAME-global-chart-" is 26 chars, leaving 37 for the key: two
+  # 38-char keys differing only in the last char truncate to one name
   - it: should fail when two TriggerAuthentication keys collide after truncation
     set:
       kedaTriggerAuthentications:
@@ -656,7 +657,7 @@ tests:
           - { name: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa2, serviceAccount: {}, rules: [] }
     asserts:
       - failedTemplate:
-          errorPattern: "Name collision: (RoleBinding|ServiceAccount) 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'"
+          errorPattern: "Name collision: ServiceAccount 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'"
 
   - it: should fail when a role creates the ServiceAccount a deployment creates
     set:

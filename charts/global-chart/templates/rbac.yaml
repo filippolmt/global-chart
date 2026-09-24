@@ -1,13 +1,12 @@
 {{- $root := . }}
 {{- range $role := $root.Values.rbacs.roles }}
 {{- $sa := default (dict) $role.serviceAccount }}
-{{- $saInfo := include "global-chart.rbacServiceAccount" $role | fromJson }}
-{{- $saName := default "" $saInfo.name }}
-{{- if $saInfo.create }}
+{{- $resolved := include "global-chart.rbacServiceAccount" $role | fromJson }}
+{{- if $resolved.create }}
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: {{ $saName }}
+  name: {{ $resolved.name }}
   namespace: {{ $root.Release.Namespace | quote }}
   labels:
     {{- include "global-chart.labels" $root | nindent 4 }}
@@ -36,7 +35,7 @@ rules:
   []
 {{- end }}
 ---
-{{- if $saName }}
+{{- if $resolved.name }}
 {{- $roleBindingName := include "global-chart.rbacRoleBindingName" $role.name }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -55,7 +54,7 @@ roleRef:
   name: {{ $role.name }}
 subjects:
   - kind: ServiceAccount
-    name: {{ $saName }}
+    name: {{ $resolved.name }}
     namespace: {{ $root.Release.Namespace | quote }}
 ---
 {{- end }}

@@ -35,7 +35,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   `rbacs.roles[].serviceAccount`. It must be a DNS-1123 subdomain of at most 253
   characters, or `""`, which keeps meaning "the default name". `Web_SA` rendered,
   passed `helm lint`, and was rejected by the API server; it is now rejected at
-  lint. Only values that could never be applied are affected.
+  lint. A job's `serviceAccountName` is held to the same rule (`null` and `""`
+  still mean unset). Only values that could never be applied are affected.
 - **`rbacs.roles[].serviceAccount: {}` now creates the ServiceAccount**
   (issue #124). `{}` was read as absent, so the entry rendered a Role bound to
   no one, while `{ automount: false }` created `<name>-sa` and its RoleBinding.
