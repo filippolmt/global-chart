@@ -5,7 +5,8 @@ Validation helpers for global-chart.
 {{/*
 Validate that all generated resource names are unique after truncation.
 Checks within each resource kind: Deployments, CronJobs, Jobs (hooks),
-ServiceAccounts, ConfigMaps, Secrets and ExternalSecrets.
+ServiceAccounts, ConfigMaps, Secrets, ExternalSecrets, TriggerAuthentications,
+Roles and RoleBindings.
 A kind's accumulator holds every name of that kind whatever derived it, because
 collisions cross sources: $cmNames carries the deployment's own ConfigMap, its
 mounted config file ConfigMaps and its hook-prerequisite copy alike. A
@@ -177,6 +178,32 @@ Called from validate.yaml.
     {{- $target := include "global-chart.externalSecretTargetName" (dict "root" $root "key" $key "secret" $secret) -}}
     {{- include "global-chart.registerName" (dict "names" (deepCopy $copyTargets) "kind" "Secret" "name" $target "owner" (printf "externalSecrets '%s' (%s)" $key (include "global-chart.externalSecretCreationPolicy" $secret))) -}}
   {{- end -}}
+{{- end -}}
+
+{{- /* 5. TriggerAuthentications (trunc 63): two keys sharing a long prefix
+       truncate to one name, and a ScaledObject meant for the first reads the
+       second's credentials (issue #117) */ -}}
+{{- $taNames := dict -}}
+{{- range $key, $auth := .Values.kedaTriggerAuthentications -}}
+  {{- if $auth -}}
+    {{- include "global-chart.registerName" (dict "names" $taNames "kind" "TriggerAuthentication" "name" (include "global-chart.kedaTriggerAuthName" (dict "root" $root "name" $key)) "owner" (printf "kedaTriggerAuthentications '%s'" $key)) -}}
+  {{- end -}}
+{{- end -}}
+
+{{- /* 6. rbacs.roles (issue #122): the Role name is used verbatim, the RoleBinding
+       drops a trailing -role, and the default <name>-sa is truncated — each can
+       land on another entry's. The SA joins $saNames, against every other
+       chart-created one. */ -}}
+{{- $roleNames := dict -}}
+{{- $bindingNames := dict -}}
+{{- range $i, $role := (default (dict) .Values.rbacs).roles -}}
+  {{- $owner := printf "rbacs.roles[%d] ('%s')" $i $role.name -}}
+  {{- include "global-chart.registerName" (dict "names" $roleNames "kind" "Role" "name" $role.name "owner" $owner) -}}
+  {{- $sa := include "global-chart.rbacServiceAccount" $role | fromJson -}}
+  {{- if $sa.name -}}
+    {{- include "global-chart.registerName" (dict "names" $bindingNames "kind" "RoleBinding" "name" (include "global-chart.rbacRoleBindingName" $role.name) "owner" $owner) -}}
+  {{- end -}}
+  {{- include "global-chart.registerSAName" (dict "names" $saNames "sa" $sa "owner" $owner) -}}
 {{- end -}}
 
 {{- end }}

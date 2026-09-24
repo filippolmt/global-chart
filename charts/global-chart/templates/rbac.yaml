@@ -1,17 +1,9 @@
 {{- $root := . }}
 {{- range $role := $root.Values.rbacs.roles }}
-{{- $sa := $role.serviceAccount }}
-{{- $saName := "" }}
-{{- $saCreate := false }}
-{{- if $sa }}
-{{- $defaultSaName := printf "%s-sa" $role.name | trunc 63 | trimSuffix "-" }}
-{{- $saName = ternary $sa.name $defaultSaName (hasKey $sa "name") }}
-{{- $saCreate = true }}
-{{- if hasKey $sa "create" }}
-  {{- $saCreate = $sa.create }}
-{{- end }}
-{{- end }}
-{{- if and $sa $saCreate }}
+{{- $sa := default (dict) $role.serviceAccount }}
+{{- $saInfo := include "global-chart.rbacServiceAccount" $role | fromJson }}
+{{- $saName := default "" $saInfo.name }}
+{{- if $saInfo.create }}
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -45,7 +37,7 @@ rules:
 {{- end }}
 ---
 {{- if $saName }}
-{{- $roleBindingName := printf "%s-rolebinding" (trimSuffix "-role" $role.name) | trunc 63 | trimSuffix "-" }}
+{{- $roleBindingName := include "global-chart.rbacRoleBindingName" $role.name }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
