@@ -1,8 +1,21 @@
 {{/*
+Truncate a generated name to a limit and drop what the cut leaves dangling.
+Every truncated name goes through here, so the trim rule has one home.
+The trim is a regex over [-._], not `trimSuffix "-"`: a cut can land on a `.`
+(through a dotted release name) or a `_` (the chart label's `+` replacement),
+and `trimSuffix "-" | trimSuffix "."` still turns `a-.` into an invalid `a-`.
+None of the three may end a name, a label or a label value (issue #120).
+Usage: {{ include "global-chart.truncName" (list $name 63) }}
+*/}}
+{{- define "global-chart.truncName" -}}
+{{- regexReplaceAll "[-._]+$" (trunc (index . 1) (index . 0)) "" -}}
+{{- end }}
+
+{{/*
 Expand the name of the chart.
 */}}
 {{- define "global-chart.name" -}}
-{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
+{{- include "global-chart.truncName" (list (default .Chart.Name .Values.nameOverride) 63) }}
 {{- end }}
 
 {{/*
@@ -12,13 +25,13 @@ If release name contains chart name it will be used as a full name.
 */}}
 {{- define "global-chart.fullname" -}}
 {{- if .Values.fullnameOverride }}
-{{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
+{{- include "global-chart.truncName" (list .Values.fullnameOverride 63) }}
 {{- else }}
 {{- $name := default .Chart.Name .Values.nameOverride }}
 {{- if contains $name .Release.Name }}
-{{- .Release.Name | trunc 63 | trimSuffix "-" }}
+{{- include "global-chart.truncName" (list .Release.Name 63) }}
 {{- else }}
-{{- printf "%s-%s" .Release.Name $name | trunc 63 | trimSuffix "-" }}
+{{- include "global-chart.truncName" (list (printf "%s-%s" .Release.Name $name) 63) }}
 {{- end }}
 {{- end }}
 {{- end }}
@@ -27,7 +40,7 @@ If release name contains chart name it will be used as a full name.
 Create chart name and version as used by the chart label.
 */}}
 {{- define "global-chart.chart" -}}
-{{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
+{{- include "global-chart.truncName" (list (printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_") 63) }}
 {{- end }}
 
 {{/*
@@ -82,7 +95,7 @@ Usage: {{ include "global-chart.deploymentFullname" (dict "root" . "deploymentNa
 {{- $root := .root -}}
 {{- $name := .deploymentName -}}
 {{- $baseName := include "global-chart.fullname" $root -}}
-{{- printf "%s-%s" $baseName $name | trunc 63 | trimSuffix "-" -}}
+{{- include "global-chart.truncName" (list (printf "%s-%s" $baseName $name) 63) -}}
 {{- end }}
 
 {{/*
@@ -166,7 +179,7 @@ Usage: {{ include "global-chart.rbacServiceAccount" $role | fromJson }}
 {{- define "global-chart.rbacServiceAccount" -}}
 {{- if hasKey . "serviceAccount" -}}
 {{- $sa := default (dict) .serviceAccount -}}
-{{- $name := default (printf "%s-sa" .name | trunc 63 | trimSuffix "-") $sa.name -}}
+{{- $name := default (include "global-chart.truncName" (list (printf "%s-sa" .name) 63)) $sa.name -}}
 {{- dict "create" (hasKey $sa "create" | ternary $sa.create true) "name" $name | toJson -}}
 {{- else -}}
 {{- dict | toJson -}}
@@ -179,7 +192,7 @@ RoleBinding name of an rbacs.roles entry: a trailing -role is dropped, so
 Usage: {{ include "global-chart.rbacRoleBindingName" $role.name }}
 */}}
 {{- define "global-chart.rbacRoleBindingName" -}}
-{{- printf "%s-rolebinding" (trimSuffix "-role" .) | trunc 63 | trimSuffix "-" -}}
+{{- include "global-chart.truncName" (list (printf "%s-rolebinding" (trimSuffix "-role" .)) 63) -}}
 {{- end }}
 
 {{/*
@@ -213,7 +226,7 @@ Usage: {{ include "global-chart.hookLabelsWithComponent" (dict "root" $root "dep
 
 {{- define "global-chart.hookfullname" -}}
 {{- $fullname := (include "global-chart.fullname" .) }}
-{{- printf "%s-%s-%s" $fullname .hookname .jobname | trunc 63 | trimSuffix "-" -}}
+{{- include "global-chart.truncName" (list (printf "%s-%s-%s" $fullname .hookname .jobname) 63) -}}
 {{- end -}}
 
 {{/*
@@ -230,7 +243,7 @@ Usage: {{ include "global-chart.rootCronJobName" (dict "root" . "name" $name) }}
 */}}
 {{- define "global-chart.rootCronJobName" -}}
 {{- $fullname := include "global-chart.fullname" .root -}}
-{{- printf "%s-%s" $fullname .name | trunc 52 | trimSuffix "-" -}}
+{{- include "global-chart.truncName" (list (printf "%s-%s" $fullname .name) 52) -}}
 {{- end -}}
 
 {{/*
@@ -240,7 +253,7 @@ Usage: {{ include "global-chart.deploymentCronJobName" (dict "root" . "deploymen
 */}}
 {{- define "global-chart.deploymentCronJobName" -}}
 {{- $fullname := include "global-chart.fullname" .root -}}
-{{- printf "%s-%s-%s" $fullname .deploymentName .jobName | trunc 52 | trimSuffix "-" -}}
+{{- include "global-chart.truncName" (list (printf "%s-%s-%s" $fullname .deploymentName .jobName) 52) -}}
 {{- end -}}
 
 {{/*
@@ -254,7 +267,7 @@ Usage: {{ include "global-chart.deploymentHookName" (dict "root" . "deploymentNa
 */}}
 {{- define "global-chart.deploymentHookName" -}}
 {{- $fullname := include "global-chart.fullname" .root -}}
-{{- printf "%s-%s-%s-%s" $fullname .deploymentName .hookType .jobName | trunc 63 | trimSuffix "-" -}}
+{{- include "global-chart.truncName" (list (printf "%s-%s-%s-%s" $fullname .deploymentName .hookType .jobName) 63) -}}
 {{- end -}}
 
 {{/*
@@ -262,7 +275,7 @@ Hook-prerequisite ConfigMap name for a deployment.
 Usage: {{ include "global-chart.hookPrereqConfigName" (dict "deploymentFullname" $deployFullname) }}
 */}}
 {{- define "global-chart.hookPrereqConfigName" -}}
-{{- printf "%s-hook-config" .deploymentFullname | trunc 63 | trimSuffix "-" -}}
+{{- include "global-chart.truncName" (list (printf "%s-hook-config" .deploymentFullname) 63) -}}
 {{- end -}}
 
 {{/*
@@ -270,7 +283,7 @@ Hook-prerequisite Secret name for a deployment.
 Usage: {{ include "global-chart.hookPrereqSecretName" (dict "deploymentFullname" $deployFullname) }}
 */}}
 {{- define "global-chart.hookPrereqSecretName" -}}
-{{- printf "%s-hook-secret" .deploymentFullname | trunc 63 | trimSuffix "-" -}}
+{{- include "global-chart.truncName" (list (printf "%s-hook-secret" .deploymentFullname) 63) -}}
 {{- end -}}
 
 {{/*

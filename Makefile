@@ -50,6 +50,11 @@ HELM_REPO_ENV := HELM_REPOSITORY_CONFIG=$(KIND_BIN_DIR)/helm-repositories.yaml \
 ESO_VERSION := 2.11.0
 ESO_REPO_URL := https://charts.external-secrets.io
 ESO_NAMESPACE := external-secrets
+# Helm just below the floor the job schema closures need (issue #116): the
+# NOTES.txt warning must show on it. helm-unittest runs its own newer Helm and
+# cannot fake .Capabilities.HelmVersion, so only this target sees the warning.
+HELM_FLOOR_IMAGE := alpine/helm:3.18.5
+HELM_FLOOR_KUBECONFIG := $(KIND_BIN_DIR)/floor-kubeconfig
 E2E_VALUES := tests/e2e/values.yaml
 E2E_RELEASE := e2e
 E2E_NAMESPACE := global-chart-e2e
@@ -89,7 +94,7 @@ TEST_CASES := \
 .PHONY: help all lint-chart unit-test validate-bad-values generate-templates \
 	kubeconform kube-linter-manifests kube-linter generate-docs package \
 	install install-test01 render clean clean-all \
-	kind-install kind-cluster kind-keda kind-eso kind-delete e2e
+	kind-install kind-cluster kind-keda kind-eso kind-delete e2e check-helm-floor
 
 # ============================================================================
 # Help
@@ -335,9 +340,25 @@ kind-eso: kind-cluster ## Install External Secrets Operator (operator + CRDs) an
 
 kind-delete: ## Delete the e2e kind cluster
 	@if [ -x "$(KIND)" ]; then $(KIND) delete cluster --name "$(KIND_CLUSTER)"; fi
-	@rm -f "$(KIND_KUBECONFIG)"
+	@rm -f "$(KIND_KUBECONFIG)" "$(HELM_FLOOR_KUBECONFIG)"
 
-e2e: kind-cluster kind-keda kind-eso ## Install/upgrade/uninstall tests/e2e/values.yaml on kind and assert the hook lifecycle
+check-helm-floor: kind-cluster ## Assert NOTES.txt warns on a Helm below 3.18.6
+	@# NOTES.txt renders only on install/upgrade, and Helm 3's --dry-run=client
+	@# still checks the cluster is reachable, so this borrows the kind cluster.
+	@# The helm container reaches it on the kind network, by container name.
+	@echo "==> Checking the Helm floor warning with $(HELM_FLOOR_IMAGE)..."
+	@sed "s#server: .*#server: https://$(KIND_CLUSTER)-control-plane:6443#" $(KIND_KUBECONFIG) > $(HELM_FLOOR_KUBECONFIG)
+	@out=$$(docker run --rm --network kind \
+		-v $(HELM_FLOOR_KUBECONFIG):/kubeconfig:ro -e KUBECONFIG=/kubeconfig \
+		-v $(CURDIR)/$(CHART_DIR)/$(GLOBAL_CHART_NAME):/chart:ro \
+		$(HELM_FLOOR_IMAGE) install floor /chart --dry-run=client \
+		--set deployments.web.image=nginx:1.25 2>&1) \
+		|| { echo "FAIL: $(HELM_FLOOR_IMAGE) did not render the chart:"; echo "$$out" | tail -5; exit 1; }; \
+	echo "$$out" | grep -q "is below 3.18.6" \
+		|| { echo "FAIL: NOTES.txt did not warn on $(HELM_FLOOR_IMAGE)"; exit 1; }
+	@echo "    warning shown below the floor"
+
+e2e: kind-cluster kind-keda kind-eso check-helm-floor ## Install/upgrade/uninstall tests/e2e/values.yaml on kind and assert the hook lifecycle
 	@set -e; \
 	export KUBECONFIG=$(KIND_KUBECONFIG); \
 	ns=$(E2E_NAMESPACE); rel=$(E2E_RELEASE); \

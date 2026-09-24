@@ -267,6 +267,50 @@ result: .create + .name), owner (human-readable source, used in the message).
 {{- end }}
 
 {{/*
+Validate that the fullname fits the names it ends up leading (issue #120).
+The fullname heads every generated name, and most of them are DNS subdomains,
+which take anything Helm's release-name rule or the schema's override patterns
+let through. Two kinds of name are stricter, and only some releases render them:
+- a container name is a DNS-1123 label, so no dot. The fullname heads the
+  container name of every enabled Deployment and of every root-level hook;
+- a Service name is a DNS-1035 label, so it also starts with a letter. The
+  fullname heads the name of every enabled deployment's Service.
+The constraint therefore depends on what the release renders — see
+docs/adr/0009-the-fullname-constraint-follows-what-the-release-renders.md. A
+cronjob-only release with a dotted name renders valid names today and keeps
+rendering.
+Uppercase is not checked: Helm rejects it in a release name and the schema in
+the overrides. That also keeps helm-unittest's RELEASE-NAME default out of it.
+Called from validate.yaml. Emits nothing on success.
+*/}}
+{{- define "global-chart.validateFullname" -}}
+{{- $fullname := include "global-chart.fullname" . -}}
+{{- $label := "" -}}
+{{- $service := "" -}}
+{{- range $name, $deploy := .Values.deployments -}}
+  {{- if $deploy -}}
+  {{- if eq (include "global-chart.deploymentEnabled" $deploy) "true" -}}
+    {{- $label = printf "deployments.%s" $name -}}
+    {{- if eq (include "global-chart.serviceEnabled" (default (dict) $deploy.service)) "true" -}}
+      {{- $service = printf "deployments.%s" $name -}}
+    {{- end -}}
+  {{- end -}}
+  {{- end -}}
+{{- end -}}
+{{- range $hookType, $jobs := .Values.hooks -}}
+  {{- range $name, $job := $jobs -}}
+    {{- if $job -}}{{- $label = printf "hooks.%s.%s" $hookType $name -}}{{- end -}}
+  {{- end -}}
+{{- end -}}
+{{- if and $label (contains "." $fullname) -}}
+  {{- fail (printf "The fullname %q contains a dot, but %s names a container after it, and a container name is a DNS-1123 label. The dot comes from the release name or from nameOverride/fullnameOverride: set fullnameOverride to a name without dots." $fullname $label) -}}
+{{- end -}}
+{{- if and $service (regexMatch "^[0-9]" $fullname) -}}
+  {{- fail (printf "The fullname %q starts with a digit, but %s renders a Service named after it, and a Service name is a DNS-1035 label, which starts with a letter. Set fullnameOverride to a name starting with a letter." $fullname $service) -}}
+{{- end -}}
+{{- end }}
+
+{{/*
 Validate that .Values.ingress and .Values.httpRoute are not both enabled.
 The chart supports only one routing layer per release; both being enabled
 would render conflicting top-level routing resources.

@@ -1,0 +1,3 @@
+# nameOverride heads every generated name: a DNS-1123 subdomain, so no uppercase
+# and no underscore (issue #120).
+nameOverride: My_App

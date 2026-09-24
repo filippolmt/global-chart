@@ -14,7 +14,7 @@ Usage: {{ include "global-chart.kedaTriggerAuthName" (dict "root" . "name" $name
 */}}
 {{- define "global-chart.kedaTriggerAuthName" -}}
 {{- $fullname := include "global-chart.fullname" .root -}}
-{{- printf "%s-%s" $fullname .name | trunc 63 | trimSuffix "-" -}}
+{{- include "global-chart.truncName" (list (printf "%s-%s" $fullname .name) 63) -}}
 {{- end -}}
 
 {{/*

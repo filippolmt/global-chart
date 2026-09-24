@@ -67,3 +67,15 @@ tests:
           pattern: "CronJobs:"
       - matchRegexRaw:
           pattern: "backup"
+
+  # ====== Helm floor warning (issue #116) ======
+  # helm-unittest reports its own Helm (>= 3.18.6) and cannot override it, so
+  # only the absence is testable here; `make check-helm-floor` covers presence.
+  - it: should not warn about the Helm floor on a recent Helm
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+    asserts:
+      - notMatchRegexRaw:
+          pattern: "3\\.18\\.6"

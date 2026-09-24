@@ -1,0 +1,7 @@
+# A dotted fullname is a valid subdomain, so the schema lets it through, but a
+# Deployment names its container after it and a container name is a DNS-1123
+# label (issue #120). Only the render can see which releases that concerns.
+fullnameOverride: my.app
+deployments:
+  web:
+    image: nginx:1.25

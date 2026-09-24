@@ -32,7 +32,9 @@ The chart supports **multiple deployments** in a single release, each with indep
 
 ## Prerequisites
 
-- Helm 3.x
+- Helm >= 3.18.6 (Helm 4 supported). Below it, the schema closures of the four job
+  composites (`cronJobs` and `hooks`, both scopes) are ignored without a word, so a
+  typo there renders instead of being rejected. `helm install`/`upgrade` warn about it
 - Kubernetes 1.23 or newer — the floor is `autoscaling/v2` for the HPA and `policy/v1` for the PDB
 - Docker (for unit tests, kubeconform, kube-linter, helm-docs)
 
