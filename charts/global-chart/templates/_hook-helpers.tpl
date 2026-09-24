@@ -4,6 +4,9 @@ Hook lifecycle helpers for global-chart.
 Single home for the three "helm.sh/hook*" annotations: the effective weight,
 the ordering invariant prereq (w-7) < SA (w-5) < Job (w), and the delete
 policy per role. See docs/adr/0004-one-module-for-hook-lifecycle-annotations.md.
+Also the home of which hooks the ExternalSecret hook-prerequisite copy serves:
+the phase predicate and the consumer scan that decide when the copy exists and
+who reads it (ADR 0007).
 */}}
 
 {{/*
@@ -83,4 +86,58 @@ Usage:
 "helm.sh/hook": {{ .hookType | quote }}
 "helm.sh/hook-weight": {{ add $weight $row.offset | quote }}
 "helm.sh/hook-delete-policy": {{ $policy | quote }}
+{{- end -}}
+
+{{/*
+Whether a hook of this phase reads the ExternalSecret hook-prerequisite copy
+rather than the real Secret: "true" for a pre-* phase, which runs before the
+real ExternalSecret is applied, and for post-delete, which runs after it — and,
+through its ownerReference, its Secret — is gone. Every other phase finds the
+real Secret in place. The ONE place the cut is made — the consumer
+scan below (which emits the copy) and jobPodSpec (which points the hook at it)
+both ask here, so a hook can never read a copy that was not rendered.
+Usage: {{ include "global-chart.hookReadsExternalSecretCopy" $hookType }}
+*/}}
+{{- define "global-chart.hookReadsExternalSecretCopy" -}}
+{{- or (hasPrefix "pre-" (toString .)) (eq (toString .) "post-delete") -}}
+{{- end -}}
+
+{{/*
+The hooks that read the copy of each ExternalSecret, in both scopes: the input of the
+ExternalSecret hook-prerequisite copy (ADR 0007), for externalsecret.yaml, which
+emits it, and for validateNameCollisions, which registers its names.
+Returns JSON: key -> hookType -> "<scope>/<job>" -> command, the shape
+minHookWeight reads, so the copy's weight and phases come from the hooks that
+actually read it. A key no such hook references is absent: it gets no copy.
+Only the phases hookReadsExternalSecretCopy names; a hook of any other phase
+reads the real Secret.
+Usage: {{ $consumers := include "global-chart.externalSecretHookConsumers" $root | fromJson }}
+*/}}
+{{- define "global-chart.externalSecretHookConsumers" -}}
+{{- $out := dict -}}
+{{- $scopes := list (dict "id" "root" "hooks" .Values.hooks) -}}
+{{- range $deployName, $deploy := .Values.deployments -}}
+  {{- if and $deploy (eq (include "global-chart.deploymentEnabled" $deploy) "true") -}}
+    {{- $scopes = append $scopes (dict "id" (printf "deployments.%s" $deployName) "hooks" $deploy.hooks "deploy" $deploy) -}}
+  {{- end -}}
+{{- end -}}
+{{- range $scope := $scopes -}}
+  {{- range $hookType, $jobs := (default (dict) $scope.hooks) -}}
+    {{- if eq (include "global-chart.hookReadsExternalSecretCopy" $hookType) "true" -}}
+      {{- range $jobName, $command := (default (dict) $jobs) -}}
+        {{- if $command -}}
+          {{- $refs := include "global-chart.jobExternalSecretRefs" (dict "job" $command "deploy" $scope.deploy) | fromJson -}}
+          {{- range $ref := concat $refs.inherited $refs.own -}}
+            {{- $byType := default (dict) (index $out $ref.name) -}}
+            {{- $jobsOfType := default (dict) (index $byType $hookType) -}}
+            {{- $_ := set $jobsOfType (printf "%s/%s" $scope.id $jobName) $command -}}
+            {{- $_ := set $byType $hookType $jobsOfType -}}
+            {{- $_ := set $out $ref.name $byType -}}
+          {{- end -}}
+        {{- end -}}
+      {{- end -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+{{- toJson $out -}}
 {{- end -}}

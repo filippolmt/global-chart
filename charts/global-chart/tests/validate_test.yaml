@@ -468,3 +468,148 @@ tests:
     asserts:
       - notFailedTemplate: {}
 
+
+  # ====== ExternalSecret hook copies (issue #110, ADR 0007) ======
+  # The copy is named <real>-hook, so the real ExternalSecret of a key that
+  # already ends in -hook lands on the same name.
+  - it: should fail when an ExternalSecret hook copy collides with a real ExternalSecret
+    set:
+      externalSecrets:
+        app:
+          secretstore: { kind: ClusterSecretStore, name: store }
+          secretkey: PASSWORD
+          remote: { key: app }
+          target:
+            name: app-secret
+        app-hook:
+          secretstore: { kind: ClusterSecretStore, name: store }
+          secretkey: PASSWORD
+          remote: { key: app-hook }
+          target:
+            name: app-hook-secret
+      hooks:
+        pre-install:
+          migrate:
+            image: busybox:1.36
+            externalSecrets:
+              - name: app
+    asserts:
+      - failedTemplate:
+          errorPattern: "Name collision: ExternalSecret 'RELEASE-NAME-global-chart-app-hook'"
+
+  - it: should fail when the Secret of an ExternalSecret hook copy collides with a deployment Secret
+    set:
+      externalSecrets:
+        app-env:
+          secretstore: { kind: ClusterSecretStore, name: store }
+          secretkey: PASSWORD
+          remote: { key: app }
+      deployments:
+        app-env-hook:
+          image: nginx:1.25
+          secret:
+            TOKEN: abc
+      hooks:
+        pre-install:
+          migrate:
+            image: busybox:1.36
+            externalSecrets:
+              - name: app-env
+    asserts:
+      - failedTemplate:
+          errorPattern: "Name collision: Secret 'RELEASE-NAME-global-chart-app-env-hook'"
+
+  - it: should fail when the Secret of an ExternalSecret hook copy is the target another ExternalSecret owns
+    set:
+      externalSecrets:
+        app:
+          secretstore: { kind: ClusterSecretStore, name: store }
+          secretkey: PASSWORD
+          remote: { key: app }
+          target:
+            name: shared
+        other:
+          secretstore: { kind: ClusterSecretStore, name: store }
+          secretkey: PASSWORD
+          remote: { key: other }
+          target:
+            name: shared-hook
+      hooks:
+        pre-install:
+          migrate:
+            image: busybox:1.36
+            externalSecrets:
+              - name: app
+    asserts:
+      - failedTemplate:
+          errorPattern: "Name collision: Secret 'shared-hook'"
+
+  # Merge writes into a Secret something else owns: two ExternalSecrets merging
+  # into one target is a design, not a collision, and must keep rendering.
+  - it: should not fail when two ExternalSecrets merge into the same target
+    set:
+      externalSecrets:
+        a:
+          secretstore: { kind: ClusterSecretStore, name: store }
+          secretkey: A
+          remote: { key: a }
+          target: { name: shared, creationPolicy: Merge }
+        b:
+          secretstore: { kind: ClusterSecretStore, name: store }
+          secretkey: B
+          remote: { key: b }
+          target: { name: shared, creationPolicy: Merge }
+    asserts:
+      - notFailedTemplate: {}
+
+  # A Merge target is written into, not owned, so it is not an owner — but a
+  # copy owns its target, and its deletion would garbage-collect the Secret the
+  # Merge ExternalSecret writes into.
+  - it: should fail when a Merge ExternalSecret writes into the Secret a hook copy owns
+    set:
+      externalSecrets:
+        app:
+          secretstore: { kind: ClusterSecretStore, name: store }
+          secretkey: PASSWORD
+          remote: { key: app }
+          target: { name: shared }
+        other:
+          secretstore: { kind: ClusterSecretStore, name: store }
+          secretkey: PASSWORD
+          remote: { key: other }
+          target: { name: shared-hook, creationPolicy: Merge }
+      hooks:
+        pre-install:
+          migrate:
+            image: busybox:1.36
+            externalSecrets:
+              - name: app
+    asserts:
+      - failedTemplate:
+          errorPattern: "Name collision: Secret 'shared-hook'"
+
+  # Two Merge ExternalSecrets may share a target; two hook copies of them may
+  # not, since each would own it.
+  - it: should fail when the hook copies of two ExternalSecrets merging into one target collide
+    set:
+      externalSecrets:
+        a:
+          secretstore: { kind: ClusterSecretStore, name: store }
+          secretkey: A
+          remote: { key: a }
+          target: { name: shared, creationPolicy: Merge }
+        b:
+          secretstore: { kind: ClusterSecretStore, name: store }
+          secretkey: B
+          remote: { key: b }
+          target: { name: shared, creationPolicy: Merge }
+      hooks:
+        pre-install:
+          migrate:
+            image: busybox:1.36
+            externalSecrets:
+              - name: a
+              - name: b
+    asserts:
+      - failedTemplate:
+          errorPattern: "Name collision: Secret 'shared-hook'"

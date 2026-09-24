@@ -267,8 +267,20 @@ deployments: {}
   #
   #   # -- Import existing ConfigMaps as envFrom
   #   envFromConfigMaps: []
-  #   # -- Import existing Secrets as envFrom
+  #   # -- Import existing Secrets as envFrom. A literal name gets no hook copy:
+  #   # a pre-* hook reading a Secret the release's own ExternalSecret produces
+  #   # waits for it on the first install. Use externalSecrets below instead.
   #   envFromSecrets: []
+  #   # -- Read Secrets produced by the root externalSecrets map, by KEY (never
+  #   # the generated Secret name). Without mountPath: an envFrom source, after
+  #   # envFromSecrets. With mountPath: a read-only volume. Inherited by the
+  #   # deployment's hooks and cronJobs (a job's own list, `[]` included,
+  #   # replaces it). pre-* and post-delete hooks read a hook-prerequisite copy of the
+  #   # ExternalSecret, so they work on the first install (ADR 0007).
+  #   externalSecrets: []
+  #   #   - name: app-env
+  #   #   - name: app-conf
+  #   #     mountPath: /etc/app
   #   # -- Additional environment variables
   #   additionalEnvs: []
   #
@@ -455,12 +467,20 @@ hooks: {}
   #     args: ["./migrate.sh"]
   #     weight: "10"
   #     deletePolicy: before-hook-creation
+  #     # Secrets of the externalSecrets map, by key (see deployments.*.externalSecrets).
+  #     # activeDeadlineSeconds: 300  # bounds a pod waiting for a Secret; backoffLimit cannot
+  #     # A pre-* or post-delete hook reads a hook-prerequisite copy, which exists before the hook runs:
+  #     # externalSecrets:
+  #     #   - name: app-env
 
 # -- ExternalSecrets definitions for secret management. Each entry renders one
 # ExternalSecret. The `remote` map (single-key form) and each `data[].remote`
 # accept `key`, `property` (a gjson path selecting one key out of a JSON
 # payload), `version` (string or number, quoted on render), `conversionStrategy`,
 # `decodingStrategy` and `metadataPolicy`. `dataFrom` is rendered verbatim.
+# Jobs and deployments read the produced Secret through their own
+# `externalSecrets: [{name: <key>}]` list; for every key a pre-* or post-delete hook reads, the
+# chart also renders a hook-prerequisite copy producing `<target>-hook`.
 externalSecrets: {}
   # Single-key form (one remote key -> one Secret key):
   # single:

@@ -446,6 +446,10 @@
           "type": "array",
           "items": { "type": "string" }
         },
+        "externalSecrets": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/externalSecretRef" }
+        },
         "additionalEnvs": { "type": "array" },
         "extraInitContainers": { "type": "array" },
         "extraContainers": { "type": "array" },
@@ -506,6 +510,10 @@
           "type": "array",
           "items": { "type": "string" }
         },
+        "externalSecrets": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/externalSecretRef" }
+        },
         "annotations": {
           "type": "object",
           "additionalProperties": { "type": "string" }
@@ -544,7 +552,12 @@
       "type": "object",
       "properties": {
         "weight": { "type": ["string", "integer"], "pattern": "^-?[0-9]+$" },
-        "deletePolicy": { "type": "string" }
+        "deletePolicy": { "type": "string" },
+        "activeDeadlineSeconds": {
+          "description": "Bound on the hook Job's run time. The only bound on a hook pod that waits for a Secret: it never reaches Failed, so backoffLimit never counts it.",
+          "type": "integer",
+          "minimum": 1
+        }
       }
     },
     "rootJobSpec": {
@@ -602,6 +615,16 @@
         "metadataPolicy": { "type": "string" },
         "property": { "type": "string" },
         "version": { "type": ["string", "number"] }
+      },
+      "additionalProperties": false
+    },
+    "externalSecretRef": {
+      "description": "A reference to a key of the root externalSecrets map, never to the Secret it produces. Without mountPath the Secret is an envFrom source; with it, a read-only volume mounted there. A pre-* hook reads the Secret of the hook-prerequisite copy (ADR 0007).",
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "mountPath": { "type": "string", "minLength": 1 }
       },
       "additionalProperties": false
     },

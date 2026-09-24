@@ -1535,3 +1535,89 @@ tests:
           path: spec.jobTemplate.metadata.annotations.owner
           value: platform
         documentIndex: 1
+
+  # ====== externalSecrets references (issue #110, ADR 0007) ======
+  - it: should read the real Secret of an inherited externalSecrets entry, placed with the inherited sources
+    set:
+      externalSecrets:
+        app-env:
+          secretstore: { kind: ClusterSecretStore, name: store }
+          secretkey: PASSWORD
+          remote: { key: app/password }
+        app-conf:
+          secretstore: { kind: ClusterSecretStore, name: store }
+          secretkey: app.conf
+          remote: { key: app/conf }
+      deployments:
+        app:
+          image: nginx:1.25
+          envFromSecrets:
+            - literal-secret
+          externalSecrets:
+            - name: app-env
+            - name: app-conf
+              mountPath: /etc/app
+          cronJobs:
+            nightly:
+              schedule: "0 3 * * *"
+              envFromSecrets:
+                - job-secret
+    asserts:
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.containers[0].envFrom
+          value:
+            - secretRef:
+                name: literal-secret
+            - secretRef:
+                name: RELEASE-NAME-global-chart-app-env
+            - secretRef:
+                name: job-secret
+        documentSelector:
+          path: kind
+          value: CronJob
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.volumes
+          value:
+            - name: es-app-conf
+              secret:
+                secretName: RELEASE-NAME-global-chart-app-conf
+        documentSelector:
+          path: kind
+          value: CronJob
+
+  - it: should let a root-level cronjob reference an ExternalSecret explicitly
+    set:
+      externalSecrets:
+        app-env:
+          secretstore: { kind: ClusterSecretStore, name: store }
+          secretkey: PASSWORD
+          remote: { key: app/password }
+      cronJobs:
+        nightly:
+          image: busybox:1.36
+          schedule: "0 3 * * *"
+          externalSecrets:
+            - name: app-env
+    asserts:
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.containers[0].envFrom
+          value:
+            - secretRef:
+                name: RELEASE-NAME-global-chart-app-env
+        documentSelector:
+          path: kind
+          value: CronJob
+
+  - it: should fail when a cronjob names an unknown ExternalSecret key
+    set:
+      deployments:
+        app:
+          image: nginx:1.25
+          cronJobs:
+            nightly:
+              schedule: "0 3 * * *"
+              externalSecrets:
+                - name: missing
+    asserts:
+      - failedTemplate:
+          errorPattern: "deployments.app.cronJobs.nightly.externalSecrets references 'missing', which is not a key of externalSecrets"

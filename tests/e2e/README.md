@@ -10,9 +10,13 @@ resource exists at the moment a hook Job schedules. Anything touching
 
 `make e2e` downloads `kind` into `.bin/` (gitignored), creates a throwaway
 cluster, installs KEDA (operator + CRDs, `kind-keda`) so the whole autoscaling
-chain is exercised for real, installs `values.yaml` from this directory, then
-asserts: release deployed → pre-install hook Job succeeded under the
-chart-created SA → the surviving SA is the real one, not the hook copy →
+chain is exercised for real, installs External Secrets Operator with a
+fake-provider `ClusterSecretStore` (`kind-eso`, `cluster-secret-store.yaml`),
+installs `values.yaml` from this directory, then asserts: release deployed →
+pre-install hook Job succeeded under the chart-created SA, reading an
+ExternalSecret's value through its hook copy by envFrom and by volume → the
+copy and its Secret are gone after the hook phase → the surviving SA is the
+real one, not the hook copy →
 deployment `command`/`args` rendered → the SA a root-level `cronJobs` entry
 references exists in the cluster → every Service `targetPort` resolved to a
 container port and got endpoints → ScaledObject/TriggerAuthentication applied
@@ -20,8 +24,8 @@ with the `authenticationRef` resolved → KEDA marked the ScaledObject `Ready` a
 created the derived HPA with the rendered bounds → the `cron` trigger actually
 scaled the Deployment to its `desiredReplicas` → upgrade kept the SA UID →
 upgrade did **not** reset `spec.replicas` on the KEDA-scaled Deployment →
-uninstall leaves no orphaned
-ConfigMap/Secret/ServiceAccount/ScaledObject/TriggerAuthentication, and the
+post-delete hook read the ExternalSecret through its copy → uninstall leaves no orphaned
+ConfigMap/Secret/ServiceAccount/ScaledObject/TriggerAuthentication/ExternalSecret, and the
 derived HPA is garbage-collected with its ScaledObject.
 
 It also runs in CI as its own job in `.github/workflows/helm-ci.yml`.

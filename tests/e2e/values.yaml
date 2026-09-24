@@ -22,6 +22,20 @@
 # - a KEDA-scaled deployment: only the CRDs are installed, no operator, so what
 #   is asserted is the chart's own invariant — with an autoscaler owning
 #   spec.replicas, `helm upgrade` must not reset the live replica count
+# - pre-* hooks reading a Secret the release's own ExternalSecret produces
+#   (issue #110): the ExternalSecret is a normal resource, applied AFTER the
+#   pre-* hooks, so the hooks must read the hook-prerequisite copy (ADR 0007).
+#   Both forms — envFrom and a mounted volume — against ESO's fake provider
+externalSecrets:
+  e2e-env:
+    secretstore: { kind: ClusterSecretStore, name: e2e-fake }
+    secretkey: E2E_TOKEN
+    remote: { key: e2e/token }
+  e2e-conf:
+    secretstore: { kind: ClusterSecretStore, name: e2e-fake }
+    secretkey: app.conf
+    remote: { key: e2e/conf }
+
 kedaTriggerAuthentications:
   e2e-auth:
     secretTargetRef:
@@ -49,6 +63,12 @@ deployments:
       FOO: bar
     secret:
       DB_PASSWORD: supersecret
+    # Inherited by every hook below. The Deployment reads the real Secrets — a
+    # missing one leaves it unavailable and `rollout status` fails.
+    externalSecrets:
+      - name: e2e-env
+      - name: e2e-conf
+        mountPath: /etc/e2e-es
     # Runtime coverage for the mounted config file names. No assertion of its
     # own is needed: a volume pointing at a ConfigMap the chart did not render
     # leaves the pod in ContainerCreating, and the existing
@@ -78,7 +98,7 @@ deployments:
       pre-install:
         migration:
           command: ["sh", "-c"]
-          args: ['[ "$FOO" = bar ] && [ "$DB_PASSWORD" = supersecret ]']
+          args: ['[ "$FOO" = bar ] && [ "$DB_PASSWORD" = supersecret ] && [ "$E2E_TOKEN" = s3cr3t ] && [ "$(cat /etc/e2e-es/app.conf)" = conf ]']
         # Negative weight on purpose. minJobWeight becomes -5, so the derived
         # prereq ConfigMap/Secret land at -12 and the SA copy at -10. Were those
         # ever floored at 0 they would sort AFTER this Job, which would then
@@ -87,11 +107,11 @@ deployments:
         early:
           weight: "-5"
           command: ["sh", "-c"]
-          args: ['[ "$FOO" = bar ]']
+          args: ['[ "$FOO" = bar ] && [ "$E2E_TOKEN" = s3cr3t ]']
       pre-upgrade:
         migration:
           command: ["sh", "-c"]
-          args: ['[ "$FOO" = bar ]']
+          args: ['[ "$FOO" = bar ] && [ "$E2E_TOKEN" = s3cr3t ] && [ "$(cat /etc/e2e-es/app.conf)" = conf ]']
 
   worker:
     image: busybox:1.36
@@ -147,6 +167,16 @@ hooks:
       image: busybox:1.36
       command: ["sh", "-c"]
       args: ["echo notified"]
+  # Runs after Helm has deleted the real ExternalSecret, and the GC its Secret:
+  # only the hook copy can feed it. A failure here fails `helm uninstall`.
+  post-delete:
+    farewell:
+      image: busybox:1.36
+      activeDeadlineSeconds: 120
+      command: ["sh", "-c"]
+      args: ['[ "$E2E_TOKEN" = s3cr3t ]']
+      externalSecrets:
+        - name: e2e-env
 
 # No serviceAccount key on purpose: the chart must create the SA the pod
 # references. Suspended — nothing here needs it to actually run.

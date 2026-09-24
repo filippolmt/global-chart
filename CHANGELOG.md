@@ -5,6 +5,53 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ---
 
+## [Unreleased]
+
+### Added
+
+- **A hook can read a Secret produced by the release's own `externalSecrets`**
+  (issue #110). The ExternalSecret is a normal resource, applied after the
+  `pre-*` hooks, so a migration hook reading its Secret waited for something
+  nothing created until the hook finished: `pending-install` until `--timeout`
+  under Helm, a `PreSync` that never ends under Argo CD. Deployments, hooks and
+  cronjobs now take `externalSecrets: [{name: <key>, mountPath?: <path>}]`,
+  which references a key of the root `externalSecrets` map — as an `envFrom`
+  source, or as a read-only volume with `mountPath`. A deployment's hooks and
+  cronjobs inherit its list (`hasKey`; `[]` stops it). For every key a `pre-*`
+  or `post-delete` hook references, the chart renders a hook-prerequisite copy
+  of the ExternalSecret — same spec, its own target `<target>-hook`,
+  `creationPolicy: Owner`, the `prereq` weight and delete policy — and the hook
+  reads that Secret; the Deployment, cronjobs and every other hook read the real
+  one. `post-delete` is there because it runs after the real ExternalSecret and
+  its Secret are gone. Failing at render time rather than at apply: a key that
+  `externalSecrets` does not define; a mounted key that is not a DNS-1123 label,
+  mounted twice, or landing on a volume the pod declares; name collisions of the
+  copy's ExternalSecret and Secret; two ExternalSecrets owning one target; a
+  `Merge`/`None` ExternalSecret writing into the Secret a copy owns. See
+  [ADR 0007](docs/adr/0007-hook-prerequisite-externalsecret-copy.md).
+
+  `envFromSecrets` with the literal generated name keeps working, gets no copy
+  and does not protect the first install. Migration: replace it with
+  `externalSecrets: [{name: <key>}]`.
+
+- **`activeDeadlineSeconds` on hook Jobs**, root and deployment level. A hook
+  pod waiting for a Secret never reaches `Failed`, so `backoffLimit` does not
+  bound it; before this only `helm --timeout` did.
+
+### Changed
+
+- **Two ExternalSecrets owning one target Secret now fail the render.** The
+  collision check that covers the hook copy also registers every real
+  ExternalSecret under `creationPolicy: Owner` (the default). Such a pair was
+  already broken at runtime — ESO refuses the second owner with
+  `ErrSecretIsOwned` — but it used to render. Targets under `Merge` or `None`
+  are written into, not owned, and may still be shared.
+
+- The ExternalSecret `spec` body moved into `renderExternalSecretSpec`, shared
+  by the real resource and its hook copy. The rendered manifests are unchanged.
+
+---
+
 ## [2.6.1] — 2026-09-14
 
 ### Fixed
