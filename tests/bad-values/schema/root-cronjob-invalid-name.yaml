@@ -1,0 +1,7 @@
+# A cronjob key is part of the CronJob name and, at deployment scope, the
+# container name raw: a DNS-1123 label. `_` is not in it.
+cronJobs:
+  nightly_report:
+    image: busybox:1.36
+    schedule: "0 3 * * *"
+    command: ["sh", "-c", "true"]

@@ -8,18 +8,22 @@
     "fullnameOverride": { "type": "string" },
     "deployments": {
       "type": "object",
+      "propertyNames": { "$ref": "#/$defs/deploymentName" },
       "additionalProperties": { "$ref": "#/$defs/deployment" }
     },
     "ingress": { "$ref": "#/$defs/ingress" },
     "httpRoute": { "$ref": "#/$defs/httpRoute" },
     "cronJobs": {
       "type": "object",
+      "propertyNames": { "$ref": "#/$defs/jobName" },
       "additionalProperties": { "$ref": "#/$defs/cronJob" }
     },
     "hooks": {
       "type": "object",
+      "propertyNames": { "$ref": "#/$defs/hookType" },
       "additionalProperties": {
         "type": "object",
+        "propertyNames": { "$ref": "#/$defs/jobName" },
         "additionalProperties": {
           "oneOf": [
             { "type": "null" },
@@ -30,10 +34,12 @@
     },
     "externalSecrets": {
       "type": "object",
+      "propertyNames": { "$ref": "#/$defs/dns1123Subdomain" },
       "additionalProperties": { "$ref": "#/$defs/externalSecret" }
     },
     "kedaTriggerAuthentications": {
       "type": "object",
+      "propertyNames": { "$ref": "#/$defs/dns1123Subdomain" },
       "additionalProperties": { "$ref": "#/$defs/kedaTriggerAuthentication" }
     },
     "defaults": { "$ref": "#/$defs/defaults" },
@@ -342,11 +348,46 @@
       },
       "additionalProperties": false
     },
+    "deploymentName": {
+      "description": "Key of the deployments map. It lands raw in the 'app.kubernetes.io/component' label value, as part of the container name, and as '<key>-hook' when the deployment has hooks: a DNS-1123 label, capped at 58 so that the '-hook' suffix fits. The cap holds even without hooks, so adding a hook later cannot invalidate a key that was valid.",
+      "$ref": "#/$defs/dns1123Label",
+      "maxLength": 58
+    },
+    "jobName": {
+      "description": "Key of a cronJobs or hooks.<type> map, at either scope. At deployment scope it becomes the container name raw, a DNS-1123 label; the root scope goes through a truncated fullname, but one rule holds for both.",
+      "$ref": "#/$defs/dns1123Label",
+      "maxLength": 63
+    },
+    "hookType": {
+      "description": "Key of a hooks map: a Helm hook type, lowercase. An unknown type renders and Helm drops the resource with an INFO log and exit 0; at deployment scope it also drops the shared prereq ConfigMap/Secret, whose helm.sh/hook joins every type. Helm accepts an uppercase type, but the chart's checks are case-sensitive. 'test-success' is Helm's alias of 'test'.",
+      "type": "string",
+      "enum": [
+        "pre-install",
+        "post-install",
+        "pre-upgrade",
+        "post-upgrade",
+        "pre-delete",
+        "post-delete",
+        "pre-rollback",
+        "post-rollback",
+        "test",
+        "test-success"
+      ]
+    },
+    "dns1123Label": {
+      "description": "A DNS-1123 label: lowercase alphanumerics and '-', starting and ending with an alphanumeric. The length bound is the caller's, via maxLength next to the $ref: it depends on what the value is joined to.",
+      "type": "string",
+      "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+    },
+    "dns1123Subdomain": {
+      "description": "A DNS-1123 subdomain: dot-separated DNS-1123 labels. Constrains the keys of the externalSecrets and kedaTriggerAuthentications maps, which become part of a resource name. No maxLength: the names are not truncated, and the real limit depends on the fullname, which the schema cannot see.",
+      "type": "string",
+      "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+    },
     "mountedConfigFileName": {
       "description": "Name of a mounted config file entry. Bounded at 52 chars because it feeds the pod volume name 'md-cm-file-<name>', a DNS-1123 label capped at 63. The same bound applies to bundle entries even though 'md-cm-bundle-<i>' has room: one number, taken from the tightest side.",
-      "type": "string",
-      "maxLength": 52,
-      "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+      "$ref": "#/$defs/dns1123Label",
+      "maxLength": 52
     },
     "mountedConfigFiles": {
       "type": "object",
@@ -463,13 +504,16 @@
         "mountedConfigFiles": { "$ref": "#/$defs/mountedConfigFiles" },
         "hooks": {
           "type": "object",
+          "propertyNames": { "$ref": "#/$defs/hookType" },
           "additionalProperties": {
             "type": "object",
+            "propertyNames": { "$ref": "#/$defs/jobName" },
             "additionalProperties": { "$ref": "#/$defs/deploymentHookJob" }
           }
         },
         "cronJobs": {
           "type": "object",
+          "propertyNames": { "$ref": "#/$defs/jobName" },
           "additionalProperties": { "$ref": "#/$defs/deploymentCronJob" }
         }
       },

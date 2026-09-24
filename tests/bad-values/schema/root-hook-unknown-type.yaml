@@ -1,0 +1,7 @@
+# An unknown hook type renders, and Helm drops the resource with an INFO log and
+# exit 0: the hook never runs and nothing says so.
+hooks:
+  pre-instal:
+    migrate:
+      image: busybox:1.36
+      command: ["sh", "-c", "true"]

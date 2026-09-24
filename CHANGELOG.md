@@ -5,7 +5,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ---
 
-## [Unreleased]
+## [2.7.0] — 2026-09-24
 
 ### Added
 
@@ -49,6 +49,34 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 - The ExternalSecret `spec` body moved into `renderExternalSecretSpec`, shared
   by the real resource and its hook copy. The rendered manifests are unchanged.
+
+### Fixed
+
+- **Map keys that become names are now validated by the schema** (issue #114).
+  A key of `deployments`, `cronJobs`, `hooks`, `externalSecrets` or
+  `kedaTriggerAuthentications` becomes part of a name Kubernetes or Helm
+  validates, and nothing checked it: `App_Env` under `externalSecrets` rendered,
+  passed `helm lint`, and was rejected at apply time, away from its cause. Each
+  key is now held to what the tightest place it lands in accepts, the same in
+  both scopes: a DNS-1123 label for `deployments` (at most 58 characters) and
+  for every cronjob and hook key (at most 63); a lowercase Helm hook type for
+  the keys of `hooks` and `deployments.<name>.hooks`; a DNS-1123 subdomain for
+  `externalSecrets` and `kedaTriggerAuthentications`. Values that could never be
+  applied are now rejected at `helm lint` / `helm install`. Two cases used to
+  get *through* `helm install`, and are worth checking in existing values:
+  - **An unknown hook type** (`pre-instal`) rendered, and Helm dropped the
+    resource with an INFO log and exit 0 — the hook never ran. At deployment
+    scope it also dropped the shared prereq ConfigMap/Secret, leaving the valid
+    hooks pointing at a ConfigMap that did not exist. An uppercase type
+    (`PRE-INSTALL`) is accepted by Helm but missed by the chart's case-sensitive
+    checks, and yields an invalid name. Fix: spell the type as Helm lists it, in
+    lowercase (`pre-install`, `post-upgrade`, `test`…).
+  - **A `deployments` key of 59–63 characters** installed while the deployment
+    had no hooks, and the install failed the moment one was added: the hook
+    resources carry `<key>-hook` as their `app.kubernetes.io/component` label,
+    over the 63 a label value allows. The cap is now 58 with or without hooks.
+    Fix: shorten the key. It names the Deployment and its resources, so the
+    upgrade replaces them under the new name rather than updating them in place.
 
 ---
 

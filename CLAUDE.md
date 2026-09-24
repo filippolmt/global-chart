@@ -153,7 +153,12 @@ is the source of truth, this table is only the routing.
     because one file with many typos is rejected by the first closure that holds
     and the rest go back to being invisible. Name the file after the scope and
     kind the values use (`root-cronjob-`, `deployment-hook-`), not after the
-    `$defs` identifier — the `# covers:` line is what ties the two together
+    `$defs` identifier — the `# covers:` line is what ties the two together.
+    A map key that becomes part of a name (`deployments`, `cronJobs`, `hooks`
+    and its types, `externalSecrets`, `kedaTriggerAuthentications`, both
+    scopes) is constrained by `propertyNames` to what the tightest place it
+    lands in accepts — a new such map needs one too, with its own fixture. See
+    *Chiave nominante* in `CONTEXT.md`
 11. **Autoscaling is either/or**: `deployments.<name>.autoscaling` (a
     chart-rendered HPA) and `deployments.<name>.keda` (a ScaledObject) are
     mutually exclusive per deployment — KEDA owns its own *derived HPA*. Either

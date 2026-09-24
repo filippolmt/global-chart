@@ -1,0 +1,9 @@
+# The key becomes the container name raw: a DNS-1123 label, so no `.`. It
+# renders and passes `helm lint`, then the API server rejects the CronJob.
+deployments:
+  app:
+    image: nginx:1.25
+    cronJobs:
+      report.nightly:
+        schedule: "0 3 * * *"
+        command: ["sh", "-c", "true"]
