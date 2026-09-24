@@ -1,0 +1,6 @@
+# The RoleBinding drops a trailing -role, so `reader` and `reader-role` both
+# yield `reader-rolebinding` (issue #122).
+rbacs:
+  roles:
+    - { name: reader, serviceAccount: {}, rules: [] }
+    - { name: reader-role, serviceAccount: {}, rules: [] }

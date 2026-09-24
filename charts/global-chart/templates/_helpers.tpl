@@ -156,6 +156,33 @@ Usage: {{ include "global-chart.deploymentServiceAccountName" (dict "root" . "de
 {{- end }}
 
 {{/*
+ServiceAccount of an rbacs.roles entry, as JSON {create, name}; {} when the
+entry declares none. Presence is hasKey, never truthiness: `serviceAccount: {}`
+declares an SA with every default, as it does for a deployment (issue #124).
+An empty or absent name falls back to <role>-sa, the meaning "" has in every
+other scope.
+Usage: {{ include "global-chart.rbacServiceAccount" $role | fromJson }}
+*/}}
+{{- define "global-chart.rbacServiceAccount" -}}
+{{- if hasKey . "serviceAccount" -}}
+{{- $sa := default (dict) .serviceAccount -}}
+{{- $name := default (printf "%s-sa" .name | trunc 63 | trimSuffix "-") $sa.name -}}
+{{- dict "create" (hasKey $sa "create" | ternary $sa.create true) "name" $name | toJson -}}
+{{- else -}}
+{{- dict | toJson -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+RoleBinding name of an rbacs.roles entry: a trailing -role is dropped, so
+`foo` and `foo-role` land on the same name — validateNameCollisions catches it.
+Usage: {{ include "global-chart.rbacRoleBindingName" $role.name }}
+*/}}
+{{- define "global-chart.rbacRoleBindingName" -}}
+{{- printf "%s-rolebinding" (trimSuffix "-role" .) | trunc 63 | trimSuffix "-" -}}
+{{- end }}
+
+{{/*
 Hook-specific labels: do not include selectorLabels so hooks don't match Deployment/HPA selectors.
 Base labels without component (used when component is added separately).
 */}}

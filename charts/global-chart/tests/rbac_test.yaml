@@ -96,3 +96,49 @@ tests:
     asserts:
       - hasDocuments:
           count: 0
+
+  # issue #124: {} is a ServiceAccount with every default, not an absent one
+  - it: should create the default SA and its RoleBinding for serviceAccount {}
+    set:
+      rbacs:
+        roles:
+          - name: reader
+            serviceAccount: {}
+            rules: []
+    asserts:
+      - hasDocuments:
+          count: 3
+      - equal:
+          path: metadata.name
+          value: reader-sa
+        documentIndex: 0
+      - equal:
+          path: subjects[0].name
+          value: reader-sa
+        documentIndex: 2
+
+  - it: should fall back to the default SA name when serviceAccount.name is empty
+    set:
+      rbacs:
+        roles:
+          - name: reader
+            serviceAccount:
+              name: ""
+            rules: []
+    asserts:
+      - equal:
+          path: metadata.name
+          value: reader-sa
+        documentIndex: 0
+
+  - it: should render the Role alone when serviceAccount is omitted
+    set:
+      rbacs:
+        roles:
+          - name: reader
+            rules: []
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: Role

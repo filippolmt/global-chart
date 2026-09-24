@@ -30,6 +30,33 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   `targetPort` stays accepted: the API server takes it on a single-port Service.
   With `extraPorts` the Service is multi-port, and an empty `portName` is
   rejected: every port of a multi-port Service must be named.
+- **`serviceAccount.name` is now validated by the schema, in every scope**
+  (issue #123): deployments, hooks and cronjobs of both scopes, and
+  `rbacs.roles[].serviceAccount`. It must be a DNS-1123 subdomain of at most 253
+  characters, or `""`, which keeps meaning "the default name". `Web_SA` rendered,
+  passed `helm lint`, and was rejected by the API server; it is now rejected at
+  lint. A job's `serviceAccountName` is held to the same rule (`null` and `""`
+  still mean unset). Only values that could never be applied are affected.
+- **`rbacs.roles[].serviceAccount: {}` now creates the ServiceAccount**
+  (issue #124). `{}` was read as absent, so the entry rendered a Role bound to
+  no one, while `{ automount: false }` created `<name>-sa` and its RoleBinding.
+  `{}` now means what it means for a deployment — a ServiceAccount with every
+  default — and renders `<name>-sa`, the Role and the RoleBinding. An empty
+  `name: ""`, which rendered a ServiceAccount with no name, now falls back to
+  `<name>-sa` too.
+  **Migration:** an entry that relied on `serviceAccount: {}` for "Role only"
+  must drop the `serviceAccount` key.
+- **Name collisions between `rbacs.roles` entries now fail at render**
+  (issue #122): two entries with one `name`, `foo` next to `foo-role` (both
+  yield the RoleBinding `foo-rolebinding`), and two long names whose default
+  ServiceAccount truncates to the same 63 characters. The chart-created
+  ServiceAccount is also checked against the deployment, hook and cronjob ones.
+  All of these rendered, passed `helm lint`, and then overwrote each other or
+  failed with "already exists" at install.
+- **Two `kedaTriggerAuthentications` keys truncated to one name now fail at
+  render** (issue #117). The second TriggerAuthentication overwrote the first
+  at apply, and a ScaledObject meant for the first read the second's
+  credentials.
 
 ---
 
