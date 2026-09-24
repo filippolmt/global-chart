@@ -23,6 +23,13 @@ Accepts a dict with:
                    use deploy name); read only when the deployment has a
                    ConfigMap, so root-level callers omit it
   secretRef      - same, for the deployment's Secret; root-level callers omit it
+  hookType       - the hook's phase; hooks only. A pre-* hook reads the
+                   hook-prerequisite copy of every externalSecrets entry, any
+                   other job the real Secret (ADR 0007)
+  deployName     - the deployment key, for the fail message of an inherited
+                   externalSecrets entry; root-level callers omit it
+  errCtx         - values path of the job, for the fail message of its own
+                   externalSecrets entries
 */}}
 {{- define "global-chart.jobPodSpec" -}}
 {{- $root := .root -}}
@@ -107,7 +114,23 @@ containers:
   {{- $inheritSec := ternary $job.inheritDeploymentSecret true (hasKey $job "inheritDeploymentSecret") -}}
   {{- $hasDeployConfigMap := and $inheritCM $deploy.configMap (gt (len $deploy.configMap) 0) -}}
   {{- $hasDeploySecret := and $inheritSec $deploy.secret (gt (len $deploy.secret) 0) -}}
-  {{- $hasEnvFrom := or $hasDeployConfigMap $hasDeploySecret $job.envFromConfigMaps $job.envFromSecrets $deploy.envFromConfigMaps $deploy.envFromSecrets -}}
+  {{- /* externalSecrets: inherited when the job does not set its own (hasKey), and
+         split by form — an entry with a mountPath is a volume, any other one an
+         envFrom source. Each group keeps its level: proximity, see CONTEXT.md */ -}}
+  {{- $esRefs := include "global-chart.jobExternalSecretRefs" (dict "job" $job "deploy" $deploy) | fromJson -}}
+  {{- $esReadsCopy := and (eq .kind "hook") (eq (include "global-chart.hookReadsExternalSecretCopy" .hookType) "true") -}}
+  {{- $esInherited := include "global-chart.resolveExternalSecretRefs" (dict "root" $root "refs" $esRefs.inherited "hook" $esReadsCopy "errCtx" (printf "deployments.%s" (toString .deployName))) | fromJsonArray -}}
+  {{- $esOwn := include "global-chart.resolveExternalSecretRefs" (dict "root" $root "refs" $esRefs.own "hook" $esReadsCopy "errCtx" .errCtx) | fromJsonArray -}}
+  {{- $esEnvInherited := list -}}
+  {{- $esEnvOwn := list -}}
+  {{- $esMounted := list -}}
+  {{- range $esInherited -}}
+    {{- if .mountPath -}}{{- $esMounted = append $esMounted . -}}{{- else -}}{{- $esEnvInherited = append $esEnvInherited . -}}{{- end -}}
+  {{- end -}}
+  {{- range $esOwn -}}
+    {{- if .mountPath -}}{{- $esMounted = append $esMounted . -}}{{- else -}}{{- $esEnvOwn = append $esEnvOwn . -}}{{- end -}}
+  {{- end -}}
+  {{- $hasEnvFrom := or $hasDeployConfigMap $hasDeploySecret $job.envFromConfigMaps $job.envFromSecrets $deploy.envFromConfigMaps $deploy.envFromSecrets $esEnvInherited $esEnvOwn -}}
   {{- if $hasEnvFrom }}
   envFrom:
     {{- /* Deployment's generated ConfigMap (using configMapRef name - differs for hooks vs cronjobs) */ -}}
@@ -130,6 +153,11 @@ containers:
     - secretRef:
         name: {{ $sec | quote }}
     {{- end }}
+    {{- /* Deployment's externalSecrets, inherited */ -}}
+    {{- range $esEnvInherited }}
+    - secretRef:
+        name: {{ .secretName | quote }}
+    {{- end }}
     {{- /* Job's explicit external ConfigMaps */ -}}
     {{- range $cm := $job.envFromConfigMaps }}
     - configMapRef:
@@ -139,6 +167,11 @@ containers:
     {{- range $sec := $job.envFromSecrets }}
     - secretRef:
         name: {{ $sec | quote }}
+    {{- end }}
+    {{- /* Job's own externalSecrets */ -}}
+    {{- range $esEnvOwn }}
+    - secretRef:
+        name: {{ .secretName | quote }}
     {{- end }}
   {{- end }}
   {{- /* Env: deployment's additionalEnvs + job's env */ -}}
@@ -156,14 +189,26 @@ containers:
   {{- with (include "global-chart.renderResources" (dict "resources" $job.resources "hasResources" (hasKey $job "resources") "defaults" $root.Values.defaults)) }}
   {{- . | nindent 2 }}
   {{- end }}
-  {{- with $job.volumeMounts }}
+  {{- if or $job.volumeMounts $esMounted }}
   volumeMounts:
+    {{- with $job.volumeMounts }}
     {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- range $esMounted }}
+    - name: {{ .volumeName }}
+      mountPath: {{ .mountPath | quote }}
+      readOnly: true
+    {{- end }}
   {{- end }}
-{{- with $job.volumes }}
+{{- if or $job.volumes $esMounted }}
 volumes:
-  {{- range . }}
+  {{- range $job.volumes }}
   {{- include "global-chart.renderVolume" . | nindent 2 }}
+  {{- end }}
+  {{- range $esMounted }}
+  - name: {{ .volumeName }}
+    secret:
+      secretName: {{ .secretName | quote }}
   {{- end }}
 {{- end }}
 {{- with $saName }}
@@ -189,6 +234,24 @@ tolerations:
 {{- end }}
 restartPolicy: {{ default "Never" (ternary $job.restartPolicy "" (hasKey $job "restartPolicy")) | quote }}
 {{- end }}
+
+{{/*
+The externalSecrets references of a cronjob/hook, split by level: the list the
+job inherits from its deployment and the one it declares itself. hasKey decides,
+like every other inheritable field: a job that sets externalSecrets — `[]`
+included — inherits none. Root-level jobs pass no deploy and inherit nothing.
+Returns JSON {inherited: [...], own: [...]}; callers do `include ... | fromJson`.
+Usage: {{ include "global-chart.jobExternalSecretRefs" (dict "job" $job "deploy" $deploy) }}
+*/}}
+{{- define "global-chart.jobExternalSecretRefs" -}}
+{{- $job := .job -}}
+{{- $deploy := default (dict) .deploy -}}
+{{- if hasKey $job "externalSecrets" -}}
+{{- dict "inherited" (list) "own" (default (list) $job.externalSecrets) | toJson -}}
+{{- else -}}
+{{- dict "inherited" (default (list) $deploy.externalSecrets) "own" (list) | toJson -}}
+{{- end -}}
+{{- end -}}
 
 {{/*
 Resolve the image string for a cronjob/hook command, unifying the choice across

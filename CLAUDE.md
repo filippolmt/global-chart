@@ -68,8 +68,9 @@ is the source of truth, this table is only the routing.
 4. **SA default**: `serviceAccount.create` defaults to `true`. Deployment-level
    hooks/cronjobs inherit the deployment SA, default true
 5. **Inheritance**: Deployment-level hooks/cronjobs inherit image, configMap,
-   secret, SA, envFrom, imagePullSecrets, hostAliases, securityContext, dnsConfig
-   (cronjobs only), nodeSelector, tolerations, affinity. Override with an
+   secret, SA, envFrom, `externalSecrets`, imagePullSecrets, hostAliases,
+   securityContext, dnsConfig (cronjobs only), nodeSelector, tolerations,
+   affinity. Override with an
    explicit value; use empty `{}` or `[]` to stop inheritance. Toggle
    `inheritDeploymentConfigMap: false` / `inheritDeploymentSecret: false` to
    break ConfigMap/Secret env injection without removing them from the
@@ -114,7 +115,13 @@ is the source of truth, this table is only the routing.
    after hooks complete. The ServiceAccount gets the same treatment, but **only
    for `pre-install`** and with its own delete policy — the copy shares the real
    SA's name and must be gone before Helm creates it. Read
-   `docs/adr/0002-hook-prerequisite-serviceaccount-copy.md` before touching it
+   `docs/adr/0002-hook-prerequisite-serviceaccount-copy.md` before touching it.
+   An ExternalSecret a `pre-*` hook references (`externalSecrets: [{name: <key>}]`)
+   gets a copy too, keyed by ExternalSecret rather than by deployment, under its
+   **own** target `<target>-hook` — sharing the real target is `ErrSecretIsOwned`,
+   and the copy's deletion would garbage-collect the live Secret. Its spec comes
+   from `renderExternalSecretSpec`, the same helper as the real one. Read
+   `docs/adr/0007-hook-prerequisite-externalsecret-copy.md` before touching it
 8. **Hook resources clean themselves up**: hook resources are not part of the
    release manifest, so Helm never deletes them at uninstall. The plumbing
    (prereq ConfigMap/Secret, chart-created hook SAs) therefore deletes itself —

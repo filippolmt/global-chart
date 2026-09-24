@@ -141,7 +141,15 @@ spec:
           resources:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-          {{- if or $deploy.configMap $deploy.envFromConfigMaps $deploy.secret $deploy.envFromSecrets }}
+          {{- /* externalSecrets: the Deployment always reads the real Secret, never
+                 the hook copy (ADR 0007). A mountPath makes the entry a volume;
+                 any other entry is a secret source, in the secret group */ -}}
+          {{- $esEnv := list }}
+          {{- $esMounted := list }}
+          {{- range (include "global-chart.resolveExternalSecretRefs" (dict "root" $root "refs" $deploy.externalSecrets "hook" false "errCtx" (printf "deployments.%s" $name)) | fromJsonArray) }}
+          {{- if .mountPath }}{{- $esMounted = append $esMounted . }}{{- else }}{{- $esEnv = append $esEnv . }}{{- end }}
+          {{- end }}
+          {{- if or $deploy.configMap $deploy.envFromConfigMaps $deploy.secret $deploy.envFromSecrets $esEnv }}
           envFrom:
             {{- if $deploy.configMap }}
             - configMapRef:
@@ -159,13 +167,17 @@ spec:
             - secretRef:
                 name: {{ $sec | quote }}
             {{- end }}
+            {{- range $esEnv }}
+            - secretRef:
+                name: {{ .secretName | quote }}
+            {{- end }}
           {{- end }}
           {{- if $deploy.additionalEnvs }}
           env:
             {{- toYaml $deploy.additionalEnvs | nindent 12 }}
           {{- end }}
           {{- $mountedConfigFiles := $deploy.mountedConfigFiles }}
-          {{- if or $deploy.volumeMounts (and $mountedConfigFiles (or $mountedConfigFiles.files $mountedConfigFiles.bundles)) }}
+          {{- if or $deploy.volumeMounts (and $mountedConfigFiles (or $mountedConfigFiles.files $mountedConfigFiles.bundles)) $esMounted }}
           volumeMounts:
             {{- with $deploy.volumeMounts }}
             {{- toYaml . | nindent 12 }}
@@ -185,6 +197,11 @@ spec:
               readOnly: true
             {{- end }}
             {{- end }}
+            {{- range $esMounted }}
+            - name: {{ .volumeName }}
+              mountPath: {{ .mountPath | quote }}
+              readOnly: true
+            {{- end }}
           {{- end }}
       {{- with $deploy.extraContainers }}
         {{- toYaml . | nindent 8 }}
@@ -194,7 +211,7 @@ spec:
       {{- $hasUserVolumes := gt (len $userVolumes) 0 }}
       {{- $hasMcfFiles := and $mountedConfigFiles (gt (len (default (list) $mountedConfigFiles.files)) 0) }}
       {{- $hasMcfBundles := and $mountedConfigFiles (gt (len (default (list) $mountedConfigFiles.bundles)) 0) }}
-      {{- if or $hasUserVolumes (or $hasMcfFiles $hasMcfBundles) }}
+      {{- if or $hasUserVolumes $hasMcfFiles $hasMcfBundles $esMounted }}
       volumes:
         {{- range $userVolumes }}
         {{- include "global-chart.renderVolume" . | nindent 8 }}
@@ -219,6 +236,11 @@ spec:
                       path: {{ $f.relPath }}
             {{- end }}
         {{- end }}
+        {{- end }}
+        {{- range $esMounted }}
+        - name: {{ .volumeName }}
+          secret:
+            secretName: {{ .secretName | quote }}
         {{- end }}
       {{- end }}
       {{- with $deploy.nodeSelector }}

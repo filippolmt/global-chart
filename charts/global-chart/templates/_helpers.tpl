@@ -278,3 +278,48 @@ Usage: {{ include "global-chart.mountedFileVolumeName" (dict "fileName" $f.name)
 {{- define "global-chart.mountedBundleVolumeName" -}}
 {{- printf "md-cm-bundle-%v" .bundleIndex -}}
 {{- end -}}
+
+{{/*
+ExternalSecret names: the resource and the Secret it produces, for the real
+ExternalSecret and for its hook-prerequisite copy (ADR 0007). Four helpers, one
+per generated name, following hookPrereqConfigName / hookPrereqSecretName: every
+template and the collision validator read the names from here.
+The copy's names are the real ones plus "-hook". Its target is its OWN Secret,
+never the real one: two ExternalSecrets owning one Secret is ErrSecretIsOwned,
+and the copy's deletion would garbage-collect the live Secret with it.
+No trunc: an ExternalSecret and a Secret are DNS subdomains (253 chars), and
+truncating would manufacture the collisions validateNameCollisions catches.
+Params: root, key (the externalSecrets map key); the target helpers also take
+secret (the externalSecrets.<key> map), whose target.name overrides the default.
+*/}}
+{{- define "global-chart.externalSecretName" -}}
+{{- printf "%s-%s" (include "global-chart.fullname" .root) .key -}}
+{{- end -}}
+
+{{- define "global-chart.externalSecretHookName" -}}
+{{- printf "%s-hook" (include "global-chart.externalSecretName" .) -}}
+{{- end -}}
+
+{{- define "global-chart.externalSecretTargetName" -}}
+{{- $target := default (dict) .secret.target -}}
+{{- ternary $target.name (include "global-chart.externalSecretName" .) (hasKey $target "name") -}}
+{{- end -}}
+
+{{- define "global-chart.externalSecretHookTargetName" -}}
+{{- printf "%s-hook" (include "global-chart.externalSecretTargetName" .) -}}
+{{- end -}}
+
+{{/*
+Pod volume name for an externalSecrets entry mounted with a mountPath. Not a
+public interface, like the md-cm volume names above. A volume name is a
+DNS-1123 label, which an externalSecrets key need not be: fail here, at render
+time, rather than at apply time far from the cause.
+Usage: {{ include "global-chart.externalSecretVolumeName" (dict "key" $key) }}
+*/}}
+{{- define "global-chart.externalSecretVolumeName" -}}
+{{- $name := printf "es-%s" .key -}}
+{{- if or (gt (len $name) 63) (not (regexMatch "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$" $name)) -}}
+{{- fail (printf "externalSecrets key '%s' cannot be mounted: its volume name '%s' is not a DNS-1123 label of at most 63 characters. Rename the key, or inject it without a mountPath." .key $name) -}}
+{{- end -}}
+{{- $name -}}
+{{- end -}}

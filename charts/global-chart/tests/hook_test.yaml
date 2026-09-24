@@ -2784,3 +2784,189 @@ tests:
           path: metadata.annotations.shared
           value: from-global
         documentIndex: 1
+
+  # ====== externalSecrets references (issue #110, ADR 0007) ======
+  - it: should read the hook copy of an inherited externalSecrets entry, placed with the inherited sources
+    set:
+      externalSecrets:
+        app-env:
+          secretstore: { kind: ClusterSecretStore, name: store }
+          secretkey: PASSWORD
+          remote: { key: app/password }
+      deployments:
+        app:
+          image: nginx:1.25
+          secret:
+            TOKEN: abc
+          envFromSecrets:
+            - literal-secret
+          externalSecrets:
+            - name: app-env
+          hooks:
+            pre-upgrade:
+              migrate:
+                command: ["true"]
+                envFromSecrets:
+                  - job-secret
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].envFrom
+          value:
+            - secretRef:
+                name: RELEASE-NAME-global-chart-app-hook-secret
+            - secretRef:
+                name: literal-secret
+            - secretRef:
+                name: RELEASE-NAME-global-chart-app-env-hook
+            - secretRef:
+                name: job-secret
+        documentSelector:
+          path: kind
+          value: Job
+
+  - it: should place a hook's own externalSecrets entries after its own envFromSecrets
+    set:
+      externalSecrets:
+        app-env:
+          secretstore: { kind: ClusterSecretStore, name: store }
+          secretkey: PASSWORD
+          remote: { key: app/password }
+        other:
+          secretstore: { kind: ClusterSecretStore, name: store }
+          secretkey: PASSWORD
+          remote: { key: other/password }
+      deployments:
+        app:
+          image: nginx:1.25
+          envFromSecrets:
+            - literal-secret
+          externalSecrets:
+            - name: app-env
+          hooks:
+            pre-install:
+              migrate:
+                command: ["true"]
+                envFromSecrets:
+                  - job-secret
+                externalSecrets:
+                  - name: other
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].envFrom
+          value:
+            - secretRef:
+                name: literal-secret
+            - secretRef:
+                name: job-secret
+            - secretRef:
+                name: RELEASE-NAME-global-chart-other-hook
+        documentSelector:
+          path: kind
+          value: Job
+
+  - it: should mount the hook copy as a volume when the entry carries a mountPath
+    set:
+      externalSecrets:
+        app-conf:
+          secretstore: { kind: ClusterSecretStore, name: store }
+          secretkey: app.conf
+          remote: { key: app/conf }
+      hooks:
+        pre-install:
+          migrate:
+            image: busybox:1.36
+            volumes:
+              - name: scratch
+                emptyDir: {}
+            volumeMounts:
+              - name: scratch
+                mountPath: /tmp
+            externalSecrets:
+              - name: app-conf
+                mountPath: /etc/app
+    asserts:
+      - notExists:
+          path: spec.template.spec.containers[0].envFrom
+        documentSelector:
+          path: kind
+          value: Job
+      - equal:
+          path: spec.template.spec.containers[0].volumeMounts
+          value:
+            - name: scratch
+              mountPath: /tmp
+            - name: es-app-conf
+              mountPath: /etc/app
+              readOnly: true
+        documentSelector:
+          path: kind
+          value: Job
+      - equal:
+          path: spec.template.spec.volumes
+          value:
+            - name: scratch
+              emptyDir: {}
+            - name: es-app-conf
+              secret:
+                secretName: RELEASE-NAME-global-chart-app-conf-hook
+        documentSelector:
+          path: kind
+          value: Job
+
+  - it: should read the real Secret from a post-* hook, which runs after the ExternalSecret exists
+    set:
+      externalSecrets:
+        app-env:
+          secretstore: { kind: ClusterSecretStore, name: store }
+          secretkey: PASSWORD
+          remote: { key: app/password }
+      hooks:
+        post-install:
+          notify:
+            image: busybox:1.36
+            externalSecrets:
+              - name: app-env
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].envFrom
+          value:
+            - secretRef:
+                name: RELEASE-NAME-global-chart-app-env
+        documentSelector:
+          path: kind
+          value: Job
+
+  - it: should read the copy of a custom target.name
+    set:
+      externalSecrets:
+        app-env:
+          secretstore: { kind: ClusterSecretStore, name: store }
+          secretkey: PASSWORD
+          remote: { key: app/password }
+          target:
+            name: my-app-env
+      hooks:
+        pre-install:
+          migrate:
+            image: busybox:1.36
+            externalSecrets:
+              - name: app-env
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].envFrom[0].secretRef.name
+          value: my-app-env-hook
+        documentSelector:
+          path: kind
+          value: Job
+
+  - it: should fail when an externalSecrets entry names a key that externalSecrets does not define
+    set:
+      hooks:
+        pre-install:
+          migrate:
+            image: busybox:1.36
+            externalSecrets:
+              - name: missing
+    asserts:
+      - failedTemplate:
+          errorPattern: "hooks.pre-install.migrate.externalSecrets references 'missing', which is not a key of externalSecrets"

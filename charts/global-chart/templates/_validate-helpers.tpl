@@ -5,7 +5,7 @@ Validation helpers for global-chart.
 {{/*
 Validate that all generated resource names are unique after truncation.
 Checks within each resource kind: Deployments, CronJobs, Jobs (hooks),
-ServiceAccounts, ConfigMaps and Secrets.
+ServiceAccounts, ConfigMaps, Secrets and ExternalSecrets.
 A kind's accumulator holds every name of that kind whatever derived it, because
 collisions cross sources: $cmNames carries the deployment's own ConfigMap, its
 mounted config file ConfigMaps and its hook-prerequisite copy alike. A
@@ -25,6 +25,8 @@ Called from validate.yaml.
 {{- $cmNames := dict -}}
 {{- $secretNames := dict -}}
 {{- $saNames := dict -}}
+{{- $esNames := dict -}}
+{{- $esOwnedNames := dict -}}
 
 {{- /* 1. Deployment resource names (trunc 63) */ -}}
 {{- range $name, $deploy := .Values.deployments -}}
@@ -134,6 +136,36 @@ Called from validate.yaml.
       {{- $sa := include "global-chart.jobServiceAccount" (dict "root" $root "job" $command "jobFullname" $hookFullname) | fromJson -}}
       {{- include "global-chart.registerSAName" (dict "names" $saNames "sa" $sa "owner" (printf "root hook '%s/%s'" $hookType $name)) -}}
     {{- end -}}
+  {{- end -}}
+{{- end -}}
+
+{{- /* 4. ExternalSecrets and their hook-prerequisite copies (ADR 0007). The copy
+       appends "-hook" to both the ExternalSecret name and its target, so a key
+       or a target.name that already ends in "-hook" lands on it.
+       $esOwnedNames holds the Secrets an ExternalSecret *owns*: two owners of
+       one Secret is ErrSecretIsOwned, and the copy's deletion would take the
+       other's Secret with it. A real target under Merge or None is written
+       into, not owned, so several of them sharing a target stays legal. The
+       copy's target also joins $secretNames, against the chart's own Secrets. */ -}}
+{{- $consumers := include "global-chart.externalSecretHookConsumers" $root | fromJson -}}
+{{- range $key, $secret := .Values.externalSecrets -}}
+  {{- if $secret -}}
+    {{- $nameCtx := dict "root" $root "key" $key "secret" $secret -}}
+    {{- include "global-chart.registerName" (dict "names" $esNames "kind" "ExternalSecret" "name" (include "global-chart.externalSecretName" $nameCtx) "owner" (printf "externalSecrets '%s'" $key)) -}}
+    {{- $target := default (dict) $secret.target -}}
+    {{- if eq (ternary $target.creationPolicy "Owner" (hasKey $target "creationPolicy")) "Owner" -}}
+      {{- include "global-chart.registerName" (dict "names" $esOwnedNames "kind" "Secret" "name" (include "global-chart.externalSecretTargetName" $nameCtx) "owner" (printf "externalSecrets '%s'" $key)) -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+{{- range $key, $secret := .Values.externalSecrets -}}
+  {{- if and $secret (hasKey $consumers $key) -}}
+    {{- $nameCtx := dict "root" $root "key" $key "secret" $secret -}}
+    {{- $owner := printf "the hook copy of externalSecrets '%s'" $key -}}
+    {{- $copyTarget := include "global-chart.externalSecretHookTargetName" $nameCtx -}}
+    {{- include "global-chart.registerName" (dict "names" $esNames "kind" "ExternalSecret" "name" (include "global-chart.externalSecretHookName" $nameCtx) "owner" $owner) -}}
+    {{- include "global-chart.registerName" (dict "names" $esOwnedNames "kind" "Secret" "name" $copyTarget "owner" $owner) -}}
+    {{- include "global-chart.registerName" (dict "names" $secretNames "kind" "Secret" "name" $copyTarget "owner" $owner) -}}
   {{- end -}}
 {{- end -}}
 

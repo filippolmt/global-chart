@@ -351,3 +351,118 @@ Output: JSON of the form {"port":80,"name":"http","protocol":"TCP","targetPort":
       "targetPort" (ternary $svc.targetPort $name (hasKey $svc "targetPort"))
     | toJson -}}
 {{- end }}
+
+{{/*
+The spec body of an ExternalSecret, at indent 0, with the validation of its
+values. Single home for the real ExternalSecret and its hook-prerequisite copy
+(ADR 0007): a copy that re-derived the body inline would diverge in silence,
+for the reason ADR 0005 gives for the ConfigMap/Secret copies.
+Knows nothing about hooks: the copy's two differences arrive as overrides.
+Params:
+  root, key, secret - the chart context, the externalSecrets key and its map
+  targetName        - optional; overrides target.name (the copy's own Secret)
+  creationPolicy    - optional; overrides target.creationPolicy (the copy's Owner)
+*/}}
+{{- define "global-chart.renderExternalSecretSpec" -}}
+{{- $name := .key -}}
+{{- $secret := .secret -}}
+{{- $target := default (dict) $secret.target -}}
+{{- $hasData := hasKey $secret "data" -}}
+{{- $hasDataFrom := hasKey $secret "dataFrom" -}}
+{{- if and (or $hasData $hasDataFrom) (or (hasKey $secret "remote") (hasKey $secret "secretkey")) -}}
+{{- fail (printf "externalSecrets.%s: single-key form ('remote'/'secretkey') cannot be combined with 'data' or 'dataFrom'" $name) -}}
+{{- end -}}
+{{/* A dataFrom whose every entry carries its own sourceRef (generatorRef or
+     per-item storeRef) needs no spec-level store: the CRD makes secretStoreRef
+     optional. An empty list is not self-contained — it would render a
+     store-less, data-less ExternalSecret. */}}
+{{- $selfContainedDataFrom := false -}}
+{{- if and $hasDataFrom (not $hasData) (gt (len (default (list) $secret.dataFrom)) 0) -}}
+{{- $selfContainedDataFrom = true -}}
+{{- range $item := $secret.dataFrom -}}
+{{- $sourceRef := default (dict) $item.sourceRef -}}
+{{- if not (or (hasKey $sourceRef "generatorRef") (hasKey $sourceRef "storeRef")) -}}
+{{- $selfContainedDataFrom = false -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- $secretStore := $secret.secretstore -}}
+{{- if not $selfContainedDataFrom -}}
+{{- $secretStore = required (printf "externalSecrets.%s.secretstore is mandatory unless every dataFrom entry carries its own sourceRef (generatorRef or storeRef)" $name) $secret.secretstore -}}
+{{- end -}}
+{{- if or $hasData $hasDataFrom }}
+{{- if $hasData }}
+data:
+  {{- range $item := $secret.data }}
+  {{- $itemRemote := required (printf "externalSecrets.%s.data[].remote is mandatory" $name) $item.remote }}
+  - remoteRef:
+      {{- include "global-chart.renderExternalSecretRemoteRef" (dict "remote" $itemRemote "keyError" (printf "externalSecrets.%s.data[].remote.key is mandatory" $name)) | nindent 6 }}
+    secretKey: {{ required (printf "externalSecrets.%s.data[].secretkey is mandatory" $name) $item.secretkey | quote }}
+  {{- end }}
+{{- end }}
+{{- if $hasDataFrom }}
+dataFrom:
+  {{- toYaml $secret.dataFrom | nindent 2 }}
+{{- end }}
+{{- else }}
+{{- $remote := required (printf "externalSecrets.%s.remote is mandatory" $name) $secret.remote }}
+data:
+  - remoteRef:
+      {{- include "global-chart.renderExternalSecretRemoteRef" (dict "remote" $remote "keyError" (printf "externalSecrets.%s.remote.key is mandatory" $name)) | nindent 6 }}
+    secretKey: {{ required "secretkey is mandatory" $secret.secretkey | quote }}
+{{- end }}
+refreshInterval: {{ ternary $secret.refreshInterval "1h" (hasKey $secret "refreshInterval") | quote }}
+{{- /* Emitted whenever a store is required — so an incomplete secretstore
+       still fails on the store-backed path — and also when a self-contained
+       dataFrom supplies one anyway: ESO lets a per-item sourceRef override a
+       spec-level store. A self-contained dataFrom with an empty secretstore
+       is the one case that renders neither: nothing to emit, nothing needed. */}}
+{{- if or (not $selfContainedDataFrom) $secretStore }}
+secretStoreRef:
+  kind: {{ required (printf "externalSecrets.%s.secretstore.kind is mandatory" $name) $secretStore.kind | quote }}
+  name: {{ required (printf "externalSecrets.%s.secretstore.name is mandatory" $name) $secretStore.name | quote }}
+{{- end }}
+target:
+  creationPolicy: {{ default (ternary $target.creationPolicy "Owner" (hasKey $target "creationPolicy")) .creationPolicy | quote }}
+  deletionPolicy: {{ ternary $target.deletionPolicy "Retain" (hasKey $target "deletionPolicy") | quote }}
+  name: {{ default (include "global-chart.externalSecretTargetName" .) .targetName | quote }}
+  {{- if hasKey $target "immutable" }}
+  immutable: {{ $target.immutable }}
+  {{- end }}
+  {{- with $target.template }}
+  template:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- end }}
+
+{{/*
+Resolve a list of externalSecrets references ({name, mountPath?}) to what a pod
+consumes: the Secret name and, for a mounted entry, the volume name and mount
+path. Returns a JSON list; callers do `include ... | fromJsonArray`.
+A reference names a key of the root externalSecrets map, never a Secret name:
+the generated names are not a public interface (ADR 0007). A key that names
+nothing is a template fail.
+Params:
+  root   - chart context
+  refs   - the list of references
+  hook   - true to read the hook-prerequisite copy's Secret instead of the real one
+  errCtx - values path of the list's owner, for the fail message
+*/}}
+{{- define "global-chart.resolveExternalSecretRefs" -}}
+{{- $root := .root -}}
+{{- $out := list -}}
+{{- range $ref := (default (list) .refs) -}}
+  {{- $secret := index (default (dict) $root.Values.externalSecrets) $ref.name -}}
+  {{- if not $secret -}}
+    {{- fail (printf "%s.externalSecrets references '%s', which is not a key of externalSecrets. Name the key of the externalSecrets entry, not the Secret it produces." $.errCtx $ref.name) -}}
+  {{- end -}}
+  {{- $nameCtx := dict "root" $root "key" $ref.name "secret" $secret -}}
+  {{- $entry := dict "secretName" (include (ternary "global-chart.externalSecretHookTargetName" "global-chart.externalSecretTargetName" (and (hasKey $ "hook") $.hook)) $nameCtx) -}}
+  {{- with $ref.mountPath -}}
+    {{- $_ := set $entry "mountPath" . -}}
+    {{- $_ := set $entry "volumeName" (include "global-chart.externalSecretVolumeName" (dict "key" $ref.name)) -}}
+  {{- end -}}
+  {{- $out = append $out $entry -}}
+{{- end -}}
+{{- toJson $out -}}
+{{- end -}}

@@ -719,6 +719,67 @@ tests:
             - secretRef:
                 name: external-secret
 
+  - it: should place externalSecrets entries in the secret group, and mount the ones with a mountPath
+    set:
+      externalSecrets:
+        app-env:
+          secretstore: { kind: ClusterSecretStore, name: store }
+          secretkey: PASSWORD
+          remote: { key: app/password }
+        app-conf:
+          secretstore: { kind: ClusterSecretStore, name: store }
+          secretkey: app.conf
+          remote: { key: app/conf }
+      deployments:
+        main:
+          image: nginx:1.25
+          configMap:
+            KEY: value
+          envFromSecrets:
+            - external-secret
+          externalSecrets:
+            - name: app-env
+            - name: app-conf
+              mountPath: /etc/app
+          hooks:
+            pre-install:
+              migrate:
+                command: ["true"]
+    asserts:
+      # The Deployment always reads the real Secret, never the hook copy
+      - equal:
+          path: spec.template.spec.containers[0].envFrom
+          value:
+            - configMapRef:
+                name: RELEASE-NAME-global-chart-main
+            - secretRef:
+                name: external-secret
+            - secretRef:
+                name: RELEASE-NAME-global-chart-app-env
+      - equal:
+          path: spec.template.spec.containers[0].volumeMounts
+          value:
+            - name: es-app-conf
+              mountPath: /etc/app
+              readOnly: true
+      - equal:
+          path: spec.template.spec.volumes
+          value:
+            - name: es-app-conf
+              secret:
+                secretName: RELEASE-NAME-global-chart-app-conf
+
+  - it: should fail when the deployment names an unknown ExternalSecret key
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          externalSecrets:
+            - name: missing
+    asserts:
+      - failedTemplate:
+          errorPattern: "deployments.main.externalSecrets references 'missing', which is not a key of externalSecrets"
+
   # ====== replicas with autoscaling ======
   - it: should not set replicas when autoscaling is enabled
     set:

@@ -42,8 +42,14 @@ KIND_KUBECONFIG := $(CURDIR)/.bin/kind-kubeconfig
 KEDA_VERSION := 2.20.2
 KEDA_REPO_URL := https://kedacore.github.io/charts
 KEDA_NAMESPACE := keda
-KEDA_HELM_ENV := HELM_REPOSITORY_CONFIG=$(KIND_BIN_DIR)/helm-repositories.yaml \
+HELM_REPO_ENV := HELM_REPOSITORY_CONFIG=$(KIND_BIN_DIR)/helm-repositories.yaml \
 	HELM_REPOSITORY_CACHE=$(KIND_BIN_DIR)/helm-repo-cache
+# External Secrets Operator + CRDs, so a hook reading an ExternalSecret's Secret
+# is exercised for real (issue #110, ADR 0007): the store is ESO's fake provider.
+# renovate: datasource=helm depName=external-secrets registryUrl=https://charts.external-secrets.io
+ESO_VERSION := 2.11.0
+ESO_REPO_URL := https://charts.external-secrets.io
+ESO_NAMESPACE := external-secrets
 E2E_VALUES := tests/e2e/values.yaml
 E2E_RELEASE := e2e
 E2E_NAMESPACE := global-chart-e2e
@@ -59,6 +65,7 @@ TEST_CASES := \
 	tests/cron-only.yaml:cron:cron \
 	tests/hook-only.yaml:hooks:hooks \
 	tests/externalsecret-only.yaml:externalsecrets:externalsecret \
+	tests/externalsecret-hooks.yaml:externalsecret-hooks:externalsecret-hooks \
 	tests/ingress-custom.yaml:ingress:ingress \
 	tests/external-ingress.yaml:ingress:external-ingress \
 	tests/rbac.yaml:rbac:rbac \
@@ -82,7 +89,7 @@ TEST_CASES := \
 .PHONY: help all lint-chart unit-test validate-bad-values generate-templates \
 	kubeconform kube-linter-manifests kube-linter generate-docs package \
 	install install-test01 render clean clean-all \
-	kind-install kind-cluster kind-keda kind-delete e2e
+	kind-install kind-cluster kind-keda kind-eso kind-delete e2e
 
 # ============================================================================
 # Help
@@ -299,8 +306,8 @@ kind-cluster: kind-install ## Create the e2e kind cluster (isolated kubeconfig, 
 kind-keda: kind-cluster ## Install KEDA (operator + CRDs) into the e2e kind cluster
 	@echo "==> Installing KEDA $(KEDA_VERSION)..."
 	@mkdir -p $(KIND_BIN_DIR)
-	@$(KEDA_HELM_ENV) helm repo add kedacore $(KEDA_REPO_URL) --force-update >/dev/null
-	@KUBECONFIG=$(KIND_KUBECONFIG) $(KEDA_HELM_ENV) helm upgrade --install keda kedacore/keda \
+	@$(HELM_REPO_ENV) helm repo add kedacore $(KEDA_REPO_URL) --force-update >/dev/null
+	@KUBECONFIG=$(KIND_KUBECONFIG) $(HELM_REPO_ENV) helm upgrade --install keda kedacore/keda \
 		--version $(KEDA_VERSION) \
 		--namespace $(KEDA_NAMESPACE) --create-namespace \
 		--wait --timeout 300s >/dev/null
@@ -308,11 +315,29 @@ kind-keda: kind-cluster ## Install KEDA (operator + CRDs) into the e2e kind clus
 		crd/scaledobjects.keda.sh crd/triggerauthentications.keda.sh --timeout=60s >/dev/null
 	@echo "    KEDA operator ready"
 
+kind-eso: kind-cluster ## Install External Secrets Operator (operator + CRDs) and the e2e fake store
+	@echo "==> Installing External Secrets Operator $(ESO_VERSION)..."
+	@mkdir -p $(KIND_BIN_DIR)
+	@$(HELM_REPO_ENV) helm repo add external-secrets $(ESO_REPO_URL) --force-update >/dev/null
+	@KUBECONFIG=$(KIND_KUBECONFIG) $(HELM_REPO_ENV) helm upgrade --install external-secrets external-secrets/external-secrets \
+		--version $(ESO_VERSION) \
+		--namespace $(ESO_NAMESPACE) --create-namespace \
+		--wait --timeout 300s >/dev/null
+	@KUBECONFIG=$(KIND_KUBECONFIG) kubectl wait --for=condition=Established \
+		crd/externalsecrets.external-secrets.io crd/clustersecretstores.external-secrets.io --timeout=60s >/dev/null
+	@# The webhook answers only once its certificate is in place, so the first apply can bounce.
+	@for i in 1 2 3 4 5 6 7 8 9 10 11 12; do \
+		KUBECONFIG=$(KIND_KUBECONFIG) kubectl apply -f tests/e2e/cluster-secret-store.yaml >/dev/null 2>&1 && break; \
+		sleep 5; \
+	done
+	@KUBECONFIG=$(KIND_KUBECONFIG) kubectl wait --for=condition=Ready clustersecretstore/e2e-fake --timeout=120s >/dev/null
+	@echo "    External Secrets Operator ready, fake ClusterSecretStore Ready"
+
 kind-delete: ## Delete the e2e kind cluster
 	@if [ -x "$(KIND)" ]; then $(KIND) delete cluster --name "$(KIND_CLUSTER)"; fi
 	@rm -f "$(KIND_KUBECONFIG)"
 
-e2e: kind-cluster kind-keda ## Install/upgrade/uninstall tests/e2e/values.yaml on kind and assert the hook lifecycle
+e2e: kind-cluster kind-keda kind-eso ## Install/upgrade/uninstall tests/e2e/values.yaml on kind and assert the hook lifecycle
 	@set -e; \
 	export KUBECONFIG=$(KIND_KUBECONFIG); \
 	ns=$(E2E_NAMESPACE); rel=$(E2E_RELEASE); \
@@ -332,6 +357,12 @@ e2e: kind-cluster kind-keda ## Install/upgrade/uninstall tests/e2e/values.yaml o
 			|| { echo "FAIL: pre-install hook Job '$$hook' did not succeed (issue #71 regression)"; exit 1; }; \
 	done; \
 	echo "    both pre-install hooks ran under the chart-created ServiceAccount"; \
+	echo "    both read the ExternalSecret's value through its hook copy, envFrom and volume (issue #110)"; \
+	kubectl -n $$ns wait --for=delete externalsecret/$$rel-$(GLOBAL_CHART_NAME)-e2e-env-hook \
+		secret/$$rel-$(GLOBAL_CHART_NAME)-e2e-env-hook --timeout=60s >/dev/null 2>&1 \
+		|| { echo "FAIL: the ExternalSecret hook copy or its Secret survived the hook phase"; \
+		     kubectl -n $$ns get externalsecret,secret; exit 1; }; \
+	echo "    ExternalSecret hook copy deleted, its Secret garbage-collected"; \
 	echo "    the negative-weight hook found its prerequisite ConfigMap (weight invariant holds)"; \
 	kubectl -n $$ns get sa $$rel-$(GLOBAL_CHART_NAME)-app -o jsonpath='{.metadata.annotations}' | grep -q 'helm.sh/hook' \
 		&& { echo "FAIL: the surviving SA is the hook copy, not the real one"; exit 1; } || true; \
@@ -393,13 +424,15 @@ e2e: kind-cluster kind-keda ## Install/upgrade/uninstall tests/e2e/values.yaml o
 	echo "    upgrade left spec.replicas to the autoscaler"; \
 	echo "==> Uninstalling and checking for orphaned hook resources..."; \
 	helm uninstall $$rel -n $$ns >/dev/null; \
+	kubectl -n $$ns wait --for=delete secret/$$rel-$(GLOBAL_CHART_NAME)-e2e-env secret/$$rel-$(GLOBAL_CHART_NAME)-e2e-conf \
+		secret/$$rel-$(GLOBAL_CHART_NAME)-e2e-env-hook secret/$$rel-$(GLOBAL_CHART_NAME)-e2e-conf-hook --timeout=60s >/dev/null 2>&1 || true; \
 	orphans=$$(kubectl -n $$ns get sa,cm,secret --no-headers 2>/dev/null \
 		| grep -v 'serviceaccount/default\|kube-root-ca.crt' || true); \
 	if [ -n "$$orphans" ]; then echo "FAIL: hook resources orphaned after uninstall:"; echo "$$orphans"; exit 1; fi; \
 	echo "    no orphaned ConfigMap/Secret/ServiceAccount"; \
-	keda_orphans=$$(kubectl -n $$ns get scaledobject,triggerauthentication,hpa --no-headers 2>/dev/null || true); \
+	keda_orphans=$$(kubectl -n $$ns get scaledobject,triggerauthentication,hpa,externalsecret --no-headers 2>/dev/null || true); \
 	if [ -n "$$keda_orphans" ]; then echo "FAIL: KEDA resources orphaned after uninstall:"; echo "$$keda_orphans"; exit 1; fi; \
-	echo "    no orphaned ScaledObject/TriggerAuthentication, derived HPA garbage-collected"; \
+	echo "    no orphaned ScaledObject/TriggerAuthentication/ExternalSecret, derived HPA garbage-collected"; \
 	echo "==> e2e passed"
 
 install-test01: ## Install test01 (has kubectl pre-step; or use: make install SCENARIO=test01)

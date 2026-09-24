@@ -90,7 +90,7 @@ spec:
             {{- . | nindent 12 }}
         {{- end }}
         spec:
-          {{- $ctx := dict "root" $root "job" $job "saName" $saName "imageRef" $imageRef "containerName" $name "kind" "cronjob" }}
+          {{- $ctx := dict "root" $root "job" $job "saName" $saName "imageRef" $imageRef "containerName" $name "kind" "cronjob" "errCtx" (printf "cronJobs.%s" $name) }}
           {{- include "global-chart.jobPodSpec" $ctx | trimPrefix "\n" | nindent 10 }}
 {{- end }}
 {{- end }}
@@ -189,7 +189,7 @@ spec:
             {{- . | nindent 12 }}
         {{- end }}
         spec:
-          {{- $ctx := dict "root" $root "job" $job "deploy" $deploy "saName" $saName "imageRef" $imageRef "containerName" $name "configMapRef" $deployFullname "secretRef" $deployFullname "kind" "cronjob" }}
+          {{- $ctx := dict "root" $root "job" $job "deploy" $deploy "saName" $saName "imageRef" $imageRef "containerName" $name "configMapRef" $deployFullname "secretRef" $deployFullname "kind" "cronjob" "deployName" $deployName "errCtx" (printf "deployments.%s.cronJobs.%s" $deployName $name) }}
           {{- include "global-chart.jobPodSpec" $ctx | trimPrefix "\n" | nindent 10 }}
 {{ end }}
 {{- end }}

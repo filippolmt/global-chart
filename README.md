@@ -20,6 +20,7 @@ The chart supports **multiple deployments** in a single release, each with indep
   - **Root level** (`hooks.*`, `cronJobs.*`): Standalone, use `fromDeployment` to copy image from a deployment
   - **Inside deployments** (`deployments.*.hooks`, `deployments.*.cronJobs`): Inherit image, configMap, secret, serviceAccount, hostAliases, podSecurityContext, securityContext, dnsConfig (cronJobs), nodeSelector, tolerations, affinity, and more from the parent deployment
   - Hook prerequisite ConfigMap/Secret are created automatically with correct weight ordering
+  - A `pre-*` hook can read a Secret produced by the release's own `externalSecrets`: reference it by key (see [Reading an ExternalSecret from a hook](#reading-an-externalsecret-from-a-hook))
 - **Secret management**
   ExternalSecret resources with required field validation to avoid silent misconfigurations. Each entry maps a single remote key (`remote`/`secretkey`), many keys into one Secret via a `data` list, or pulls in bulk via `dataFrom` (`extract`/`find`).
 - **RBAC**
@@ -135,6 +136,57 @@ ingress:
         - path: /
 ```
 
+## Reading an ExternalSecret from a hook
+
+An ExternalSecret is a normal resource, so Helm applies it *after* the `pre-*`
+hooks: a migration hook that reads the Secret it produces waits for a Secret
+nothing has created yet, on the first install and on the upgrade that adds it.
+Under Argo CD, which maps `pre-install` and `pre-upgrade` to `PreSync`, the sync
+never gets past it.
+
+Reference the Secret by its **`externalSecrets` key**, never by the name it
+produces:
+
+```yaml
+externalSecrets:
+  app-env:
+    secretstore: { kind: ClusterSecretStore, name: my-store }
+    data:
+      - { secretkey: PASSWORD, remote: { key: app, property: password } }
+
+deployments:
+  app:
+    image: myapp:v1
+    externalSecrets:
+      - name: app-env                 # envFrom source
+      # - name: app-conf
+      #   mountPath: /etc/app         # or a read-only volume
+    hooks:
+      pre-upgrade:
+        migrate:                      # inherits the list
+          command: ["./migrate.sh"]
+```
+
+For every key a `pre-*` hook references, the chart renders a hook-prerequisite
+copy of the ExternalSecret — same spec, its own Secret `<target>-hook`, owned by
+the copy and gone with it — and the hook reads that one. The Deployment, its
+cronjobs and `post-*` hooks read the real Secret. A deployment's hooks and
+cronjobs inherit its list; a job's own `externalSecrets` (`[]` included)
+replaces it. Root-level hooks and cronjobs declare their own.
+
+`envFromSecrets: [<release>-global-chart-app-env]` still works, but gets no
+copy and does **not** protect the first install.
+
+When the store cannot deliver, the two runtimes differ. **Helm** does not wait
+for custom resources, so it starts the Job at once; the pod stays in
+`CreateContainerConfigError` (envFrom) or `ContainerCreating` (volume) and never
+reaches `Failed`, so `backoffLimit` does not bound it: `--timeout` (default 5m)
+does. **Argo CD** checks the copy's health
+before the next wave and fails the sync as soon as it reports `Ready=False` —
+a transient provider error during the hook phase fails the sync.
+
+See [ADR 0007](docs/adr/0007-hook-prerequisite-externalsecret-copy.md).
+
 ## Local development
 
 ```bash
@@ -194,6 +246,7 @@ The `tests/` directory is the list — `TEST_CASES` in the `Makefile` is what
 | `cron-only.yaml`                 | CronJobs without Deployment                                                               |
 | `hook-only.yaml`                 | Hooks without Deployment                                                                  |
 | `externalsecret-only.yaml`       | ExternalSecrets only                                                                      |
+| `externalsecret-hooks.yaml`      | ExternalSecrets read by hooks (hook-prerequisite copy) and cronjobs                       |
 | `ingress-custom.yaml`            | Ingress with deployment reference                                                         |
 | `external-ingress.yaml`          | Ingress pointing to external service                                                      |
 | `httproute-basic.yaml`           | Gateway API HTTPRoute, plain backend                                                      |
