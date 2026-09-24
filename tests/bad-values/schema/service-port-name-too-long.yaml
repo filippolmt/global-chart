@@ -1,0 +1,8 @@
+# The Service port name is an IANA_SVC_NAME, and so is the container port it
+# names: at most 15 characters. `http-management-api` is 19 — it renders and
+# passes `helm lint`, then the API server rejects the Service and the Deployment.
+deployments:
+  app:
+    image: nginx:1.25
+    service:
+      portName: http-management-api

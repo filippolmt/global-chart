@@ -1,0 +1,9 @@
+# A named targetPort is an IANA_SVC_NAME too: the API server validates it on the
+# Service as a port name. `web--ui` has a doubled '-', which the shape pattern
+# rules out.
+deployments:
+  app:
+    image: nginx:1.25
+    service:
+      portName: web
+      targetPort: web--ui
