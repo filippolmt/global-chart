@@ -160,7 +160,6 @@ data:
   See docs/adr/0002-hook-prerequisite-serviceaccount-copy.md.
 */ -}}
 {{- $deploySA := include "global-chart.deploymentServiceAccount" (dict "root" $root "deploymentName" $deployName "deployment" $deploy) | fromJson -}}
-{{- $deploySAName := $deploySA.name -}}
 {{- /* The pre-install hooks that actually bind the deployment SA; their minimum
        weight is what the copy sorts against */ -}}
 {{- $preInstallSAHooks := dict -}}
@@ -170,7 +169,7 @@ data:
       {{- $resolvedSA := (index $hooks (printf "pre-install/%s" $name)).sa -}}
       {{- /* Only the hooks that actually bind the deployment SA matter: a hook with
              its own explicit or created SA already gets one at the "sa" offset */ -}}
-      {{- if and (not $resolvedSA.create) (eq $resolvedSA.name $deploySAName) -}}
+      {{- if and (not $resolvedSA.create) (eq $resolvedSA.name $deploySA.name) -}}
         {{- $_ := set $preInstallSAHooks $name $command -}}
       {{- end -}}
     {{- end -}}
@@ -182,7 +181,7 @@ data:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: {{ $deploySAName }}
+  name: {{ $deploySA.name }}
   namespace: {{ $root.Release.Namespace | quote }}
   labels:
     {{- include "global-chart.hookLabelsWithComponent" (dict "root" $root "deploymentName" $deployName) | nindent 4 }}
