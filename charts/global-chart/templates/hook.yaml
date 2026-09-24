@@ -51,7 +51,7 @@ metadata:
     {{- end }}
     {{- include "global-chart.hookAnnotations" (dict "hookType" $hookType "role" "job" "command" $command) | nindent 4 }}
 spec:
-  {{- with (include "global-chart.jobSpecFields" (dict "job" $command "kind" "hook")) }}
+  {{- with (include "global-chart.jobSpecVerbatimFields" (dict "job" $command "kind" "hook")) }}
   {{- . | nindent 2 }}
   {{- end }}
   template:
@@ -243,7 +243,7 @@ metadata:
     {{- end }}
     {{- include "global-chart.hookAnnotations" (dict "hookType" $hookType "role" "job" "command" $command) | nindent 4 }}
 spec:
-  {{- with (include "global-chart.jobSpecFields" (dict "job" $command "kind" "hook")) }}
+  {{- with (include "global-chart.jobSpecVerbatimFields" (dict "job" $command "kind" "hook")) }}
   {{- . | nindent 2 }}
   {{- end }}
   template:

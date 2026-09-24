@@ -26,7 +26,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   what ran, a TTL deletion races `before-hook-creation`, and `deletePolicy:
   hook-succeeded` already covers cleanup. `parallelism` / `completions` are left
   out too: a hook is one run. The Job spec fields of hooks and cronjobs now
-  render from one table (`jobSpecFields`), so the two scopes of a kind cannot
+  render from one table (`jobSpecVerbatimFields`), so the two scopes of a kind cannot
   drift apart again.
 
 ### Changed
@@ -39,6 +39,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Fixed
 
+- **Large Job spec integers render in plain digits** — `activeDeadlineSeconds`,
+  `ttlSecondsAfterFinished`, `backoffLimit`, `parallelism` and `completions`,
+  on hooks and cronjobs. Helm reads a number from a values file as a float64,
+  and `activeDeadlineSeconds: 10000000` rendered as `1e+07`, which the API
+  server rejects for an integer field.
 - **A fullname that can never be applied is now rejected** (issue #120). A
   dotted release name such as `my.app`, or a `fullnameOverride` like `My_App`,
   rendered container and Service names the API server rejects.

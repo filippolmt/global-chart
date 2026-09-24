@@ -291,8 +291,13 @@ Resolution order:
 The Job spec fields a job sets verbatim, for both kinds and both scopes (issue
 #113). Each renders only when the job sets it — hasKey, so 0 is kept — and
 nothing falls back to the deployment or global: a retry budget or a deadline is
-the job's own. The table below is the one home of which kind admits which field,
-so the two scopes of a kind can no longer drift apart:
+the job's own. Every field is an integer, printed with %d after an int64 cast:
+a number read from a values file is a float64, and the default format prints
+it as 1e+07 from a million up, which the API server rejects.
+The table below is the template-side home of which kind admits which field, so
+the two scopes of a kind can no longer drift apart. The schema mirrors it —
+cronJobSpec and hookJobSpec declare the same lists, and they are what rejects
+a field a kind does not admit:
 - cronjob: all five.
 - hook: activeDeadlineSeconds and backoffLimit only. Not ttlSecondsAfterFinished:
   a completed hook Job is kept as the record of what ran (CLAUDE.md pattern 8),
@@ -301,17 +306,17 @@ so the two scopes of a kind can no longer drift apart:
   one run.
 Params: job (the job map) · kind ("hook" | "cronjob").
 Returns "field: value" lines at indent 0, or "" when none is set.
-Usage: {{- with (include "global-chart.jobSpecFields" (dict "job" $job "kind" "hook")) }}
+Usage: {{- with (include "global-chart.jobSpecVerbatimFields" (dict "job" $job "kind" "hook")) }}
 */}}
-{{- define "global-chart.jobSpecFields" -}}
+{{- define "global-chart.jobSpecVerbatimFields" -}}
 {{- $fields := dict
     "cronjob" (list "backoffLimit" "ttlSecondsAfterFinished" "activeDeadlineSeconds" "parallelism" "completions")
     "hook" (list "activeDeadlineSeconds" "backoffLimit") -}}
 {{- $job := .job -}}
 {{- $lines := list -}}
-{{- range (required (printf "jobSpecFields: unknown kind %q" (toString .kind)) (get $fields (toString .kind))) -}}
+{{- range (required (printf "jobSpecVerbatimFields: unknown kind %q" (toString .kind)) (get $fields (toString .kind))) -}}
   {{- if hasKey $job . -}}
-    {{- $lines = append $lines (printf "%s: %v" . (index $job .)) -}}
+    {{- $lines = append $lines (printf "%s: %d" . (int64 (index $job .))) -}}
   {{- end -}}
 {{- end -}}
 {{- join "\n" $lines -}}

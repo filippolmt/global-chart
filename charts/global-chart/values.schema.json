@@ -639,7 +639,7 @@
           "minimum": 1
         },
         "backoffLimit": {
-          "description": "Retries before the hook Job is marked failed; Kubernetes defaults to 6. The hook's own: no fallback from the deployment or global. Why the other Job spec fields are not offered on a hook: see jobSpecFields in _job-helpers.tpl.",
+          "description": "Retries before the hook Job is marked failed; Kubernetes defaults to 6. The hook's own: no fallback from the deployment or global. Why the other Job spec fields are not offered on a hook: see jobSpecVerbatimFields in _job-helpers.tpl.",
           "type": "integer",
           "minimum": 0
         }

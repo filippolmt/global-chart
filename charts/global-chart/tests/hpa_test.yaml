@@ -118,3 +118,19 @@ tests:
     asserts:
       - failedTemplate:
           errorMessage: "deployments.main.autoscaling.maxReplicas is required when HPA is enabled"
+
+  # ====== Deployment annotations stay on the Deployment (issue #112) ======
+  - it: should not propagate the Deployment's own annotations to its HPA
+    set:
+      deployments:
+        web:
+          image: nginx:1.25
+          annotations:
+            argocd.argoproj.io/sync-wave: "1"
+          autoscaling:
+            enabled: true
+            minReplicas: 1
+            maxReplicas: 3
+    asserts:
+      - notExists:
+          path: metadata.annotations
