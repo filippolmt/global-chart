@@ -6,7 +6,8 @@ Root-level jobs pass no `deploy`. That scope simply *is* the "nothing to inherit
 from" case: with `deploy` empty every inheritance test fails and each field
 resolves to the job's own value — and, for `imagePullSecrets` only, to
 `global.imagePullSecrets` after that. No field gains a global fallback it did
-not already have. Same widening as `jobServiceAccount` (see ADR 0001).
+not already have. Same widening as `jobServiceAccount`, in
+_serviceaccount-helpers.tpl (see ADR 0001).
 
 Accepts a dict with:
   root           - top-level chart context (for global values, defaults)
@@ -284,80 +285,4 @@ Resolution order:
   {{- $img = include "global-chart.imageString" (dict "image" $dep.image "global" $global) -}}
 {{- end -}}
 {{- $img -}}
-{{- end -}}
-
-{{/*
-Resolve the ServiceAccount for a deployment-level cronjob/hook, unifying the
-resolution shared by hook.yaml PART 2 and cronjob.yaml PART 2.
-
-Helpers can only return strings, so this returns a JSON object; callers do
-`include ... | fromJson` and read .name/.create/.automount/.annotations.
-
-Accepts a dict with:
-  root         - top-level chart context
-  job          - the cronjob/hook command map
-  deploy       - the parent deployment map; nil/absent for root-level jobs, which
-                 are simply the "no deployment SA applies" case
-  deployName   - the deployment key (unused when deploy is nil)
-  jobFullname  - the job's own resource name (fallback when a SA is created)
-
-Resolution:
-  name:   explicit (serviceAccountName | serviceAccount.name) > deployment SA > jobFullname.
-          Empty when serviceAccount.create is false and nothing names a SA: callers
-          then omit serviceAccountName and the pod runs as the namespace default
-  create: true only when no explicit/deployment SA applies, unless serviceAccount.create overrides
-  automount: serviceAccount.automount > job automountServiceAccountToken (default true)
-  annotations: SA-map annotations > job.serviceAccountAnnotations
-*/}}
-{{- define "global-chart.jobServiceAccount" -}}
-{{- $root := .root -}}
-{{- $job := .job -}}
-{{- $deploy := default (dict) .deploy -}}
-{{- $deployName := .deployName -}}
-{{- $jobFullname := .jobFullname -}}
-{{- $deploySA := default (dict) $deploy.serviceAccount -}}
-{{- $jobSAMap := (and (hasKey $job "serviceAccount") (kindIs "map" $job.serviceAccount)) | ternary $job.serviceAccount (dict) -}}
-{{- $jobSAExplicitName := coalesce $job.serviceAccountName $jobSAMap.name -}}
-{{- /* Resolve deployment's SA name (created or referenced-existing) */ -}}
-{{- $deploymentSAName := "" -}}
-{{- $deploySACreate := ternary $deploySA.create true (hasKey $deploySA "create") -}}
-{{- if and $deploy $deploySACreate -}}
-  {{- $deploymentSAName = include "global-chart.deploymentServiceAccountName" (dict "root" $root "deploymentName" $deployName "deployment" $deploy) -}}
-{{- else if $deploySA.name -}}
-  {{- $deploymentSAName = $deploySA.name -}}
-{{- end -}}
-{{- $saName := "" -}}
-{{- $saCreate := false -}}
-{{- if $jobSAExplicitName -}}
-  {{- $saName = $jobSAExplicitName -}}
-{{- else if $deploymentSAName -}}
-  {{- $saName = $deploymentSAName -}}
-{{- else -}}
-  {{- $saName = $jobFullname -}}
-  {{- $saCreate = true -}}
-{{- end -}}
-{{- /* Override saCreate if explicitly set in job */ -}}
-{{- if hasKey $jobSAMap "create" -}}
-  {{- $saCreate = $jobSAMap.create -}}
-  {{- if $saCreate -}}
-    {{- /* Creating one: under the explicit name when given, else the job's own */ -}}
-    {{- $saName = default $jobFullname $jobSAExplicitName -}}
-  {{- else if and (not $jobSAExplicitName) (not $deploymentSAName) -}}
-    {{- /* Told not to create a SA and given no name to bind: leave the pod on the
-           namespace default rather than point it at a SA nothing creates */ -}}
-    {{- $saName = "" -}}
-  {{- end -}}
-{{- end -}}
-{{- $saAutomount := true -}}
-{{- if hasKey $job "automountServiceAccountToken" -}}
-  {{- $saAutomount = $job.automountServiceAccountToken -}}
-{{- end -}}
-{{- if hasKey $jobSAMap "automount" -}}
-  {{- $saAutomount = $jobSAMap.automount -}}
-{{- end -}}
-{{- $saAnnotations := $job.serviceAccountAnnotations -}}
-{{- if hasKey $jobSAMap "annotations" -}}
-  {{- $saAnnotations = $jobSAMap.annotations -}}
-{{- end -}}
-{{- dict "name" $saName "create" $saCreate "automount" $saAutomount "annotations" $saAnnotations | toJson -}}
 {{- end -}}

@@ -152,38 +152,12 @@ Returns the string "true" or "false".
 {{- end }}
 
 {{/*
-Create the name of the service account for a specific deployment.
-Usage: {{ include "global-chart.deploymentServiceAccountName" (dict "root" . "deploymentName" $name "deployment" $deploy) }}
+Default ServiceAccount name of an rbacs.roles entry, <role>-sa, used whether the
+SA is created or bound. The single home of that name and its truncation.
+Usage: {{ include "global-chart.rbacDefaultServiceAccountName" $role.name }}
 */}}
-{{- define "global-chart.deploymentServiceAccountName" -}}
-{{- $root := .root -}}
-{{- $name := .deploymentName -}}
-{{- $deploy := .deployment -}}
-{{- $sa := default (dict) $deploy.serviceAccount -}}
-{{- $create := ternary $sa.create true (hasKey $sa "create") -}}{{/* Default to create=true unless explicitly set to false */}}
-{{- if $create -}}
-{{- default (include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $name)) $sa.name -}}
-{{- else -}}
-{{- default "default" $sa.name -}}
-{{- end -}}
-{{- end }}
-
-{{/*
-ServiceAccount of an rbacs.roles entry, as JSON {create, name}; {} when the
-entry declares none. Presence is hasKey, never truthiness: `serviceAccount: {}`
-declares an SA with every default, as it does for a deployment (issue #124).
-An empty or absent name falls back to <role>-sa, the meaning "" has in every
-other scope.
-Usage: {{ include "global-chart.rbacServiceAccount" $role | fromJson }}
-*/}}
-{{- define "global-chart.rbacServiceAccount" -}}
-{{- if hasKey . "serviceAccount" -}}
-{{- $sa := default (dict) .serviceAccount -}}
-{{- $name := default (include "global-chart.truncName" (list (printf "%s-sa" .name) 63)) $sa.name -}}
-{{- dict "create" (hasKey $sa "create" | ternary $sa.create true) "name" $name | toJson -}}
-{{- else -}}
-{{- dict | toJson -}}
-{{- end -}}
+{{- define "global-chart.rbacDefaultServiceAccountName" -}}
+{{- include "global-chart.truncName" (list (printf "%s-sa" .) 63) -}}
 {{- end }}
 
 {{/*

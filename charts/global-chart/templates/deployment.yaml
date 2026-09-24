@@ -80,7 +80,7 @@ spec:
       {{- with (include "global-chart.renderDnsConfig" $dnsConfig) }}
 {{- . | nindent 6 }}
       {{- end }}
-      serviceAccountName: {{ include "global-chart.deploymentServiceAccountName" (dict "root" $root "deploymentName" $name "deployment" $deploy) }}
+      serviceAccountName: {{ default "default" (include "global-chart.deploymentServiceAccount" (dict "root" $root "deploymentName" $name "deployment" $deploy) | fromJson).name }}
       {{- if hasKey $deploy "automountServiceAccountToken" }}
       automountServiceAccountToken: {{ $deploy.automountServiceAccountToken }}
       {{- end }}
