@@ -173,7 +173,8 @@ deployments:
 For every key a `pre-*` or `post-delete` hook references, the chart renders a
 hook-prerequisite copy of the ExternalSecret — same spec, its own Secret
 `<target>-hook`, owned by the copy and gone with it — and the hook reads that
-one. The Deployment, its cronjobs and every other hook read the real Secret. A deployment's hooks and
+one. The Deployment, its cronjobs and every other hook read the real Secret, a
+`pre-delete` hook included: it runs before Helm deletes anything. A deployment's hooks and
 cronjobs inherit its list; a job's own `externalSecrets` (`[]` included)
 replaces it. Root-level hooks and cronjobs declare their own.
 
@@ -234,7 +235,10 @@ depends on the entry:
   and only the Role and the RoleBinding are copied. Use this form to keep a
   Workload Identity: create the SA outside the release.
 
-Hooks in other phases, such as `post-upgrade`, run as the real ServiceAccount.
+Hooks in other phases run as the real ServiceAccount: `post-upgrade`, say, and
+`pre-delete`, which runs before Helm deletes anything. A `pre-rollback` hook gets
+the copies, as a `pre-upgrade` one does: the revision it rolls back to may be the
+one that adds the entry.
 
 See [ADR 0010](docs/adr/0010-hook-prerequisite-rbac-copy.md).
 

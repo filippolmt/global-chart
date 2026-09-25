@@ -55,7 +55,9 @@ so the user never writes a generated name.
   that references the key, with `helm.sh/hook` aggregated across those hooks and the
   weight derived from the minimum of their Job weights.
 - **Phases.** The copy is emitted for every `pre-*` phase of a hook that references it,
-  not only for `pre-install`, and for `post-delete`. Its own name means it never touches
+  not only for `pre-install`, and for `post-delete`. *Amended by ADR 0010:*
+  `pre-delete` is no longer one. It runs before Helm deletes anything, so the real
+  Secret is in place. Its own name means it never touches
   the real Secret, so it is safe on every phase. The chart cannot know at render time
   whether an upgrade adds the ExternalSecret (ADR 0002 rejects `lookup`). A
   `post-delete` hook runs after Helm has deleted the real ExternalSecret, and the

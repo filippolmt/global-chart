@@ -30,12 +30,7 @@ metadata:
   annotations:
     {{- . | nindent 4 }}
   {{- end }}
-rules:
-{{- with $role.rules }}
-{{ toYaml . | indent 2 }}
-{{- else }}
-  []
-{{- end }}
+{{ include "global-chart.renderRoleRules" $role.rules }}
 ---
 {{- if $resolved.name }}
 {{- $roleBindingName := include "global-chart.rbacRoleBindingName" $role.name }}
@@ -74,7 +69,7 @@ subjects:
 {{- $hookTypes := keys . | sortAlpha | join "," }}
 {{- $weight := include "global-chart.minHookWeight" (dict "hooks" .) }}
 {{- $copySA := include "global-chart.rbacCopyServiceAccountName" (dict "root" $root "name" $resolved.name) }}
-{{- $roleCopy := include "global-chart.rbacHookName" (list $role.name 253) }}
+{{- $roleCopy := include "global-chart.rbacRoleHookName" $role.name }}
 {{- if $resolved.create }}
 apiVersion: v1
 kind: ServiceAccount
@@ -103,17 +98,12 @@ metadata:
     {{- . | nindent 4 }}
     {{- end }}
     {{- include "global-chart.hookAnnotations" (dict "hookType" $hookTypes "role" "prereq" "weight" $weight) | nindent 4 }}
-rules:
-{{- with $role.rules }}
-{{ toYaml . | indent 2 }}
-{{- else }}
-  []
-{{- end }}
+{{ include "global-chart.renderRoleRules" $role.rules }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: {{ include "global-chart.rbacHookName" (list (include "global-chart.rbacRoleBindingName" $role.name) 63) }}
+  name: {{ include "global-chart.rbacRoleBindingHookName" $role.name }}
   namespace: {{ $root.Release.Namespace | quote }}
   labels:
     {{- include "global-chart.hookLabelsWithComponent" (dict "root" $root) | nindent 4 }}

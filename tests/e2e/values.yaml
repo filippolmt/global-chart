@@ -26,10 +26,11 @@
 #   (issue #110): the ExternalSecret is a normal resource, applied AFTER the
 #   pre-* hooks, so the hooks must read the hook-prerequisite copy (ADR 0007).
 #   Both forms — envFrom and a mounted volume — against ESO's fake provider
-# - pre-* hooks running as the ServiceAccount of an rbacs.roles entry (ADR 0010):
-#   the SA, Role and RoleBinding are normal resources, applied AFTER the pre-*
-#   hooks, so the hooks must run as the <name>-hook copies. The hook calls the
-#   API with its token, so a missing permission fails it, not only a missing SA
+# - pre-* and post-delete hooks running as the ServiceAccount of an rbacs.roles
+#   entry (ADR 0010): the SA, Role and RoleBinding are normal resources, applied
+#   AFTER the pre-* hooks and deleted BEFORE post-delete, so the hooks must run
+#   as the <name>-hook copies. The hooks call the API with their token, so a
+#   missing permission fails them, not only a missing SA
 externalSecrets:
   e2e-env:
     secretstore: { kind: ClusterSecretStore, name: e2e-fake }
@@ -207,6 +208,14 @@ hooks:
       args: ['[ "$E2E_TOKEN" = s3cr3t ]']
       externalSecrets:
         - name: e2e-env
+    # Runs after Helm has deleted the real SA, Role and RoleBinding: without
+    # the copies the pod never schedules, or its call is forbidden (ADR 0010)
+    rbac-read:
+      image: busybox:1.36
+      serviceAccountName: e2e-hook-reader
+      activeDeadlineSeconds: 120
+      command: ["sh", "-c"]
+      args: ['wget -q -O /dev/null --no-check-certificate --header "Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" "https://kubernetes.default.svc/api/v1/namespaces/$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace)/configmaps"']
 
 # No serviceAccount key on purpose: the chart must create the SA the pod
 # references. Suspended — nothing here needs it to actually run.

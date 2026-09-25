@@ -236,6 +236,21 @@ Returns empty string on an empty map; callers guard on the map being non-empty.
 {{- end }}
 
 {{/*
+Render the "rules:" block of a Role, at indent 0: the rbacs.roles entry's rules,
+or [] when it has none. Single home for the real Role and its hook-prerequisite
+copy (ADR 0010), so the copy cannot grant something the real Role does not.
+Usage: {{ include "global-chart.renderRoleRules" $role.rules }}
+*/}}
+{{- define "global-chart.renderRoleRules" -}}
+rules:
+{{- with . }}
+{{ toYaml . | indent 2 }}
+{{- else }}
+  []
+{{- end }}
+{{- end }}
+
+{{/*
 Resolve a backend reference to a {name, port} dict, emitted as JSON for the caller to parse via fromJson.
 Usage:
   {{- $b := include "global-chart.resolveBackend" (dict "root" $root "ref" $hostEntry "sourceKind" "ingress host") | fromJson -}}

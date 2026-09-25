@@ -2881,6 +2881,32 @@ tests:
           path: kind
           value: Job
 
+
+  # pre-delete runs before Helm deletes the real ExternalSecret: its Secret is
+  # there, and no copy is rendered for the phase
+  - it: should read the real Secret of an externalSecrets entry from a pre-delete hook
+    set:
+      externalSecrets:
+        app-env:
+          secretstore: { kind: ClusterSecretStore, name: store }
+          secretkey: PASSWORD
+          remote: { key: app/password }
+      hooks:
+        pre-delete:
+          drain:
+            image: busybox:1.36
+            externalSecrets:
+              - name: app-env
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].envFrom
+          value:
+            - secretRef:
+                name: RELEASE-NAME-global-chart-app-env
+        documentSelector:
+          path: kind
+          value: Job
+
   - it: should place a hook's own externalSecrets entries after its own envFromSecrets
     set:
       externalSecrets:
@@ -3336,3 +3362,43 @@ tests:
       - equal:
           path: spec.template.spec.serviceAccountName
           value: cleaner-hook
+
+  - it: should keep the real SA for a pre-delete hook, which runs before anything is deleted
+    set:
+      rbacs:
+        roles:
+          - name: cleaner
+            serviceAccount:
+              name: cleaner
+            rules: []
+      hooks:
+        pre-delete:
+          drain:
+            image: myapp:v1
+            serviceAccountName: cleaner
+    asserts:
+      - equal:
+          path: spec.template.spec.serviceAccountName
+          value: cleaner
+
+  - it: should run a pre-rollback hook as the copy of the role's created SA
+    set:
+      rbacs:
+        roles:
+          - name: scaler
+            serviceAccount:
+              name: scaler
+            rules: []
+      deployments:
+        app:
+          image: myapp:v1
+          hooks:
+            pre-rollback:
+              down:
+                command: ["./down.sh"]
+                serviceAccountName: scaler
+    asserts:
+      - equal:
+          path: spec.template.spec.serviceAccountName
+          value: scaler-hook
+

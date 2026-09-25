@@ -461,6 +461,9 @@ e2e: kind-cluster kind-keda kind-eso check-helm-floor ## Install/upgrade/uninsta
 	[ "$$(kubectl -n $$ns get job $$rel-$(GLOBAL_CHART_NAME)-post-delete-farewell -o jsonpath='{.status.succeeded}' 2>/dev/null)" = "1" ] \
 		|| { echo "FAIL: the post-delete hook did not read the ExternalSecret through its copy"; exit 1; }; \
 	echo "    post-delete hook read the ExternalSecret through its copy, after the real one was gone"; \
+	[ "$$(kubectl -n $$ns get job $$rel-$(GLOBAL_CHART_NAME)-post-delete-rbac-read -o jsonpath='{.status.succeeded}' 2>/dev/null)" = "1" ] \
+		|| { echo "FAIL: the post-delete hook could not use the rbacs.roles copy (ADR 0010)"; exit 1; }; \
+	echo "    post-delete hook ran as the rbacs.roles SA copy, after the real one was gone"; \
 	kubectl -n $$ns wait --for=delete secret/$$rel-$(GLOBAL_CHART_NAME)-e2e-env secret/$$rel-$(GLOBAL_CHART_NAME)-e2e-conf \
 		secret/$$rel-$(GLOBAL_CHART_NAME)-e2e-env-hook secret/$$rel-$(GLOBAL_CHART_NAME)-e2e-conf-hook --timeout=60s >/dev/null 2>&1 || true; \
 	orphans=$$(kubectl -n $$ns get sa,cm,secret,role,rolebinding --no-headers 2>/dev/null \

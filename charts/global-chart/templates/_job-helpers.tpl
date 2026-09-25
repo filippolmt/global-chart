@@ -25,9 +25,10 @@ Accepts a dict with:
                    ConfigMap, so root-level callers omit it
   secretRef      - same, for the deployment's Secret; root-level callers omit it
   hookType       - the hook's phase; hooks only. A hook whose phase
-                   hookReadsPrereqCopy names (pre-*, post-delete) reads
-                   the hook-prerequisite copy of every externalSecrets entry,
-                   any other job the real Secret (ADR 0007)
+                   hookReadsPrereqCopy names (pre-* except pre-delete, and
+                   post-delete) reads the hook-prerequisite copy of every
+                   externalSecrets entry, any other job the real Secret
+                   (ADR 0007)
   deployName     - the deployment key, for the fail message of an inherited
                    externalSecrets entry; root-level callers omit it
   errCtx         - values path of the job, for the fail message of its own
