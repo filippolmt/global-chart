@@ -89,6 +89,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   and was rejected at apply. They now reject an unknown key, and a
   toleration's `value` must be a string (`value: "1"`). A DNS option's `value`
   still takes a number, which the template prints and quotes.
+  `extraContainers` and `extraInitContainers` stay pass-through: how much of a
+  Container to admit is ADR 0006's open question (issue #148).
+
 - **`additionalEnvs` on a deployment-level cronjob or hook is rejected**
   (issue #146). The schema declared it, but no template read it, so it was a
   silent no-op. Use the job's own `env`; the deployment's `additionalEnvs` is
@@ -221,14 +224,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   at apply, and a ScaledObject meant for the first read the second's
   credentials.
 
----
-
 ### Migration guide from 2.7.x
 
 > No values change shape. What changes is **which ServiceAccount a hook's pod
-> runs as** in the copy phases, and **which values the schema accepts**. Run
-> `helm lint` and then `helm template` (or `helm diff upgrade`) against your own
-> values before upgrading — every case below shows up there.
+> runs as** in the copy phases, and **which values the chart accepts**: values
+> that rendered but could never be applied, or were ignored in silence, now
+> fail at `helm lint` or at render. Run `helm lint` and then `helm template`
+> (or `helm diff upgrade`) against your own values before upgrading — every
+> case below shows up there.
 
 #### 1. A hook bound to a chart-created ServiceAccount runs as `<sa>-hook` (HIGH if you rely on Workload Identity / IRSA)
 
@@ -252,19 +255,62 @@ deployments:
       name: app   # created by Terraform, say, with its IRSA / WI binding
 ```
 
-#### 2. Numbers and unknown keys in string-typed fields now fail validation (MEDIUM)
+#### 2. `rbacs.roles[].serviceAccount: {}` now creates the ServiceAccount (MEDIUM)
 
-`additionalEnvs[].value`, a job's `env[].value`, a KEDA trigger's `metadata`
-values and `tolerations[].value` must be strings; an env entry, a toleration, a
-host alias, a DNS option and a TriggerAuthentication `secretTargetRef` / `env`
-entry reject a key they do not know. Numbers there were already rejected at
-apply; unknown keys were dropped in silence.
+`{}` used to mean "Role only"; it now renders `<name>-sa` and its RoleBinding
+(issue #124). **Action:** drop the `serviceAccount` key to keep a Role alone.
 
-**Action:** quote the number (`value: "10"`) and fix the key the error names.
+#### 3. The schema rejects values that could never be applied (MEDIUM)
 
-#### 3. `additionalEnvs` on a deployment-level cronjob or hook fails validation (LOW)
+- **Numbers in string fields** (issues #137, #145): `additionalEnvs[].value`, a
+  job's `env[].value`, a KEDA trigger's `metadata` values,
+  `tolerations[].value`. They rendered unquoted and the apply failed.
+  **Action:** quote them (`value: "10"`).
+- **Unknown keys** in an env entry, a toleration, a host alias, a DNS option
+  and a TriggerAuthentication `secretTargetRef` / `env` entry (issues #137,
+  #145). Kubernetes or KEDA dropped them in silence. **Action:** fix the key
+  the error names.
+- **Names Kubernetes rejects**: `nameOverride` / `fullnameOverride` (#120),
+  `rbacs.roles[].name` (#121), `serviceAccount.name` and a job's
+  `serviceAccountName` (#123), Service port names and named `targetPort`s
+  (#118). **Action:** use a DNS-1123 name, or a 15-character `IANA_SVC_NAME`
+  for ports.
+- **`additionalEnvs` on a deployment-level cronjob or hook** (#146): it never
+  reached the manifest. **Action:** move it to the job's `env`.
 
-It never reached the manifest. **Action:** move it to the job's `env`.
+#### 4. Contradictory values now fail at render (MEDIUM)
+
+- Two `rbacs.roles` entries landing on one Role, RoleBinding or ServiceAccount
+  (#122), two `kedaTriggerAuthentications` keys truncated to one name (#117), a
+  hook copy whose name truncates back onto its real one (ADR 0010, ADR 0011).
+- A job naming its ServiceAccount twice with different names (#133).
+- A ConfigMap value set to `null` (#132): set `""`.
+- A dotted fullname with a Deployment or root hook, a leading digit with a
+  Service (#120).
+
+**Action:** the error names the values path; rename, or keep one of the two.
+
+#### 5. A `pre-delete` hook reads the real Secret of its `externalSecrets` (LOW)
+
+It used to read the hook copy (ADR 0010). The real Secret is still there when
+`pre-delete` runs, so nothing to do unless you relied on the copy's name.
+
+#### 6. Error messages name their owners by values path (LOW)
+
+`deployments.api`, `cronJobs.cleanup`, not `deployment 'api'` (#133, #135).
+**Action:** update any pattern matched against the old wording.
+
+#### Migration checklist
+
+- [ ] `helm lint` your values and fix every rejection (point 3)
+- [ ] `helm template` your values and fix every render failure (point 4)
+- [ ] Check which hooks run as `<sa>-hook`, and move identity-bound SAs outside the release (point 1)
+- [ ] Look for `rbacs.roles[].serviceAccount: {}` (point 2)
+- [ ] Update CI patterns matched against error messages (point 6)
+- [ ] Check Helm is 3.18.6 or newer, or the schema closures are ignored (issue #116)
+- [ ] `helm diff upgrade`, then upgrade
+
+---
 
 ## [2.7.0] — 2026-09-24
 

@@ -1191,6 +1191,39 @@ tests:
           value: report-sa-hook
         documentIndex: 1
 
+  # A deployment-level cronjob's own SA: the copy takes the deployment's
+  # component label
+  - it: should copy a deployment cronjob's own SA for a pre-upgrade hook naming it
+    set:
+      deployments:
+        app:
+          image: myapp:v1
+          cronJobs:
+            report:
+              schedule: "0 3 * * *"
+              command: ["./report.sh"]
+              serviceAccount:
+                create: true
+                name: report-sa
+      hooks:
+        pre-upgrade:
+          seed:
+            image: myapp:v1
+            serviceAccountName: report-sa
+    asserts:
+      - equal:
+          path: metadata.labels["app.kubernetes.io/component"]
+          value: app-hook
+        documentSelector:
+          path: metadata.name
+          value: report-sa-hook
+      - equal:
+          path: spec.template.spec.serviceAccountName
+          value: report-sa-hook
+        documentSelector:
+          path: kind
+          value: Job
+
   # ====== Deployment-level hook: explicit empty should NOT inherit ======
   - it: should not inherit hostAliases when hook sets empty list
     set:

@@ -252,9 +252,9 @@ The ServiceAccount a hook-prerequisite copy binds, and the one a hook reading it
 runs as: <sa>-hook when the release creates that SA (releaseCreatesServiceAccount)
 — the real one is a normal resource, absent during the phases the copy serves,
 so a copy of it is created alongside — else the SA itself, which exists outside
-the release. Single home of that choice, for rbac.yaml (the copy's SA and
-RoleBinding subject), hook.yaml (the SA copy), hookServiceAccountName (the
-pod) and validateNameCollisions.
+the release. Single home of that choice, for rbac.yaml (the RoleBinding copy's
+subject), hook.yaml (the SA copy's name), hookServiceAccountName (the pod) and
+validateNameCollisions.
 The copy has its own name, never the real one: under Argo CD a pre-install hook
 runs on every sync, and a same-name copy deleted by hook-succeeded would take
 the live SA with it (issue #141). The cost: an identity keyed on the SA name
@@ -280,8 +280,8 @@ Params: hookType · sa (the hook's jobServiceAccount result).
 
 {{/*
 Whether a hook runs as the hook-prerequisite copy of its ServiceAccount: "true"
-or "". The ONE match: serviceAccountHookConsumers (which decides that a
-deployment's SA is copied) and hookServiceAccountName (which points the pod at
+or "". The ONE match: serviceAccountHookConsumers (which decides which SAs
+are copied) and hookServiceAccountName (which points the pod at
 the copy) both ask here, so a hook can never run as a copy that was not
 rendered. It does when hookBindsInCopyPhase holds and the release creates that
 SA (releaseCreatesServiceAccount).

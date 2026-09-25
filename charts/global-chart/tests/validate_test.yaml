@@ -710,7 +710,7 @@ tests:
       # The copy takes its name from the real SA: the advice is to change the
       # name, not serviceAccount.name / create, which the copy cannot be given
       - failedTemplate:
-          errorMessage: "Name collision: ServiceAccount 'scaler-hook' created for rbacs.roles[0] ('scaler') (hook prerequisite copy) conflicts with the one created for rbacs.roles[1] ('other'). A hook-prerequisite copy is named after its real resource plus '-hook', truncated to the same limit (ADR 0010): shorten the name so the copy fits, or rename the entry it lands on."
+          errorMessage: "Name collision: ServiceAccount 'scaler-hook' created for rbacs.roles[0] ('scaler') (hook prerequisite copy) conflicts with the one created for rbacs.roles[1] ('other'). A hook-prerequisite copy is named after its real resource plus '-hook', truncated to the same limit (ADR 0011): shorten the name so the copy fits, or rename the entry it lands on."
 
   - it: should fail when a role's hook SA copy truncates back onto the real SA
     set:
@@ -739,7 +739,7 @@ tests:
           - { name: other, serviceAccount: { name: app-sa-hook }, rules: [] }
     asserts:
       - failedTemplate:
-          errorMessage: "Name collision: ServiceAccount 'app-sa-hook' created for deployments.app (hook prerequisite copy) conflicts with the one created for rbacs.roles[0] ('other'). A hook-prerequisite copy is named after its real resource plus '-hook', truncated to the same limit (ADR 0010): shorten the name so the copy fits, or rename the entry it lands on."
+          errorMessage: "Name collision: ServiceAccount 'app-sa-hook' created for deployments.app (hook prerequisite copy) conflicts with the one created for rbacs.roles[0] ('other'). A hook-prerequisite copy is named after its real resource plus '-hook', truncated to the same limit (ADR 0011): shorten the name so the copy fits, or rename the entry it lands on."
 
   - it: should fail when a deployment's hook SA copy truncates back onto the real SA
     set:

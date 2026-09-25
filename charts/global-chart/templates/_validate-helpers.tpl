@@ -231,7 +231,7 @@ Called from validate.yaml.
        truncates back onto its own real name. Blamed on the SA's creator. */ -}}
 {{- $releaseSAs := include "global-chart.releaseServiceAccounts" $root | fromJson -}}
 {{- range $saName, $_ := (include "global-chart.serviceAccountHookConsumers" $root | fromJson) -}}
-  {{- include "global-chart.registerSAName" (dict "names" $saNames "sa" (dict "create" true "name" (include "global-chart.serviceAccountCopyName" (dict "root" $root "name" $saName))) "owner" (printf "%s (hook prerequisite copy)" (index $releaseSAs $saName).owner) "hint" $copyHint) -}}
+  {{- include "global-chart.registerSAName" (dict "names" $saNames "sa" (dict "create" true "name" (include "global-chart.serviceAccountCopyName" (dict "root" $root "name" $saName))) "owner" (printf "%s (hook prerequisite copy)" (index $releaseSAs $saName).owner) "hint" (replace "(ADR 0010)" "(ADR 0011)" $copyHint)) -}}
 {{- end -}}
 
 {{- end }}

@@ -19,7 +19,9 @@ on **every** sync. From the second sync on, the same-name copy is applied over
 the live SA, deleted with it by `hook-succeeded`, and the real SA is recreated
 with a new UID in the Sync phase. The bound tokens of the running pods go with
 it. ADR 0010 already avoided this for the `rbacs.roles` copy by giving it its
-own names; this ADR does the same for the deployment's SA.
+own names; this ADR does the same for every SA the release creates — a
+deployment's, an `rbacs.roles` entry's and a cronjob's — and takes over the SA
+copy ADR 0010 rendered for an `rbacs.roles` entry.
 
 ## The decision
 
@@ -43,7 +45,11 @@ own names; this ADR does the same for the deployment's SA.
   does not leave the copy behind: when a Job fails, Helm deletes the hooks of
   the phase that ran before it under their `hook-succeeded` policy
   (`pkg/action/hooks.go`, `deleteHooksByPolicy(executingHooks[0:i],
-  HookSucceeded)`), and the copy, at w-7, always ran before it.
+  HookSucceeded)`), and the copy, at w-7, always ran before it. Argo CD does
+  not: a failed `PreSync` deletes only the `HookFailed` resources, so the copy
+  (with the real SA's annotations) stays until the next sync replaces it
+  through `BeforeHookCreation`. The prereq ConfigMap and Secret, and the
+  ExternalSecret and `rbacs.roles` copies, behave the same there.
 - **One answer to "the release creates this SA".** `releaseServiceAccounts`
   scans every SA the release creates: an enabled deployment's, an
   `rbacs.roles` entry's, and a cronjob's own SA in either scope — a normal
