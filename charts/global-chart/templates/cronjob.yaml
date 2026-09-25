@@ -19,7 +19,7 @@
 
 {{- /* ServiceAccount: explicit > create own (see jobServiceAccount helper; no
        deployment to inherit from at root level) */ -}}
-{{- $sa := include "global-chart.jobServiceAccount" (dict "root" $root "job" $job "jobFullname" $jobFullname) | fromJson }}
+{{- $sa := include "global-chart.jobServiceAccount" (dict "root" $root "job" $job "jobFullname" $jobFullname "errCtx" (printf "cronJobs.%s" $name)) | fromJson }}
 {{- $saName := $sa.name }}
 {{- if $sa.create }}
 ---
@@ -99,7 +99,7 @@ spec:
 {{- $imageRef := required (printf "image is required for deployments.%s.cronJobs.%s" $deployName $name) (include "global-chart.jobImageString" (dict "root" $root "job" $job "deploy" $deploy "errCtx" (printf "deployments.%s.cronJobs.%s" $deployName $name))) }}
 
 {{- /* ServiceAccount: explicit > inherited from deployment > default (see jobServiceAccount helper) */ -}}
-{{- $sa := include "global-chart.jobServiceAccount" (dict "root" $root "job" $job "deploy" $deploy "deployName" $deployName "jobFullname" $jobFullname) | fromJson -}}
+{{- $sa := include "global-chart.jobServiceAccount" (dict "root" $root "job" $job "deploy" $deploy "deployName" $deployName "jobFullname" $jobFullname "errCtx" (printf "deployments.%s.cronJobs.%s" $deployName $name)) | fromJson -}}
 {{- $saName := $sa.name -}}
 {{- $saCreate := $sa.create -}}
 {{- $saAutomount := $sa.automount -}}

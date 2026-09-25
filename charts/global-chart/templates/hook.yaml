@@ -18,7 +18,7 @@
 
 {{- /* ServiceAccount: explicit > create own (see jobServiceAccount helper; no
        deployment to inherit from at root level) */ -}}
-{{- $sa := include "global-chart.jobServiceAccount" (dict "root" $root "job" $command "jobFullname" $hookFullname) | fromJson -}}
+{{- $sa := include "global-chart.jobServiceAccount" (dict "root" $root "job" $command "jobFullname" $hookFullname "errCtx" (printf "hooks.%s.%s" $hookType $name)) | fromJson -}}
 {{- $saName := $sa.name -}}
 
 {{- /* The SA sorts before its Job; hookAnnotations owns the offset */ -}}
@@ -137,7 +137,7 @@ data:
 {{- range $name, $command := $jobs -}}
 {{- if $command -}}
 {{- $fn := include "global-chart.deploymentHookName" (dict "root" $root "deploymentName" $deployName "hookType" $hookType "jobName" $name) -}}
-{{- $_ := set $hooks (printf "%s/%s" $hookType $name) (dict "fullname" $fn "sa" (include "global-chart.jobServiceAccount" (dict "root" $root "job" $command "deploy" $deploy "deployName" $deployName "jobFullname" $fn) | fromJson)) -}}
+{{- $_ := set $hooks (printf "%s/%s" $hookType $name) (dict "fullname" $fn "sa" (include "global-chart.jobServiceAccount" (dict "root" $root "job" $command "deploy" $deploy "deployName" $deployName "jobFullname" $fn "errCtx" (printf "deployments.%s.hooks.%s.%s" $deployName $hookType $name)) | fromJson)) -}}
 {{- end -}}
 {{- end -}}
 {{- end -}}

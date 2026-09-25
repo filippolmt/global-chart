@@ -1423,6 +1423,64 @@ tests:
           path: kind
           value: CronJob
 
+  # ====== issue #133: serviceAccountName and serviceAccount.name disagree ======
+  - it: should fail when a root-level cronjob names its ServiceAccount twice with different names
+    set:
+      cronJobs:
+        cleanup:
+          schedule: "0 0 * * *"
+          image: busybox:1.36
+          serviceAccountName: runner
+          serviceAccount:
+            name: migrator
+            create: true
+    asserts:
+      - failedTemplate:
+          errorMessage: "cronJobs.cleanup names its ServiceAccount twice, with different names: serviceAccountName \"runner\" and serviceAccount.name \"migrator\". Keep only one of the two fields (or set the same name in both)."
+
+  - it: should fail when a deployment-level cronjob names its ServiceAccount twice with different names
+    set:
+      deployments:
+        backend:
+          image: myapp:v1
+          cronJobs:
+            backup:
+              schedule: "0 2 * * *"
+              command: ["./backup.sh"]
+              serviceAccountName: runner
+              serviceAccount:
+                name: migrator
+    asserts:
+      - failedTemplate:
+          errorMessage: "deployments.backend.cronJobs.backup names its ServiceAccount twice, with different names: serviceAccountName \"runner\" and serviceAccount.name \"migrator\". Keep only one of the two fields (or set the same name in both)."
+
+  - it: should accept a deployment-level cronjob naming the same ServiceAccount in both fields
+    set:
+      deployments:
+        backend:
+          image: myapp:v1
+          cronJobs:
+            backup:
+              schedule: "0 2 * * *"
+              command: ["./backup.sh"]
+              serviceAccountName: backup-sa
+              serviceAccount:
+                name: backup-sa
+                create: true
+    asserts:
+      - equal:
+          path: metadata.name
+          value: backup-sa
+        documentSelector:
+          path: kind
+          value: ServiceAccount
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.serviceAccountName
+          value: backup-sa
+        documentSelector:
+          path: kind
+          value: CronJob
+
   # ====== Root-level cronJobs inherit nothing from deployments ======
   # Same guard as hook_test.yaml: cronjob.yaml PART 1 omits "deploy" in its
   # jobPodSpec call, and nothing but that omission keeps the inheritance chain

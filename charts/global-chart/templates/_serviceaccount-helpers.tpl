@@ -75,9 +75,20 @@ Accepts a dict with:
                  are simply the "no deployment SA applies" case
   deployName   - the deployment key (unused when deploy is nil)
   jobFullname  - the job's own resource name (fallback when a SA is created)
+  errCtx       - values path of the job (hooks.<type>.<name>, cronJobs.<name>,
+                 deployments.<d>.hooks.<type>.<name>, deployments.<d>.cronJobs.<name>),
+                 for the fail message below. Every call site passes it: whichever
+                 renders first must name the job the same way
 
 Resolution:
   name:   explicit (serviceAccountName | serviceAccount.name) > deployment SA > jobFullname.
+          The two explicit fields are one name written in two places: both set,
+          non-empty and different is a render-time `fail` naming the job and both
+          values (issue #133) — before it, serviceAccountName won in silence and a
+          created SA carried serviceAccount's annotations under the other name.
+          The same name in both stays accepted; "" counts as unset, as in the
+          coalesce that reads them. JSON Schema cannot compare two fields, hence
+          a template fail (fixture in tests/bad-values/fail/)
           Empty when serviceAccount.create is false and nothing names a SA: callers
           then omit serviceAccountName and the pod runs as the namespace default
   create: true only when no explicit/deployment SA applies, unless serviceAccount.create overrides
@@ -91,6 +102,9 @@ Resolution:
 {{- $deployName := .deployName -}}
 {{- $jobFullname := .jobFullname -}}
 {{- $jobSAMap := (and (hasKey $job "serviceAccount") (kindIs "map" $job.serviceAccount)) | ternary $job.serviceAccount (dict) -}}
+{{- if and $job.serviceAccountName $jobSAMap.name (ne (toString $job.serviceAccountName) (toString $jobSAMap.name)) -}}
+  {{- fail (printf "%s names its ServiceAccount twice, with different names: serviceAccountName %q and serviceAccount.name %q. Keep only one of the two fields (or set the same name in both)." (toString .errCtx) (toString $job.serviceAccountName) (toString $jobSAMap.name)) -}}
+{{- end -}}
 {{- $jobSAExplicitName := coalesce $job.serviceAccountName $jobSAMap.name -}}
 {{- /* The deployment's SA name, created or referenced-existing; "" when it
        names none, and always "" at root level */ -}}
