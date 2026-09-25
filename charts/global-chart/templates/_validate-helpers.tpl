@@ -228,7 +228,7 @@ not another copy of fail + set.
 Accepts: names (the accumulator dict, mutated in place), kind (the Kubernetes
 kind, for the message), name (the generated name), owner (human-readable source,
 stored and quoted in the message), hint (optional remediation sentence; it is
-appended verbatim, so start it with a space).
+appended verbatim, so start it with its separator: ". Give …").
 */}}
 {{- define "global-chart.registerName" -}}
 {{- $names := .names -}}
