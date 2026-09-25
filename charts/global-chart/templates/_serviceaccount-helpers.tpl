@@ -10,12 +10,15 @@ resolveServiceAccount alone; three copies of them used to drift apart one at a
 time.
 
 - deploymentServiceAccount: a deployment's SA. Also read by every deployment-level
-  job that inherits it, and by the hook-prerequisite SA copy (ADR 0002).
+  job that inherits it, and by its hook-prerequisite copy (ADR 0011).
 - rbacServiceAccount: the SA of an rbacs.roles entry. rbacServiceAccounts folds
   every entry's into one map by SA name, the input of the rbacs.roles
-  hook-prerequisite copy (ADR 0010): rbacCopyServiceAccountName picks the SA the
-  copy binds, hookRbacCopy decides whether a hook reads the copy, and
-  hookServiceAccountName is the SA a hook's pod runs as, the copy's included.
+  hook-prerequisite copy (ADR 0010), which hookRbacCopy matches a hook against.
+- The hook-prerequisite copy of a SA the release creates (ADR 0010, ADR 0011):
+  releaseCreatesServiceAccount says whether the release creates a SA,
+  serviceAccountCopyName is the SA a copy binds, hookReadsServiceAccountCopy
+  decides whether a hook runs as the copy, and hookServiceAccountName is the SA
+  a hook's pod runs as, the copy's included.
 - jobServiceAccount: a hook or cronjob, both scopes. Its `create` and name keep
   their own chain: `create` defaults to "only when nothing else names a SA", not
   true. Its `automount` and annotations first fall back to the job-level
@@ -163,9 +166,8 @@ Resolution:
 {{/*
 The ServiceAccounts of the rbacs.roles entries, by name: the one scan of the
 entries that the rbacs.roles hook-prerequisite copy (ADR 0010) reads.
-Returns JSON: SA name -> {create, roles}. create is true when any entry creates
-that SA; roles lists, in values order, every entry whose SA it is. An entry
-declaring no SA is absent: nothing binds it, so no hook can match it.
+Returns JSON: SA name -> {roles}: in values order, every entry whose SA it is.
+An entry declaring no SA is absent: nothing binds it, so no hook can match it.
 Usage: {{ $rbacSAs := include "global-chart.rbacServiceAccounts" $root | fromJson }}
 */}}
 {{- define "global-chart.rbacServiceAccounts" -}}
@@ -173,41 +175,85 @@ Usage: {{ $rbacSAs := include "global-chart.rbacServiceAccounts" $root | fromJso
 {{- range $role := (default (dict) .Values.rbacs).roles -}}
   {{- $sa := include "global-chart.rbacServiceAccount" $role | fromJson -}}
   {{- if $sa.name -}}
-    {{- $entry := default (dict "create" false "roles" (list)) (index $out $sa.name) -}}
-    {{- $_ := set $out $sa.name (dict "create" (or $entry.create $sa.create) "roles" (append $entry.roles $role.name)) -}}
+    {{- $entry := default (dict "roles" (list)) (index $out $sa.name) -}}
+    {{- $_ := set $out $sa.name (dict "roles" (append $entry.roles $role.name)) -}}
   {{- end -}}
 {{- end -}}
 {{- toJson $out -}}
 {{- end -}}
 
 {{/*
-The ServiceAccount the rbacs.roles copies bind, and the one a hook reading them
-runs as: <sa>-hook when an rbacs.roles entry creates that SA — the real one is a
-normal resource, absent during the phases the copy serves, so the copy is
-created alongside the Role copy — else the SA itself, which exists outside the
-release. Single home of that choice, for rbac.yaml (the copy's SA and
-RoleBinding subject), hookRbacCopy (the pod) and validateNameCollisions.
-The copy has its own name, never the real one: under Argo CD a pre-install hook
-runs on every sync, and a same-name copy deleted by hook-succeeded would take
-the live SA with it. The cost: an identity keyed on the SA name (Workload
-Identity, IRSA) does not reach the copy; bind an existing SA to keep it.
-Params: root · name (an rbacs.roles SA name).
-Usage: {{ include "global-chart.rbacCopyServiceAccountName" (dict "root" $root "name" $name) }}
+Whether the release itself creates a ServiceAccount under `name`: "true" when an
+enabled deployment or an rbacs.roles entry creates it, else "". Such a SA is a
+normal resource, absent during the phases hookReadsPrereqCopy names, so a hook
+bound to it runs as its hook-prerequisite copy. The ONE answer, whoever creates
+the SA: a deployment's SA bound by an rbacs.roles entry with create: false is
+created by the release all the same, and the Role copy and the pod must bind
+the same copy. A SA the jobs create is not one: a hook's own SA is itself a hook
+resource, and nothing else binds a cronjob's.
+Params: root · name.
+Usage: {{ include "global-chart.releaseCreatesServiceAccount" (dict "root" $root "name" $name) }}
 */}}
-{{- define "global-chart.rbacCopyServiceAccountName" -}}
+{{- define "global-chart.releaseCreatesServiceAccount" -}}
+{{- $root := .root -}}
+{{- $name := .name -}}
 {{- $created := false -}}
-{{- with index (include "global-chart.rbacServiceAccounts" .root | fromJson) .name -}}
-  {{- $created = .create -}}
+{{- range $deployName, $deploy := $root.Values.deployments -}}
+  {{- if and $deploy (eq (include "global-chart.deploymentEnabled" $deploy) "true") -}}
+    {{- $sa := include "global-chart.deploymentServiceAccount" (dict "root" $root "deploymentName" $deployName "deployment" $deploy) | fromJson -}}
+    {{- if and $sa.create (eq $sa.name $name) -}}{{- $created = true -}}{{- end -}}
+  {{- end -}}
 {{- end -}}
-{{- ternary (include "global-chart.rbacServiceAccountHookName" .name) .name $created -}}
+{{- range $role := (default (dict) $root.Values.rbacs).roles -}}
+  {{- $sa := include "global-chart.rbacServiceAccount" $role | fromJson -}}
+  {{- if and $sa.create (eq $sa.name $name) -}}{{- $created = true -}}{{- end -}}
+{{- end -}}
+{{- if $created -}}true{{- end -}}
 {{- end -}}
 
 {{/*
-The rbacs.roles hook-prerequisite copy a hook reads (ADR 0010), or {} when it
-reads none. The ONE match: rbacHookConsumers (which emits the copies) and
-hookServiceAccountName (which points the hook's pod at the copied SA) both ask
-here, so a hook can never run as a copy that was not rendered, nor miss one
-that was.
+The ServiceAccount a hook-prerequisite copy binds, and the one a hook reading it
+runs as: <sa>-hook when the release creates that SA (releaseCreatesServiceAccount)
+— the real one is a normal resource, absent during the phases the copy serves,
+so a copy of it is created alongside — else the SA itself, which exists outside
+the release. Single home of that choice, for rbac.yaml (the copy's SA and
+RoleBinding subject), hook.yaml (the deployment SA copy),
+hookServiceAccountName (the pod) and validateNameCollisions.
+The copy has its own name, never the real one: under Argo CD a pre-install hook
+runs on every sync, and a same-name copy deleted by hook-succeeded would take
+the live SA with it (issue #141). The cost: an identity keyed on the SA name
+(Workload Identity, IRSA) does not reach the copy; bind an existing SA to keep
+it.
+Params: root · name (a SA name).
+Usage: {{ include "global-chart.serviceAccountCopyName" (dict "root" $root "name" $name) }}
+*/}}
+{{- define "global-chart.serviceAccountCopyName" -}}
+{{- ternary (include "global-chart.serviceAccountHookName" .name) .name (eq (include "global-chart.releaseCreatesServiceAccount" .) "true") -}}
+{{- end -}}
+
+{{/*
+Whether a hook runs as the hook-prerequisite copy of its ServiceAccount: "true"
+or "". The ONE match: serviceAccountHookConsumers (which decides that a
+deployment's SA is copied) and hookServiceAccountName (which points the pod at
+the copy) both ask here, so a hook can never run as a copy that was not
+rendered. All must hold:
+- its phase is one hookReadsPrereqCopy names;
+- its resolved SA is bound, not created by the hook itself (create: false);
+- the release creates that SA (releaseCreatesServiceAccount).
+The SA is compared by resolved name, so a hook inheriting its deployment's SA
+and a root-level hook naming it match alike (ADR 0011).
+Params: root · hookType · sa (the hook's jobServiceAccount result).
+*/}}
+{{- define "global-chart.hookReadsServiceAccountCopy" -}}
+{{- if and (eq (include "global-chart.hookReadsPrereqCopy" .hookType) "true") (not .sa.create) .sa.name -}}
+{{- include "global-chart.releaseCreatesServiceAccount" (dict "root" .root "name" .sa.name) -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+The rbacs.roles hook-prerequisite copies a hook reads (ADR 0010), or {} when it
+reads none. The ONE match for the Role copies: rbacHookConsumers (which emits
+them) asks here. Which SA the pod runs as is hookServiceAccountName's answer.
 A hook reads the copy when all hold:
 - its phase is one hookReadsPrereqCopy names;
 - its resolved SA is bound, not created by the hook itself (create: false);
@@ -215,8 +261,7 @@ A hook reads the copy when all hold:
   creates it or binds an existing one.
 The SA is compared by resolved name, so a hook inheriting its deployment's SA
 matches a role binding that SA, in either scope.
-Returns JSON: {serviceAccountName, roles} — the SA the pod runs as, and every
-entry whose copy it reads.
+Returns JSON: {roles} — every entry whose copy it reads.
 Params: root · hookType · sa (the hook's jobServiceAccount result).
 Usage: {{ $copy := include "global-chart.hookRbacCopy" (dict "root" $root "hookType" $hookType "sa" $sa) | fromJson }}
 */}}
@@ -225,19 +270,19 @@ Usage: {{ $copy := include "global-chart.hookRbacCopy" (dict "root" $root "hookT
 {{- $out := dict -}}
 {{- if and (eq (include "global-chart.hookReadsPrereqCopy" .hookType) "true") (not $sa.create) $sa.name -}}
   {{- with index (include "global-chart.rbacServiceAccounts" .root | fromJson) $sa.name -}}
-    {{- $out = dict "serviceAccountName" (include "global-chart.rbacCopyServiceAccountName" (dict "root" $.root "name" $sa.name)) "roles" .roles -}}
+    {{- $out = dict "roles" .roles -}}
   {{- end -}}
 {{- end -}}
 {{- toJson $out -}}
 {{- end -}}
 
 {{/*
-The ServiceAccount a hook's pod runs as: the SA of the rbacs.roles copy it
-reads (hookRbacCopy), else its own resolved SA. hook.yaml calls it once per
-scope, so neither scope can forget the redirect.
+The ServiceAccount a hook's pod runs as: the copy of its resolved SA when it
+reads one (hookReadsServiceAccountCopy), else that SA. hook.yaml calls it once
+per scope, so neither scope can forget the redirect.
 Params: root · hookType · sa (the hook's jobServiceAccount result).
 Usage: {{ $saName := include "global-chart.hookServiceAccountName" (dict "root" $root "hookType" $hookType "sa" $sa) }}
 */}}
 {{- define "global-chart.hookServiceAccountName" -}}
-{{- default .sa.name (include "global-chart.hookRbacCopy" . | fromJson).serviceAccountName -}}
+{{- ternary (include "global-chart.serviceAccountHookName" .sa.name) .sa.name (eq (include "global-chart.hookReadsServiceAccountCopy" .) "true") -}}
 {{- end -}}

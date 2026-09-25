@@ -724,6 +724,36 @@ tests:
       - failedTemplate:
           errorPattern: "Name collision: ServiceAccount 'c{63}' created for rbacs.roles\\[0\\] \\('scaler'\\) \\(hook prerequisite copy\\) conflicts with the one created for rbacs.roles\\[0\\] \\('scaler'\\)"
 
+  # The deployment SA copy (ADR 0011) is registered under the same rule
+  - it: should fail when a deployment's hook SA copy lands on a created ServiceAccount
+    set:
+      deployments:
+        app:
+          image: myapp:v1
+          serviceAccount: { name: app-sa }
+          hooks:
+            pre-install:
+              migrate: { command: ["./migrate.sh"] }
+      rbacs:
+        roles:
+          - { name: other, serviceAccount: { name: app-sa-hook }, rules: [] }
+    asserts:
+      - failedTemplate:
+          errorMessage: "Name collision: ServiceAccount 'app-sa-hook' created for deployments.app (hook prerequisite copy) conflicts with the one created for rbacs.roles[0] ('other'). A hook-prerequisite copy is named after its real resource plus '-hook', truncated to the same limit (ADR 0010): shorten the name so the copy fits, or rename the entry it lands on."
+
+  - it: should fail when a deployment's hook SA copy truncates back onto the real SA
+    set:
+      deployments:
+        app:
+          image: myapp:v1
+          serviceAccount: { name: ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd }
+          hooks:
+            pre-upgrade:
+              migrate: { command: ["./migrate.sh"] }
+    asserts:
+      - failedTemplate:
+          errorPattern: "Name collision: ServiceAccount 'd{63}' created for deployments.app \\(hook prerequisite copy\\) conflicts with the one created for deployments.app"
+
   # A Role name is used verbatim up to 253 characters, the copy is truncated to
   # the same 253: at the limit it lands on the real Role
   - it: should fail when a role's hook copy truncates back onto the real Role

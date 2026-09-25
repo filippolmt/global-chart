@@ -46,6 +46,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Changed
 
+- **Behaviour change: a hook bound to a ServiceAccount the release creates runs
+  as its hook copy `<sa>-hook`** (issue #141, ADR 0011, superseding ADR 0002).
+  The copy of a deployment's chart-created SA used to share the real SA's name
+  and was deleted after the hook. Under Argo CD, which runs `pre-install` on
+  every sync, that deleted the **live** SA each time, and the running pods lost
+  their bound tokens. The copy now has its own name. It is rendered for every
+  hook of either scope bound to that SA in a `pre-install`, `pre-upgrade`,
+  `pre-rollback` or `post-delete` phase, not only a deployment-level
+  `pre-install`. So a root-level hook naming the deployment's SA, and a revision
+  that adds a deployment with a `pre-upgrade` hook, now work. The copy carries
+  the real SA's annotations and automount, and a copy name that truncates back
+  onto the real one fails the render. **The pod loses an identity keyed on the
+  SA name:** a Workload Identity / IRSA binding on
+  `system:serviceaccount:<ns>:<sa>` does not reach `<sa>-hook`. To keep it,
+  create the SA outside the release and bind it with `serviceAccount.create:
+  false` and `name`. No values change.
+
 - **A `pre-delete` hook reads the real Secret of its `externalSecrets`
   entries**, not the hook-prerequisite copy (ADR 0007, amended by ADR 0010).
   `pre-delete` runs before Helm deletes anything, so the real Secret is there;

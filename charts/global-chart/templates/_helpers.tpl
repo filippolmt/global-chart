@@ -170,16 +170,18 @@ Usage: {{ include "global-chart.rbacRoleBindingName" $role.name }}
 {{- end }}
 
 {{/*
-Names of the hook-prerequisite copy of an rbacs.roles entry (ADR 0010): the real
-name plus "-hook", truncated to the real name's own limit — 253 for the Role,
-used verbatim and a DNS subdomain; 63 for the RoleBinding and the
-ServiceAccount, the limit their real names are truncated to. One helper per
-kind, each the single home of its constant. A name already at its limit
+Names of the hook-prerequisite copies of a Role, a RoleBinding and a
+ServiceAccount (ADR 0010, ADR 0011): the real name plus "-hook", truncated to
+the real name's own limit — 253 for the Role, used verbatim and a DNS
+subdomain; 63 for the RoleBinding and the ServiceAccount, the limit their real
+names are truncated to. One helper per kind, each the single home of its
+constant. The ServiceAccount one serves every SA the release creates, a
+deployment's and an rbacs.roles entry's alike. A name already at its limit
 truncates back onto the real one; validateNameCollisions catches it, because a
 copy sharing the real name would be deleted with it under hook-succeeded.
 Usage: {{ include "global-chart.rbacRoleHookName" $role.name }}
        {{ include "global-chart.rbacRoleBindingHookName" $role.name }}
-       {{ include "global-chart.rbacServiceAccountHookName" $saName }}
+       {{ include "global-chart.serviceAccountHookName" $saName }}
 */}}
 {{- define "global-chart.rbacRoleHookName" -}}
 {{- include "global-chart.truncName" (list (printf "%s-hook" .) 253) -}}
@@ -189,7 +191,7 @@ Usage: {{ include "global-chart.rbacRoleHookName" $role.name }}
 {{- include "global-chart.truncName" (list (printf "%s-hook" (include "global-chart.rbacRoleBindingName" .)) 63) -}}
 {{- end }}
 
-{{- define "global-chart.rbacServiceAccountHookName" -}}
+{{- define "global-chart.serviceAccountHookName" -}}
 {{- include "global-chart.truncName" (list (printf "%s-hook" .) 63) -}}
 {{- end }}
 

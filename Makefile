@@ -379,6 +379,9 @@ e2e: kind-cluster kind-keda kind-eso check-helm-floor ## Install/upgrade/uninsta
 			|| { echo "FAIL: pre-install hook Job '$$hook' did not succeed (issue #71 regression)"; exit 1; }; \
 	done; \
 	echo "    both pre-install hooks ran under the chart-created ServiceAccount"; \
+	[ "$$(kubectl -n $$ns get job $$rel-$(GLOBAL_CHART_NAME)-app-pre-install-migration -o jsonpath='{.spec.template.spec.serviceAccountName}')" = "$$rel-$(GLOBAL_CHART_NAME)-app-hook" ] \
+		|| { echo "FAIL: the pre-install hook did not run as the deployment SA copy <sa>-hook (ADR 0011)"; exit 1; }; \
+	echo "    ... as its hook copy <sa>-hook, never under the real SA's name (ADR 0011)"; \
 	echo "    both read the ExternalSecret's value through its hook copy, envFrom and volume (issue #110)"; \
 	kubectl -n $$ns wait --for=delete externalsecret/$$rel-$(GLOBAL_CHART_NAME)-e2e-env-hook \
 		secret/$$rel-$(GLOBAL_CHART_NAME)-e2e-env-hook --timeout=60s >/dev/null 2>&1 \
@@ -386,6 +389,8 @@ e2e: kind-cluster kind-keda kind-eso check-helm-floor ## Install/upgrade/uninsta
 		     kubectl -n $$ns get externalsecret,secret; exit 1; }; \
 	echo "    ExternalSecret hook copy deleted, its Secret garbage-collected"; \
 	echo "    the negative-weight hook found its prerequisite ConfigMap (weight invariant holds)"; \
+	kubectl -n $$ns wait --for=delete sa/$$rel-$(GLOBAL_CHART_NAME)-app-hook --timeout=60s >/dev/null 2>&1 \
+		|| { echo "FAIL: the deployment SA hook copy survived the hook phase"; kubectl -n $$ns get sa; exit 1; }; \
 	kubectl -n $$ns get sa $$rel-$(GLOBAL_CHART_NAME)-app -o jsonpath='{.metadata.annotations}' | grep -q 'helm.sh/hook' \
 		&& { echo "FAIL: the surviving SA is the hook copy, not the real one"; exit 1; } || true; \
 	echo "    hook-prerequisite SA copy cleaned up, real SA in place"; \
@@ -450,6 +455,13 @@ e2e: kind-cluster kind-keda kind-eso check-helm-floor ## Install/upgrade/uninsta
 	[ "$$sa_before" = "$$(kubectl -n $$ns get sa $$rel-$(GLOBAL_CHART_NAME)-app -o jsonpath='{.metadata.uid}')" ] \
 		|| { echo "FAIL: the ServiceAccount was recreated, bound tokens would be invalidated"; exit 1; }; \
 	echo "    upgrade kept the ServiceAccount identity"; \
+	[ "$$(kubectl -n $$ns get job $$rel-$(GLOBAL_CHART_NAME)-app-pre-upgrade-migration -o jsonpath='{.status.succeeded}' 2>/dev/null)" = "1" ] \
+		|| { echo "FAIL: the pre-upgrade hook bound to the deployment SA did not succeed"; exit 1; }; \
+	[ "$$(kubectl -n $$ns get job $$rel-$(GLOBAL_CHART_NAME)-app-pre-upgrade-migration -o jsonpath='{.spec.template.spec.serviceAccountName}')" = "$$rel-$(GLOBAL_CHART_NAME)-app-hook" ] \
+		|| { echo "FAIL: the pre-upgrade hook did not run as the deployment SA copy (ADR 0011)"; exit 1; }; \
+	kubectl -n $$ns wait --for=delete sa/$$rel-$(GLOBAL_CHART_NAME)-app-hook --timeout=60s >/dev/null 2>&1 \
+		|| { echo "FAIL: the deployment SA hook copy survived the pre-upgrade phase"; kubectl -n $$ns get sa; exit 1; }; \
+	echo "    pre-upgrade hook ran as the deployment SA copy beside the live SA, copy cleaned up (issue #141)"; \
 	[ "$$(kubectl -n $$ns get job $$rel-$(GLOBAL_CHART_NAME)-pre-upgrade-rbac-read -o jsonpath='{.status.succeeded}' 2>/dev/null)" = "1" ] \
 		|| { echo "FAIL: the pre-upgrade hook could not use the rbacs.roles copy (ADR 0010)"; exit 1; }; \
 	echo "    pre-upgrade hook ran as the rbacs.roles SA copy, beside the live one"; \

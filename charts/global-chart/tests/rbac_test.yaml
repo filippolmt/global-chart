@@ -265,11 +265,13 @@ tests:
               migrate:
                 command: ["./migrate.sh"]
     asserts:
+      # the release creates app-sa through the deployment, so the copy binds
+      # app-sa-hook, the SA hook.yaml copies and the hook's pod runs as (ADR 0011)
       - hasDocuments:
           count: 4
       - equal:
           path: subjects[0].name
-          value: app-sa
+          value: app-sa-hook
         documentIndex: 3
 
   - it: should aggregate the phases and take the weight of the earliest consumer

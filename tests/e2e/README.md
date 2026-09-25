@@ -13,7 +13,8 @@ cluster, installs KEDA (operator + CRDs, `kind-keda`) so the whole autoscaling
 chain is exercised for real, installs External Secrets Operator with a
 fake-provider `ClusterSecretStore` (`kind-eso`, `cluster-secret-store.yaml`),
 installs `values.yaml` from this directory, then asserts: release deployed →
-pre-install hook Job succeeded under the chart-created SA, reading an
+pre-install hook Job succeeded running as the chart-created SA's hook copy
+`<sa>-hook` (ADR 0011), reading an
 ExternalSecret's value through its hook copy by envFrom and by volume → the
 copy and its Secret are gone after the hook phase → the surviving SA is the
 real one, not the hook copy →
@@ -22,7 +23,8 @@ references exists in the cluster → every Service `targetPort` resolved to a
 container port and got endpoints → ScaledObject/TriggerAuthentication applied
 with the `authenticationRef` resolved → KEDA marked the ScaledObject `Ready` and
 created the derived HPA with the rendered bounds → the `cron` trigger actually
-scaled the Deployment to its `desiredReplicas` → upgrade kept the SA UID →
+scaled the Deployment to its `desiredReplicas` → upgrade ran the pre-upgrade hook as `<sa>-hook` and kept the real SA's UID
+(issue #141) →
 upgrade did **not** reset `spec.replicas` on the KEDA-scaled Deployment →
 post-delete hook read the ExternalSecret through its copy → uninstall leaves no orphaned
 ConfigMap/Secret/ServiceAccount/ScaledObject/TriggerAuthentication/ExternalSecret, and the

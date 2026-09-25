@@ -53,7 +53,9 @@ the entry creates it. The hook runs as whatever SA the copy binds.
   `<binding>-hook` and `<sa>-hook`, each truncated to the real name's own limit:
   253 for the Role, 63 for the RoleBinding and the SA. One name helper per kind
   in `_helpers.tpl` (`rbacRoleHookName`, `rbacRoleBindingHookName`,
-  `rbacServiceAccountHookName`), each the home of its constant.
+  `rbacServiceAccountHookName`), each the home of its constant. *Amended by ADR
+  0011:* the SA one is now `serviceAccountHookName`, shared with the copy of a
+  deployment's SA.
   - The reason is Argo CD, which runs `pre-install` on every sync. A copy
     sharing the real name would be applied over the live resource and then
     deleted by `hook-succeeded`, and the live resource would go with it.
@@ -65,6 +67,8 @@ the entry creates it. The hook runs as whatever SA the copy binds.
 - **Which SA the copy binds.** If an `rbacs.roles` entry creates the SA, the copy
   binds `<sa>-hook` and the hook's pod is redirected to it. If not, the SA exists
   outside the release: the copy binds it as is and the hook keeps its identity.
+  *Amended by ADR 0011:* "creates" now means the release creates it, a
+  deployment's SA included, and the helper is `serviceAccountCopyName`.
   The choice lives in one helper, `rbacCopyServiceAccountName`, for the copy's
   subject, for the pod and for the validator alike. When several entries share one SA, each entry's
   copied RoleBinding binds the same SA the hook runs as.
@@ -106,7 +110,7 @@ the entry creates it. The hook runs as whatever SA the copy binds.
   which is still there.
 - **ADR 0002 has the same Argo CD exposure.** Its same-name copy of a deployment's
   SA runs on every `PreSync`. This ADR does not change it; the question is filed
-  as issue #141.
+  as issue #141, and answered by ADR 0011.
 - `make e2e` runs a `pre-install`, a `pre-upgrade` and a `post-delete` hook that
   list ConfigMaps with their own token. That call fails without the Role copy, and the pod never
   schedules without the SA copy. The run then checks that the copies are gone

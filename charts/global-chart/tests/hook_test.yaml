@@ -779,10 +779,12 @@ tests:
       - failedTemplate:
           errorMessage: "deployments.backend.hooks.pre-upgrade.migrate names its ServiceAccount twice, with different names: serviceAccountName \"runner\" and serviceAccount.name \"migrator\". Keep only one of the two fields (or set the same name in both)."
 
-  # ====== issue #71: hook-prerequisite copy of the deployment SA ======
-  # Helm creates normal resources after pre-install hooks, so a pre-install Job
-  # binding a chart-created deployment SA needs a hook-annotated copy of it.
-  - it: should emit a hook copy of the deployment SA for a pre-install hook
+  # ====== issue #71, ADR 0011: hook-prerequisite copy of the deployment SA ======
+  # Helm creates normal resources after the pre-* hooks, so a hook binding a
+  # chart-created deployment SA needs a hook-annotated copy of it, under its
+  # own name: a same-name copy would take the live SA with it under Argo CD,
+  # where pre-install runs on every sync (issue #141).
+  - it: should emit a hook copy of the deployment SA under its own name for a pre-install hook
     set:
       deployments:
         app:
@@ -801,7 +803,7 @@ tests:
         documentIndex: 0
       - equal:
           path: metadata.name
-          value: RELEASE-NAME-global-chart-app
+          value: RELEASE-NAME-global-chart-app-hook
         documentIndex: 0
       - equal:
           path: metadata.annotations["helm.sh/hook"]
@@ -809,11 +811,11 @@ tests:
         documentIndex: 0
       - equal:
           path: metadata.annotations["helm.sh/hook-weight"]
-          value: "5"
+          value: "3"
         documentIndex: 0
       - equal:
           path: metadata.annotations["helm.sh/hook-delete-policy"]
-          value: "hook-succeeded,hook-failed"
+          value: "before-hook-creation,hook-succeeded"
         documentIndex: 0
       - equal:
           path: metadata.labels["app.kubernetes.io/component"]
@@ -823,10 +825,10 @@ tests:
           path: automountServiceAccountToken
           value: true
         documentIndex: 0
-      # the Job binds exactly that SA
+      # the Job runs as the copy, not as the real SA
       - equal:
           path: spec.template.spec.serviceAccountName
-          value: RELEASE-NAME-global-chart-app
+          value: RELEASE-NAME-global-chart-app-hook
         documentIndex: 1
 
   - it: should copy annotations and automount onto the hook SA copy
@@ -853,9 +855,9 @@ tests:
           value: false
         documentIndex: 0
 
-  # Weight invariant: prereq (w-7) < SA (w-5) < Job (w), on the LOWEST
-  # pre-install Job weight so the SA precedes every one of them.
-  - it: should derive the hook SA copy weight from the lowest pre-install hook weight
+  # Weight invariant: the copy is a prereq (w-7) of the LOWEST consumer Job
+  # weight, so it precedes every one of them.
+  - it: should derive the hook SA copy weight from the lowest consumer weight
     set:
       deployments:
         app:
@@ -873,10 +875,10 @@ tests:
     asserts:
       - equal:
           path: metadata.annotations["helm.sh/hook-weight"]
-          value: "3"
+          value: "1"
         documentIndex: 0
 
-  # Helm allows negative hook weights. The SA copy must stay 5 below the Job even
+  # Helm allows negative hook weights. The SA copy must stay 7 below the Job even
   # then — flooring at 0 would sort it AFTER the Job and reintroduce #71.
   - it: should keep the hook SA copy below the Job for a low positive weight
     set:
@@ -893,7 +895,7 @@ tests:
     asserts:
       - equal:
           path: metadata.annotations["helm.sh/hook-weight"]
-          value: "-3"
+          value: "-5"
         documentIndex: 0
       - equal:
           path: metadata.annotations["helm.sh/hook-weight"]
@@ -915,7 +917,7 @@ tests:
     asserts:
       - equal:
           path: metadata.annotations["helm.sh/hook-weight"]
-          value: "-8"
+          value: "-10"
         documentIndex: 0
       - equal:
           path: metadata.annotations["helm.sh/hook-weight"]
@@ -939,6 +941,10 @@ tests:
           count: 1
       - isKind:
           of: Job
+        documentIndex: 0
+      - equal:
+          path: spec.template.spec.serviceAccountName
+          value: my-existing-sa
         documentIndex: 0
 
   - it: should not emit a hook SA copy when the hook overrides serviceAccountName
@@ -985,9 +991,9 @@ tests:
           value: "before-hook-creation,hook-succeeded"
         documentIndex: 0
 
-  # pre-upgrade/pre-rollback run against a release whose SA already exists;
-  # emitting a copy there would fail with AlreadyExists.
-  - it: should not emit a hook SA copy for non pre-install hooks
+  # The phases are hookReadsPrereqCopy's: pre-upgrade cannot tell whether the
+  # revision adds the SA, so it reads the copy; post-install finds the real one.
+  - it: should emit the hook SA copy for a pre-upgrade hook, not for a post-install one
     set:
       deployments:
         app:
@@ -1003,12 +1009,159 @@ tests:
                 command: ["./notify.sh"]
     asserts:
       - hasDocuments:
+          count: 3
+      - equal:
+          path: metadata.annotations["helm.sh/hook"]
+          value: pre-upgrade
+        documentSelector:
+          path: metadata.name
+          value: RELEASE-NAME-global-chart-app-hook
+      - equal:
+          path: spec.template.spec.serviceAccountName
+          value: RELEASE-NAME-global-chart-app-hook
+        documentSelector:
+          path: metadata.name
+          value: RELEASE-NAME-global-chart-app-pre-upgrade-migration
+      - equal:
+          path: spec.template.spec.serviceAccountName
+          value: RELEASE-NAME-global-chart-app
+        documentSelector:
+          path: metadata.name
+          value: RELEASE-NAME-global-chart-app-post-install-notify
+
+  # pre-delete runs before Helm deletes anything: the real SA is in place.
+  - it: should keep the real deployment SA for a pre-delete hook
+    set:
+      deployments:
+        app:
+          image: myapp:v1
+          serviceAccount:
+            create: true
+          hooks:
+            pre-delete:
+              drain:
+                command: ["./drain.sh"]
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: spec.template.spec.serviceAccountName
+          value: RELEASE-NAME-global-chart-app
+
+  # The match is by resolved name in both scopes (ADR 0011): a root-level hook
+  # naming the deployment SA gets the copy, even from a deployment with no hooks.
+  - it: should emit the hook SA copy for a root-level hook naming the deployment SA
+    set:
+      deployments:
+        app:
+          image: myapp:v1
+          serviceAccount:
+            name: app-sa
+      hooks:
+        post-delete:
+          purge:
+            image: myapp:v1
+            serviceAccountName: app-sa
+            weight: 4
+    asserts:
+      - hasDocuments:
           count: 2
-      - isKind:
-          of: Job
+      - equal:
+          path: metadata.annotations["helm.sh/hook"]
+          value: post-delete
+        documentSelector:
+          path: metadata.name
+          value: app-sa-hook
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "-3"
+        documentSelector:
+          path: metadata.name
+          value: app-sa-hook
+      - equal:
+          path: spec.template.spec.serviceAccountName
+          value: app-sa-hook
+        documentSelector:
+          path: kind
+          value: Job
+
+  # One copy per SA: phases aggregated over every consumer, both scopes.
+  - it: should aggregate the phases of every hook running as the deployment SA copy
+    set:
+      deployments:
+        app:
+          image: myapp:v1
+          serviceAccount:
+            name: app-sa
+          hooks:
+            pre-install:
+              migration:
+                command: ["./migrate.sh"]
+      hooks:
+        pre-rollback:
+          down:
+            image: myapp:v1
+            serviceAccountName: app-sa
+    asserts:
+      - hasDocuments:
+          count: 3
+      - equal:
+          path: metadata.annotations["helm.sh/hook"]
+          value: pre-install,pre-rollback
+        documentSelector:
+          path: metadata.name
+          value: app-sa-hook
+
+  - it: should not emit a hook SA copy for a disabled deployment
+    set:
+      deployments:
+        app:
+          enabled: false
+          image: myapp:v1
+          serviceAccount:
+            name: app-sa
+      hooks:
+        pre-install:
+          migrate:
+            image: myapp:v1
+            serviceAccountName: app-sa
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: spec.template.spec.serviceAccountName
+          value: app-sa
+
+  # A deployment's SA bound by an rbacs.roles entry with create: false is still
+  # created by the release: the Role copy and the pod bind the same copy.
+  - it: should run as the deployment SA copy when an rbacs.roles entry binds that SA
+    set:
+      rbacs:
+        roles:
+          - name: scaler
+            serviceAccount:
+              create: false
+              name: app-sa
+            rules: []
+      deployments:
+        app:
+          image: myapp:v1
+          serviceAccount:
+            name: app-sa
+          hooks:
+            pre-install:
+              migration:
+                command: ["./migrate.sh"]
+    asserts:
+      - hasDocuments:
+          count: 2
+      - equal:
+          path: metadata.name
+          value: app-sa-hook
         documentIndex: 0
-      - isKind:
-          of: Job
+      - equal:
+          path: spec.template.spec.serviceAccountName
+          value: app-sa-hook
         documentIndex: 1
 
   # ====== Deployment-level hook: explicit empty should NOT inherit ======
@@ -1822,11 +1975,11 @@ tests:
       - equal:
           path: metadata.annotations["helm.sh/hook-weight"]
           value: "3"
-        documentIndex: 0
+        documentIndex: 1
       - equal:
           path: metadata.annotations["helm.sh/hook-delete-policy"]
           value: hook-succeeded
-        documentIndex: 0
+        documentIndex: 1
 
   # ====== Deployment-level hook restartPolicy ======
   - it: should default restartPolicy to Never on deployment-level hook
@@ -1960,11 +2113,11 @@ tests:
     asserts:
       - isKind:
           of: Job
-        documentIndex: 0
+        documentIndex: 1
       - equal:
           path: metadata.annotations["helm.sh/hook-weight"]
           value: "10"
-        documentIndex: 0
+        documentIndex: 1
 
   # ====== hook type aggregation on prerequisites ======
   - it: should aggregate all hook types on prerequisite ConfigMap when deployment has multiple hook types
@@ -2215,7 +2368,7 @@ tests:
         documentIndex: 0
       - equal:
           path: metadata.annotations["helm.sh/hook-weight"]
-          value: "-8"
+          value: "-10"
         documentIndex: 1
       - equal:
           path: metadata.annotations["helm.sh/hook-weight"]
@@ -2564,7 +2717,7 @@ tests:
           path: metadata.annotations["helm.sh/hook-delete-policy"]
           value: before-hook-creation,hook-succeeded
         documentIndex: 1
-      # role pre-install-sa: w-5, fixed policy, explicit deletePolicy ignored
+      # the deployment SA copy is plumbing too: role prereq (ADR 0011)
       - isKind:
           of: ServiceAccount
         documentIndex: 2
@@ -2574,11 +2727,11 @@ tests:
         documentIndex: 2
       - equal:
           path: metadata.annotations["helm.sh/hook-weight"]
-          value: "5"
+          value: "3"
         documentIndex: 2
       - equal:
           path: metadata.annotations["helm.sh/hook-delete-policy"]
-          value: hook-succeeded,hook-failed
+          value: before-hook-creation,hook-succeeded
         documentIndex: 2
       # role sa: w-5, explicit deletePolicy honoured
       - isKind:
@@ -2632,16 +2785,16 @@ tests:
         documentIndex: 0
       - equal:
           path: metadata.annotations["helm.sh/hook-weight"]
-          value: "2"
+          value: "0"
         documentIndex: 1
       - equal:
           path: metadata.annotations["helm.sh/hook-weight"]
           value: "7"
         documentIndex: 2
 
-  # The pre-install SA copy sorts against the hooks that actually bind the
+  # The SA copy sorts against the hooks that actually bind the
   # deployment SA, not against every pre-install hook.
-  - it: should derive the pre-install SA copy weight only from SA-binding hooks
+  - it: should derive the SA copy weight only from SA-binding hooks
     set:
       deployments:
         backend:
@@ -2663,7 +2816,7 @@ tests:
         documentIndex: 0
       - equal:
           path: metadata.annotations["helm.sh/hook-weight"]
-          value: "-1"
+          value: "-3"
         documentIndex: 0
 
   # ====== Root-level hooks inherit nothing from deployments ======

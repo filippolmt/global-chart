@@ -7,9 +7,10 @@ policy per role. See docs/adr/0004-one-module-for-hook-lifecycle-annotations.md.
 Also the home of which hooks the per-resource hook-prerequisite copies serve:
 the phase predicate shared by all of them, the one enumeration of the hooks it
 admits, and the consumer scans that decide when a copy exists and who reads it
-— the ExternalSecret copy (ADR 0007) and the rbacs.roles copy (ADR 0010). Which
-rbacs.roles entry a hook's ServiceAccount matches is a ServiceAccount question,
-answered by hookRbacCopy in _serviceaccount-helpers.tpl.
+— the ExternalSecret copy (ADR 0007), the rbacs.roles copy (ADR 0010) and the
+copy of a ServiceAccount the release creates (ADR 0011). Which copy a hook's
+ServiceAccount matches is a ServiceAccount question, answered by hookRbacCopy
+and hookReadsServiceAccountCopy in _serviceaccount-helpers.tpl.
 */}}
 
 {{/*
@@ -46,11 +47,11 @@ The three hook lifecycle annotations for one resource.
 Params:
   hookType - value of "helm.sh/hook" (a single type, or a comma-joined list for
              the prereq copies)
-  role     - job | sa | prereq | pre-install-sa; orthogonal to scope: root-level
-             and deployment-level hooks share the roles they have
+  role     - job | sa | prereq; orthogonal to scope: root-level and
+             deployment-level hooks share the roles they have
   command  - the hook's own map, for the roles a hook owns (job, sa)
-  weight   - the Job weight to derive from, for the plumbing roles (prereq,
-             pre-install-sa), whose weight is a minimum across several hooks
+  weight   - the Job weight to derive from, for the plumbing role (prereq),
+             whose weight is a minimum across several hooks
              rather than one hook's own; overrides command. Passing a command
              to a plumbing role is a template error, not a silent override
 Usage:
@@ -64,14 +65,13 @@ Usage:
 {{- $table := dict
       "job"            (dict "offset" 0  "policy" "before-hook-creation"                "ownedByHook" true)
       "sa"             (dict "offset" -5 "policy" "before-hook-creation,hook-succeeded" "ownedByHook" true)
-      "prereq"         (dict "offset" -7 "policy" "before-hook-creation,hook-succeeded" "ownedByHook" false)
-      "pre-install-sa" (dict "offset" -5 "policy" "hook-succeeded,hook-failed"          "ownedByHook" false) -}}
+      "prereq"         (dict "offset" -7 "policy" "before-hook-creation,hook-succeeded" "ownedByHook" false) -}}
 {{- $row := index $table .role -}}
 {{- /* Both guards fail loudly on purpose. With neither, an unknown role silently
        takes offset 0 and renders a null delete policy — an invalid annotation the
        API server rejects at apply time, far from its cause — and a plumbing role
-       handed a command would silently honour a deletePolicy that ADR 0002/0004
-       reject. Adding a role means adding a row, and the rows are the enforcement. */ -}}
+       handed a command would silently honour a deletePolicy that ADR 0004
+       rejects. Adding a role means adding a row, and the rows are the enforcement. */ -}}
 {{- if not $row -}}
 {{- fail (printf "hookAnnotations: unknown role %q (expected one of: %s)" .role (keys $table | sortAlpha | join ", ")) -}}
 {{- end -}}
@@ -80,8 +80,7 @@ Usage:
 {{- end -}}
 {{- /* An explicit deletePolicy belongs to the hook, so it reaches only the roles
        a hook owns — the guard above is what keeps that true. The prereq copies are
-       shared by every hook of the deployment, and the pre-install SA copy cannot
-       take before-hook-creation without deleting a live SA mid-upgrade (ADR 0002). */ -}}
+       shared by every hook that reads them, so none of them owns the policy. */ -}}
 {{- $policy := ternary $command.deletePolicy $row.policy (hasKey $command "deletePolicy") -}}
 {{- /* Derived weights are never floored at 0: Helm allows negative hook weights,
        and clamping a prereq to 0 would sort it AFTER a Job with a negative
@@ -97,7 +96,7 @@ resource rather than the resource itself. "true" for:
 - pre-install, pre-upgrade and pre-rollback, which run before the normal
   resources of the revision being applied: on an install they do not exist yet,
   and on an upgrade or a rollback the chart cannot tell whether that revision
-  adds them (ADR 0002 rejects `lookup`);
+  adds them (`lookup` is rejected: it returns nothing under `helm template`);
 - post-delete, which runs after they are gone (an ExternalSecret's Secret with
   it, through its ownerReference).
 pre-delete is not one: it runs before Helm deletes anything, against the
@@ -105,10 +104,11 @@ release that is still installed, so the real resources are in place. Reading a
 copy there would only cost: an ExternalSecret copy to reconcile first, and for
 rbacs.roles a pod moved off the SA an identity binding is keyed on.
 Every other phase finds the real resource in place. The ONE place the cut is
-made, for the ExternalSecret copy (ADR 0007) and the rbacs.roles copy (ADR
-0010) alike — the consumer scans below (which emit the copies) and the call
-sites that point a hook at them (jobPodSpec for the Secret, hookRbacCopy for
-the ServiceAccount) all ask here, so a hook can never read a copy that was not
+made, for the ExternalSecret copy (ADR 0007), the rbacs.roles copy (ADR 0010)
+and the ServiceAccount copy (ADR 0011) alike — the consumer scans below (which
+emit the copies) and the call sites that point a hook at them (jobPodSpec for
+the Secret, hookRbacCopy and hookReadsServiceAccountCopy for the
+ServiceAccount) all ask here, so a hook can never read a copy that was not
 rendered.
 Usage: {{ include "global-chart.hookReadsPrereqCopy" $hookType }}
 */}}
@@ -216,6 +216,32 @@ Usage: {{ $consumers := include "global-chart.rbacHookConsumers" $root | fromJso
     {{- range $roleName := (default (list) $copy.roles) -}}
       {{- include "global-chart.addPrereqConsumer" (dict "out" $out "key" $roleName "hookType" $hook.hookType "id" $id "command" $hook.command) -}}
     {{- end -}}
+  {{- end -}}
+{{- end -}}
+{{- toJson $out -}}
+{{- end -}}
+
+{{/*
+The hooks that run as the copy of each ServiceAccount the release creates, in
+both scopes: the input of the ServiceAccount hook-prerequisite copy (ADR 0011),
+for hook.yaml, which emits a deployment's, and for validateNameCollisions,
+which registers its name. rbac.yaml emits the copy of a SA an rbacs.roles
+entry creates from rbacHookConsumers, whose hooks are the same.
+Returns JSON: SA name -> hookType -> values path -> command, the shape
+minHookWeight reads, as the scans above. A SA no such hook runs as is absent:
+it gets no copy. Which hook runs as which copy is hookReadsServiceAccountCopy's
+answer, not this scan's.
+Usage: {{ $consumers := include "global-chart.serviceAccountHookConsumers" $root | fromJson }}
+*/}}
+{{- define "global-chart.serviceAccountHookConsumers" -}}
+{{- $root := . -}}
+{{- $out := dict -}}
+{{- $hooks := dict -}}
+{{- include "global-chart.prereqCopyHooks" (dict "root" $root "out" $hooks) -}}
+{{- range $id, $hook := $hooks -}}
+  {{- $sa := include "global-chart.jobServiceAccount" (dict "root" $root "job" $hook.command "deploy" $hook.deploy "deployName" $hook.deployName "jobFullname" $hook.fullname "errCtx" $id) | fromJson -}}
+  {{- if eq (include "global-chart.hookReadsServiceAccountCopy" (dict "root" $root "hookType" $hook.hookType "sa" $sa)) "true" -}}
+    {{- include "global-chart.addPrereqConsumer" (dict "out" $out "key" $sa.name "hookType" $hook.hookType "id" $id "command" $hook.command) -}}
   {{- end -}}
 {{- end -}}
 {{- toJson $out -}}

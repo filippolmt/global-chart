@@ -68,7 +68,7 @@ subjects:
 {{- with index $consumers $role.name }}
 {{- $hookTypes := keys . | sortAlpha | join "," }}
 {{- $weight := include "global-chart.minHookWeight" (dict "hooks" .) }}
-{{- $copySA := include "global-chart.rbacCopyServiceAccountName" (dict "root" $root "name" $resolved.name) }}
+{{- $copySA := include "global-chart.serviceAccountCopyName" (dict "root" $root "name" $resolved.name) }}
 {{- $roleCopy := include "global-chart.rbacRoleHookName" $role.name }}
 {{- if $resolved.create }}
 apiVersion: v1
