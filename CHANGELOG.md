@@ -69,6 +69,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   `deployments.api.hooks.pre-install.migrate`): the name collision messages
   used to say `root cronJob 'cleanup'` or `hook 'pre-install/migrate' in
   deployment 'api'`.
+- **Every name collision message names its owners by values path** (issue
+  #135), not only the jobs: `deployments.api` for `deployment 'api'`,
+  `deployments.api.configMap` / `.secret`, their hook-prerequisite copies as
+  `deployments.api.configMap (hook prerequisite copy)`, a mounted file as
+  `deployments.api.mountedConfigFiles.files[0] ('app.conf')`, and
+  `externalSecrets.app-env` / `kedaTriggerAuthentications.<key>` for the quoted
+  keys. A pattern matched against the old wording has to follow.
 - **`helm install`/`upgrade` warn below Helm 3.18.6** (issue #116). The schema
   closures of the four job composites need it, and older Helm ignored them in
   silence. `NOTES.txt` now says so; `helm template` and Argo CD do not show
