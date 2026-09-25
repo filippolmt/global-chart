@@ -840,8 +840,8 @@
         "target": {
           "type": "object",
           "properties": {
-            "creationPolicy": { "type": "string" },
-            "deletionPolicy": { "type": "string" },
+            "creationPolicy": { "type": "string", "enum": ["Owner", "Orphan", "Merge", "None", "CreateOrMerge"], "description": "ESO's target.creationPolicy; Owner when unset. CreateOrMerge needs an ESO release that ships it." },
+            "deletionPolicy": { "type": "string", "enum": ["Delete", "Merge", "Retain"] },
             "name": { "type": "string" },
             "immutable": { "type": "boolean" },
             "template": { "type": "object" }

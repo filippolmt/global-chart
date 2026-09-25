@@ -114,6 +114,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   now checked against every chart Secret, the `-hook-secret` prerequisite copy
   included. `Merge` and `None` stay allowed: Helm keeps the keys `Merge` adds.
 
+- **An ExternalSecret's `target.creationPolicy` and `target.deletionPolicy`
+  take ESO's values only**: `Owner`, `Orphan`, `Merge`, `None`,
+  `CreateOrMerge`, and `Delete`, `Merge`, `Retain`. Any string passed `helm
+  lint` and the ExternalSecret CRD rejected it at apply; the name collision
+  checks, which branch on the policy, also read a typo such as `owner` as
+  "not Owner".
+
 - **A string hook `weight` with a leading zero is rejected by the schema**,
   both scopes. The weight arithmetic reads it with base detection, so `"010"`
   rendered `helm.sh/hook-weight: "8"` on the Job and `"3"` on its
@@ -338,6 +345,8 @@ deployments:
   `"80%"` read as 0 and switched the HPA off. **Action:** write `80`.
 - **A string hook `weight` with a leading zero**: `"010"` read as octal 8.
   **Action:** drop the zero (`"10"`).
+- **An ExternalSecret policy outside ESO's enum** (`creationPolicy: owner`).
+  **Action:** use ESO's spelling (`Owner`).
 - **Names Kubernetes rejects**: `nameOverride` / `fullnameOverride` (#120),
   `rbacs.roles[].name` (#121), `serviceAccount.name` and a job's
   `serviceAccountName` (#123), Service port names and named `targetPort`s
