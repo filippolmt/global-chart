@@ -3,14 +3,11 @@
 {{- if $deploy }}
 {{- if eq (include "global-chart.deploymentEnabled" $deploy) "true" }}
 {{- $hpa := default (dict) $deploy.autoscaling }}
-{{- /* Raw values, printed through printScalar: an int cast here would truncate
-       in silence. float64 only for the "is it set" test */ -}}
-{{- $cpu := ternary $hpa.targetCPUUtilizationPercentage 0 (hasKey $hpa "targetCPUUtilizationPercentage") }}
-{{- $mem := ternary $hpa.targetMemoryUtilizationPercentage 0 (hasKey $hpa "targetMemoryUtilizationPercentage") }}
-{{- $cpuOn := gt (float64 $cpu) 0.0 }}
-{{- $memOn := gt (float64 $mem) 0.0 }}
-{{- $hasMetric := or $cpuOn $memOn }}
-{{- if and $hpa.enabled $hasMetric }}
+{{- /* validateAutoscalingConflict fails an enabled HPA with no active target;
+       the $targets test only keeps a render without validate.yaml from
+       emitting an empty metrics list, which the API server reads as CPU 80% */ -}}
+{{- $targets := include "global-chart.hpaActiveTargets" $hpa | fromJson }}
+{{- if and $hpa.enabled $targets }}
 {{- $depFullname := include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $name) }}
 {{- $labelCtx := dict "root" $root "deploymentName" $name }}
 ---
@@ -38,21 +35,13 @@ spec:
   {{- end }}
   maxReplicas: {{ include "global-chart.printScalar" $hpa.maxReplicas }}
   metrics:
-    {{- if $cpuOn }}
+    {{- range $res, $target := $targets }}
     - type: Resource
       resource:
-        name: cpu
+        name: {{ $res }}
         target:
           type: Utilization
-          averageUtilization: {{ include "global-chart.printScalar" $cpu }}
-    {{- end }}
-    {{- if $memOn }}
-    - type: Resource
-      resource:
-        name: memory
-        target:
-          type: Utilization
-          averageUtilization: {{ include "global-chart.printScalar" $mem }}
+          averageUtilization: {{ include "global-chart.printScalar" $target }}
     {{- end }}
   {{- with $hpa.behavior }}
   behavior:

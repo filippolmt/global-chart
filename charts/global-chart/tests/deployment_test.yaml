@@ -810,6 +810,7 @@ tests:
             enabled: true
             minReplicas: 2
             maxReplicas: 10
+            targetCPUUtilizationPercentage: 80
     asserts:
       - isNull:
           path: spec.replicas

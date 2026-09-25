@@ -323,6 +323,123 @@ tests:
       - failedTemplate:
           errorPattern: "deployments.worker: autoscaling.enabled and keda.enabled are mutually exclusive"
 
+  # ====== autoscaling.enabled needs an active metric (issue #151, ADR 0012) ======
+  # The Deployment drops spec.replicas when autoscaling is enabled; with no
+  # positive target no HPA renders and Kubernetes defaults replicas to 1.
+  - it: should fail when autoscaling is enabled with no target set
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          replicaCount: 3
+          autoscaling:
+            enabled: true
+            minReplicas: 3
+            maxReplicas: 10
+    asserts:
+      - failedTemplate:
+          errorMessage: "deployments.main.autoscaling.enabled is true but neither targetCPUUtilizationPercentage nor targetMemoryUtilizationPercentage is a positive number; without one no HPA renders and the Deployment runs a single replica. Set a target or disable autoscaling."
+
+  - it: should fail when autoscaling is enabled with every target off
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          autoscaling:
+            enabled: true
+            minReplicas: 1
+            maxReplicas: 5
+            targetCPUUtilizationPercentage: ""
+            targetMemoryUtilizationPercentage: 0
+    asserts:
+      - failedTemplate:
+          errorPattern: "deployments.main.autoscaling.enabled is true but neither"
+
+  - it: should not fail when one target is on and the other is 0
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          autoscaling:
+            enabled: true
+            minReplicas: 1
+            maxReplicas: 5
+            targetCPUUtilizationPercentage: 80
+            targetMemoryUtilizationPercentage: 0
+    asserts:
+      - notFailedTemplate: {}
+
+  - it: should not fail when a disabled autoscaler has no target
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          autoscaling:
+            enabled: false
+    asserts:
+      - notFailedTemplate: {}
+
+  - it: should report the KEDA conflict before the missing target
+    set:
+      deployments:
+        worker:
+          image: nginx:1.25
+          autoscaling:
+            enabled: true
+            minReplicas: 1
+            maxReplicas: 5
+          keda:
+            enabled: true
+            triggers:
+              - type: cron
+                metadata: { timezone: UTC, start: "0 0 * * *", end: "59 23 * * *", desiredReplicas: "3" }
+    asserts:
+      - failedTemplate:
+          errorPattern: "deployments.worker: autoscaling.enabled and keda.enabled are mutually exclusive"
+
+  # "80%" reads as 0 through float64: the schema admits digits only
+  - it: should reject a percentage target written with a percent sign
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          autoscaling:
+            enabled: true
+            minReplicas: 1
+            maxReplicas: 5
+            targetCPUUtilizationPercentage: "80%"
+    asserts:
+      - failedTemplate:
+          errorPattern: "does not match pattern"
+
+  - it: should reject a target with a leading zero, which YAML reads as octal
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          autoscaling:
+            enabled: true
+            minReplicas: 1
+            maxReplicas: 5
+            targetCPUUtilizationPercentage: "010"
+    asserts:
+      - failedTemplate:
+          errorPattern: "does not match pattern"
+
+  - it: should reject a negative target
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          autoscaling:
+            enabled: true
+            minReplicas: 1
+            maxReplicas: 5
+            targetMemoryUtilizationPercentage: -1
+    asserts:
+      - failedTemplate:
+          errorPattern: "minimum"
+
   - it: should not fail when HPA and KEDA are enabled on different deployments
     set:
       deployments:

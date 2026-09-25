@@ -65,6 +65,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   create the SA outside the release and bind it with `serviceAccount.create:
   false` and `name`. No values change.
 
+- **Behaviour change: `autoscaling.enabled` with no active target fails at
+  render** (issue #151,
+  [ADR 0012](docs/adr/0012-autoscaling-enabled-requires-an-active-metric.md)).
+  The Deployment drops `spec.replicas` whenever autoscaling is enabled, while
+  the HPA rendered only with a positive CPU or memory target. With neither, no
+  HPA rendered and Kubernetes ran **one** pod, ignoring `replicaCount` and
+  `minReplicas`; `helm lint` passed. The render now fails, naming the
+  deployment. A string target takes digits only: `"80%"`, which read as 0 and
+  hit the same path, is rejected by the schema, as are a leading zero and a
+  negative number. `0` and `""` still turn one metric off. The HPA and the
+  validator read the active targets from one helper, `hpaActiveTargets`.
+
 - **Behaviour change: a job's pod follows `automountServiceAccountToken`**
   (issue #154, [ADR 0014](docs/adr/0014-job-pod-automount-follows-the-inheritance-chain.md)).
   Hooks and cronjobs never rendered the pod-level field: a job's own value
@@ -249,7 +261,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 ### Migration guide from 2.7.x
 
 > No values change shape. What changes is **which ServiceAccount a hook's pod
-> runs as** in the copy phases, and **which values the chart accepts**: values
+> runs as** in the copy phases, **whether a job's pod mounts its token**, and
+> **which values the chart accepts**: values
 > that rendered but could never be applied, or were ignored in silence, now
 > fail at `helm lint` or at render. Run `helm lint` and then `helm template`
 > (or `helm diff upgrade`) against your own values before upgrading — every
@@ -314,6 +327,8 @@ deployments:
   and a TriggerAuthentication `secretTargetRef` / `env` entry (issues #137,
   #145). Kubernetes or KEDA dropped them in silence. **Action:** fix the key
   the error names.
+- **An HPA target that is not a plain number** (#151): `"80%"`, `"010"`, `-1`.
+  `"80%"` read as 0 and switched the HPA off. **Action:** write `80`.
 - **Names Kubernetes rejects**: `nameOverride` / `fullnameOverride` (#120),
   `rbacs.roles[].name` (#121), `serviceAccount.name` and a job's
   `serviceAccountName` (#123), Service port names and named `targetPort`s
@@ -327,6 +342,8 @@ deployments:
 - Two `rbacs.roles` entries landing on one Role, RoleBinding or ServiceAccount
   (#122), two `kedaTriggerAuthentications` keys truncated to one name (#117), a
   hook copy whose name truncates back onto its real one (ADR 0010, ADR 0011).
+- `autoscaling.enabled: true` with no positive CPU or memory target (#151).
+  It rendered no HPA and one pod. Set a target, or disable autoscaling.
 - A job naming its ServiceAccount twice with different names (#133).
 - An `Owner` ExternalSecret whose target is a chart Secret, typically one named
   after a deployment that also declares `secret:` (#153): rename `target.name`,

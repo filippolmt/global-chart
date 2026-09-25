@@ -212,14 +212,20 @@
       "then": { "properties": { "portName": { "minLength": 1 } } },
       "description": "An empty portName is accepted only while the Service has one port: with extraPorts it is multi-port, and the API server requires every port of a multi-port Service to be named."
     },
+    "hpaTargetPercent": {
+      "type": ["integer", "string"],
+      "pattern": "^(0|[1-9][0-9]*)?$",
+      "minimum": 0,
+      "description": "0 or \"\" turns this metric off. A string holds digits only: \"80%\" is rejected, and so is a leading zero, which prints unquoted and reads as octal. With enabled: true at least one of the two targets must be positive."
+    },
     "autoscaling": {
       "type": "object",
       "properties": {
         "enabled": { "type": "boolean" },
         "minReplicas": { "type": "integer", "minimum": 1 },
         "maxReplicas": { "type": "integer", "minimum": 1 },
-        "targetCPUUtilizationPercentage": { "type": ["integer", "string"] },
-        "targetMemoryUtilizationPercentage": { "type": ["integer", "string"] },
+        "targetCPUUtilizationPercentage": { "$ref": "#/$defs/hpaTargetPercent" },
+        "targetMemoryUtilizationPercentage": { "$ref": "#/$defs/hpaTargetPercent" },
         "behavior": { "type": "object" }
       },
       "additionalProperties": false

@@ -1,0 +1,12 @@
+# autoscaling.enabled with no positive target (issue #151, ADR 0012). The
+# Deployment drops spec.replicas, no HPA renders, and Kubernetes runs one pod.
+# Must be rejected by global-chart.validateAutoscalingConflict.
+# Expected fail substring: "autoscaling.enabled is true but neither"
+deployments:
+  app:
+    image: nginx:1.25
+    replicaCount: 3
+    autoscaling:
+      enabled: true
+      minReplicas: 3
+      maxReplicas: 10
