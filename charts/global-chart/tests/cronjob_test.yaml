@@ -1699,7 +1699,7 @@ tests:
   # A number read from a values file is a float64, which the default format
   # prints as 1e+07 from a million up: an integer field the API server rejects.
   # set: values reach the template as float64 too, so these fail without
-  # global-chart.int.
+  # global-chart.printScalar.
   - it: should render large root-level cronjob integers in plain digits
     set:
       cronJobs:

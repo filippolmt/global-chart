@@ -332,11 +332,11 @@ it sets the key (hasKey, so 0 and false are kept), else from its default, else
 not at all:
 - startingDeadlineSeconds — no default
 - suspend                 — no default
-- concurrencyPolicy       — "Forbid", quoted
+- concurrencyPolicy       — "Forbid"
 - successfulJobsHistoryLimit, failedJobsHistoryLimit — 2 each
 Nothing falls back to the deployment or global: they describe this schedule.
-Numbers and bools go through global-chart.printScalar (issue #132); the one
-string field is quoted.
+Every value goes through global-chart.printScalar (issue #132), unquoted:
+concurrencyPolicy is a schema enum (Allow/Forbid/Replace), a plain YAML string.
 Params: the job map.
 Returns "field: value" lines at indent 0; concurrencyPolicy and the two limits
 always render, so it is never empty.
@@ -349,11 +349,7 @@ Usage: {{- include "global-chart.cronJobSpecFields" $job | nindent 2 }}
 {{- range (list "startingDeadlineSeconds" "suspend" "concurrencyPolicy" "successfulJobsHistoryLimit" "failedJobsHistoryLimit") -}}
   {{- if or (hasKey $job .) (hasKey $defaults .) -}}
     {{- $value := ternary (index $job .) (index $defaults .) (hasKey $job .) -}}
-    {{- if eq . "concurrencyPolicy" -}}
-      {{- $lines = append $lines (printf "%s: %s" . (quote $value)) -}}
-    {{- else -}}
-      {{- $lines = append $lines (printf "%s: %s" . (include "global-chart.printScalar" $value)) -}}
-    {{- end -}}
+    {{- $lines = append $lines (printf "%s: %s" . (include "global-chart.printScalar" $value)) -}}
   {{- end -}}
 {{- end -}}
 {{- join "\n" $lines -}}

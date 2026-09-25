@@ -67,6 +67,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   spec fields fixed above (#131) use the same helper instead of their own cast.
   An int-or-string value — a percentage PDB bound, a named `targetPort` —
   renders unchanged.
+- **A `dnsConfig.options` value of `0` or `""` is no longer dropped.** The
+  option rendered with its name only, as if the value were unset; now an option
+  omits `value` only when the key is absent or null.
 - **A fullname that can never be applied is now rejected** (issue #120). A
   dotted release name such as `my.app`, or a `fullnameOverride` like `My_App`,
   rendered container and Service names the API server rejects.

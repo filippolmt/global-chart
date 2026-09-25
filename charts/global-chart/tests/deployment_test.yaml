@@ -1539,7 +1539,7 @@ tests:
   # A number read from a values file is a float64, which the default format
   # prints as 1e+07 from a million up: an integer field the API server rejects.
   # set: values reach the template as float64 too, so these fail without
-  # global-chart.int.
+  # global-chart.printScalar.
   - it: should render large integers in plain digits
     set:
       deployments:
@@ -1586,6 +1586,30 @@ tests:
       - equal:
           path: spec.template.spec.dnsConfig.options[1].value
           value: "1.5"
+
+  # Set means present and not null: 0 and "" are values the user wrote, and
+  # used to be dropped by a truthiness test.
+  - it: should keep a dnsConfig option value of 0 or empty and omit an absent one
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          dnsConfig:
+            options:
+              - name: ndots
+                value: 0
+              - name: edns0
+                value: ""
+              - name: single-request
+    asserts:
+      - equal:
+          path: spec.template.spec.dnsConfig.options
+          value:
+            - name: ndots
+              value: "0"
+            - name: edns0
+              value: ""
+            - name: single-request
 
   # A date-shaped numeric tag rendered as nginx:2.0240101e+07.
   - it: should render a large numeric image tag in plain digits

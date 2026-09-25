@@ -1,12 +1,23 @@
 {{/*
-Rendering helpers for global-chart.
+Rendering helpers for global-chart: blocks shared by more than one template, so
+each is written once. Rules of the file:
+- Every scalar printed from values goes through printScalar (below, issue #132).
+  A helper that returns JSON hands its numbers back as float64, so its caller
+  prints them through printScalar too.
+- A helper that can render nothing is wrapped by its caller in {{- with }}.
+- The ConfigMap/Secret data bodies are shared with the hook-prerequisite copies
+  (ADR 0005); the ExternalSecret spec with its copy (ADR 0007).
+- The primary port has one source per side: servicePrimaryPort for the Service,
+  containerPorts for the pod (issue #82).
 */}}
 
 {{/*
 Print a scalar read from values. The rule: every number printed from values
 goes through this helper — never a bare {{ $x.field }}, never toString or
 printf "%v" of a values-derived scalar, and never a site-local int64/%d
-(jobSpecVerbatimFields included, issue #132). Integer fields print it as is,
+(jobSpecVerbatimFields included, issue #132). The rule is about printing: a
+cast used only to compute (the hook weight arithmetic in _hook-helpers.tpl) is
+outside it: the int64 such a cast produces already prints in plain digits. Integer fields print it as is,
 string fields pipe it to quote.
 Why: Helm reads a number from a values file as a float64, and the template
 default format (toString and printf "%v" alike) prints a float64 in exponent
@@ -124,7 +135,8 @@ dnsConfig:
   options:
     {{- range $dnsConfig.options }}
     - name: {{ .name }}
-      {{- if .value }}
+      {{- /* Set means present and not null: 0 and "" are values */}}
+      {{- if not (kindIs "invalid" .value) }}
       value: {{ include "global-chart.printScalar" .value | quote }}
       {{- end }}
     {{- end }}
@@ -248,8 +260,7 @@ Resolution priority (mirrors the historical inline ingress logic):
   3. Otherwise: fail with actionable message.
 
 Output: JSON string of the form {"name":"<svc>","port":<int>}
-The port comes back from fromJson a float64: print it through
-global-chart.printScalar, never bare.
+Numbers come back float64: see the file header.
 */}}
 {{- define "global-chart.resolveBackend" -}}
 {{- $root := .root -}}
@@ -350,8 +361,7 @@ already-declared port would buy nothing and risk a duplicate name, which the API
 server rejects. The protocol is part of the key because the same number under
 two protocols is a distinct port — TCP and UDP on 53 is the ordinary DNS shape.
 Usage: {{ include "global-chart.containerPorts" $svc | fromJsonArray }}
-The output is JSON, so every number comes back a float64: print containerPort
-through global-chart.printScalar, never bare.
+Numbers come back float64: see the file header.
 */}}
 {{- define "global-chart.containerPorts" -}}
 {{- $svc := . -}}
@@ -362,11 +372,11 @@ through global-chart.printScalar, never bare.
 {{- $protocol := $primary.protocol -}}
 {{- $ports := list (dict "name" $portName "containerPort" $containerPort "protocol" $protocol) -}}
 {{- $names := dict $portName true -}}
-{{- $numbers := dict (printf "%s/%s" (toString $containerPort) $protocol) true -}}
+{{- $numbers := dict (printf "%s/%s" (include "global-chart.printScalar" $containerPort) $protocol) true -}}
 {{- range (default (list) $svc.extraPorts) -}}
   {{- if not (kindIs "string" .targetPort) -}}
     {{- $extraProtocol := default "TCP" .protocol | upper -}}
-    {{- $key := printf "%s/%s" (toString .targetPort) $extraProtocol -}}
+    {{- $key := printf "%s/%s" (include "global-chart.printScalar" .targetPort) $extraProtocol -}}
     {{- if and (not (hasKey $names .name)) (not (hasKey $numbers $key)) -}}
       {{- $ports = append $ports (dict "name" .name "containerPort" .targetPort "protocol" $extraProtocol) -}}
       {{- $_ := set $names .name true -}}
@@ -392,8 +402,7 @@ required by the schema, so they share no default worth a home.
 Usage: {{ $primary := include "global-chart.servicePrimaryPort" $svc | fromJson }}
 Input: the deployment's service map, already defaulted to (dict) by the caller.
 Output: JSON of the form {"port":80,"name":"http","protocol":"TCP","targetPort":"http"}
-Every number comes back from fromJson a float64: print port and targetPort
-through global-chart.printScalar, never bare.
+Numbers come back float64: see the file header.
 */}}
 {{- define "global-chart.servicePrimaryPort" -}}
 {{- $svc := . -}}

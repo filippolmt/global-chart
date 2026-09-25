@@ -338,7 +338,7 @@ tests:
           path: metadata.annotations
 
   # ====== Integers from values (issue #132) ======
-  # Ports go through global-chart.int like every integer from values (the
+  # Ports go through global-chart.printScalar like every integer from values (the
   # schema bounds them below a million, so they never reach exponent notation).
   # The int-or-string branch: a named targetPort passes through unchanged, a
   # numeric one stays a number.
