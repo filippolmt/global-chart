@@ -26,6 +26,11 @@
 #   (issue #110): the ExternalSecret is a normal resource, applied AFTER the
 #   pre-* hooks, so the hooks must read the hook-prerequisite copy (ADR 0007).
 #   Both forms — envFrom and a mounted volume — against ESO's fake provider
+# - pre-* and post-delete hooks running as the ServiceAccount of an rbacs.roles
+#   entry (ADR 0010): the SA, Role and RoleBinding are normal resources, applied
+#   AFTER the pre-* hooks and deleted BEFORE post-delete, so the hooks must run
+#   as the <name>-hook copies. The hooks call the API with their token, so a
+#   missing permission fails them, not only a missing SA
 externalSecrets:
   e2e-env:
     secretstore: { kind: ClusterSecretStore, name: e2e-fake }
@@ -35,6 +40,16 @@ externalSecrets:
     secretstore: { kind: ClusterSecretStore, name: e2e-fake }
     secretkey: app.conf
     remote: { key: e2e/conf }
+
+rbacs:
+  roles:
+    - name: e2e-hook-reader
+      serviceAccount:
+        name: e2e-hook-reader
+      rules:
+        - apiGroups: [""]
+          resources: ["configmaps"]
+          verbs: ["list"]
 
 kedaTriggerAuthentications:
   e2e-auth:
@@ -162,6 +177,24 @@ deployments:
           targetPort: metrics
 
 hooks:
+  # Lists ConfigMaps with the pod's own token: 403 without the Role copy, and
+  # the pod never schedules without the SA copy (ADR 0010). curl, not busybox:
+  # busybox 1.36's built-in TLS dies with SIGPIPE on amd64, so the hook failed
+  # in CI whatever the RBAC said, while passing on arm64
+  pre-install:
+    rbac-read:
+      image: curlimages/curl:8.16.0
+      serviceAccountName: e2e-hook-reader
+      activeDeadlineSeconds: 120
+      command: ["sh", "-c"]
+      args: ['d=/var/run/secrets/kubernetes.io/serviceaccount; curl -sSf -o /dev/null --cacert $d/ca.crt -H "Authorization: Bearer $(cat $d/token)" "https://kubernetes.default.svc/api/v1/namespaces/$(cat $d/namespace)/configmaps"']
+  pre-upgrade:
+    rbac-read:
+      image: curlimages/curl:8.16.0
+      serviceAccountName: e2e-hook-reader
+      activeDeadlineSeconds: 120
+      command: ["sh", "-c"]
+      args: ['d=/var/run/secrets/kubernetes.io/serviceaccount; curl -sSf -o /dev/null --cacert $d/ca.crt -H "Authorization: Bearer $(cat $d/token)" "https://kubernetes.default.svc/api/v1/namespaces/$(cat $d/namespace)/configmaps"']
   post-install:
     notify:
       image: busybox:1.36
@@ -177,6 +210,14 @@ hooks:
       args: ['[ "$E2E_TOKEN" = s3cr3t ]']
       externalSecrets:
         - name: e2e-env
+    # Runs after Helm has deleted the real SA, Role and RoleBinding: without
+    # the copies the pod never schedules, or its call is forbidden (ADR 0010)
+    rbac-read:
+      image: curlimages/curl:8.16.0
+      serviceAccountName: e2e-hook-reader
+      activeDeadlineSeconds: 120
+      command: ["sh", "-c"]
+      args: ['d=/var/run/secrets/kubernetes.io/serviceaccount; curl -sSf -o /dev/null --cacert $d/ca.crt -H "Authorization: Bearer $(cat $d/token)" "https://kubernetes.default.svc/api/v1/namespaces/$(cat $d/namespace)/configmaps"']
 
 # No serviceAccount key on purpose: the chart must create the SA the pod
 # references. Suspended — nothing here needs it to actually run.

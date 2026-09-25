@@ -704,7 +704,7 @@
       "additionalProperties": false
     },
     "externalSecretRef": {
-      "description": "A reference to a key of the root externalSecrets map, never to the Secret it produces. Without mountPath the Secret is an envFrom source; with it, a read-only volume mounted there. A pre-* hook reads the Secret of the hook-prerequisite copy (ADR 0007).",
+      "description": "A reference to a key of the root externalSecrets map, never to the Secret it produces. Without mountPath the Secret is an envFrom source; with it, a read-only volume mounted there. A pre-* hook other than pre-delete, and a post-delete hook, read the Secret of the hook-prerequisite copy (ADR 0007).",
       "type": "object",
       "required": ["name"],
       "properties": {

@@ -173,7 +173,8 @@ deployments:
 For every key a `pre-*` or `post-delete` hook references, the chart renders a
 hook-prerequisite copy of the ExternalSecret — same spec, its own Secret
 `<target>-hook`, owned by the copy and gone with it — and the hook reads that
-one. The Deployment, its cronjobs and every other hook read the real Secret. A deployment's hooks and
+one. The Deployment, its cronjobs and every other hook read the real Secret, a
+`pre-delete` hook included: it runs before Helm deletes anything. A deployment's hooks and
 cronjobs inherit its list; a job's own `externalSecrets` (`[]` included)
 replaces it. Root-level hooks and cronjobs declare their own.
 
@@ -189,6 +190,57 @@ before the next wave and fails the sync as soon as it reports `Ready=False` —
 a transient provider error during the hook phase fails the sync.
 
 See [ADR 0007](docs/adr/0007-hook-prerequisite-externalsecret-copy.md).
+
+## Running a hook as an `rbacs.roles` ServiceAccount
+
+An `rbacs.roles` entry renders a ServiceAccount, a Role and a RoleBinding. All
+three are normal resources, so a `pre-*` hook running as that ServiceAccount
+starts before any of them exists, and a `post-delete` hook starts after they are
+gone. On a first install, or on the first Argo CD sync, the pod never schedules.
+With a pre-existing SA, the pod runs without the Role's rules.
+
+Point the hook at the entry's ServiceAccount by name; nothing else changes:
+
+```yaml
+rbacs:
+  roles:
+    - name: scale-hooks
+      serviceAccount: { name: scale-hooks }
+      rules:
+        - apiGroups: ["apps"]
+          resources: ["deployments", "deployments/scale"]
+          verbs: ["get", "patch"]
+
+deployments:
+  app:
+    image: myapp:v1
+    hooks:
+      pre-upgrade:
+        scale-down:
+          image: bitnami/kubectl:1.30
+          serviceAccountName: scale-hooks
+          command: ["kubectl", "scale", "deployment/app", "--replicas=0"]
+```
+
+For every entry whose ServiceAccount a `pre-*` or `post-delete` hook runs as,
+the chart also renders hook copies under their own names: the Role
+`scale-hooks-hook` and the RoleBinding `scale-hooks-rolebinding-hook`. The copies
+are deleted once the hook phase succeeds. Which ServiceAccount the hook runs as
+depends on the entry:
+
+- **The entry creates the SA** (the default). The chart copies the SA as
+  `scale-hooks-hook`, and the hook runs as the copy. An identity bound to the SA
+  name, such as GCP Workload Identity or AWS IRSA, does not reach the copy.
+- **The entry binds an existing SA** (`create: false`). The hook keeps that SA,
+  and only the Role and the RoleBinding are copied. Use this form to keep a
+  Workload Identity: create the SA outside the release.
+
+Hooks in other phases run as the real ServiceAccount: `post-upgrade`, say, and
+`pre-delete`, which runs before Helm deletes anything. A `pre-rollback` hook gets
+the copies, as a `pre-upgrade` one does: the revision it rolls back to may be the
+one that adds the entry.
+
+See [ADR 0010](docs/adr/0010-hook-prerequisite-rbac-copy.md).
 
 ## Local development
 
@@ -257,6 +309,7 @@ The `tests/` directory is the list — `TEST_CASES` in the `Makefile` is what
 | `httproute-filters.yaml`         | HTTPRoute rule filters                                                                    |
 | `keda.yaml`                      | KEDA ScaledObject and TriggerAuthentication                                               |
 | `rbac.yaml`                      | RBAC with roles and service accounts                                                      |
+| `rbac-hooks.yaml`                | RBAC roles read by hooks (hook-prerequisite copy, ADR 0010)                               |
 | `service-disabled.yaml`          | Deployment with service disabled                                                          |
 | `service-extra-ports.yaml`       | Service with extraPorts, and the container ports derived from them                        |
 | `common-annotations.yaml`        | `global.commonAnnotations` colliding with per-resource ones — catches a duplicate YAML key                |

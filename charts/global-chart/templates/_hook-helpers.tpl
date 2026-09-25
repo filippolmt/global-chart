@@ -4,9 +4,12 @@ Hook lifecycle helpers for global-chart.
 Single home for the three "helm.sh/hook*" annotations: the effective weight,
 the ordering invariant prereq (w-7) < SA (w-5) < Job (w), and the delete
 policy per role. See docs/adr/0004-one-module-for-hook-lifecycle-annotations.md.
-Also the home of which hooks the ExternalSecret hook-prerequisite copy serves:
-the phase predicate and the consumer scan that decide when the copy exists and
-who reads it (ADR 0007).
+Also the home of which hooks the per-resource hook-prerequisite copies serve:
+the phase predicate shared by all of them, the one enumeration of the hooks it
+admits, and the consumer scans that decide when a copy exists and who reads it
+— the ExternalSecret copy (ADR 0007) and the rbacs.roles copy (ADR 0010). Which
+rbacs.roles entry a hook's ServiceAccount matches is a ServiceAccount question,
+answered by hookRbacCopy in _serviceaccount-helpers.tpl.
 */}}
 
 {{/*
@@ -89,53 +92,129 @@ Usage:
 {{- end -}}
 
 {{/*
-Whether a hook of this phase reads the ExternalSecret hook-prerequisite copy
-rather than the real Secret: "true" for a pre-* phase, which runs before the
-real ExternalSecret is applied, and for post-delete, which runs after it — and,
-through its ownerReference, its Secret — is gone. Every other phase finds the
-real Secret in place. The ONE place the cut is made — the consumer
-scan below (which emits the copy) and jobPodSpec (which points the hook at it)
-both ask here, so a hook can never read a copy that was not rendered.
-Usage: {{ include "global-chart.hookReadsExternalSecretCopy" $hookType }}
+Whether a hook of this phase reads the hook-prerequisite copy of a normal
+resource rather than the resource itself. "true" for:
+- pre-install, pre-upgrade and pre-rollback, which run before the normal
+  resources of the revision being applied: on an install they do not exist yet,
+  and on an upgrade or a rollback the chart cannot tell whether that revision
+  adds them (ADR 0002 rejects `lookup`);
+- post-delete, which runs after they are gone (an ExternalSecret's Secret with
+  it, through its ownerReference).
+pre-delete is not one: it runs before Helm deletes anything, against the
+release that is still installed, so the real resources are in place. Reading a
+copy there would only cost: an ExternalSecret copy to reconcile first, and for
+rbacs.roles a pod moved off the SA an identity binding is keyed on.
+Every other phase finds the real resource in place. The ONE place the cut is
+made, for the ExternalSecret copy (ADR 0007) and the rbacs.roles copy (ADR
+0010) alike — the consumer scans below (which emit the copies) and the call
+sites that point a hook at them (jobPodSpec for the Secret, hookRbacCopy for
+the ServiceAccount) all ask here, so a hook can never read a copy that was not
+rendered.
+Usage: {{ include "global-chart.hookReadsPrereqCopy" $hookType }}
 */}}
-{{- define "global-chart.hookReadsExternalSecretCopy" -}}
-{{- or (hasPrefix "pre-" (toString .)) (eq (toString .) "post-delete") -}}
+{{- define "global-chart.hookReadsPrereqCopy" -}}
+{{- $type := toString . -}}
+{{- and (or (hasPrefix "pre-" $type) (eq $type "post-delete")) (ne $type "pre-delete") -}}
+{{- end -}}
+
+{{/*
+Every hook that reads the hook-prerequisite copies, in both scopes: the one
+enumeration the consumer scans below walk. Fills `out` in place, keyed by the
+hook's values path (jobValuesPath, unique across both scopes), with
+{hookType, jobName, command, fullname, deploy, deployName} — deploy and
+deployName absent at root level. Disabled deployments are skipped: they render
+no hook. Only the phases hookReadsPrereqCopy names.
+Params: root · out (the accumulator dict, mutated in place).
+Usage: {{- $hooks := dict }}{{- include "global-chart.prereqCopyHooks" (dict "root" $root "out" $hooks) }}
+*/}}
+{{- define "global-chart.prereqCopyHooks" -}}
+{{- $root := .root -}}
+{{- $out := .out -}}
+{{- $scopes := list (dict "hooks" $root.Values.hooks) -}}
+{{- range $deployName, $deploy := $root.Values.deployments -}}
+  {{- if and $deploy (eq (include "global-chart.deploymentEnabled" $deploy) "true") -}}
+    {{- $scopes = append $scopes (dict "hooks" $deploy.hooks "deploy" $deploy "deployName" $deployName) -}}
+  {{- end -}}
+{{- end -}}
+{{- range $scope := $scopes -}}
+  {{- range $hookType, $jobs := (default (dict) $scope.hooks) -}}
+    {{- if eq (include "global-chart.hookReadsPrereqCopy" $hookType) "true" -}}
+      {{- range $jobName, $command := (default (dict) $jobs) -}}
+        {{- if $command -}}
+          {{- $hook := dict "hookType" $hookType "jobName" $jobName "command" $command -}}
+          {{- if $scope.deploy -}}
+            {{- $_ := set $hook "deploy" $scope.deploy -}}
+            {{- $_ := set $hook "deployName" $scope.deployName -}}
+            {{- $_ := set $hook "fullname" (include "global-chart.deploymentHookName" (dict "root" $root "deploymentName" $scope.deployName "hookType" $hookType "jobName" $jobName)) -}}
+          {{- else -}}
+            {{- $_ := set $hook "fullname" (include "global-chart.hookfullname" (merge (dict "hookname" $hookType "jobname" $jobName) $root)) -}}
+          {{- end -}}
+          {{- $_ := set $out (include "global-chart.jobValuesPath" (dict "kind" "hook" "deploymentName" (default "" $scope.deployName) "hookType" $hookType "jobName" $jobName)) $hook -}}
+        {{- end -}}
+      {{- end -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Record that a hook reads the copy under `key`: the one way the consumer scans
+fill their result, in the shape minHookWeight reads.
+Params: out (key -> hookType -> id -> command, mutated in place) · key ·
+hookType · id (the hook's values path) · command.
+*/}}
+{{- define "global-chart.addPrereqConsumer" -}}
+{{- $byType := default (dict) (index .out .key) -}}
+{{- $jobsOfType := default (dict) (index $byType .hookType) -}}
+{{- $_ := set $jobsOfType .id .command -}}
+{{- $_ := set $byType .hookType $jobsOfType -}}
+{{- $_ := set .out .key $byType -}}
 {{- end -}}
 
 {{/*
 The hooks that read the copy of each ExternalSecret, in both scopes: the input of the
 ExternalSecret hook-prerequisite copy (ADR 0007), for externalsecret.yaml, which
 emits it, and for validateNameCollisions, which registers its names.
-Returns JSON: key -> hookType -> "<scope>/<job>" -> command, the shape
+Returns JSON: key -> hookType -> values path -> command, the shape
 minHookWeight reads, so the copy's weight and phases come from the hooks that
 actually read it. A key no such hook references is absent: it gets no copy.
-Only the phases hookReadsExternalSecretCopy names; a hook of any other phase
-reads the real Secret.
 Usage: {{ $consumers := include "global-chart.externalSecretHookConsumers" $root | fromJson }}
 */}}
 {{- define "global-chart.externalSecretHookConsumers" -}}
 {{- $out := dict -}}
-{{- $scopes := list (dict "id" "root" "hooks" .Values.hooks) -}}
-{{- range $deployName, $deploy := .Values.deployments -}}
-  {{- if and $deploy (eq (include "global-chart.deploymentEnabled" $deploy) "true") -}}
-    {{- $scopes = append $scopes (dict "id" (printf "deployments.%s" $deployName) "hooks" $deploy.hooks "deploy" $deploy) -}}
+{{- $hooks := dict -}}
+{{- include "global-chart.prereqCopyHooks" (dict "root" . "out" $hooks) -}}
+{{- range $id, $hook := $hooks -}}
+  {{- $refs := include "global-chart.jobExternalSecretRefs" (dict "job" $hook.command "deploy" $hook.deploy) | fromJson -}}
+  {{- range $ref := concat $refs.inherited $refs.own -}}
+    {{- include "global-chart.addPrereqConsumer" (dict "out" $out "key" $ref.name "hookType" $hook.hookType "id" $id "command" $hook.command) -}}
   {{- end -}}
 {{- end -}}
-{{- range $scope := $scopes -}}
-  {{- range $hookType, $jobs := (default (dict) $scope.hooks) -}}
-    {{- if eq (include "global-chart.hookReadsExternalSecretCopy" $hookType) "true" -}}
-      {{- range $jobName, $command := (default (dict) $jobs) -}}
-        {{- if $command -}}
-          {{- $refs := include "global-chart.jobExternalSecretRefs" (dict "job" $command "deploy" $scope.deploy) | fromJson -}}
-          {{- range $ref := concat $refs.inherited $refs.own -}}
-            {{- $byType := default (dict) (index $out $ref.name) -}}
-            {{- $jobsOfType := default (dict) (index $byType $hookType) -}}
-            {{- $_ := set $jobsOfType (printf "%s/%s" $scope.id $jobName) $command -}}
-            {{- $_ := set $byType $hookType $jobsOfType -}}
-            {{- $_ := set $out $ref.name $byType -}}
-          {{- end -}}
-        {{- end -}}
-      {{- end -}}
+{{- toJson $out -}}
+{{- end -}}
+
+{{/*
+The hooks that read the copy of each rbacs.roles entry, in both scopes: the
+input of the rbacs.roles hook-prerequisite copy (ADR 0010), for rbac.yaml,
+which emits it, and for validateNameCollisions, which registers its names.
+Returns JSON: role name -> hookType -> values path -> command, the shape
+minHookWeight reads, as externalSecretHookConsumers does. A role whose SA no
+such hook runs as is absent: it gets no copy. Role names are unique
+(validateNameCollisions), so the name is a safe key. Which hook reads which
+entry is hookRbacCopy's answer, not this scan's.
+Usage: {{ $consumers := include "global-chart.rbacHookConsumers" $root | fromJson }}
+*/}}
+{{- define "global-chart.rbacHookConsumers" -}}
+{{- $root := . -}}
+{{- $out := dict -}}
+{{- if (default (dict) .Values.rbacs).roles -}}
+  {{- $hooks := dict -}}
+  {{- include "global-chart.prereqCopyHooks" (dict "root" $root "out" $hooks) -}}
+  {{- range $id, $hook := $hooks -}}
+    {{- $sa := include "global-chart.jobServiceAccount" (dict "root" $root "job" $hook.command "deploy" $hook.deploy "deployName" $hook.deployName "jobFullname" $hook.fullname "errCtx" $id) | fromJson -}}
+    {{- $copy := include "global-chart.hookRbacCopy" (dict "root" $root "hookType" $hook.hookType "sa" $sa) | fromJson -}}
+    {{- range $roleName := (default (list) $copy.roles) -}}
+      {{- include "global-chart.addPrereqConsumer" (dict "out" $out "key" $roleName "hookType" $hook.hookType "id" $id "command" $hook.command) -}}
     {{- end -}}
   {{- end -}}
 {{- end -}}

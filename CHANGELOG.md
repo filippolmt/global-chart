@@ -9,6 +9,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Added
 
+- **A hook can run as an `rbacs.roles` ServiceAccount in a `pre-install`,
+  `pre-upgrade`, `pre-rollback` or `post-delete` phase** (ADR 0010). Helm applies the SA, Role and RoleBinding of
+  an entry after the `pre-*` hooks, and deletes them before `post-delete`, so a
+  hook bound to that SA used to find it missing, or without its rules. On a
+  first install, or on the first Argo CD sync, the pod never scheduled. For every
+  entry whose SA such a hook runs as, the chart now also renders hook copies
+  under their own names: `<role>-hook`, `<binding>-hook`, and `<sa>-hook` when
+  the entry creates the SA. If the entry creates the SA, the hook's pod runs as
+  `<sa>-hook`. A Workload Identity / IRSA binding keyed on the SA name does not
+  reach the copy; bind an SA created outside the release (`create: false`) to
+  keep it. If the entry binds an existing SA, the hook keeps that SA and only the
+  Role and RoleBinding are copied. A copy whose name truncates back onto the
+  real one (a Role at 253 characters, a RoleBinding or SA at 63) fails the
+  render. No values change.
+
 - **Per-resource annotations on Deployments and ExternalSecrets** (issue #112).
   `deployments.<name>.annotations` sets the Deployment's own `metadata`
   annotations — distinct from `podAnnotations`, and not propagated to the
@@ -30,6 +45,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   drift apart again.
 
 ### Changed
+
+- **A `pre-delete` hook reads the real Secret of its `externalSecrets`
+  entries**, not the hook-prerequisite copy (ADR 0007, amended by ADR 0010).
+  `pre-delete` runs before Helm deletes anything, so the real Secret is there;
+  the copy only added an ExternalSecret to reconcile before the hook could
+  start. An ExternalSecret referenced only by `pre-delete` hooks no longer gets
+  a copy.
 
 - **ServiceAccount resolution has one home** (issue #126), the new
   `_serviceaccount-helpers.tpl`. The `create` and `automount` defaults were

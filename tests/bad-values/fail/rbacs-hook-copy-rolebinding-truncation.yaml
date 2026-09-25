@@ -1,0 +1,14 @@
+# A 60-character role read by a pre-* hook: its RoleBinding is already cut at
+# 63, so the copy <binding>-hook truncates back onto the real RoleBinding's
+# name, and a copy sharing the real name would delete it under hook-succeeded
+# (ADR 0010).
+rbacs:
+  roles:
+    - name: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+      serviceAccount: { create: false, name: existing }
+      rules: []
+hooks:
+  pre-upgrade:
+    migrate:
+      image: busybox:1.36
+      serviceAccountName: existing

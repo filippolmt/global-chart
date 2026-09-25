@@ -2881,6 +2881,32 @@ tests:
           path: kind
           value: Job
 
+
+  # pre-delete runs before Helm deletes the real ExternalSecret: its Secret is
+  # there, and no copy is rendered for the phase
+  - it: should read the real Secret of an externalSecrets entry from a pre-delete hook
+    set:
+      externalSecrets:
+        app-env:
+          secretstore: { kind: ClusterSecretStore, name: store }
+          secretkey: PASSWORD
+          remote: { key: app/password }
+      hooks:
+        pre-delete:
+          drain:
+            image: busybox:1.36
+            externalSecrets:
+              - name: app-env
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].envFrom
+          value:
+            - secretRef:
+                name: RELEASE-NAME-global-chart-app-env
+        documentSelector:
+          path: kind
+          value: Job
+
   - it: should place a hook's own externalSecrets entries after its own envFromSecrets
     set:
       externalSecrets:
@@ -3239,3 +3265,140 @@ tests:
           path: data.RATIO
           value: "1.5"
         documentIndex: 0
+
+  # ====== ADR 0010: a pre-* hook running as an rbacs.roles SA the chart creates
+  # runs as its hook-prerequisite copy ======
+  - it: should run a pre-upgrade hook as the copy of the role's created SA
+    set:
+      rbacs:
+        roles:
+          - name: scaler
+            serviceAccount:
+              name: scaler
+            rules: []
+      deployments:
+        app:
+          image: myapp:v1
+          hooks:
+            pre-upgrade:
+              migrate:
+                command: ["./migrate.sh"]
+                serviceAccountName: scaler
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: spec.template.spec.serviceAccountName
+          value: scaler-hook
+
+  - it: should run a root pre-install hook as the copy of the role's created SA
+    set:
+      rbacs:
+        roles:
+          - name: scaler
+            serviceAccount:
+              name: scaler
+            rules: []
+      hooks:
+        pre-install:
+          migrate:
+            image: myapp:v1
+            serviceAccountName: scaler
+    asserts:
+      - equal:
+          path: spec.template.spec.serviceAccountName
+          value: scaler-hook
+
+  - it: should keep the real SA for a post-upgrade hook and for a role binding an existing SA
+    set:
+      rbacs:
+        roles:
+          - name: scaler
+            serviceAccount:
+              name: scaler
+            rules: []
+          - name: binder
+            serviceAccount:
+              create: false
+              name: existing
+            rules: []
+      hooks:
+        post-upgrade:
+          up:
+            image: kubectl:v1
+            serviceAccountName: scaler
+        pre-upgrade:
+          migrate:
+            image: myapp:v1
+            serviceAccountName: existing
+    asserts:
+      - equal:
+          path: spec.template.spec.serviceAccountName
+          value: scaler
+        documentSelector:
+          path: metadata.name
+          value: RELEASE-NAME-global-chart-post-upgrade-up
+      - equal:
+          path: spec.template.spec.serviceAccountName
+          value: existing
+        documentSelector:
+          path: metadata.name
+          value: RELEASE-NAME-global-chart-pre-upgrade-migrate
+
+  - it: should run a post-delete hook as the copy of the role's created SA
+    set:
+      rbacs:
+        roles:
+          - name: cleaner
+            serviceAccount:
+              name: cleaner
+            rules: []
+      hooks:
+        post-delete:
+          purge:
+            image: myapp:v1
+            serviceAccountName: cleaner
+    asserts:
+      - equal:
+          path: spec.template.spec.serviceAccountName
+          value: cleaner-hook
+
+  - it: should keep the real SA for a pre-delete hook, which runs before anything is deleted
+    set:
+      rbacs:
+        roles:
+          - name: cleaner
+            serviceAccount:
+              name: cleaner
+            rules: []
+      hooks:
+        pre-delete:
+          drain:
+            image: myapp:v1
+            serviceAccountName: cleaner
+    asserts:
+      - equal:
+          path: spec.template.spec.serviceAccountName
+          value: cleaner
+
+  - it: should run a pre-rollback hook as the copy of the role's created SA
+    set:
+      rbacs:
+        roles:
+          - name: scaler
+            serviceAccount:
+              name: scaler
+            rules: []
+      deployments:
+        app:
+          image: myapp:v1
+          hooks:
+            pre-rollback:
+              down:
+                command: ["./down.sh"]
+                serviceAccountName: scaler
+    asserts:
+      - equal:
+          path: spec.template.spec.serviceAccountName
+          value: scaler-hook
+

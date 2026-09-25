@@ -74,6 +74,7 @@ TEST_CASES := \
 	tests/ingress-custom.yaml:ingress:ingress \
 	tests/external-ingress.yaml:ingress:external-ingress \
 	tests/rbac.yaml:rbac:rbac \
+	tests/rbac-hooks.yaml:rbac-hooks:rbac-hooks \
 	tests/multi-deployment.yaml:multi:multi-deployment \
 	tests/service-disabled.yaml:svc-disabled:service-disabled \
 	tests/service-extra-ports.yaml:svc-extra-ports:service-extra-ports \
@@ -388,6 +389,15 @@ e2e: kind-cluster kind-keda kind-eso check-helm-floor ## Install/upgrade/uninsta
 	kubectl -n $$ns get sa $$rel-$(GLOBAL_CHART_NAME)-app -o jsonpath='{.metadata.annotations}' | grep -q 'helm.sh/hook' \
 		&& { echo "FAIL: the surviving SA is the hook copy, not the real one"; exit 1; } || true; \
 	echo "    hook-prerequisite SA copy cleaned up, real SA in place"; \
+	[ "$$(kubectl -n $$ns get job $$rel-$(GLOBAL_CHART_NAME)-pre-install-rbac-read -o jsonpath='{.status.succeeded}' 2>/dev/null)" = "1" ] \
+		|| { echo "FAIL: the pre-install hook could not use the rbacs.roles copy (ADR 0010)"; exit 1; }; \
+	echo "    pre-install hook ran as the rbacs.roles SA copy, with the Role copy's rules"; \
+	kubectl -n $$ns wait --for=delete sa/e2e-hook-reader-hook role/e2e-hook-reader-hook \
+		rolebinding/e2e-hook-reader-rolebinding-hook --timeout=60s >/dev/null 2>&1 \
+		|| { echo "FAIL: the rbacs.roles hook copies survived the hook phase"; kubectl -n $$ns get sa,role,rolebinding; exit 1; }; \
+	kubectl -n $$ns get sa/e2e-hook-reader role/e2e-hook-reader rolebinding/e2e-hook-reader-rolebinding >/dev/null \
+		|| { echo "FAIL: the real rbacs.roles resources are missing"; exit 1; }; \
+	echo "    rbacs.roles hook copies deleted, real SA/Role/RoleBinding in place"; \
 	[ "$$(kubectl -n $$ns get deploy $$rel-$(GLOBAL_CHART_NAME)-app -o jsonpath='{.spec.template.spec.containers[0].command}')" = '["sh","-c"]' ] \
 		|| { echo "FAIL: deployment command not rendered (issue #72 regression)"; exit 1; }; \
 	echo "    deployment command/args rendered"; \
@@ -440,6 +450,9 @@ e2e: kind-cluster kind-keda kind-eso check-helm-floor ## Install/upgrade/uninsta
 	[ "$$sa_before" = "$$(kubectl -n $$ns get sa $$rel-$(GLOBAL_CHART_NAME)-app -o jsonpath='{.metadata.uid}')" ] \
 		|| { echo "FAIL: the ServiceAccount was recreated, bound tokens would be invalidated"; exit 1; }; \
 	echo "    upgrade kept the ServiceAccount identity"; \
+	[ "$$(kubectl -n $$ns get job $$rel-$(GLOBAL_CHART_NAME)-pre-upgrade-rbac-read -o jsonpath='{.status.succeeded}' 2>/dev/null)" = "1" ] \
+		|| { echo "FAIL: the pre-upgrade hook could not use the rbacs.roles copy (ADR 0010)"; exit 1; }; \
+	echo "    pre-upgrade hook ran as the rbacs.roles SA copy, beside the live one"; \
 	{ [ "$$(kubectl -n $$ns get deployment $$rel-$(GLOBAL_CHART_NAME)-worker -o jsonpath='{.spec.replicas}')" = "3" ] \
 		|| { echo "FAIL: upgrade reset spec.replicas on a KEDA-scaled Deployment"; exit 1; }; }; \
 	echo "    upgrade left spec.replicas to the autoscaler"; \
@@ -448,12 +461,15 @@ e2e: kind-cluster kind-keda kind-eso check-helm-floor ## Install/upgrade/uninsta
 	[ "$$(kubectl -n $$ns get job $$rel-$(GLOBAL_CHART_NAME)-post-delete-farewell -o jsonpath='{.status.succeeded}' 2>/dev/null)" = "1" ] \
 		|| { echo "FAIL: the post-delete hook did not read the ExternalSecret through its copy"; exit 1; }; \
 	echo "    post-delete hook read the ExternalSecret through its copy, after the real one was gone"; \
+	[ "$$(kubectl -n $$ns get job $$rel-$(GLOBAL_CHART_NAME)-post-delete-rbac-read -o jsonpath='{.status.succeeded}' 2>/dev/null)" = "1" ] \
+		|| { echo "FAIL: the post-delete hook could not use the rbacs.roles copy (ADR 0010)"; exit 1; }; \
+	echo "    post-delete hook ran as the rbacs.roles SA copy, after the real one was gone"; \
 	kubectl -n $$ns wait --for=delete secret/$$rel-$(GLOBAL_CHART_NAME)-e2e-env secret/$$rel-$(GLOBAL_CHART_NAME)-e2e-conf \
 		secret/$$rel-$(GLOBAL_CHART_NAME)-e2e-env-hook secret/$$rel-$(GLOBAL_CHART_NAME)-e2e-conf-hook --timeout=60s >/dev/null 2>&1 || true; \
-	orphans=$$(kubectl -n $$ns get sa,cm,secret --no-headers 2>/dev/null \
+	orphans=$$(kubectl -n $$ns get sa,cm,secret,role,rolebinding --no-headers 2>/dev/null \
 		| grep -v 'serviceaccount/default\|kube-root-ca.crt' || true); \
 	if [ -n "$$orphans" ]; then echo "FAIL: hook resources orphaned after uninstall:"; echo "$$orphans"; exit 1; fi; \
-	echo "    no orphaned ConfigMap/Secret/ServiceAccount"; \
+	echo "    no orphaned ConfigMap/Secret/ServiceAccount/Role/RoleBinding"; \
 	keda_orphans=$$(kubectl -n $$ns get scaledobject,triggerauthentication,hpa,externalsecret --no-headers 2>/dev/null || true); \
 	if [ -n "$$keda_orphans" ]; then echo "FAIL: KEDA resources orphaned after uninstall:"; echo "$$keda_orphans"; exit 1; fi; \
 	echo "    no orphaned ScaledObject/TriggerAuthentication/ExternalSecret, derived HPA garbage-collected"; \

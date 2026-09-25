@@ -20,7 +20,8 @@
 {{- /* ServiceAccount: explicit > create own (see jobServiceAccount helper; no
        deployment to inherit from at root level) */ -}}
 {{- $sa := include "global-chart.jobServiceAccount" (dict "root" $root "job" $command "jobFullname" $hookFullname "errCtx" $errCtx) | fromJson -}}
-{{- $saName := $sa.name -}}
+{{- /* The SA the rbacs.roles hook copy binds, when the hook reads one (ADR 0010) */ -}}
+{{- $saName := include "global-chart.hookServiceAccountName" (dict "root" $root "hookType" $hookType "sa" $sa) -}}
 
 {{- /* The SA sorts before its Job; hookAnnotations owns the offset */ -}}
 {{- if $sa.create }}
@@ -210,7 +211,8 @@ automountServiceAccountToken: {{ $deploySA.automount }}
 
 {{- /* ServiceAccount: explicit in hook > inherited from deployment > create new for hook (see jobServiceAccount helper) */ -}}
 {{- $sa := $hook.sa -}}
-{{- $saName := $sa.name -}}
+{{- /* The SA the rbacs.roles hook copy binds, when the hook reads one (ADR 0010) */ -}}
+{{- $saName := include "global-chart.hookServiceAccountName" (dict "root" $root "hookType" $hookType "sa" $sa) -}}
 {{- $saCreate := $sa.create -}}
 {{- $saAutomount := $sa.automount -}}
 {{- $saAnnotations := $sa.annotations -}}

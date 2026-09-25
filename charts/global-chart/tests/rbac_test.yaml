@@ -142,3 +142,366 @@ tests:
           count: 1
       - isKind:
           of: Role
+
+  # ====== hook-prerequisite copy of an rbacs.roles entry (ADR 0010) ======
+  # The Role, RoleBinding and SA are normal resources, applied after the pre-*
+  # hooks: a hook running as the role's SA needs a copy, under its own names.
+  - it: should emit a hook copy of the SA, Role and RoleBinding for a pre-upgrade hook running as the role's SA
+    set:
+      rbacs:
+        roles:
+          - name: scaler
+            serviceAccount:
+              name: scaler
+            rules:
+              - apiGroups: ["apps"]
+                resources: ["deployments/scale"]
+                verbs: ["patch"]
+      deployments:
+        app:
+          image: myapp:v1
+          hooks:
+            pre-upgrade:
+              migrate:
+                command: ["./migrate.sh"]
+                serviceAccountName: scaler
+    asserts:
+      - hasDocuments:
+          count: 6
+      - isKind:
+          of: ServiceAccount
+        documentIndex: 3
+      - equal:
+          path: metadata.name
+          value: scaler-hook
+        documentIndex: 3
+      - isKind:
+          of: Role
+        documentIndex: 4
+      - equal:
+          path: metadata.name
+          value: scaler-hook
+        documentIndex: 4
+      - equal:
+          path: rules
+          value:
+            - apiGroups: ["apps"]
+              resources: ["deployments/scale"]
+              verbs: ["patch"]
+        documentIndex: 4
+      - isKind:
+          of: RoleBinding
+        documentIndex: 5
+      - equal:
+          path: metadata.name
+          value: scaler-rolebinding-hook
+        documentIndex: 5
+      - equal:
+          path: roleRef.name
+          value: scaler-hook
+        documentIndex: 5
+      - equal:
+          path: subjects[0].name
+          value: scaler-hook
+        documentIndex: 5
+      - equal:
+          path: metadata.annotations["helm.sh/hook"]
+          value: pre-upgrade
+        documentIndex: 3
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "3"
+        documentIndex: 4
+      - equal:
+          path: metadata.annotations["helm.sh/hook-delete-policy"]
+          value: before-hook-creation,hook-succeeded
+        documentIndex: 5
+
+  - it: should bind the existing SA in the copy and not copy it when the role does not create one
+    set:
+      rbacs:
+        roles:
+          - name: scaler
+            serviceAccount:
+              create: false
+              name: existing
+            rules: []
+      hooks:
+        pre-install:
+          migrate:
+            image: myapp:v1
+            serviceAccountName: existing
+    asserts:
+      - hasDocuments:
+          count: 4
+      - isKind:
+          of: Role
+        documentIndex: 2
+      - equal:
+          path: metadata.name
+          value: scaler-hook
+        documentIndex: 2
+      - equal:
+          path: subjects[0].name
+          value: existing
+        documentIndex: 3
+
+  - it: should copy the role for a hook inheriting the deployment SA the role binds
+    set:
+      rbacs:
+        roles:
+          - name: scaler
+            serviceAccount:
+              create: false
+              name: app-sa
+            rules: []
+      deployments:
+        app:
+          image: myapp:v1
+          serviceAccount:
+            name: app-sa
+          hooks:
+            pre-upgrade:
+              migrate:
+                command: ["./migrate.sh"]
+    asserts:
+      - hasDocuments:
+          count: 4
+      - equal:
+          path: subjects[0].name
+          value: app-sa
+        documentIndex: 3
+
+  - it: should aggregate the phases and take the weight of the earliest consumer
+    set:
+      rbacs:
+        roles:
+          - name: scaler
+            serviceAccount:
+              name: scaler
+            rules: []
+      hooks:
+        pre-install:
+          a:
+            image: myapp:v1
+            weight: 5
+            serviceAccountName: scaler
+        pre-upgrade:
+          b:
+            image: myapp:v1
+            weight: -1
+            serviceAccountName: scaler
+    asserts:
+      - equal:
+          path: metadata.annotations["helm.sh/hook"]
+          value: pre-install,pre-upgrade
+        documentIndex: 3
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "-8"
+        documentIndex: 3
+
+  - it: should not copy the role for a post-upgrade hook, which finds the real one
+    set:
+      rbacs:
+        roles:
+          - name: scaler
+            serviceAccount:
+              name: scaler
+            rules: []
+      hooks:
+        post-upgrade:
+          scale-up:
+            image: kubectl:v1
+            serviceAccountName: scaler
+    asserts:
+      - hasDocuments:
+          count: 3
+
+  - it: should not copy a role no hook runs as
+    set:
+      rbacs:
+        roles:
+          - name: scaler
+            serviceAccount:
+              name: scaler
+            rules: []
+      hooks:
+        pre-upgrade:
+          migrate:
+            image: myapp:v1
+    asserts:
+      - hasDocuments:
+          count: 3
+
+  - it: should bind the copied SA in every role sharing it, the creating one or not
+    set:
+      rbacs:
+        roles:
+          - name: scaler
+            serviceAccount:
+              name: shared
+            rules: []
+          - name: reader
+            serviceAccount:
+              create: false
+              name: shared
+            rules: []
+      hooks:
+        pre-upgrade:
+          migrate:
+            image: myapp:v1
+            serviceAccountName: shared
+    asserts:
+      # scaler: SA, Role, RoleBinding + copies of the three; reader: Role,
+      # RoleBinding + copies of the two — the SA is copied once, by its creator
+      - hasDocuments:
+          count: 10
+      - equal:
+          path: subjects[0].name
+          value: shared-hook
+        documentSelector:
+          path: metadata.name
+          value: reader-rolebinding-hook
+      - equal:
+          path: subjects[0].name
+          value: shared-hook
+        documentSelector:
+          path: metadata.name
+          value: scaler-rolebinding-hook
+
+  - it: should copy the role for a post-delete hook, which runs after the real one is gone
+    set:
+      rbacs:
+        roles:
+          - name: cleaner
+            serviceAccount:
+              name: cleaner
+            rules: []
+      hooks:
+        post-delete:
+          purge:
+            image: myapp:v1
+            serviceAccountName: cleaner
+    asserts:
+      - equal:
+          path: metadata.annotations["helm.sh/hook"]
+          value: post-delete
+        documentSelector:
+          path: metadata.name
+          value: cleaner-rolebinding-hook
+
+
+  # pre-delete runs against the installed release, before Helm deletes
+  # anything: the real resources are there, and a copy would only move the pod
+  # off the SA an identity binding is keyed on
+  - it: should not copy the role for a pre-delete hook, which finds the real one
+    set:
+      rbacs:
+        roles:
+          - name: cleaner
+            serviceAccount:
+              name: cleaner
+            rules: []
+      hooks:
+        pre-delete:
+          drain:
+            image: myapp:v1
+            serviceAccountName: cleaner
+    asserts:
+      - hasDocuments:
+          count: 3
+      - notExists:
+          path: metadata.annotations["helm.sh/hook"]
+
+  # A rollback applies another revision's manifest: the chart cannot tell
+  # whether that revision adds the entry, as for pre-upgrade
+  - it: should copy the role for a pre-rollback hook
+    set:
+      rbacs:
+        roles:
+          - name: scaler
+            serviceAccount:
+              name: scaler
+            rules: []
+      hooks:
+        pre-rollback:
+          down:
+            image: myapp:v1
+            serviceAccountName: scaler
+    asserts:
+      - hasDocuments:
+          count: 6
+      - equal:
+          path: metadata.annotations["helm.sh/hook"]
+          value: pre-rollback
+        documentSelector:
+          path: metadata.name
+          value: scaler-rolebinding-hook
+
+  - it: should render the copy's rules from the same entry as the real Role
+    set:
+      rbacs:
+        roles:
+          - name: scaler
+            serviceAccount:
+              create: false
+              name: existing
+            rules:
+              - apiGroups: ["apps"]
+                resources: ["deployments/scale"]
+                verbs: ["patch"]
+      hooks:
+        pre-upgrade:
+          down:
+            image: myapp:v1
+            serviceAccountName: existing
+    asserts:
+      - equal:
+          path: rules
+          value:
+            - apiGroups: ["apps"]
+              resources: ["deployments/scale"]
+              verbs: ["patch"]
+        documentSelector:
+          path: metadata.name
+          value: scaler-hook
+      - equal:
+          path: rules
+          value:
+            - apiGroups: ["apps"]
+              resources: ["deployments/scale"]
+              verbs: ["patch"]
+        documentSelector:
+          path: metadata.name
+          value: scaler
+
+  - it: should give the SA copy the real SA's annotations and automount, and hook labels
+    set:
+      rbacs:
+        roles:
+          - name: scaler
+            serviceAccount:
+              name: scaler
+              automount: false
+              annotations:
+                example.com/owner: platform
+            rules: []
+      hooks:
+        pre-install:
+          migrate:
+            image: myapp:v1
+            serviceAccountName: scaler
+    asserts:
+      - equal:
+          path: metadata.annotations["example.com/owner"]
+          value: platform
+        documentIndex: 3
+      - equal:
+          path: automountServiceAccountToken
+          value: false
+        documentIndex: 3
+      - equal:
+          path: metadata.labels["app.kubernetes.io/component"]
+          value: hook
+        documentIndex: 3
