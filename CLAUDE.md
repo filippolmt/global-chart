@@ -53,7 +53,7 @@ is the source of truth, this table is only the routing.
 | `_image-helpers.tpl` | `imageString`, `imagePullPolicy` |
 | `_job-helpers.tpl` | One implementation of the pod spec, image resolution, the CronJob spec fields (`cronJobSpecFields`) and the Job spec fields table (`jobSpecVerbatimFields`) for **every** hook and cronjob, both scopes — root-level callers simply pass no `deploy`. `jobValuesPath` is the single home of the name a job carries in error messages |
 | `_serviceaccount-helpers.tpl` | Every ServiceAccount the chart renders or binds, resolved to `{create, name, automount, annotations}`: deployment, rbac and job resolvers, with the deployment and rbac defaults in `resolveServiceAccount`; the job resolver keeps its own chain, and rejects a job naming its SA twice with different names itself — every job render path goes through it, so the check cannot be skipped. Templates never read `serviceAccount.*` from values |
-| `_hook-helpers.tpl` | The three `helm.sh/hook*` annotations, weights and delete policies, driven by a role table |
+| `_hook-helpers.tpl` | The three `helm.sh/hook*` annotations, weights and delete policies, driven by a role table; the phase cut `hookReadsPrereqCopy` and the consumer scans of the ExternalSecret and `rbacs.roles` hook copies |
 | `_render-helpers.tpl` | `printScalar`, the single home of how a number from values is printed, in integer and string fields alike; shared render blocks, `renderAnnotations`, the ConfigMap/Secret `data:` bodies shared with the hook-prerequisite copies, and the two port helpers |
 | `_keda-helpers.tpl` | KEDA names, trigger and `authenticationRef` resolution, the CRD guard |
 | `_validate-helpers.tpl` | The fullname against the labels it leads, name collisions, routing and autoscaling conflicts, named-`targetPort` resolution |
@@ -118,12 +118,19 @@ is the source of truth, this table is only the routing.
    SA's name and must be gone before Helm creates it. Read
    `docs/adr/0002-hook-prerequisite-serviceaccount-copy.md` before touching it.
    An ExternalSecret a `pre-*` or `post-delete` hook references (`externalSecrets: [{name: <key>}]`,
-   the phase cut in `hookReadsExternalSecretCopy`)
+   the phase cut in `hookReadsPrereqCopy`)
    gets a copy too, keyed by ExternalSecret rather than by deployment, under its
    **own** target `<target>-hook` — sharing the real target is `ErrSecretIsOwned`,
    and the copy's deletion would garbage-collect the live Secret. Its spec comes
    from `renderExternalSecretSpec`, the same helper as the real one. Read
-   `docs/adr/0007-hook-prerequisite-externalsecret-copy.md` before touching it
+   `docs/adr/0007-hook-prerequisite-externalsecret-copy.md` before touching it.
+   An `rbacs.roles` entry whose SA such a hook runs as gets a copy as well: Role
+   `<role>-hook`, RoleBinding `<binding>-hook`, and `<sa>-hook` when the entry
+   creates the SA — then the hook's pod runs as `<sa>-hook`. The match is
+   `hookRbacServiceAccount`, the SA choice `rbacCopyServiceAccountName`; both
+   are single homes, read by rbac.yaml and hook.yaml alike. Own names for the
+   same Argo CD reason. Read `docs/adr/0010-hook-prerequisite-rbac-copy.md`
+   before touching it
 8. **Hook resources clean themselves up**: hook resources are not part of the
    release manifest, so Helm never deletes them at uninstall. The plumbing
    (prereq ConfigMap/Secret, chart-created hook SAs) therefore deletes itself —

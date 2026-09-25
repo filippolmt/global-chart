@@ -170,6 +170,18 @@ Usage: {{ include "global-chart.rbacRoleBindingName" $role.name }}
 {{- end }}
 
 {{/*
+Names of the hook-prerequisite copy of an rbacs.roles entry (ADR 0010): the real
+name plus "-hook", truncated like the real one. A name already at its limit
+truncates back onto the real one; validateNameCollisions catches it, because a
+copy sharing the real name would be deleted with it under hook-succeeded.
+Usage: {{ include "global-chart.rbacHookName" (list <real name> <limit>) }}
+       (Role: 253, the RoleBinding and the ServiceAccount: 63)
+*/}}
+{{- define "global-chart.rbacHookName" -}}
+{{- include "global-chart.truncName" (list (printf "%s-hook" (index . 0)) (index . 1)) -}}
+{{- end }}
+
+{{/*
 Hook-specific labels: do not include selectorLabels so hooks don't match Deployment/HPA selectors.
 Base labels without component (used when component is added separately).
 */}}

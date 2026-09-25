@@ -1,0 +1,43 @@
+# rbacs.roles read by hooks (ADR 0010): a pre-* hook running as a role's SA gets
+# a hook-prerequisite copy of the Role, RoleBinding and — when the role creates
+# it — the SA, under their own <name>-hook names. The post-upgrade hook runs as
+# the real SA, which exists by then.
+rbacs:
+  roles:
+    - name: odoo-scale-hooks
+      serviceAccount:
+        name: odoo-scale-hooks
+        annotations:
+          example.com/owner: platform
+      rules:
+        - apiGroups: ["apps"]
+          resources: ["deployments", "deployments/scale"]
+          verbs: ["get", "list", "watch", "update", "patch"]
+    - name: reader
+      serviceAccount:
+        create: false
+        name: existing-reader
+      rules:
+        - apiGroups: [""]
+          resources: ["configmaps"]
+          verbs: ["get"]
+deployments:
+  odoo:
+    image: nginx:1.25
+    hooks:
+      pre-upgrade:
+        scale-down:
+          image: bitnami/kubectl:1.30
+          serviceAccountName: odoo-scale-hooks
+          command: ["kubectl", "scale", "deployment/odoo", "--replicas=0"]
+      post-upgrade:
+        scale-up:
+          image: bitnami/kubectl:1.30
+          serviceAccountName: odoo-scale-hooks
+          command: ["kubectl", "scale", "deployment/odoo", "--replicas=1"]
+hooks:
+  pre-install:
+    read-config:
+      image: bitnami/kubectl:1.30
+      serviceAccountName: existing-reader
+      command: ["kubectl", "get", "configmap"]

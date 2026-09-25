@@ -6,7 +6,7 @@ Validation helpers for global-chart.
 Validate that all generated resource names are unique after truncation.
 Checks within each resource kind: Deployments, CronJobs, Jobs (hooks),
 ServiceAccounts, ConfigMaps, Secrets, ExternalSecrets, TriggerAuthentications,
-Roles and RoleBindings.
+Roles and RoleBindings, the hook-prerequisite copies included.
 A kind's accumulator holds every name of that kind whatever derived it, because
 collisions cross sources: $cmNames carries the deployment's own ConfigMap, its
 mounted config file ConfigMaps and its hook-prerequisite copy alike. A
@@ -207,6 +207,23 @@ Called from validate.yaml.
   {{- include "global-chart.registerSAName" (dict "names" $saNames "sa" $sa "owner" $owner) -}}
   {{- if $sa.name -}}
     {{- include "global-chart.registerName" (dict "names" $bindingNames "kind" "RoleBinding" "name" (include "global-chart.rbacRoleBindingName" $role.name) "owner" $owner) -}}
+  {{- end -}}
+{{- end -}}
+{{- /* 7. The hook-prerequisite copies of rbacs.roles (ADR 0010), after every
+       real name so the copy is the one blamed. <name>-hook lands on an entry
+       already named so, and a name at its limit truncates back onto its own
+       real one — a copy sharing the real name would delete it under
+       hook-succeeded. The copied SA exists only when the role creates it. */ -}}
+{{- $rbacConsumers := include "global-chart.rbacHookConsumers" $root | fromJson -}}
+{{- range $i, $role := (default (dict) .Values.rbacs).roles -}}
+  {{- if hasKey $rbacConsumers $role.name -}}
+    {{- $owner := printf "rbacs.roles[%d] ('%s') (hook prerequisite copy)" $i $role.name -}}
+    {{- include "global-chart.registerName" (dict "names" $roleNames "kind" "Role" "name" (include "global-chart.rbacHookName" (list $role.name 253)) "owner" $owner) -}}
+    {{- $sa := include "global-chart.rbacServiceAccount" $role | fromJson -}}
+    {{- if $sa.create -}}
+      {{- include "global-chart.registerSAName" (dict "names" $saNames "sa" (dict "create" true "name" (include "global-chart.rbacCopyServiceAccountName" (dict "root" $root "name" $sa.name))) "owner" $owner) -}}
+    {{- end -}}
+    {{- include "global-chart.registerName" (dict "names" $bindingNames "kind" "RoleBinding" "name" (include "global-chart.rbacHookName" (list (include "global-chart.rbacRoleBindingName" $role.name) 63)) "owner" $owner) -}}
   {{- end -}}
 {{- end -}}
 

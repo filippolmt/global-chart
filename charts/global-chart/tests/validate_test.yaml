@@ -683,6 +683,33 @@ tests:
     asserts:
       - notFailedTemplate: {}
 
+  # ====== rbacs.roles hook-prerequisite copies (ADR 0010) ======
+  - it: should fail when a role's hook copy lands on another role's name
+    set:
+      rbacs:
+        roles:
+          - { name: scaler, serviceAccount: {}, rules: [] }
+          - { name: scaler-hook, rules: [] }
+      hooks:
+        pre-upgrade:
+          migrate: { image: myapp:v1, serviceAccountName: scaler-sa }
+    asserts:
+      - failedTemplate:
+          errorPattern: "Name collision: Role 'scaler-hook'"
+
+  - it: should fail when a role's hook SA copy lands on a created ServiceAccount
+    set:
+      rbacs:
+        roles:
+          - { name: scaler, serviceAccount: { name: scaler }, rules: [] }
+          - { name: other, serviceAccount: { name: scaler-hook }, rules: [] }
+      hooks:
+        pre-upgrade:
+          migrate: { image: myapp:v1, serviceAccountName: scaler }
+    asserts:
+      - failedTemplate:
+          errorPattern: "Name collision: ServiceAccount 'scaler-hook'"
+
   # ====== fullname that can never reach a label (issue #120) ======
   # Helm accepts a dotted release name; a Deployment's container name and a root
   # hook's container name are the fullname plus a suffix, and a label has no dot.

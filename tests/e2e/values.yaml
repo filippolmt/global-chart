@@ -26,6 +26,10 @@
 #   (issue #110): the ExternalSecret is a normal resource, applied AFTER the
 #   pre-* hooks, so the hooks must read the hook-prerequisite copy (ADR 0007).
 #   Both forms — envFrom and a mounted volume — against ESO's fake provider
+# - pre-* hooks running as the ServiceAccount of an rbacs.roles entry (ADR 0010):
+#   the SA, Role and RoleBinding are normal resources, applied AFTER the pre-*
+#   hooks, so the hooks must run as the <name>-hook copies. The hook calls the
+#   API with its token, so a missing permission fails it, not only a missing SA
 externalSecrets:
   e2e-env:
     secretstore: { kind: ClusterSecretStore, name: e2e-fake }
@@ -35,6 +39,16 @@ externalSecrets:
     secretstore: { kind: ClusterSecretStore, name: e2e-fake }
     secretkey: app.conf
     remote: { key: e2e/conf }
+
+rbacs:
+  roles:
+    - name: e2e-hook-reader
+      serviceAccount:
+        name: e2e-hook-reader
+      rules:
+        - apiGroups: [""]
+          resources: ["configmaps"]
+          verbs: ["list"]
 
 kedaTriggerAuthentications:
   e2e-auth:
@@ -162,6 +176,22 @@ deployments:
           targetPort: metrics
 
 hooks:
+  # Lists ConfigMaps with the pod's own token: 403 without the Role copy, and
+  # the pod never schedules without the SA copy (ADR 0010)
+  pre-install:
+    rbac-read:
+      image: busybox:1.36
+      serviceAccountName: e2e-hook-reader
+      activeDeadlineSeconds: 120
+      command: ["sh", "-c"]
+      args: ['wget -q -O /dev/null --no-check-certificate --header "Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" "https://kubernetes.default.svc/api/v1/namespaces/$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace)/configmaps"']
+  pre-upgrade:
+    rbac-read:
+      image: busybox:1.36
+      serviceAccountName: e2e-hook-reader
+      activeDeadlineSeconds: 120
+      command: ["sh", "-c"]
+      args: ['wget -q -O /dev/null --no-check-certificate --header "Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" "https://kubernetes.default.svc/api/v1/namespaces/$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace)/configmaps"']
   post-install:
     notify:
       image: busybox:1.36

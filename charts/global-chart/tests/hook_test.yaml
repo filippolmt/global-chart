@@ -3239,3 +3239,100 @@ tests:
           path: data.RATIO
           value: "1.5"
         documentIndex: 0
+
+  # ====== ADR 0010: a pre-* hook running as an rbacs.roles SA the chart creates
+  # runs as its hook-prerequisite copy ======
+  - it: should run a pre-upgrade hook as the copy of the role's created SA
+    set:
+      rbacs:
+        roles:
+          - name: scaler
+            serviceAccount:
+              name: scaler
+            rules: []
+      deployments:
+        app:
+          image: myapp:v1
+          hooks:
+            pre-upgrade:
+              migrate:
+                command: ["./migrate.sh"]
+                serviceAccountName: scaler
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: spec.template.spec.serviceAccountName
+          value: scaler-hook
+
+  - it: should run a root pre-install hook as the copy of the role's created SA
+    set:
+      rbacs:
+        roles:
+          - name: scaler
+            serviceAccount:
+              name: scaler
+            rules: []
+      hooks:
+        pre-install:
+          migrate:
+            image: myapp:v1
+            serviceAccountName: scaler
+    asserts:
+      - equal:
+          path: spec.template.spec.serviceAccountName
+          value: scaler-hook
+
+  - it: should keep the real SA for a post-upgrade hook and for a role binding an existing SA
+    set:
+      rbacs:
+        roles:
+          - name: scaler
+            serviceAccount:
+              name: scaler
+            rules: []
+          - name: binder
+            serviceAccount:
+              create: false
+              name: existing
+            rules: []
+      hooks:
+        post-upgrade:
+          up:
+            image: kubectl:v1
+            serviceAccountName: scaler
+        pre-upgrade:
+          migrate:
+            image: myapp:v1
+            serviceAccountName: existing
+    asserts:
+      - equal:
+          path: spec.template.spec.serviceAccountName
+          value: scaler
+        documentSelector:
+          path: metadata.name
+          value: RELEASE-NAME-global-chart-post-upgrade-up
+      - equal:
+          path: spec.template.spec.serviceAccountName
+          value: existing
+        documentSelector:
+          path: metadata.name
+          value: RELEASE-NAME-global-chart-pre-upgrade-migrate
+
+  - it: should run a post-delete hook as the copy of the role's created SA
+    set:
+      rbacs:
+        roles:
+          - name: cleaner
+            serviceAccount:
+              name: cleaner
+            rules: []
+      hooks:
+        post-delete:
+          purge:
+            image: myapp:v1
+            serviceAccountName: cleaner
+    asserts:
+      - equal:
+          path: spec.template.spec.serviceAccountName
+          value: cleaner-hook
