@@ -3,6 +3,31 @@ Rendering helpers for global-chart.
 */}}
 
 {{/*
+Print an integer read from values. The rule: every integer printed from values
+goes through this helper — never a bare {{ $x.field }}, and never a site-local
+int64/%d of its own (jobSpecVerbatimFields included, issue #132).
+Why: Helm reads a number from a values file as a float64, and the template
+default format prints a float64 in exponent notation from a million upward —
+10000000 renders as 1e+07, which the schema accepts (it is an integer), helm
+lint passes, and the API server rejects for an integer field. --set parses the
+same number as an int64, so testing with --set hides the defect; the values
+file is how the chart is normally used. The same holds for a port read back
+through fromJson, which turns every number into a float64. toYaml goes through
+JSON encoding and is unaffected, so a block rendered with toYaml needs nothing.
+The string branch: int-or-string fields (pdb minAvailable/maxUnavailable,
+Service targetPort) keep a string exactly as today — returned unchanged,
+unquoted — so "50%" still renders as 50% and a named targetPort as its name.
+Usage: {{ include "global-chart.int" $deploy.revisionHistoryLimit }}
+*/}}
+{{- define "global-chart.int" -}}
+{{- if kindIs "string" . -}}
+{{- . -}}
+{{- else -}}
+{{- printf "%d" (int64 .) -}}
+{{- end -}}
+{{- end }}
+
+{{/*
 Render a single volume entry. Supports both:
 - Legacy format: { name, type, secret/configMap/persistentVolumeClaim/emptyDir }
 - Native format: { name, <any-k8s-volume-source> } (no .type field)

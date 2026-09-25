@@ -25,10 +25,10 @@ spec:
   {{- fail (printf "PDB for deployment '%s': one of minAvailable or maxUnavailable is required when pdb.enabled is true." $name) }}
   {{- end }}
   {{- if hasKey $pdb "minAvailable" }}
-  minAvailable: {{ $pdb.minAvailable }}
+  minAvailable: {{ include "global-chart.int" $pdb.minAvailable }}
   {{- end }}
   {{- if hasKey $pdb "maxUnavailable" }}
-  maxUnavailable: {{ $pdb.maxUnavailable }}
+  maxUnavailable: {{ include "global-chart.int" $pdb.maxUnavailable }}
   {{- end }}
   selector:
     matchLabels:

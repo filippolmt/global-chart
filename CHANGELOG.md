@@ -44,6 +44,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   on hooks and cronjobs. Helm reads a number from a values file as a float64,
   and `activeDeadlineSeconds: 10000000` rendered as `1e+07`, which the API
   server rejects for an integer field.
+- **Every other integer from values renders in plain digits too** (issue #132).
+  The same `1e+07` reached `replicas`, `revisionHistoryLimit`,
+  `progressDeadlineSeconds` and `terminationGracePeriodSeconds` on Deployments;
+  `startingDeadlineSeconds`, `successfulJobsHistoryLimit` and
+  `failedJobsHistoryLimit` on cronjobs, both scopes; the HPA replica bounds; the
+  PDB `minAvailable` / `maxUnavailable`; the HTTPRoute `weight`; and the
+  ScaledObject replica counts and intervals. `--set` parses the number as an
+  integer, so the defect showed only with a values file. Every integer printed
+  from values now goes through one helper, `global-chart.int`, ports included;
+  the Job spec fields fixed above (#131) use the same helper instead of their
+  own cast. An int-or-string value — a percentage PDB bound, a named
+  `targetPort` — renders unchanged.
 - **A fullname that can never be applied is now rejected** (issue #120). A
   dotted release name such as `my.app`, or a `fullnameOverride` like `My_App`,
   rendered container and Service names the API server rejects.

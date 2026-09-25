@@ -146,3 +146,33 @@ tests:
     asserts:
       - hasDocuments:
           count: 0
+
+  # ====== Integers from values (issue #132) ======
+  # A number read from a values file is a float64, which the default format
+  # prints as 1e+07 from a million up: an integer field the API server rejects.
+  - it: should render a large minAvailable in plain digits
+    set:
+      deployments:
+        main:
+          image: "nginx:1.25"
+          pdb:
+            enabled: true
+            minAvailable: 10000000
+    asserts:
+      - equal:
+          path: spec.minAvailable
+          value: 10000000
+
+  # The int-or-string branch: a percentage passes through unchanged.
+  - it: should render a percentage maxUnavailable unchanged
+    set:
+      deployments:
+        main:
+          image: "nginx:1.25"
+          pdb:
+            enabled: true
+            maxUnavailable: "50%"
+    asserts:
+      - equal:
+          path: spec.maxUnavailable
+          value: "50%"

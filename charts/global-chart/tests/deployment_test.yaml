@@ -1534,3 +1534,31 @@ tests:
       - equal:
           path: spec.template.metadata.annotations["prometheus.io/scrape"]
           value: "true"
+
+  # ====== Integers from values (issue #132) ======
+  # A number read from a values file is a float64, which the default format
+  # prints as 1e+07 from a million up: an integer field the API server rejects.
+  # set: values reach the template as float64 too, so these fail without
+  # global-chart.int.
+  - it: should render large integers in plain digits
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          replicaCount: 10000000
+          revisionHistoryLimit: 10000000
+          progressDeadlineSeconds: 10000000
+          terminationGracePeriodSeconds: 10000000
+    asserts:
+      - equal:
+          path: spec.replicas
+          value: 10000000
+      - equal:
+          path: spec.revisionHistoryLimit
+          value: 10000000
+      - equal:
+          path: spec.progressDeadlineSeconds
+          value: 10000000
+      - equal:
+          path: spec.template.spec.terminationGracePeriodSeconds
+          value: 10000000

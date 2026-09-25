@@ -349,4 +349,43 @@ tests:
       - hasDocuments:
           count: 2
 
-
+  # ====== Integers from values (issue #132) ======
+  # A number read from a values file is a float64, which the default format
+  # prints as 1e+07 from a million up: an integer field the API server rejects.
+  # set: values reach the template as float64 too, so these fail without
+  # global-chart.int.
+  - it: should render large replica counts and intervals in plain digits
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          keda:
+            enabled: true
+            minReplicaCount: 10000000
+            maxReplicaCount: 10000000
+            idleReplicaCount: 10000000
+            pollingInterval: 10000000
+            cooldownPeriod: 10000000
+            initialCooldownPeriod: 10000000
+            triggers:
+              - type: cron
+                metadata: { timezone: UTC, start: "0 0 * * *", end: "59 23 * * *", desiredReplicas: "3" }
+    asserts:
+      - equal:
+          path: spec.minReplicaCount
+          value: 10000000
+      - equal:
+          path: spec.maxReplicaCount
+          value: 10000000
+      - equal:
+          path: spec.idleReplicaCount
+          value: 10000000
+      - equal:
+          path: spec.pollingInterval
+          value: 10000000
+      - equal:
+          path: spec.cooldownPeriod
+          value: 10000000
+      - equal:
+          path: spec.initialCooldownPeriod
+          value: 10000000

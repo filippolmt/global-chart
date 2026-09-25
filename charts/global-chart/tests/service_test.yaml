@@ -336,3 +336,35 @@ tests:
     asserts:
       - notExists:
           path: metadata.annotations
+
+  # ====== Integers from values (issue #132) ======
+  # Ports go through global-chart.int like every integer from values (the
+  # schema bounds them below a million, so they never reach exponent notation).
+  # The int-or-string branch: a named targetPort passes through unchanged, a
+  # numeric one stays a number.
+  - it: should keep a named targetPort as a string and a numeric one as a number
+    set:
+      deployments:
+        web:
+          image: nginx:1.25
+          service:
+            port: 8080
+            portName: web
+            targetPort: web
+            extraPorts:
+              - name: metrics
+                port: 9090
+                targetPort: 9091
+    asserts:
+      - equal:
+          path: spec.ports[0].port
+          value: 8080
+      - equal:
+          path: spec.ports[0].targetPort
+          value: web
+      - equal:
+          path: spec.ports[1].port
+          value: 9090
+      - equal:
+          path: spec.ports[1].targetPort
+          value: 9091

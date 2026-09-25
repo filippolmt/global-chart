@@ -802,3 +802,27 @@ tests:
       - equal:
           path: spec.rules[0].matches[0].path.value
           value: ""
+
+  # ====== Integers from values (issue #132) ======
+  # A number read from a values file is a float64, which the default format
+  # prints as 1e+06 at a million: the schema's own maximum for a weight.
+  - it: should render the maximum weight in plain digits
+    set:
+      deployments:
+        api:
+          image: nginx:1.25
+      httpRoute:
+        enabled: true
+        parentRefs:
+          - name: public-gw
+        rules:
+          - backendRefs:
+              - deployment: api
+                weight: 1000000
+    asserts:
+      - equal:
+          path: spec.rules[0].backendRefs[0].weight
+          value: 1000000
+      - equal:
+          path: spec.rules[0].backendRefs[0].port
+          value: 80

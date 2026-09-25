@@ -1694,3 +1694,68 @@ tests:
       - equal:
           path: metadata.name
           value: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+
+  # ====== Integers from values (issue #132) ======
+  # A number read from a values file is a float64, which the default format
+  # prints as 1e+07 from a million up: an integer field the API server rejects.
+  # set: values reach the template as float64 too, so these fail without
+  # global-chart.int.
+  - it: should render large root-level cronjob integers in plain digits
+    set:
+      cronJobs:
+        big:
+          schedule: "0 0 * * *"
+          image: busybox:1.36
+          startingDeadlineSeconds: 10000000
+          successfulJobsHistoryLimit: 10000000
+          failedJobsHistoryLimit: 10000000
+    asserts:
+      - equal:
+          path: spec.startingDeadlineSeconds
+          value: 10000000
+        documentSelector:
+          path: kind
+          value: CronJob
+      - equal:
+          path: spec.successfulJobsHistoryLimit
+          value: 10000000
+        documentSelector:
+          path: kind
+          value: CronJob
+      - equal:
+          path: spec.failedJobsHistoryLimit
+          value: 10000000
+        documentSelector:
+          path: kind
+          value: CronJob
+
+  - it: should render large deployment-level cronjob integers in plain digits
+    set:
+      deployments:
+        app:
+          image: nginx:1.25
+          cronJobs:
+            big:
+              schedule: "0 0 * * *"
+              startingDeadlineSeconds: 10000000
+              successfulJobsHistoryLimit: 10000000
+              failedJobsHistoryLimit: 10000000
+    asserts:
+      - equal:
+          path: spec.startingDeadlineSeconds
+          value: 10000000
+        documentSelector:
+          path: kind
+          value: CronJob
+      - equal:
+          path: spec.successfulJobsHistoryLimit
+          value: 10000000
+        documentSelector:
+          path: kind
+          value: CronJob
+      - equal:
+          path: spec.failedJobsHistoryLimit
+          value: 10000000
+        documentSelector:
+          path: kind
+          value: CronJob

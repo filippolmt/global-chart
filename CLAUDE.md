@@ -54,7 +54,7 @@ is the source of truth, this table is only the routing.
 | `_job-helpers.tpl` | One implementation of the pod spec, image resolution and the Job spec fields table (`jobSpecVerbatimFields`) for **every** hook and cronjob, both scopes — root-level callers simply pass no `deploy`. `jobValuesPath` is the single home of the name a job carries in error messages |
 | `_serviceaccount-helpers.tpl` | Every ServiceAccount the chart renders or binds, resolved to `{create, name, automount, annotations}`: deployment, rbac and job resolvers, with the deployment and rbac defaults in `resolveServiceAccount`; the job resolver keeps its own chain, and rejects a job naming its SA twice with different names itself — every job render path goes through it, so the check cannot be skipped. Templates never read `serviceAccount.*` from values |
 | `_hook-helpers.tpl` | The three `helm.sh/hook*` annotations, weights and delete policies, driven by a role table |
-| `_render-helpers.tpl` | Shared render blocks, `renderAnnotations`, the ConfigMap/Secret `data:` bodies shared with the hook-prerequisite copies, and the two port helpers |
+| `_render-helpers.tpl` | `int`, the single home of how an integer from values is printed; shared render blocks, `renderAnnotations`, the ConfigMap/Secret `data:` bodies shared with the hook-prerequisite copies, and the two port helpers |
 | `_keda-helpers.tpl` | KEDA names, trigger and `authenticationRef` resolution, the CRD guard |
 | `_validate-helpers.tpl` | The fullname against the labels it leads, name collisions, routing and autoscaling conflicts, named-`targetPort` resolution |
 
@@ -208,6 +208,14 @@ Hard-won. Violating them causes subtle bugs.
 enabled: {{ default true $deploy.enabled }}
 # CORRECT:
 enabled: {{ hasKey $deploy "enabled" | ternary $deploy.enabled true }}
+```
+
+**Integers from values — never print them bare:**
+```yaml
+# WRONG: a values-file number is a float64; 10000000 renders as 1e+07
+terminationGracePeriodSeconds: {{ $deploy.terminationGracePeriodSeconds }}
+# CORRECT: %d after int64; an int-or-string value passes through unchanged
+terminationGracePeriodSeconds: {{ include "global-chart.int" $deploy.terminationGracePeriodSeconds }}
 ```
 
 **Inheritance — use `hasKey` to distinguish "not set" from "empty":**
