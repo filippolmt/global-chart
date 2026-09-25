@@ -249,6 +249,31 @@ Usage: {{ include "global-chart.jobExternalSecretRefs" (dict "job" $job "deploy"
 {{- end -}}
 
 {{/*
+The values path of a hook or cronjob, both scopes: the one name a job carries in
+every error message the chart emits about it (issue #133 review). Each call
+site used to rebuild it with its own printf, and a job reported by two paths —
+resolver, render and validator — could be named two ways.
+  hooks.<type>.<name>                      root-level hook
+  cronJobs.<name>                          root-level cronjob
+  deployments.<d>.hooks.<type>.<name>      deployment-level hook
+  deployments.<d>.cronJobs.<name>          deployment-level cronjob
+Bind it once per job (`$errCtx`) and reuse it; never printf the path inline.
+Params: kind ("hook" | "cronjob") · deployName (omit or "" at root level) ·
+hookType (hooks only) · name (the job's key).
+*/}}
+{{- define "global-chart.jobValuesPath" -}}
+{{- $own := "" -}}
+{{- if eq .kind "hook" -}}
+  {{- $own = printf "hooks.%s.%s" .hookType .name -}}
+{{- else if eq .kind "cronjob" -}}
+  {{- $own = printf "cronJobs.%s" .name -}}
+{{- else -}}
+  {{- fail (printf "jobValuesPath: unknown kind %q for %s (expected \"hook\" or \"cronjob\")" (toString .kind) (toString .name)) -}}
+{{- end -}}
+{{- if .deployName -}}deployments.{{ .deployName }}.{{- end -}}{{- $own -}}
+{{- end -}}
+
+{{/*
 Resolve the image string for a cronjob/hook command, unifying the choice across
 root-level and deployment-level jobs. Returns the image string ("" when none
 resolves, so the caller applies `required` with its own context message).

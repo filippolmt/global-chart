@@ -13,13 +13,14 @@
 {{- $fullname := include "global-chart.fullname" $root }}
 {{- /* CronJob names limited to 52 chars (see rootCronJobName helper) */ -}}
 {{- $jobFullname := include "global-chart.rootCronJobName" (dict "root" $root "name" $name) }}
+{{- $errCtx := include "global-chart.jobValuesPath" (dict "kind" "cronjob" "name" $name) }}
 
 {{- /* Resolve image: explicit > fromDeployment > error (see jobImageString helper) */ -}}
-{{- $imageRef := required (printf "image is required for cronJobs.%s (set cronJobs.%s.image or cronJobs.%s.fromDeployment)" $name $name $name) (include "global-chart.jobImageString" (dict "root" $root "job" $job "errCtx" (printf "cronJobs.%s" $name))) }}
+{{- $imageRef := required (printf "image is required for %s (set %s.image or %s.fromDeployment)" $errCtx $errCtx $errCtx) (include "global-chart.jobImageString" (dict "root" $root "job" $job "errCtx" $errCtx)) }}
 
 {{- /* ServiceAccount: explicit > create own (see jobServiceAccount helper; no
        deployment to inherit from at root level) */ -}}
-{{- $sa := include "global-chart.jobServiceAccount" (dict "root" $root "job" $job "jobFullname" $jobFullname "errCtx" (printf "cronJobs.%s" $name)) | fromJson }}
+{{- $sa := include "global-chart.jobServiceAccount" (dict "root" $root "job" $job "jobFullname" $jobFullname "errCtx" $errCtx) | fromJson }}
 {{- $saName := $sa.name }}
 {{- if $sa.create }}
 ---
@@ -78,7 +79,7 @@ spec:
             {{- . | nindent 12 }}
         {{- end }}
         spec:
-          {{- $ctx := dict "root" $root "job" $job "saName" $saName "imageRef" $imageRef "containerName" $name "kind" "cronjob" "errCtx" (printf "cronJobs.%s" $name) }}
+          {{- $ctx := dict "root" $root "job" $job "saName" $saName "imageRef" $imageRef "containerName" $name "kind" "cronjob" "errCtx" $errCtx }}
           {{- include "global-chart.jobPodSpec" $ctx | trimPrefix "\n" | nindent 10 }}
 {{- end }}
 {{- end }}
@@ -94,12 +95,13 @@ spec:
 {{- /* Build cronjob fullname with deployment name for uniqueness */ -}}
 {{- /* CronJob names limited to 52 chars (see deploymentCronJobName helper) */ -}}
 {{- $jobFullname := include "global-chart.deploymentCronJobName" (dict "root" $root "deploymentName" $deployName "jobName" $name) }}
+{{- $errCtx := include "global-chart.jobValuesPath" (dict "kind" "cronjob" "deployName" $deployName "name" $name) }}
 
 {{- /* Resolve image: explicit in cronjob > inherited from deployment (see jobImageString helper) */ -}}
-{{- $imageRef := required (printf "image is required for deployments.%s.cronJobs.%s" $deployName $name) (include "global-chart.jobImageString" (dict "root" $root "job" $job "deploy" $deploy "errCtx" (printf "deployments.%s.cronJobs.%s" $deployName $name))) }}
+{{- $imageRef := required (printf "image is required for %s" $errCtx) (include "global-chart.jobImageString" (dict "root" $root "job" $job "deploy" $deploy "errCtx" $errCtx)) }}
 
 {{- /* ServiceAccount: explicit > inherited from deployment > default (see jobServiceAccount helper) */ -}}
-{{- $sa := include "global-chart.jobServiceAccount" (dict "root" $root "job" $job "deploy" $deploy "deployName" $deployName "jobFullname" $jobFullname "errCtx" (printf "deployments.%s.cronJobs.%s" $deployName $name)) | fromJson -}}
+{{- $sa := include "global-chart.jobServiceAccount" (dict "root" $root "job" $job "deploy" $deploy "deployName" $deployName "jobFullname" $jobFullname "errCtx" $errCtx) | fromJson -}}
 {{- $saName := $sa.name -}}
 {{- $saCreate := $sa.create -}}
 {{- $saAutomount := $sa.automount -}}
@@ -165,7 +167,7 @@ spec:
             {{- . | nindent 12 }}
         {{- end }}
         spec:
-          {{- $ctx := dict "root" $root "job" $job "deploy" $deploy "saName" $saName "imageRef" $imageRef "containerName" $name "configMapRef" $deployFullname "secretRef" $deployFullname "kind" "cronjob" "deployName" $deployName "errCtx" (printf "deployments.%s.cronJobs.%s" $deployName $name) }}
+          {{- $ctx := dict "root" $root "job" $job "deploy" $deploy "saName" $saName "imageRef" $imageRef "containerName" $name "configMapRef" $deployFullname "secretRef" $deployFullname "kind" "cronjob" "deployName" $deployName "errCtx" $errCtx }}
           {{- include "global-chart.jobPodSpec" $ctx | trimPrefix "\n" | nindent 10 }}
 {{ end }}
 {{- end }}

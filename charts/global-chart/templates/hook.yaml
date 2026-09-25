@@ -12,13 +12,14 @@
 {{- range $name, $command := $jobs }}
 {{- if $command }}
 {{- $hookFullname := include "global-chart.hookfullname" (merge (dict "hookname" $hookType "jobname" $name) $root) }}
+{{- $errCtx := include "global-chart.jobValuesPath" (dict "kind" "hook" "hookType" $hookType "name" $name) }}
 
 {{- /* Resolve image: explicit > fromDeployment > error (see jobImageString helper) */ -}}
-{{- $imageRef := required (printf "image is required for hooks.%s.%s (set hooks.%s.%s.image or hooks.%s.%s.fromDeployment)" $hookType $name $hookType $name $hookType $name) (include "global-chart.jobImageString" (dict "root" $root "job" $command "errCtx" (printf "hooks.%s.%s" $hookType $name))) }}
+{{- $imageRef := required (printf "image is required for %s (set %s.image or %s.fromDeployment)" $errCtx $errCtx $errCtx) (include "global-chart.jobImageString" (dict "root" $root "job" $command "errCtx" $errCtx)) }}
 
 {{- /* ServiceAccount: explicit > create own (see jobServiceAccount helper; no
        deployment to inherit from at root level) */ -}}
-{{- $sa := include "global-chart.jobServiceAccount" (dict "root" $root "job" $command "jobFullname" $hookFullname "errCtx" (printf "hooks.%s.%s" $hookType $name)) | fromJson -}}
+{{- $sa := include "global-chart.jobServiceAccount" (dict "root" $root "job" $command "jobFullname" $hookFullname "errCtx" $errCtx) | fromJson -}}
 {{- $saName := $sa.name -}}
 
 {{- /* The SA sorts before its Job; hookAnnotations owns the offset */ -}}
@@ -64,7 +65,7 @@ spec:
         {{- . | nindent 8 }}
       {{- end }}
     spec:
-      {{- $ctx := dict "root" $root "job" $command "saName" $saName "imageRef" $imageRef "containerName" $hookFullname "kind" "hook" "hookType" $hookType "errCtx" (printf "hooks.%s.%s" $hookType $name) }}
+      {{- $ctx := dict "root" $root "job" $command "saName" $saName "imageRef" $imageRef "containerName" $hookFullname "kind" "hook" "hookType" $hookType "errCtx" $errCtx }}
       {{- include "global-chart.jobPodSpec" $ctx | trimPrefix "\n" | nindent 6 }}
 {{- end }}
 {{- end }}
@@ -129,15 +130,16 @@ data:
   {{- include "global-chart.renderSecretData" $deploy.secret | nindent 2 }}
 {{- end }}
 
-{{- /* Each hook's name and ServiceAccount, resolved once: the pre-install prereq
-       copy below and the render loop further down both read this, so neither the
-       name nor the SA can be derived twice and drift */ -}}
+{{- /* Each hook's name, values path and ServiceAccount, resolved once: the
+       pre-install prereq copy below and the render loop further down both read
+       this, so none of them can be derived twice and drift */ -}}
 {{- $hooks := dict -}}
 {{- range $hookType, $jobs := $deploy.hooks -}}
 {{- range $name, $command := $jobs -}}
 {{- if $command -}}
 {{- $fn := include "global-chart.deploymentHookName" (dict "root" $root "deploymentName" $deployName "hookType" $hookType "jobName" $name) -}}
-{{- $_ := set $hooks (printf "%s/%s" $hookType $name) (dict "fullname" $fn "sa" (include "global-chart.jobServiceAccount" (dict "root" $root "job" $command "deploy" $deploy "deployName" $deployName "jobFullname" $fn "errCtx" (printf "deployments.%s.hooks.%s.%s" $deployName $hookType $name)) | fromJson)) -}}
+{{- $errCtx := include "global-chart.jobValuesPath" (dict "kind" "hook" "deployName" $deployName "hookType" $hookType "name" $name) -}}
+{{- $_ := set $hooks (printf "%s/%s" $hookType $name) (dict "fullname" $fn "errCtx" $errCtx "sa" (include "global-chart.jobServiceAccount" (dict "root" $root "job" $command "deploy" $deploy "deployName" $deployName "jobFullname" $fn "errCtx" $errCtx) | fromJson)) -}}
 {{- end -}}
 {{- end -}}
 {{- end -}}
@@ -198,12 +200,13 @@ automountServiceAccountToken: {{ $deploySA.automount }}
 {{- range $name, $command := $jobs }}
 {{- if $command }}
 
-{{- /* Hook fullname and ServiceAccount, both resolved once above */ -}}
+{{- /* Hook fullname, values path and ServiceAccount, all resolved once above */ -}}
 {{- $hook := index $hooks (printf "%s/%s" $hookType $name) }}
 {{- $hookFullname := $hook.fullname }}
+{{- $errCtx := $hook.errCtx }}
 
 {{- /* Resolve image: explicit in hook > inherited from deployment (see jobImageString helper) */ -}}
-{{- $imageRef := required (printf "image is required for deployments.%s.hooks.%s.%s" $deployName $hookType $name) (include "global-chart.jobImageString" (dict "root" $root "job" $command "deploy" $deploy "errCtx" (printf "deployments.%s.hooks.%s.%s" $deployName $hookType $name))) }}
+{{- $imageRef := required (printf "image is required for %s" $errCtx) (include "global-chart.jobImageString" (dict "root" $root "job" $command "deploy" $deploy "errCtx" $errCtx)) }}
 
 {{- /* ServiceAccount: explicit in hook > inherited from deployment > create new for hook (see jobServiceAccount helper) */ -}}
 {{- $sa := $hook.sa -}}
@@ -258,7 +261,7 @@ spec:
     spec:
       {{- $configMapRef := include "global-chart.hookPrereqConfigName" (dict "deploymentFullname" $deployFullname) }}
       {{- $secretRef := include "global-chart.hookPrereqSecretName" (dict "deploymentFullname" $deployFullname) }}
-      {{- $ctx := dict "root" $root "job" $command "deploy" $deploy "saName" $saName "imageRef" $imageRef "containerName" $name "configMapRef" $configMapRef "secretRef" $secretRef "kind" "hook" "hookType" $hookType "deployName" $deployName "errCtx" (printf "deployments.%s.hooks.%s.%s" $deployName $hookType $name) }}
+      {{- $ctx := dict "root" $root "job" $command "deploy" $deploy "saName" $saName "imageRef" $imageRef "containerName" $name "configMapRef" $configMapRef "secretRef" $secretRef "kind" "hook" "hookType" $hookType "deployName" $deployName "errCtx" $errCtx }}
       {{- include "global-chart.jobPodSpec" $ctx | trimPrefix "\n" | nindent 6 }}
 {{ end }}
 {{- end }}

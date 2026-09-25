@@ -58,9 +58,10 @@ Called from validate.yaml.
     {{- range $jobName, $job := $deploy.cronJobs -}}
       {{- if $job -}}
         {{- $jobFullname := include "global-chart.deploymentCronJobName" (dict "root" $root "deploymentName" $name "jobName" $jobName) -}}
-        {{- include "global-chart.registerName" (dict "names" $cronNames "kind" "CronJob" "name" $jobFullname "owner" (printf "cronJob '%s' in deployment '%s'" $jobName $name)) -}}
-        {{- $jobSA := include "global-chart.jobServiceAccount" (dict "root" $root "job" $job "deploy" $deploy "deployName" $name "jobFullname" $jobFullname "errCtx" (printf "deployments.%s.cronJobs.%s" $name $jobName)) | fromJson -}}
-        {{- include "global-chart.registerSAName" (dict "names" $saNames "sa" $jobSA "owner" (printf "cronJob '%s' in deployment '%s'" $jobName $name)) -}}
+        {{- $errCtx := include "global-chart.jobValuesPath" (dict "kind" "cronjob" "deployName" $name "name" $jobName) -}}
+        {{- include "global-chart.registerName" (dict "names" $cronNames "kind" "CronJob" "name" $jobFullname "owner" $errCtx) -}}
+        {{- $jobSA := include "global-chart.jobServiceAccount" (dict "root" $root "job" $job "deploy" $deploy "deployName" $name "jobFullname" $jobFullname "errCtx" $errCtx) | fromJson -}}
+        {{- include "global-chart.registerSAName" (dict "names" $saNames "sa" $jobSA "owner" $errCtx) -}}
       {{- end -}}
     {{- end -}}
 
@@ -85,9 +86,10 @@ Called from validate.yaml.
           {{- if $command -}}
             {{- /* Canonical 4-part single-trunc name via shared helper — keeps validator byte-identical to hook.yaml (prior depFullname-based double-trunc only diverged for K8s-invalid trailing-dash names) */ -}}
             {{- $hookFullname := include "global-chart.deploymentHookName" (dict "root" $root "deploymentName" $name "hookType" $hookType "jobName" $jobName) -}}
-            {{- include "global-chart.registerName" (dict "names" $hookNames "kind" "Job" "name" $hookFullname "owner" (printf "hook '%s/%s' in deployment '%s'" $hookType $jobName $name)) -}}
-            {{- $hookSA := include "global-chart.jobServiceAccount" (dict "root" $root "job" $command "deploy" $deploy "deployName" $name "jobFullname" $hookFullname "errCtx" (printf "deployments.%s.hooks.%s.%s" $name $hookType $jobName)) | fromJson -}}
-            {{- include "global-chart.registerSAName" (dict "names" $saNames "sa" $hookSA "owner" (printf "hook '%s/%s' in deployment '%s'" $hookType $jobName $name)) -}}
+            {{- $errCtx := include "global-chart.jobValuesPath" (dict "kind" "hook" "deployName" $name "hookType" $hookType "name" $jobName) -}}
+            {{- include "global-chart.registerName" (dict "names" $hookNames "kind" "Job" "name" $hookFullname "owner" $errCtx) -}}
+            {{- $hookSA := include "global-chart.jobServiceAccount" (dict "root" $root "job" $command "deploy" $deploy "deployName" $name "jobFullname" $hookFullname "errCtx" $errCtx) | fromJson -}}
+            {{- include "global-chart.registerSAName" (dict "names" $saNames "sa" $hookSA "owner" $errCtx) -}}
           {{- end -}}
         {{- end -}}
       {{- end -}}
@@ -119,9 +121,10 @@ Called from validate.yaml.
 {{- range $name, $job := .Values.cronJobs -}}
   {{- if $job -}}
     {{- $jobFullname := include "global-chart.rootCronJobName" (dict "root" $root "name" $name) -}}
-    {{- include "global-chart.registerName" (dict "names" $cronNames "kind" "CronJob" "name" $jobFullname "owner" (printf "root cronJob '%s'" $name)) -}}
-    {{- $sa := include "global-chart.jobServiceAccount" (dict "root" $root "job" $job "jobFullname" $jobFullname "errCtx" (printf "cronJobs.%s" $name)) | fromJson -}}
-    {{- include "global-chart.registerSAName" (dict "names" $saNames "sa" $sa "owner" (printf "root cronJob '%s'" $name)) -}}
+    {{- $errCtx := include "global-chart.jobValuesPath" (dict "kind" "cronjob" "name" $name) -}}
+    {{- include "global-chart.registerName" (dict "names" $cronNames "kind" "CronJob" "name" $jobFullname "owner" $errCtx) -}}
+    {{- $sa := include "global-chart.jobServiceAccount" (dict "root" $root "job" $job "jobFullname" $jobFullname "errCtx" $errCtx) | fromJson -}}
+    {{- include "global-chart.registerSAName" (dict "names" $saNames "sa" $sa "owner" $errCtx) -}}
   {{- end -}}
 {{- end -}}
 
@@ -130,9 +133,10 @@ Called from validate.yaml.
   {{- range $name, $command := $jobs -}}
     {{- if $command -}}
       {{- $hookFullname := include "global-chart.hookfullname" (merge (dict "hookname" $hookType "jobname" $name) $root) -}}
-      {{- include "global-chart.registerName" (dict "names" $hookNames "kind" "Job" "name" $hookFullname "owner" (printf "root hook '%s/%s'" $hookType $name)) -}}
-      {{- $sa := include "global-chart.jobServiceAccount" (dict "root" $root "job" $command "jobFullname" $hookFullname "errCtx" (printf "hooks.%s.%s" $hookType $name)) | fromJson -}}
-      {{- include "global-chart.registerSAName" (dict "names" $saNames "sa" $sa "owner" (printf "root hook '%s/%s'" $hookType $name)) -}}
+      {{- $errCtx := include "global-chart.jobValuesPath" (dict "kind" "hook" "hookType" $hookType "name" $name) -}}
+      {{- include "global-chart.registerName" (dict "names" $hookNames "kind" "Job" "name" $hookFullname "owner" $errCtx) -}}
+      {{- $sa := include "global-chart.jobServiceAccount" (dict "root" $root "job" $command "jobFullname" $hookFullname "errCtx" $errCtx) | fromJson -}}
+      {{- include "global-chart.registerSAName" (dict "names" $saNames "sa" $sa "owner" $errCtx) -}}
     {{- end -}}
   {{- end -}}
 {{- end -}}
@@ -298,7 +302,7 @@ Called from validate.yaml. Emits nothing on success.
 {{- end -}}
 {{- range $hookType, $jobs := .Values.hooks -}}
   {{- range $name, $job := $jobs -}}
-    {{- if $job -}}{{- $label = printf "hooks.%s.%s" $hookType $name -}}{{- end -}}
+    {{- if $job -}}{{- $label = include "global-chart.jobValuesPath" (dict "kind" "hook" "hookType" $hookType "name" $name) -}}{{- end -}}
   {{- end -}}
 {{- end -}}
 {{- if and $label (contains "." $fullname) -}}

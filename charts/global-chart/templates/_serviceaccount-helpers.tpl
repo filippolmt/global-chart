@@ -17,7 +17,12 @@ time.
   true. Its `automount` and annotations first fall back to the job-level
   automountServiceAccountToken / serviceAccountAnnotations, then to the shared
   defaults above. It takes the parent deployment's SA from
-  deploymentServiceAccount.
+  deploymentServiceAccount. It is also the one resolver that validates: a job
+  naming its SA twice, with different names, fails here (issue #133). The check
+  sits in the resolver, not in _validate-helpers.tpl, because every render path
+  of a job — hook.yaml, cronjob.yaml and the validator — goes through it, so no
+  path can use the contradictory values before the check has run. Same reason
+  jobImageString owns its fromDeployment fail.
 The names these default to come from the naming helpers in _helpers.tpl.
 */}}
 
@@ -75,13 +80,15 @@ Accepts a dict with:
                  are simply the "no deployment SA applies" case
   deployName   - the deployment key (unused when deploy is nil)
   jobFullname  - the job's own resource name (fallback when a SA is created)
-  errCtx       - values path of the job (hooks.<type>.<name>, cronJobs.<name>,
-                 deployments.<d>.hooks.<type>.<name>, deployments.<d>.cronJobs.<name>),
-                 for the fail message below. Every call site passes it: whichever
-                 renders first must name the job the same way
+  errCtx       - values path of the job, from jobValuesPath (_job-helpers.tpl),
+                 for the fail message below. Every call site passes it, built by
+                 that one helper, so whichever renders first names the job the
+                 same way
 
 Resolution:
   name:   explicit (serviceAccountName | serviceAccount.name) > deployment SA > jobFullname.
+          Empty when serviceAccount.create is false and nothing names a SA: callers
+          then omit serviceAccountName and the pod runs as the namespace default.
           The two explicit fields are one name written in two places: both set,
           non-empty and different is a render-time `fail` naming the job and both
           values (issue #133) — before it, serviceAccountName won in silence and a
@@ -89,8 +96,6 @@ Resolution:
           The same name in both stays accepted; "" counts as unset, as in the
           coalesce that reads them. JSON Schema cannot compare two fields, hence
           a template fail (fixture in tests/bad-values/fail/)
-          Empty when serviceAccount.create is false and nothing names a SA: callers
-          then omit serviceAccountName and the pod runs as the namespace default
   create: true only when no explicit/deployment SA applies, unless serviceAccount.create overrides
   automount: serviceAccount.automount > job automountServiceAccountToken (default true)
   annotations: SA-map annotations > job.serviceAccountAnnotations
