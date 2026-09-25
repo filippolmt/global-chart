@@ -5,7 +5,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ---
 
-## [Unreleased]
+## [2.8.0] — 2026-09-25
 
 ### Added
 
@@ -222,6 +222,49 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   credentials.
 
 ---
+
+### Migration guide from 2.7.x
+
+> No values change shape. What changes is **which ServiceAccount a hook's pod
+> runs as** in the copy phases, and **which values the schema accepts**. Run
+> `helm lint` and then `helm template` (or `helm diff upgrade`) against your own
+> values before upgrading — every case below shows up there.
+
+#### 1. A hook bound to a chart-created ServiceAccount runs as `<sa>-hook` (HIGH if you rely on Workload Identity / IRSA)
+
+A `pre-install`, `pre-upgrade`, `pre-rollback` or `post-delete` hook, in either
+scope, whose ServiceAccount the release creates (a deployment's, an
+`rbacs.roles` entry's, a cronjob's) now runs as the hook copy `<sa>-hook`
+(ADR 0011). An identity bound to `system:serviceaccount:<ns>:<sa>` does not
+reach it, so a migration that reads a cloud secret through that identity gets
+a permission error.
+
+**Who is affected:** hooks in those phases that inherit or name a SA the chart
+creates, and rely on an identity keyed on the SA name.
+
+**Action:** create the SA outside the release and bind it.
+
+```yaml
+deployments:
+  app:
+    serviceAccount:
+      create: false
+      name: app   # created by Terraform, say, with its IRSA / WI binding
+```
+
+#### 2. Numbers and unknown keys in string-typed fields now fail validation (MEDIUM)
+
+`additionalEnvs[].value`, a job's `env[].value`, a KEDA trigger's `metadata`
+values and `tolerations[].value` must be strings; an env entry, a toleration, a
+host alias, a DNS option and a TriggerAuthentication `secretTargetRef` / `env`
+entry reject a key they do not know. Numbers there were already rejected at
+apply; unknown keys were dropped in silence.
+
+**Action:** quote the number (`value: "10"`) and fix the key the error names.
+
+#### 3. `additionalEnvs` on a deployment-level cronjob or hook fails validation (LOW)
+
+It never reached the manifest. **Action:** move it to the job's `env`.
 
 ## [2.7.0] — 2026-09-24
 
