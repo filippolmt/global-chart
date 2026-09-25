@@ -396,15 +396,17 @@
       "properties": {
         "enabled": { "type": "boolean" },
         "minAvailable": {
+          "description": "A count or a percentage (\"25%\"). A string prints unquoted, so it holds digits with no leading zero, which would read as octal.",
           "oneOf": [
             { "type": "integer", "minimum": 0 },
-            { "type": "string" }
+            { "type": "string", "pattern": "^(0|[1-9][0-9]*)%?$" }
           ]
         },
         "maxUnavailable": {
+          "description": "A count or a percentage (\"25%\"). A string prints unquoted, so it holds digits with no leading zero, which would read as octal.",
           "oneOf": [
             { "type": "integer", "minimum": 0 },
-            { "type": "string" }
+            { "type": "string", "pattern": "^(0|[1-9][0-9]*)%?$" }
           ]
         }
       },

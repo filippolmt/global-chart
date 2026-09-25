@@ -121,6 +121,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   checks, which branch on the policy, also read a typo such as `owner` as
   "not Owner".
 
+- **A string PDB bound is a count or a percentage.** `pdb.minAvailable` and
+  `pdb.maxUnavailable` took any string and printed it unquoted: `"two"` passed
+  `helm lint` and the API server rejected it, and `"010"` reached it as the
+  octal 8. A string now holds digits with no leading zero, optionally followed
+  by `%` (`"25%"`, `"2"`).
+
 - **A string hook `weight` with a leading zero is rejected by the schema**,
   both scopes. The weight arithmetic reads it with base detection, so `"010"`
   rendered `helm.sh/hook-weight: "8"` on the Job and `"3"` on its
@@ -343,8 +349,9 @@ deployments:
   the error names.
 - **An HPA target that is not a plain number** (#151): `"80%"`, `"010"`, `-1`.
   `"80%"` read as 0 and switched the HPA off. **Action:** write `80`.
-- **A string hook `weight` with a leading zero**: `"010"` read as octal 8.
-  **Action:** drop the zero (`"10"`).
+- **A string hook `weight` or PDB bound with a leading zero**, or a PDB bound
+  that is not a count or a percentage: `"010"` read as octal 8. **Action:**
+  drop the zero (`"10"`), write the percentage as `"25%"`.
 - **An ExternalSecret policy outside ESO's enum** (`creationPolicy: owner`).
   **Action:** use ESO's spelling (`Owner`).
 - **Names Kubernetes rejects**: `nameOverride` / `fullnameOverride` (#120),

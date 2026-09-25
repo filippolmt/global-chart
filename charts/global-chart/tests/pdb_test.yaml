@@ -176,3 +176,43 @@ tests:
       - equal:
           path: spec.maxUnavailable
           value: "50%"
+
+  # ====== A string bound is a count or a percentage ======
+  # A string prints unquoted: "010" reached the API server as the YAML 1.1
+  # octal 8, and "two" passed lint and was rejected at apply.
+  - it: should reject a string minAvailable with a leading zero
+    set:
+      deployments:
+        main:
+          image: "nginx:1.25"
+          pdb:
+            enabled: true
+            minAvailable: "010"
+    asserts:
+      - failedTemplate:
+          errorPattern: "minAvailable"
+
+  - it: should reject a string maxUnavailable that is neither a count nor a percentage
+    set:
+      deployments:
+        main:
+          image: "nginx:1.25"
+          pdb:
+            enabled: true
+            maxUnavailable: "two"
+    asserts:
+      - failedTemplate:
+          errorPattern: "maxUnavailable"
+
+  - it: should accept a percentage and a digit string
+    set:
+      deployments:
+        main:
+          image: "nginx:1.25"
+          pdb:
+            enabled: true
+            maxUnavailable: "25%"
+    asserts:
+      - equal:
+          path: spec.maxUnavailable
+          value: 25%
