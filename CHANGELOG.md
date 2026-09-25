@@ -55,6 +55,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   name keeps rendering. The fix is `fullnameOverride`. Every truncated name now
   also drops a trailing `.` or `_`, not only `-`. See
   [ADR 0009](docs/adr/0009-the-fullname-constraint-follows-what-the-release-renders.md).
+- **A job naming its ServiceAccount twice, with different names, is now
+  rejected** (issue #133). A hook or cronjob, in either scope, can name its
+  ServiceAccount in `serviceAccountName` and in `serviceAccount.name`; when both
+  were set to different values `serviceAccountName` won in silence, and with
+  `serviceAccount.create: true` the chart created the SA under that name, with
+  the annotations (a Workload Identity binding, say) the `serviceAccount` map
+  meant for the other one. Values that were already contradictory now fail at
+  render, naming the job and both values. The same name in both fields stays
+  accepted, and `""` still counts as unset. The fix is to keep only one of the
+  two fields, or to set the same name in both. Error messages about a hook or
+  cronjob now all name it by its values path (`cronJobs.cleanup`,
+  `deployments.api.hooks.pre-install.migrate`): the name collision messages
+  used to say `root cronJob 'cleanup'` or `hook 'pre-install/migrate' in
+  deployment 'api'`.
+- **Every name collision message names its owners by values path** (issue
+  #135), not only the jobs: `deployments.api` for `deployment 'api'`,
+  `deployments.api.configMap` / `.secret`, their hook-prerequisite copies as
+  `deployments.api.configMap (hook prerequisite copy)`, a mounted file as
+  `deployments.api.mountedConfigFiles.files[0] ('app.conf')`, and
+  `externalSecrets.app-env` / `kedaTriggerAuthentications.<key>` for the quoted
+  keys. A pattern matched against the old wording has to follow.
 - **`helm install`/`upgrade` warn below Helm 3.18.6** (issue #116). The schema
   closures of the four job composites need it, and older Helm ignored them in
   silence. `NOTES.txt` now says so; `helm template` and Argo CD do not show

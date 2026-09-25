@@ -34,7 +34,7 @@ Called from validate.yaml.
   {{- if $deploy -}}
   {{- if eq (include "global-chart.deploymentEnabled" $deploy) "true" -}}
     {{- $depFullname := include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $name) -}}
-    {{- include "global-chart.registerName" (dict "names" $deployNames "kind" "Deployment" "name" $depFullname "owner" (printf "deployment '%s'" $name)) -}}
+    {{- include "global-chart.registerName" (dict "names" $deployNames "kind" "Deployment" "name" $depFullname "owner" (printf "deployments.%s" $name)) -}}
 
     {{- /* The deployment's own ConfigMap and Secret both carry $depFullname. They
            cannot clash with each other or with another deployment's — the name
@@ -43,24 +43,25 @@ Called from validate.yaml.
            are built by appending a suffix and so CAN land on a plain deployment
            name. */ -}}
     {{- if $deploy.configMap -}}
-      {{- include "global-chart.registerName" (dict "names" $cmNames "kind" "ConfigMap" "name" $depFullname "owner" (printf "deployment '%s' (its own configMap)" $name)) -}}
+      {{- include "global-chart.registerName" (dict "names" $cmNames "kind" "ConfigMap" "name" $depFullname "owner" (printf "deployments.%s.configMap" $name)) -}}
     {{- end -}}
     {{- if $deploy.secret -}}
-      {{- include "global-chart.registerName" (dict "names" $secretNames "kind" "Secret" "name" $depFullname "owner" (printf "deployment '%s' (its own secret)" $name)) -}}
+      {{- include "global-chart.registerName" (dict "names" $secretNames "kind" "Secret" "name" $depFullname "owner" (printf "deployments.%s.secret" $name)) -}}
     {{- end -}}
 
     {{- /* Chart-created deployment ServiceAccount: a root-level job that creates its
            own SA can land on this very name (both are <release>-<chart>-<key>) */ -}}
     {{- $deploySA := include "global-chart.deploymentServiceAccount" (dict "root" $root "deploymentName" $name "deployment" $deploy) | fromJson -}}
-    {{- include "global-chart.registerSAName" (dict "names" $saNames "sa" $deploySA "owner" (printf "deployment '%s'" $name)) -}}
+    {{- include "global-chart.registerSAName" (dict "names" $saNames "sa" $deploySA "owner" (printf "deployments.%s" $name)) -}}
 
     {{- /* 1a. Deployment-level CronJob names (trunc 52) — via deploymentCronJobName helper */ -}}
     {{- range $jobName, $job := $deploy.cronJobs -}}
       {{- if $job -}}
         {{- $jobFullname := include "global-chart.deploymentCronJobName" (dict "root" $root "deploymentName" $name "jobName" $jobName) -}}
-        {{- include "global-chart.registerName" (dict "names" $cronNames "kind" "CronJob" "name" $jobFullname "owner" (printf "cronJob '%s' in deployment '%s'" $jobName $name)) -}}
-        {{- $jobSA := include "global-chart.jobServiceAccount" (dict "root" $root "job" $job "deploy" $deploy "deployName" $name "jobFullname" $jobFullname) | fromJson -}}
-        {{- include "global-chart.registerSAName" (dict "names" $saNames "sa" $jobSA "owner" (printf "cronJob '%s' in deployment '%s'" $jobName $name)) -}}
+        {{- $errCtx := include "global-chart.jobValuesPath" (dict "kind" "cronjob" "deploymentName" $name "jobName" $jobName) -}}
+        {{- include "global-chart.registerName" (dict "names" $cronNames "kind" "CronJob" "name" $jobFullname "owner" $errCtx) -}}
+        {{- $jobSA := include "global-chart.jobServiceAccount" (dict "root" $root "job" $job "deploy" $deploy "deployName" $name "jobFullname" $jobFullname "errCtx" $errCtx) | fromJson -}}
+        {{- include "global-chart.registerSAName" (dict "names" $saNames "sa" $jobSA "owner" $errCtx) -}}
       {{- end -}}
     {{- end -}}
 
@@ -70,14 +71,14 @@ Called from validate.yaml.
       {{- $hasDeployConfigMap := and $deploy.configMap (gt (len $deploy.configMap) 0) -}}
       {{- if $hasDeployConfigMap -}}
         {{- $hookConfigName := include "global-chart.hookPrereqConfigName" (dict "deploymentFullname" $depFullname) -}}
-        {{- include "global-chart.registerName" (dict "names" $cmNames "kind" "ConfigMap" "name" $hookConfigName "owner" (printf "hook prerequisite ConfigMap for deployment '%s'" $name)) -}}
+        {{- include "global-chart.registerName" (dict "names" $cmNames "kind" "ConfigMap" "name" $hookConfigName "owner" (printf "deployments.%s.configMap (hook prerequisite copy)" $name)) -}}
       {{- end -}}
 
       {{- /* Hook prerequisite Secret (trunc 63) */ -}}
       {{- $hasDeploySecret := and $deploy.secret (gt (len $deploy.secret) 0) -}}
       {{- if $hasDeploySecret -}}
         {{- $hookSecretName := include "global-chart.hookPrereqSecretName" (dict "deploymentFullname" $depFullname) -}}
-        {{- include "global-chart.registerName" (dict "names" $secretNames "kind" "Secret" "name" $hookSecretName "owner" (printf "hook prerequisite Secret for deployment '%s'" $name)) -}}
+        {{- include "global-chart.registerName" (dict "names" $secretNames "kind" "Secret" "name" $hookSecretName "owner" (printf "deployments.%s.secret (hook prerequisite copy)" $name)) -}}
       {{- end -}}
 
       {{- range $hookType, $jobs := $deploy.hooks -}}
@@ -85,9 +86,10 @@ Called from validate.yaml.
           {{- if $command -}}
             {{- /* Canonical 4-part single-trunc name via shared helper — keeps validator byte-identical to hook.yaml (prior depFullname-based double-trunc only diverged for K8s-invalid trailing-dash names) */ -}}
             {{- $hookFullname := include "global-chart.deploymentHookName" (dict "root" $root "deploymentName" $name "hookType" $hookType "jobName" $jobName) -}}
-            {{- include "global-chart.registerName" (dict "names" $hookNames "kind" "Job" "name" $hookFullname "owner" (printf "hook '%s/%s' in deployment '%s'" $hookType $jobName $name)) -}}
-            {{- $hookSA := include "global-chart.jobServiceAccount" (dict "root" $root "job" $command "deploy" $deploy "deployName" $name "jobFullname" $hookFullname) | fromJson -}}
-            {{- include "global-chart.registerSAName" (dict "names" $saNames "sa" $hookSA "owner" (printf "hook '%s/%s' in deployment '%s'" $hookType $jobName $name)) -}}
+            {{- $errCtx := include "global-chart.jobValuesPath" (dict "kind" "hook" "deploymentName" $name "hookType" $hookType "jobName" $jobName) -}}
+            {{- include "global-chart.registerName" (dict "names" $hookNames "kind" "Job" "name" $hookFullname "owner" $errCtx) -}}
+            {{- $hookSA := include "global-chart.jobServiceAccount" (dict "root" $root "job" $command "deploy" $deploy "deployName" $name "jobFullname" $hookFullname "errCtx" $errCtx) | fromJson -}}
+            {{- include "global-chart.registerSAName" (dict "names" $saNames "sa" $hookSA "owner" $errCtx) -}}
           {{- end -}}
         {{- end -}}
       {{- end -}}
@@ -99,14 +101,14 @@ Called from validate.yaml.
            last. Registered in $cmNames, which also catches two deployments
            truncating to the same $depFullname. */ -}}
     {{- $mcf := default (dict) $deploy.mountedConfigFiles -}}
-    {{- $mcHint := " Give one of the two entries a different 'name'." -}}
+    {{- $mcHint := ". Give one of the two entries a different 'name'." -}}
     {{- range $i, $f := (default (list) $mcf.files) -}}
-      {{- $owner := printf "mountedConfigFiles.files[%d] ('%s') in deployment '%s'" $i $f.name $name -}}
+      {{- $owner := printf "deployments.%s.mountedConfigFiles.files[%d] ('%s')" $name $i $f.name -}}
       {{- include "global-chart.registerName" (dict "names" $cmNames "kind" "ConfigMap" "name" (include "global-chart.mountedConfigMapName" (dict "deploymentFullname" $depFullname "fileName" $f.name)) "owner" $owner "hint" $mcHint) -}}
     {{- end -}}
     {{- range $bi, $b := (default (list) $mcf.bundles) -}}
       {{- range $fi, $f := (default (list) $b.files) -}}
-        {{- $owner := printf "mountedConfigFiles.bundles[%d].files[%d] ('%s') in deployment '%s'" $bi $fi $f.name $name -}}
+        {{- $owner := printf "deployments.%s.mountedConfigFiles.bundles[%d].files[%d] ('%s')" $name $bi $fi $f.name -}}
         {{- include "global-chart.registerName" (dict "names" $cmNames "kind" "ConfigMap" "name" (include "global-chart.mountedConfigMapName" (dict "deploymentFullname" $depFullname "fileName" $f.name)) "owner" $owner "hint" $mcHint) -}}
       {{- end -}}
     {{- end -}}
@@ -119,9 +121,10 @@ Called from validate.yaml.
 {{- range $name, $job := .Values.cronJobs -}}
   {{- if $job -}}
     {{- $jobFullname := include "global-chart.rootCronJobName" (dict "root" $root "name" $name) -}}
-    {{- include "global-chart.registerName" (dict "names" $cronNames "kind" "CronJob" "name" $jobFullname "owner" (printf "root cronJob '%s'" $name)) -}}
-    {{- $sa := include "global-chart.jobServiceAccount" (dict "root" $root "job" $job "jobFullname" $jobFullname) | fromJson -}}
-    {{- include "global-chart.registerSAName" (dict "names" $saNames "sa" $sa "owner" (printf "root cronJob '%s'" $name)) -}}
+    {{- $errCtx := include "global-chart.jobValuesPath" (dict "kind" "cronjob" "jobName" $name) -}}
+    {{- include "global-chart.registerName" (dict "names" $cronNames "kind" "CronJob" "name" $jobFullname "owner" $errCtx) -}}
+    {{- $sa := include "global-chart.jobServiceAccount" (dict "root" $root "job" $job "jobFullname" $jobFullname "errCtx" $errCtx) | fromJson -}}
+    {{- include "global-chart.registerSAName" (dict "names" $saNames "sa" $sa "owner" $errCtx) -}}
   {{- end -}}
 {{- end -}}
 
@@ -130,9 +133,10 @@ Called from validate.yaml.
   {{- range $name, $command := $jobs -}}
     {{- if $command -}}
       {{- $hookFullname := include "global-chart.hookfullname" (merge (dict "hookname" $hookType "jobname" $name) $root) -}}
-      {{- include "global-chart.registerName" (dict "names" $hookNames "kind" "Job" "name" $hookFullname "owner" (printf "root hook '%s/%s'" $hookType $name)) -}}
-      {{- $sa := include "global-chart.jobServiceAccount" (dict "root" $root "job" $command "jobFullname" $hookFullname) | fromJson -}}
-      {{- include "global-chart.registerSAName" (dict "names" $saNames "sa" $sa "owner" (printf "root hook '%s/%s'" $hookType $name)) -}}
+      {{- $errCtx := include "global-chart.jobValuesPath" (dict "kind" "hook" "hookType" $hookType "jobName" $name) -}}
+      {{- include "global-chart.registerName" (dict "names" $hookNames "kind" "Job" "name" $hookFullname "owner" $errCtx) -}}
+      {{- $sa := include "global-chart.jobServiceAccount" (dict "root" $root "job" $command "jobFullname" $hookFullname "errCtx" $errCtx) | fromJson -}}
+      {{- include "global-chart.registerSAName" (dict "names" $saNames "sa" $sa "owner" $errCtx) -}}
     {{- end -}}
   {{- end -}}
 {{- end -}}
@@ -152,9 +156,9 @@ Called from validate.yaml.
 {{- range $key, $secret := .Values.externalSecrets -}}
   {{- if $secret -}}
     {{- $nameCtx := dict "root" $root "key" $key "secret" $secret -}}
-    {{- include "global-chart.registerName" (dict "names" $esNames "kind" "ExternalSecret" "name" (include "global-chart.externalSecretName" $nameCtx) "owner" (printf "externalSecrets '%s'" $key)) -}}
+    {{- include "global-chart.registerName" (dict "names" $esNames "kind" "ExternalSecret" "name" (include "global-chart.externalSecretName" $nameCtx) "owner" (printf "externalSecrets.%s" $key)) -}}
     {{- if eq (include "global-chart.externalSecretCreationPolicy" $secret) "Owner" -}}
-      {{- include "global-chart.registerName" (dict "names" $esOwnedNames "kind" "Secret" "name" (include "global-chart.externalSecretTargetName" $nameCtx) "owner" (printf "externalSecrets '%s'" $key)) -}}
+      {{- include "global-chart.registerName" (dict "names" $esOwnedNames "kind" "Secret" "name" (include "global-chart.externalSecretTargetName" $nameCtx) "owner" (printf "externalSecrets.%s" $key)) -}}
     {{- end -}}
   {{- end -}}
 {{- end -}}
@@ -162,7 +166,7 @@ Called from validate.yaml.
 {{- range $key, $secret := .Values.externalSecrets -}}
   {{- if and $secret (hasKey $consumers $key) -}}
     {{- $nameCtx := dict "root" $root "key" $key "secret" $secret -}}
-    {{- $owner := printf "the hook copy of externalSecrets '%s'" $key -}}
+    {{- $owner := printf "externalSecrets.%s (hook prerequisite copy)" $key -}}
     {{- $copyTarget := include "global-chart.externalSecretHookTargetName" $nameCtx -}}
     {{- include "global-chart.registerName" (dict "names" $esNames "kind" "ExternalSecret" "name" (include "global-chart.externalSecretHookName" $nameCtx) "owner" $owner) -}}
     {{- include "global-chart.registerName" (dict "names" $esOwnedNames "kind" "Secret" "name" $copyTarget "owner" $owner) -}}
@@ -173,7 +177,7 @@ Called from validate.yaml.
 {{- range $key, $secret := .Values.externalSecrets -}}
   {{- if and $secret (ne (include "global-chart.externalSecretCreationPolicy" $secret) "Owner") -}}
     {{- $target := include "global-chart.externalSecretTargetName" (dict "root" $root "key" $key "secret" $secret) -}}
-    {{- include "global-chart.registerName" (dict "names" (deepCopy $copyTargets) "kind" "Secret" "name" $target "owner" (printf "externalSecrets '%s' (%s)" $key (include "global-chart.externalSecretCreationPolicy" $secret))) -}}
+    {{- include "global-chart.registerName" (dict "names" (deepCopy $copyTargets) "kind" "Secret" "name" $target "owner" (printf "externalSecrets.%s (%s)" $key (include "global-chart.externalSecretCreationPolicy" $secret))) -}}
   {{- end -}}
 {{- end -}}
 
@@ -183,7 +187,7 @@ Called from validate.yaml.
 {{- $taNames := dict -}}
 {{- range $key, $auth := .Values.kedaTriggerAuthentications -}}
   {{- if $auth -}}
-    {{- include "global-chart.registerName" (dict "names" $taNames "kind" "TriggerAuthentication" "name" (include "global-chart.kedaTriggerAuthName" (dict "root" $root "name" $key)) "owner" (printf "kedaTriggerAuthentications '%s'" $key)) -}}
+    {{- include "global-chart.registerName" (dict "names" $taNames "kind" "TriggerAuthentication" "name" (include "global-chart.kedaTriggerAuthName" (dict "root" $root "name" $key)) "owner" (printf "kedaTriggerAuthentications.%s" $key)) -}}
   {{- end -}}
 {{- end -}}
 
@@ -224,7 +228,7 @@ not another copy of fail + set.
 Accepts: names (the accumulator dict, mutated in place), kind (the Kubernetes
 kind, for the message), name (the generated name), owner (human-readable source,
 stored and quoted in the message), hint (optional remediation sentence; it is
-appended verbatim, so start it with a space).
+appended verbatim, so start it with its separator: ". Give …").
 */}}
 {{- define "global-chart.registerName" -}}
 {{- $names := .names -}}
@@ -298,7 +302,7 @@ Called from validate.yaml. Emits nothing on success.
 {{- end -}}
 {{- range $hookType, $jobs := .Values.hooks -}}
   {{- range $name, $job := $jobs -}}
-    {{- if $job -}}{{- $label = printf "hooks.%s.%s" $hookType $name -}}{{- end -}}
+    {{- if $job -}}{{- $label = include "global-chart.jobValuesPath" (dict "kind" "hook" "hookType" $hookType "jobName" $name) -}}{{- end -}}
   {{- end -}}
 {{- end -}}
 {{- if and $label (contains "." $fullname) -}}

@@ -249,15 +249,44 @@ Usage: {{ include "global-chart.jobExternalSecretRefs" (dict "job" $job "deploy"
 {{- end -}}
 
 {{/*
+The values path of a hook or cronjob, both scopes: the one name a job carries in
+every error message the chart emits about it (issue #133 review). Each call
+site used to rebuild it with its own printf, and a job reported by two paths —
+resolver, render and validator — could be named two ways.
+  hooks.<type>.<name>                      root-level hook
+  cronJobs.<name>                          root-level cronjob
+  deployments.<d>.hooks.<type>.<name>      deployment-level hook
+  deployments.<d>.cronJobs.<name>          deployment-level cronjob
+Bind it once per job (`$errCtx`) and reuse it; never printf the path inline.
+Params: kind ("hook" | "cronjob") · deploymentName (omit or "" at root level) ·
+hookType (hooks only) · jobName (the job's key) — the same names as
+deploymentHookName and deploymentCronJobName (_helpers.tpl), which take the
+same job.
+*/}}
+{{- define "global-chart.jobValuesPath" -}}
+{{- $own := "" -}}
+{{- if eq .kind "hook" -}}
+  {{- $own = printf "hooks.%s.%s" .hookType .jobName -}}
+{{- else if eq .kind "cronjob" -}}
+  {{- $own = printf "cronJobs.%s" .jobName -}}
+{{- else -}}
+  {{- fail (printf "jobValuesPath: unknown kind %q for %s (expected \"hook\" or \"cronjob\")" (toString .kind) (toString .jobName)) -}}
+{{- end -}}
+{{- if .deploymentName -}}deployments.{{ .deploymentName }}.{{- end -}}{{- $own -}}
+{{- end -}}
+
+{{/*
 Resolve the image string for a cronjob/hook command, unifying the choice across
-root-level and deployment-level jobs. Returns the image string ("" when none
-resolves, so the caller applies `required` with its own context message).
+root-level and deployment-level jobs. Returns the image string, and fails when
+none resolves: the one home of the "image is required" message, which callers
+used to spell out each with its own printf.
 
 Accepts a dict with:
   root    - top-level chart context
   job     - the cronjob/hook command map
   deploy  - the parent deployment map (omit/nil for root-level jobs)
-  errCtx  - prefix for the fromDeployment failure message (e.g. "cronJobs.cleanup")
+  errCtx  - values path of the job, from jobValuesPath (required): names the job
+            in the failure messages
 
 Resolution order:
   1. explicit job.image
@@ -270,7 +299,7 @@ Resolution order:
 {{- $root := .root -}}
 {{- $job := .job -}}
 {{- $deploy := .deploy -}}
-{{- $errCtx := .errCtx -}}
+{{- $errCtx := required "jobImageString: errCtx is required (build it with jobValuesPath)" .errCtx -}}
 {{- $global := $root.Values.global -}}
 {{- $img := "" -}}
 {{- if hasKey $job "image" -}}
@@ -283,6 +312,13 @@ Resolution order:
     {{- fail (printf "%s.fromDeployment references deployment '%s' which does not exist in .Values.deployments" $errCtx $job.fromDeployment) -}}
   {{- end -}}
   {{- $img = include "global-chart.imageString" (dict "image" $dep.image "global" $global) -}}
+{{- end -}}
+{{- if not $img -}}
+  {{- if $deploy -}}
+    {{- fail (printf "image is required for %s" $errCtx) -}}
+  {{- else -}}
+    {{- fail (printf "image is required for %s (set %s.image or %s.fromDeployment)" $errCtx $errCtx $errCtx) -}}
+  {{- end -}}
 {{- end -}}
 {{- $img -}}
 {{- end -}}

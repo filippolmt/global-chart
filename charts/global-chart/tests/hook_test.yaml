@@ -477,6 +477,47 @@ tests:
           value: "my-existing-sa"
         documentIndex: 0
 
+  # ====== issue #133: serviceAccountName and serviceAccount.name disagree ======
+  - it: should fail when a root-level hook names its ServiceAccount twice with different names
+    set:
+      hooks:
+        pre-install:
+          migrate:
+            image: busybox:1.36
+            serviceAccountName: runner
+            serviceAccount:
+              name: migrator
+              create: true
+    asserts:
+      - failedTemplate:
+          errorMessage: "hooks.pre-install.migrate names its ServiceAccount twice, with different names: serviceAccountName \"runner\" and serviceAccount.name \"migrator\". Keep only one of the two fields (or set the same name in both)."
+
+  - it: should accept a root-level hook naming the same ServiceAccount in both fields
+    set:
+      hooks:
+        pre-install:
+          migrate:
+            image: busybox:1.36
+            serviceAccountName: migrator
+            serviceAccount:
+              name: migrator
+              create: true
+    asserts:
+      - hasDocuments:
+          count: 2
+      - equal:
+          path: metadata.name
+          value: migrator
+        documentSelector:
+          path: kind
+          value: ServiceAccount
+      - equal:
+          path: spec.template.spec.serviceAccountName
+          value: migrator
+        documentSelector:
+          path: kind
+          value: Job
+
   # ====== Root-level hook with no hooks set ======
   - it: should render nothing when hooks are not set
     set:
@@ -721,6 +762,22 @@ tests:
           path: spec.template.spec.serviceAccountName
           value: "custom-hook-sa"
         documentIndex: 0
+
+  - it: should fail when a deployment-level hook names its ServiceAccount twice with different names
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          hooks:
+            pre-upgrade:
+              migrate:
+                command: ["./migrate.sh"]
+                serviceAccountName: runner
+                serviceAccount:
+                  name: migrator
+    asserts:
+      - failedTemplate:
+          errorMessage: "deployments.backend.hooks.pre-upgrade.migrate names its ServiceAccount twice, with different names: serviceAccountName \"runner\" and serviceAccount.name \"migrator\". Keep only one of the two fields (or set the same name in both)."
 
   # ====== issue #71: hook-prerequisite copy of the deployment SA ======
   # Helm creates normal resources after pre-install hooks, so a pre-install Job
