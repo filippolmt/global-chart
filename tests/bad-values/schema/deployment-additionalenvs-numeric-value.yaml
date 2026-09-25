@@ -1,0 +1,8 @@
+# EnvVar.value is a string (issue #137). A number renders unquoted, passes
+# `helm lint`, then the API server rejects the Deployment.
+deployments:
+  app:
+    image: nginx:1.25
+    additionalEnvs:
+      - name: LIMIT
+        value: 10000000

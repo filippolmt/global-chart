@@ -1,0 +1,12 @@
+# EnvVar.value is a string (issue #137), in a deployment job's env: the
+# deployment scope of jobCommon's $ref.
+deployments:
+  app:
+    image: nginx:1.25
+    cronJobs:
+      report:
+        schedule: "0 3 * * *"
+        command: ["true"]
+        env:
+          - name: LIMIT
+            value: 10000000

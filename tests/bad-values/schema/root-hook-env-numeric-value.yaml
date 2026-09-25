@@ -1,0 +1,10 @@
+# EnvVar.value is a string (issue #137), in a job's env. Root scope; env comes
+# from jobCommon; the deployment scope has its own fixture.
+hooks:
+  pre-install:
+    migrate:
+      image: busybox:1.36
+      command: ["true"]
+      env:
+        - name: LIMIT
+          value: 10000000
