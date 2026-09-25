@@ -3651,3 +3651,86 @@ tests:
           value: scaler-hook
         documentIndex: 1
 
+
+  # ====== Pod-level automountServiceAccountToken (issue #154, ADR 0014) ======
+  # The pod field wins over the ServiceAccount's at admission. Chain: the job's
+  # own value > (deployment scope only) the deployment's pod-level value > omit.
+  - it: should render pod-level automountServiceAccountToken false from a root hook's own field
+    documentSelector:
+      path: kind
+      value: Job
+    set:
+      hooks:
+        pre-install:
+          migrate:
+            image: busybox:1.36
+            command: ["true"]
+            automountServiceAccountToken: false
+    asserts:
+      - equal:
+          path: spec.template.spec.automountServiceAccountToken
+          value: false
+
+  - it: should inherit the deployment's pod-level false on a hook running as the SA copy, whose automount stays true
+    set:
+      deployments:
+        app:
+          image: nginx
+          automountServiceAccountToken: false
+          hooks:
+            pre-install:
+              migrate:
+                command: ["true"]
+    asserts:
+      - equal:
+          path: spec.template.spec.serviceAccountName
+          value: RELEASE-NAME-global-chart-app-hook
+        documentSelector:
+          path: kind
+          value: Job
+      - equal:
+          path: spec.template.spec.automountServiceAccountToken
+          value: false
+        documentSelector:
+          path: kind
+          value: Job
+      # ADR 0014: the deployment value does not reach the SA; the pod field wins
+      - equal:
+          path: automountServiceAccountToken
+          value: true
+        documentSelector:
+          path: kind
+          value: ServiceAccount
+
+  - it: should let a hook's explicit automountServiceAccountToken true beat the deployment's false
+    documentSelector:
+      path: kind
+      value: Job
+    set:
+      deployments:
+        app:
+          image: nginx
+          automountServiceAccountToken: false
+          hooks:
+            pre-install:
+              migrate:
+                command: ["true"]
+                automountServiceAccountToken: true
+    asserts:
+      - equal:
+          path: spec.template.spec.automountServiceAccountToken
+          value: true
+
+  - it: should omit pod-level automountServiceAccountToken on a hook when nothing sets it
+    documentSelector:
+      path: kind
+      value: Job
+    set:
+      hooks:
+        post-install:
+          notify:
+            image: busybox:1.36
+            command: ["true"]
+    asserts:
+      - notExists:
+          path: spec.template.spec.automountServiceAccountToken

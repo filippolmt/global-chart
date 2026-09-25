@@ -65,6 +65,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   create the SA outside the release and bind it with `serviceAccount.create:
   false` and `name`. No values change.
 
+- **Behaviour change: a job's pod follows `automountServiceAccountToken`**
+  (issue #154, [ADR 0014](docs/adr/0014-job-pod-automount-follows-the-inheritance-chain.md)).
+  Hooks and cronjobs never rendered the pod-level field: a job's own value
+  reached only a ServiceAccount the job creates, so a job running as its
+  deployment's SA, or as the hook copy `<sa>-hook`, got the token anyway. The
+  pod field now takes the job's own value, then, for a deployment-level job,
+  the deployment's pod-level `automountServiceAccountToken`; with neither set
+  it is omitted and the ServiceAccount decides, as before. A root-level job
+  reads only its own value. The deployment's value is not carried into an SA
+  the job creates: the pod field already wins over it.
+
 - **A `pre-delete` hook reads the real Secret of its `externalSecrets`
   entries**, not the hook-prerequisite copy (ADR 0007, amended by ADR 0010).
   `pre-delete` runs before Helm deletes anything, so the real Secret is there;
@@ -260,7 +271,29 @@ deployments:
 `{}` used to mean "Role only"; it now renders `<name>-sa` and its RoleBinding
 (issue #124). **Action:** drop the `serviceAccount` key to keep a Role alone.
 
-#### 3. The schema rejects values that could never be applied (MEDIUM)
+#### 3. Jobs of a deployment with pod-level `automountServiceAccountToken: false` lose the token (MEDIUM)
+
+A deployment-level hook or cronjob now inherits the deployment's pod-level
+`automountServiceAccountToken` (issue #154), whichever ServiceAccount it runs
+as — its deployment's, the hook copy `<sa>-hook`, or one it names in
+`serviceAccountName`. A job that calls the Kubernetes API sees a missing token
+or a `403`.
+
+**Who is affected:** only deployments that set pod-level
+`automountServiceAccountToken: false` and have jobs needing the API.
+
+**Action:** set it back on the job.
+
+```yaml
+deployments:
+  app:
+    automountServiceAccountToken: false
+    cronJobs:
+      reconcile:
+        automountServiceAccountToken: true
+```
+
+#### 4. The schema rejects values that could never be applied (MEDIUM)
 
 - **Numbers in string fields** (issues #137, #145): `additionalEnvs[].value`, a
   job's `env[].value`, a KEDA trigger's `metadata` values,
@@ -278,7 +311,7 @@ deployments:
 - **`additionalEnvs` on a deployment-level cronjob or hook** (#146): it never
   reached the manifest. **Action:** move it to the job's `env`.
 
-#### 4. Contradictory values now fail at render (MEDIUM)
+#### 5. Contradictory values now fail at render (MEDIUM)
 
 - Two `rbacs.roles` entries landing on one Role, RoleBinding or ServiceAccount
   (#122), two `kedaTriggerAuthentications` keys truncated to one name (#117), a
@@ -290,23 +323,24 @@ deployments:
 
 **Action:** the error names the values path; rename, or keep one of the two.
 
-#### 5. A `pre-delete` hook reads the real Secret of its `externalSecrets` (LOW)
+#### 6. A `pre-delete` hook reads the real Secret of its `externalSecrets` (LOW)
 
 It used to read the hook copy (ADR 0010). The real Secret is still there when
 `pre-delete` runs, so nothing to do unless you relied on the copy's name.
 
-#### 6. Error messages name their owners by values path (LOW)
+#### 7. Error messages name their owners by values path (LOW)
 
 `deployments.api`, `cronJobs.cleanup`, not `deployment 'api'` (#133, #135).
 **Action:** update any pattern matched against the old wording.
 
 #### Migration checklist
 
-- [ ] `helm lint` your values and fix every rejection (point 3)
-- [ ] `helm template` your values and fix every render failure (point 4)
+- [ ] `helm lint` your values and fix every rejection (point 4)
+- [ ] `helm template` your values and fix every render failure (point 5)
 - [ ] Check which hooks run as `<sa>-hook`, and move identity-bound SAs outside the release (point 1)
 - [ ] Look for `rbacs.roles[].serviceAccount: {}` (point 2)
-- [ ] Update CI patterns matched against error messages (point 6)
+- [ ] Look for jobs under a deployment with pod-level `automountServiceAccountToken: false` that need the API (point 3)
+- [ ] Update CI patterns matched against error messages (point 7)
 - [ ] Check Helm is 3.18.6 or newer, or the schema closures are ignored (issue #116)
 - [ ] `helm diff upgrade`, then upgrade
 
