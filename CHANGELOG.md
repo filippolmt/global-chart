@@ -80,6 +80,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Fixed
 
+- **Tolerations, host aliases, DNS options and KEDA credential references are
+  checked by the schema** (issue #145). `tolerations[]`, `hostAliases[]` and
+  `dnsConfig.options[]` (deployments and jobs, both scopes) and a
+  TriggerAuthentication's `secretTargetRef[]` and `env[]` entries were open
+  objects: a typo (`efect`, `hostname`, `keyy`) installed and was dropped by
+  Kubernetes or KEDA, and a number in `tolerations[].value` rendered unquoted
+  and was rejected at apply. They now reject an unknown key, and a
+  toleration's `value` must be a string (`value: "1"`). A DNS option's `value`
+  still takes a number, which the template prints and quotes.
+- **`additionalEnvs` on a deployment-level cronjob or hook is rejected**
+  (issue #146). The schema declared it, but no template read it, so it was a
+  silent no-op. Use the job's own `env`; the deployment's `additionalEnvs` is
+  still inherited as before.
+
 - **A number in a field Kubernetes types as a string is rejected by the schema**
   (issue #137), not by the API server at apply. `additionalEnvs[].value` and a
   job's `env[].value` (EnvVar.value, both scopes) and a KEDA trigger's

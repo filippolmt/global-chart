@@ -276,6 +276,61 @@
       },
       "then": { "required": ["triggers"] }
     },
+    "toleration": {
+      "type": "object",
+      "properties": {
+        "key": { "type": "string" },
+        "operator": { "type": "string", "enum": ["Exists", "Equal"] },
+        "value": {
+          "description": "A string, as Toleration.value is: quote a number (\"1\").",
+          "type": "string"
+        },
+        "effect": { "type": "string", "enum": ["", "NoSchedule", "PreferNoSchedule", "NoExecute"] },
+        "tolerationSeconds": { "type": "integer" }
+      },
+      "additionalProperties": false
+    },
+    "hostAlias": {
+      "type": "object",
+      "required": ["ip"],
+      "properties": {
+        "ip": { "type": "string" },
+        "hostnames": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
+    "dnsConfigOption": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string" },
+        "value": {
+          "description": "PodDNSConfigOption.value is a string; a number is printed in digits and quoted by the template (printScalar), so ndots: 2 is accepted.",
+          "type": ["string", "number"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "kedaSecretTargetRef": {
+      "type": "object",
+      "required": ["parameter", "name", "key"],
+      "properties": {
+        "parameter": { "type": "string" },
+        "name": { "type": "string" },
+        "key": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "kedaEnvRef": {
+      "type": "object",
+      "required": ["parameter", "name"],
+      "properties": {
+        "parameter": { "type": "string" },
+        "name": { "type": "string" },
+        "containerName": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
     "envVar": {
       "type": "object",
       "required": ["name"],
@@ -320,8 +375,8 @@
     "kedaTriggerAuthentication": {
       "type": "object",
       "properties": {
-        "secretTargetRef": { "type": "array", "items": { "type": "object" } },
-        "env": { "type": "array", "items": { "type": "object" } },
+        "secretTargetRef": { "type": "array", "items": { "$ref": "#/$defs/kedaSecretTargetRef" } },
+        "env": { "type": "array", "items": { "$ref": "#/$defs/kedaEnvRef" } },
         "podIdentity": { "type": "object" },
         "hashiCorpVault": { "type": "object" },
         "azureKeyVault": { "type": "object" },
@@ -375,7 +430,7 @@
         },
         "options": {
           "type": "array",
-          "items": { "type": "object" }
+          "items": { "$ref": "#/$defs/dnsConfigOption" }
         }
       },
       "additionalProperties": false
@@ -519,11 +574,11 @@
           "type": "object",
           "additionalProperties": { "type": "string" }
         },
-        "tolerations": { "type": "array" },
+        "tolerations": { "type": "array", "items": { "$ref": "#/$defs/toleration" } },
         "affinity": { "type": "object" },
         "secret": { "type": "object", "additionalProperties": {} },
         "configMap": { "type": "object", "additionalProperties": {} },
-        "hostAliases": { "type": "array" },
+        "hostAliases": { "type": "array", "items": { "$ref": "#/$defs/hostAlias" } },
         "dnsConfig": { "$ref": "#/$defs/dnsConfig" },
         "envFromConfigMaps": {
           "type": "array",
@@ -594,9 +649,9 @@
           "type": "object",
           "additionalProperties": { "type": "string" }
         },
-        "tolerations": { "type": "array" },
+        "tolerations": { "type": "array", "items": { "$ref": "#/$defs/toleration" } },
         "affinity": { "type": "object" },
-        "hostAliases": { "type": "array" },
+        "hostAliases": { "type": "array", "items": { "$ref": "#/$defs/hostAlias" } },
         "dnsConfig": { "$ref": "#/$defs/dnsConfig" },
         "env": { "type": "array", "items": { "$ref": "#/$defs/envVar" } },
         "envFromConfigMaps": {
@@ -671,7 +726,6 @@
     "deploymentJobSpec": {
       "type": "object",
       "properties": {
-        "additionalEnvs": { "type": "array" },
         "inheritDeploymentConfigMap": { "type": "boolean" },
         "inheritDeploymentSecret": { "type": "boolean" }
       }

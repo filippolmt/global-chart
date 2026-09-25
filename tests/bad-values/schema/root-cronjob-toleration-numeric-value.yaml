@@ -1,0 +1,13 @@
+# Toleration.value is a string (issue #145). A number renders unquoted, passes
+# `helm lint`, then the API server rejects the CronJob. Root scope; jobCommon
+# carries the same $ref for both scopes, as the deployment does.
+cronJobs:
+  report:
+    image: busybox:1.36
+    schedule: "0 3 * * *"
+    command: ["true"]
+    tolerations:
+      - key: gpu
+        operator: Equal
+        value: 1
+        effect: NoSchedule

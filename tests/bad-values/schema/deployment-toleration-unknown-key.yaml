@@ -1,0 +1,11 @@
+# covers: toleration
+# An unknown key in a toleration (typo of effect). Kubernetes drops it, so the
+# toleration matches every effect instead of the one intended.
+deployments:
+  app:
+    image: nginx:1.25
+    tolerations:
+      - key: dedicated
+        operator: Equal
+        value: batch
+        efect: NoSchedule

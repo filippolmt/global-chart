@@ -1,0 +1,9 @@
+# covers: hostAlias
+# An unknown key in a host alias (typo of hostnames): the alias is written
+# with no name at all.
+deployments:
+  app:
+    image: nginx:1.25
+    hostAliases:
+      - ip: "10.0.0.1"
+        hostname: [db.local]
