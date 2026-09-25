@@ -53,15 +53,7 @@ spec:
   {{- with $job.timeZone }}
   timeZone: {{ . | quote }}
   {{- end }}
-  {{- if hasKey $job "startingDeadlineSeconds" }}
-  startingDeadlineSeconds: {{ $job.startingDeadlineSeconds }}
-  {{- end }}
-  {{- if hasKey $job "suspend" }}
-  suspend: {{ $job.suspend }}
-  {{- end }}
-  concurrencyPolicy: {{ ternary $job.concurrencyPolicy "Forbid" (hasKey $job "concurrencyPolicy") | quote }}
-  successfulJobsHistoryLimit: {{ ternary $job.successfulJobsHistoryLimit 2 (hasKey $job "successfulJobsHistoryLimit") }}
-  failedJobsHistoryLimit: {{ ternary $job.failedJobsHistoryLimit 2 (hasKey $job "failedJobsHistoryLimit") }}
+  {{- include "global-chart.cronJobSpecFields" $job | nindent 2 }}
   jobTemplate:
     {{- with (include "global-chart.renderAnnotations" (dict "root" $root)) }}
     metadata:
@@ -141,15 +133,7 @@ spec:
   {{- with $job.timeZone }}
   timeZone: {{ . | quote }}
   {{- end }}
-  {{- if hasKey $job "startingDeadlineSeconds" }}
-  startingDeadlineSeconds: {{ $job.startingDeadlineSeconds }}
-  {{- end }}
-  {{- if hasKey $job "suspend" }}
-  suspend: {{ $job.suspend }}
-  {{- end }}
-  concurrencyPolicy: {{ ternary $job.concurrencyPolicy "Forbid" (hasKey $job "concurrencyPolicy") | quote }}
-  successfulJobsHistoryLimit: {{ ternary $job.successfulJobsHistoryLimit 2 (hasKey $job "successfulJobsHistoryLimit") }}
-  failedJobsHistoryLimit: {{ ternary $job.failedJobsHistoryLimit 2 (hasKey $job "failedJobsHistoryLimit") }}
+  {{- include "global-chart.cronJobSpecFields" $job | nindent 2 }}
   jobTemplate:
     {{- with (include "global-chart.renderAnnotations" (dict "root" $root)) }}
     metadata:

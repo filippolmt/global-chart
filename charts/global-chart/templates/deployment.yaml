@@ -26,17 +26,17 @@ spec:
          it — and with KEDA minReplicaCount: 0 it wakes a workload that was
          deliberately scaled to zero. */}}
   {{- if not (or $autoscaling.enabled $keda.enabled) }}
-  replicas: {{ ternary $deploy.replicaCount 2 (hasKey $deploy "replicaCount") }}
+  replicas: {{ include "global-chart.printScalar" (ternary $deploy.replicaCount 2 (hasKey $deploy "replicaCount")) }}
   {{- end }}
   {{- with $deploy.strategy }}
   strategy:
     {{- toYaml . | nindent 4 }}
   {{- end }}
   {{- if hasKey $deploy "revisionHistoryLimit" }}
-  revisionHistoryLimit: {{ $deploy.revisionHistoryLimit }}
+  revisionHistoryLimit: {{ include "global-chart.printScalar" $deploy.revisionHistoryLimit }}
   {{- end }}
   {{- if hasKey $deploy "progressDeadlineSeconds" }}
-  progressDeadlineSeconds: {{ $deploy.progressDeadlineSeconds }}
+  progressDeadlineSeconds: {{ include "global-chart.printScalar" $deploy.progressDeadlineSeconds }}
   {{- end }}
   selector:
     matchLabels:
@@ -85,7 +85,7 @@ spec:
       automountServiceAccountToken: {{ $deploy.automountServiceAccountToken }}
       {{- end }}
       {{- if hasKey $deploy "terminationGracePeriodSeconds" }}
-      terminationGracePeriodSeconds: {{ $deploy.terminationGracePeriodSeconds }}
+      terminationGracePeriodSeconds: {{ include "global-chart.printScalar" $deploy.terminationGracePeriodSeconds }}
       {{- end }}
       {{- if $deploy.podSecurityContext }}
       securityContext:
@@ -118,7 +118,7 @@ spec:
           ports:
             {{- range (include "global-chart.containerPorts" $svc | fromJsonArray) }}
             - name: {{ .name }}
-              containerPort: {{ .containerPort }}
+              containerPort: {{ include "global-chart.printScalar" .containerPort }}
               protocol: {{ .protocol }}
             {{- end }}
           {{- if $deploy.livenessProbe }}

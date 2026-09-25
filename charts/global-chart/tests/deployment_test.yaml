@@ -1534,3 +1534,104 @@ tests:
       - equal:
           path: spec.template.metadata.annotations["prometheus.io/scrape"]
           value: "true"
+
+  # ====== Integers from values (issue #132) ======
+  # A number read from a values file is a float64, which the default format
+  # prints as 1e+07 from a million up: an integer field the API server rejects.
+  # set: values reach the template as float64 too, so these fail without
+  # global-chart.printScalar.
+  - it: should render large integers in plain digits
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          replicaCount: 10000000
+          revisionHistoryLimit: 10000000
+          progressDeadlineSeconds: 10000000
+          terminationGracePeriodSeconds: 10000000
+    asserts:
+      - equal:
+          path: spec.replicas
+          value: 10000000
+      - equal:
+          path: spec.revisionHistoryLimit
+          value: 10000000
+      - equal:
+          path: spec.progressDeadlineSeconds
+          value: 10000000
+      - equal:
+          path: spec.template.spec.terminationGracePeriodSeconds
+          value: 10000000
+
+  # ====== Numbers from values in string fields (issue #132) ======
+  # A values-file number is a float64, and toString prints it as 1e+07 from a
+  # million up: the API server accepts that in a string field and the
+  # application silently reads the wrong value. A non-integral float keeps its
+  # form (1.5 is never truncated). set: values reach the template as float64.
+  - it: should render a large dnsConfig option value in plain digits and keep a fraction
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          dnsConfig:
+            options:
+              - name: ndots
+                value: 10000000
+              - name: timeout
+                value: 1.5
+    asserts:
+      - equal:
+          path: spec.template.spec.dnsConfig.options[0].value
+          value: "10000000"
+      - equal:
+          path: spec.template.spec.dnsConfig.options[1].value
+          value: "1.5"
+
+  # Set means present and not null: 0 and "" are values the user wrote, and
+  # used to be dropped by a truthiness test.
+  - it: should keep a dnsConfig option value of 0 or empty and omit an absent one
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          dnsConfig:
+            options:
+              - name: ndots
+                value: 0
+              - name: edns0
+                value: ""
+              - name: single-request
+    asserts:
+      - equal:
+          path: spec.template.spec.dnsConfig.options
+          value:
+            - name: ndots
+              value: "0"
+            - name: edns0
+              value: ""
+            - name: single-request
+
+  # A date-shaped numeric tag rendered as nginx:2.0240101e+07.
+  - it: should render a large numeric image tag in plain digits
+    set:
+      deployments:
+        main:
+          image:
+            repository: nginx
+            tag: 20240101
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: nginx:20240101
+
+  - it: should keep a fractional numeric image tag
+    set:
+      deployments:
+        main:
+          image:
+            repository: nginx
+            tag: 1.5
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: nginx:1.5

@@ -134,3 +134,45 @@ tests:
     asserts:
       - notExists:
           path: metadata.annotations
+
+  # ====== Integers from values (issue #132) ======
+  # A number read from a values file is a float64, which the default format
+  # prints as 1e+07 from a million up: an integer field the API server rejects.
+  # set: values reach the template as float64 too, so these fail without
+  # global-chart.printScalar.
+  - it: should render large replica bounds in plain digits
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          autoscaling:
+            enabled: true
+            minReplicas: 10000000
+            maxReplicas: 10000000
+            targetCPUUtilizationPercentage: 80
+    asserts:
+      - equal:
+          path: spec.minReplicas
+          value: 10000000
+      - equal:
+          path: spec.maxReplicas
+          value: 10000000
+
+  - it: should render a large averageUtilization in plain digits
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          autoscaling:
+            enabled: true
+            minReplicas: 1
+            maxReplicas: 3
+            targetCPUUtilizationPercentage: 10000000
+            targetMemoryUtilizationPercentage: 10000000
+    asserts:
+      - equal:
+          path: spec.metrics[0].resource.target.averageUtilization
+          value: 10000000
+      - equal:
+          path: spec.metrics[1].resource.target.averageUtilization
+          value: 10000000

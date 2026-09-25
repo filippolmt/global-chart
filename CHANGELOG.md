@@ -44,6 +44,33 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   on hooks and cronjobs. Helm reads a number from a values file as a float64,
   and `activeDeadlineSeconds: 10000000` rendered as `1e+07`, which the API
   server rejects for an integer field.
+- **Every other integer from values renders in plain digits too** (issue #132).
+  The same `1e+07` reached `replicas`, `revisionHistoryLimit`,
+  `progressDeadlineSeconds` and `terminationGracePeriodSeconds` on Deployments;
+  `startingDeadlineSeconds`, `successfulJobsHistoryLimit` and
+  `failedJobsHistoryLimit` on cronjobs, both scopes; the HPA replica bounds; the
+  PDB `minAvailable` / `maxUnavailable`; the HTTPRoute `weight`; and the
+  ScaledObject replica counts and intervals. `--set` parses the number as an
+  integer, so the defect showed only with a values file.
+- **Numbers from values in string fields are no longer silently corrupted**
+  (issue #132). The same exponent notation reached fields the API server
+  accepts as strings, so nothing failed and the application read the wrong
+  value: a ConfigMap value `LIMIT: 10000000` rendered `"1e+07"` (on the
+  deployment ConfigMap and on its hook-prerequisite copy), a `dnsConfig.options`
+  value the same, an ExternalSecret `remote.version` the same, and a numeric
+  image tag `20240101` rendered the image `nginx:2.0240101e+07`. A whole number
+  now prints as its digits and a fraction keeps its form (`1.5` stays `1.5`).
+  A ConfigMap value set to `null`, which rendered as `"<nil>"`, now fails the
+  render: set `""` for an empty value.
+  Every number printed from values, in integer and string fields alike, now
+  goes through one helper, `global-chart.printScalar`, ports included; the Job
+  spec fields fixed above (#131) use the same helper instead of their own cast.
+  An int-or-string value — a percentage PDB bound, a named `targetPort` —
+  renders unchanged.
+- **A `dnsConfig.options` value of `0` or `""` is no longer dropped** (issue
+  #136). `ndots: 0` rendered as a bare `ndots`, and the resolver used `ndots:5`.
+  An option now omits `value` only when the key is absent or null, on
+  Deployments and on the cronjobs that inherit `dnsConfig`.
 - **A fullname that can never be applied is now rejected** (issue #120). A
   dotted release name such as `my.app`, or a `fullnameOverride` like `My_App`,
   rendered container and Service names the API server rejects.

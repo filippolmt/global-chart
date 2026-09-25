@@ -44,7 +44,7 @@ spec:
               service:
                 name: {{ $svcName }}
                 port:
-                  number: {{ $svcPort }}
+                  number: {{ include "global-chart.printScalar" $svcPort }}
           {{- end }}
     {{- end }}
 {{- end }}

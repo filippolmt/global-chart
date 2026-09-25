@@ -57,9 +57,9 @@ spec:
         {{- $identifier := printf "rule[%d].backendRefs[%d]" $ruleIdx $brIdx }}
         {{- $b := include "global-chart.resolveBackend" (dict "root" $root "ref" $br "sourceKind" "httpRoute" "identifier" $identifier) | fromJson }}
         - name: {{ $b.name | quote }}
-          port: {{ $b.port }}
+          port: {{ include "global-chart.printScalar" $b.port }}
           {{- if hasKey $br "weight" }}
-          weight: {{ $br.weight }}
+          weight: {{ include "global-chart.printScalar" $br.weight }}
           {{- end }}
           {{- with $br.filters }}
           filters:
