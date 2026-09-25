@@ -1,5 +1,5 @@
 # EnvVar.value is a string (issue #137), in a job's env. Root scope; env comes
-# from jobCommon, so the deployment scope takes the same $ref.
+# from jobCommon; the deployment scope has its own fixture.
 hooks:
   pre-install:
     migrate:

@@ -671,7 +671,7 @@
     "deploymentJobSpec": {
       "type": "object",
       "properties": {
-        "additionalEnvs": { "type": "array", "items": { "$ref": "#/$defs/envVar" } },
+        "additionalEnvs": { "type": "array" },
         "inheritDeploymentConfigMap": { "type": "boolean" },
         "inheritDeploymentSecret": { "type": "boolean" }
       }

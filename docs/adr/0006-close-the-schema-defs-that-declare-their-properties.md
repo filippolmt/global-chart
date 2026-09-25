@@ -49,7 +49,10 @@ and the four job definitions); `networkPolicy.ingress` and `egress`;
 `dataFrom[].sourceRef`; `resources.claims[]` and the `requests`/`limits` maps,
 which stay open for extended resources like `nvidia.com/gpu`;
 `rbacs.roles[].rules[]`, which are PolicyRules; `dnsConfig.options[]`;
-`kedaTrigger.metadata` and `autoscaling.behavior`; the
+`kedaTrigger.metadata` and `autoscaling.behavior` (*amended by issue #137:*
+`kedaTrigger.metadata` values must be strings, the ScaledObject's
+`map[string]string`, and the EnvVar lists close on `$defs/envVar`, whose three
+fields leave nothing to decide); the
 `kedaTriggerAuthentication` provider blocks; and the `filters[]` entries of an
 `httpRouteRule` and of its `backendRefs`, which declare `type` as a constraint
 but carry the Gateway API filter payload underneath.
