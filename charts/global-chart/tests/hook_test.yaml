@@ -2822,35 +2822,9 @@ tests:
           value: hook-failed
         documentIndex: 4
 
-  # A weight the schema accepts as a string but that is not canonical must render
-  # the same number on the Job and on every resource derived from it.
-  - it: should coerce a non-canonical string weight consistently across roles
-    set:
-      deployments:
-        backend:
-          image: myapp:v2
-          serviceAccount:
-            create: true
-          configMap:
-            DB_HOST: postgres
-          hooks:
-            pre-install:
-              migrate:
-                command: ["./migrate.sh"]
-                weight: "007"
-    asserts:
-      - equal:
-          path: metadata.annotations["helm.sh/hook-weight"]
-          value: "0"
-        documentIndex: 0
-      - equal:
-          path: metadata.annotations["helm.sh/hook-weight"]
-          value: "0"
-        documentIndex: 1
-      - equal:
-          path: metadata.annotations["helm.sh/hook-weight"]
-          value: "7"
-        documentIndex: 2
+  # A non-canonical string weight ("007", "010") is rejected by the schema: the
+  # weight arithmetic reads a leading zero as octal. See the leading-zero tests
+  # at the end of this suite.
 
   # The SA copy sorts against the hooks that actually bind the
   # deployment SA, not against every pre-install hook.
@@ -3734,3 +3708,34 @@ tests:
     asserts:
       - notExists:
           path: spec.template.spec.automountServiceAccountToken
+
+  # ====== A string hook weight with a leading zero reads as octal ======
+  # The weight arithmetic casts it with base detection: "010" became 8 on the
+  # Job and 3 on its ServiceAccount, reordering the hook in silence.
+  - it: should reject a hook weight with a leading zero
+    set:
+      hooks:
+        pre-install:
+          migrate:
+            image: busybox:1.36
+            command: ["true"]
+            weight: "010"
+    asserts:
+      - failedTemplate:
+          errorPattern: "does not match pattern"
+
+  - it: should accept a negative string hook weight
+    documentSelector:
+      path: kind
+      value: Job
+    set:
+      hooks:
+        pre-install:
+          migrate:
+            image: busybox:1.36
+            command: ["true"]
+            weight: "-10"
+    asserts:
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "-10"

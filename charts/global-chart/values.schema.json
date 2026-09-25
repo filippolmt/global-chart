@@ -709,7 +709,7 @@
     "hookJobSpec": {
       "type": "object",
       "properties": {
-        "weight": { "type": ["string", "integer"], "pattern": "^-?[0-9]+$" },
+        "weight": { "type": ["string", "integer"], "pattern": "^-?(0|[1-9][0-9]*)$", "description": "Hook weight. A string holds a plain integer: a leading zero is rejected, since the weight arithmetic would read \"010\" as octal 8." },
         "deletePolicy": { "type": "string" },
         "activeDeadlineSeconds": {
           "description": "Bound on the hook Job's run time. The only bound on a hook pod that waits for a Secret: it never reaches Failed, so backoffLimit never counts it.",

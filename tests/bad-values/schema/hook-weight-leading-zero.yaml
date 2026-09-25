@@ -1,0 +1,8 @@
+# A string hook weight with a leading zero. The weight arithmetic casts with
+# base detection, so "010" rendered hook-weight "8" on the Job.
+hooks:
+  pre-install:
+    migrate:
+      image: busybox:1.36
+      command: ["true"]
+      weight: "010"

@@ -114,6 +114,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   now checked against every chart Secret, the `-hook-secret` prerequisite copy
   included. `Merge` and `None` stay allowed: Helm keeps the keys `Merge` adds.
 
+- **A string hook `weight` with a leading zero is rejected by the schema**,
+  both scopes. The weight arithmetic reads it with base detection, so `"010"`
+  rendered `helm.sh/hook-weight: "8"` on the Job and `"3"` on its
+  ServiceAccount, and the hook ran in a different order than written. A string
+  weight now holds a plain integer (`"10"`, `"-5"`). `"007"`, which happened to
+  read as 7, is rejected too.
+
 - **Tolerations, host aliases, DNS options and KEDA credential references are
   checked by the schema** (issue #145). `tolerations[]`, `hostAliases[]` and
   `dnsConfig.options[]` (deployments and jobs, both scopes) and a
@@ -329,6 +336,8 @@ deployments:
   the error names.
 - **An HPA target that is not a plain number** (#151): `"80%"`, `"010"`, `-1`.
   `"80%"` read as 0 and switched the HPA off. **Action:** write `80`.
+- **A string hook `weight` with a leading zero**: `"010"` read as octal 8.
+  **Action:** drop the zero (`"10"`).
 - **Names Kubernetes rejects**: `nameOverride` / `fullnameOverride` (#120),
   `rbacs.roles[].name` (#121), `serviceAccount.name` and a job's
   `serviceAccountName` (#123), Service port names and named `targetPort`s
