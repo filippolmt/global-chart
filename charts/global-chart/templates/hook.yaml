@@ -12,10 +12,10 @@
 {{- range $name, $command := $jobs }}
 {{- if $command }}
 {{- $hookFullname := include "global-chart.hookfullname" (merge (dict "hookname" $hookType "jobname" $name) $root) }}
-{{- $errCtx := include "global-chart.jobValuesPath" (dict "kind" "hook" "hookType" $hookType "name" $name) }}
+{{- $errCtx := include "global-chart.jobValuesPath" (dict "kind" "hook" "hookType" $hookType "jobName" $name) }}
 
 {{- /* Resolve image: explicit > fromDeployment > error (see jobImageString helper) */ -}}
-{{- $imageRef := required (printf "image is required for %s (set %s.image or %s.fromDeployment)" $errCtx $errCtx $errCtx) (include "global-chart.jobImageString" (dict "root" $root "job" $command "errCtx" $errCtx)) }}
+{{- $imageRef := include "global-chart.jobImageString" (dict "root" $root "job" $command "errCtx" $errCtx) }}
 
 {{- /* ServiceAccount: explicit > create own (see jobServiceAccount helper; no
        deployment to inherit from at root level) */ -}}
@@ -138,7 +138,7 @@ data:
 {{- range $name, $command := $jobs -}}
 {{- if $command -}}
 {{- $fn := include "global-chart.deploymentHookName" (dict "root" $root "deploymentName" $deployName "hookType" $hookType "jobName" $name) -}}
-{{- $errCtx := include "global-chart.jobValuesPath" (dict "kind" "hook" "deployName" $deployName "hookType" $hookType "name" $name) -}}
+{{- $errCtx := include "global-chart.jobValuesPath" (dict "kind" "hook" "deploymentName" $deployName "hookType" $hookType "jobName" $name) -}}
 {{- $_ := set $hooks (printf "%s/%s" $hookType $name) (dict "fullname" $fn "errCtx" $errCtx "sa" (include "global-chart.jobServiceAccount" (dict "root" $root "job" $command "deploy" $deploy "deployName" $deployName "jobFullname" $fn "errCtx" $errCtx) | fromJson)) -}}
 {{- end -}}
 {{- end -}}
@@ -206,7 +206,7 @@ automountServiceAccountToken: {{ $deploySA.automount }}
 {{- $errCtx := $hook.errCtx }}
 
 {{- /* Resolve image: explicit in hook > inherited from deployment (see jobImageString helper) */ -}}
-{{- $imageRef := required (printf "image is required for %s" $errCtx) (include "global-chart.jobImageString" (dict "root" $root "job" $command "deploy" $deploy "errCtx" $errCtx)) }}
+{{- $imageRef := include "global-chart.jobImageString" (dict "root" $root "job" $command "deploy" $deploy "errCtx" $errCtx) }}
 
 {{- /* ServiceAccount: explicit in hook > inherited from deployment > create new for hook (see jobServiceAccount helper) */ -}}
 {{- $sa := $hook.sa -}}

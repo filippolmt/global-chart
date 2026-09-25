@@ -58,7 +58,7 @@ Called from validate.yaml.
     {{- range $jobName, $job := $deploy.cronJobs -}}
       {{- if $job -}}
         {{- $jobFullname := include "global-chart.deploymentCronJobName" (dict "root" $root "deploymentName" $name "jobName" $jobName) -}}
-        {{- $errCtx := include "global-chart.jobValuesPath" (dict "kind" "cronjob" "deployName" $name "name" $jobName) -}}
+        {{- $errCtx := include "global-chart.jobValuesPath" (dict "kind" "cronjob" "deploymentName" $name "jobName" $jobName) -}}
         {{- include "global-chart.registerName" (dict "names" $cronNames "kind" "CronJob" "name" $jobFullname "owner" $errCtx) -}}
         {{- $jobSA := include "global-chart.jobServiceAccount" (dict "root" $root "job" $job "deploy" $deploy "deployName" $name "jobFullname" $jobFullname "errCtx" $errCtx) | fromJson -}}
         {{- include "global-chart.registerSAName" (dict "names" $saNames "sa" $jobSA "owner" $errCtx) -}}
@@ -86,7 +86,7 @@ Called from validate.yaml.
           {{- if $command -}}
             {{- /* Canonical 4-part single-trunc name via shared helper — keeps validator byte-identical to hook.yaml (prior depFullname-based double-trunc only diverged for K8s-invalid trailing-dash names) */ -}}
             {{- $hookFullname := include "global-chart.deploymentHookName" (dict "root" $root "deploymentName" $name "hookType" $hookType "jobName" $jobName) -}}
-            {{- $errCtx := include "global-chart.jobValuesPath" (dict "kind" "hook" "deployName" $name "hookType" $hookType "name" $jobName) -}}
+            {{- $errCtx := include "global-chart.jobValuesPath" (dict "kind" "hook" "deploymentName" $name "hookType" $hookType "jobName" $jobName) -}}
             {{- include "global-chart.registerName" (dict "names" $hookNames "kind" "Job" "name" $hookFullname "owner" $errCtx) -}}
             {{- $hookSA := include "global-chart.jobServiceAccount" (dict "root" $root "job" $command "deploy" $deploy "deployName" $name "jobFullname" $hookFullname "errCtx" $errCtx) | fromJson -}}
             {{- include "global-chart.registerSAName" (dict "names" $saNames "sa" $hookSA "owner" $errCtx) -}}
@@ -121,7 +121,7 @@ Called from validate.yaml.
 {{- range $name, $job := .Values.cronJobs -}}
   {{- if $job -}}
     {{- $jobFullname := include "global-chart.rootCronJobName" (dict "root" $root "name" $name) -}}
-    {{- $errCtx := include "global-chart.jobValuesPath" (dict "kind" "cronjob" "name" $name) -}}
+    {{- $errCtx := include "global-chart.jobValuesPath" (dict "kind" "cronjob" "jobName" $name) -}}
     {{- include "global-chart.registerName" (dict "names" $cronNames "kind" "CronJob" "name" $jobFullname "owner" $errCtx) -}}
     {{- $sa := include "global-chart.jobServiceAccount" (dict "root" $root "job" $job "jobFullname" $jobFullname "errCtx" $errCtx) | fromJson -}}
     {{- include "global-chart.registerSAName" (dict "names" $saNames "sa" $sa "owner" $errCtx) -}}
@@ -133,7 +133,7 @@ Called from validate.yaml.
   {{- range $name, $command := $jobs -}}
     {{- if $command -}}
       {{- $hookFullname := include "global-chart.hookfullname" (merge (dict "hookname" $hookType "jobname" $name) $root) -}}
-      {{- $errCtx := include "global-chart.jobValuesPath" (dict "kind" "hook" "hookType" $hookType "name" $name) -}}
+      {{- $errCtx := include "global-chart.jobValuesPath" (dict "kind" "hook" "hookType" $hookType "jobName" $name) -}}
       {{- include "global-chart.registerName" (dict "names" $hookNames "kind" "Job" "name" $hookFullname "owner" $errCtx) -}}
       {{- $sa := include "global-chart.jobServiceAccount" (dict "root" $root "job" $command "jobFullname" $hookFullname "errCtx" $errCtx) | fromJson -}}
       {{- include "global-chart.registerSAName" (dict "names" $saNames "sa" $sa "owner" $errCtx) -}}
@@ -302,7 +302,7 @@ Called from validate.yaml. Emits nothing on success.
 {{- end -}}
 {{- range $hookType, $jobs := .Values.hooks -}}
   {{- range $name, $job := $jobs -}}
-    {{- if $job -}}{{- $label = include "global-chart.jobValuesPath" (dict "kind" "hook" "hookType" $hookType "name" $name) -}}{{- end -}}
+    {{- if $job -}}{{- $label = include "global-chart.jobValuesPath" (dict "kind" "hook" "hookType" $hookType "jobName" $name) -}}{{- end -}}
   {{- end -}}
 {{- end -}}
 {{- if and $label (contains "." $fullname) -}}

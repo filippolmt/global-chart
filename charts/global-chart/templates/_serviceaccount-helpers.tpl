@@ -81,9 +81,9 @@ Accepts a dict with:
   deployName   - the deployment key (unused when deploy is nil)
   jobFullname  - the job's own resource name (fallback when a SA is created)
   errCtx       - values path of the job, from jobValuesPath (_job-helpers.tpl),
-                 for the fail message below. Every call site passes it, built by
-                 that one helper, so whichever renders first names the job the
-                 same way
+                 for the fail message below (required). Every call site passes
+                 it, built by that one helper, so whichever renders first names
+                 the job the same way
 
 Resolution:
   name:   explicit (serviceAccountName | serviceAccount.name) > deployment SA > jobFullname.
@@ -106,9 +106,10 @@ Resolution:
 {{- $deploy := default (dict) .deploy -}}
 {{- $deployName := .deployName -}}
 {{- $jobFullname := .jobFullname -}}
+{{- $errCtx := required "jobServiceAccount: errCtx is required (build it with jobValuesPath)" .errCtx -}}
 {{- $jobSAMap := (and (hasKey $job "serviceAccount") (kindIs "map" $job.serviceAccount)) | ternary $job.serviceAccount (dict) -}}
 {{- if and $job.serviceAccountName $jobSAMap.name (ne (toString $job.serviceAccountName) (toString $jobSAMap.name)) -}}
-  {{- fail (printf "%s names its ServiceAccount twice, with different names: serviceAccountName %q and serviceAccount.name %q. Keep only one of the two fields (or set the same name in both)." (toString .errCtx) (toString $job.serviceAccountName) (toString $jobSAMap.name)) -}}
+  {{- fail (printf "%s names its ServiceAccount twice, with different names: serviceAccountName %q and serviceAccount.name %q. Keep only one of the two fields (or set the same name in both)." $errCtx (toString $job.serviceAccountName) (toString $jobSAMap.name)) -}}
 {{- end -}}
 {{- $jobSAExplicitName := coalesce $job.serviceAccountName $jobSAMap.name -}}
 {{- /* The deployment's SA name, created or referenced-existing; "" when it
