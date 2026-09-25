@@ -52,7 +52,7 @@ is the source of truth, this table is only the routing.
 | `_helpers.tpl` | Naming and labels. `truncName` is the single home of the truncation trim; `mergeLabels` is the single home of the label precedence; the Job-family, mounted-config-file and hook-copy name helpers (`rbacs.roles` and every release-created ServiceAccount) are the single home of each generated name and its truncation constant |
 | `_image-helpers.tpl` | `imageString`, `imagePullPolicy` |
 | `_job-helpers.tpl` | One implementation of the pod spec, image resolution, the CronJob spec fields (`cronJobSpecFields`) and the Job spec fields table (`jobSpecVerbatimFields`) for **every** hook and cronjob, both scopes — root-level callers simply pass no `deploy`. `jobValuesPath` is the single home of the name a job carries in error messages |
-| `_serviceaccount-helpers.tpl` | Every ServiceAccount the chart renders or binds, resolved to `{create, name, automount, annotations}`: deployment, rbac and job resolvers, with the deployment and rbac defaults in `resolveServiceAccount`; the job resolver keeps its own chain, and rejects a job naming its SA twice with different names itself — every job render path goes through it, so the check cannot be skipped. Also the SA side of the hook copies (ADR 0010, 0011): whether the release creates a SA (`releaseCreatesServiceAccount`), the SA a copy binds (`serviceAccountCopyName`), the match of a hook to the SA copy (`hookReadsServiceAccountCopy`) and to the `rbacs.roles` copies (`hookRbacCopy`, over `rbacServiceAccounts`), and the SA a hook's pod runs as (`hookServiceAccountName`). Templates never read `serviceAccount.*` from values |
+| `_serviceaccount-helpers.tpl` | Every ServiceAccount the chart renders or binds, resolved to `{create, name, automount, annotations}`: deployment, rbac and job resolvers, with the deployment and rbac defaults in `resolveServiceAccount`; the job resolver keeps its own chain, and rejects a job naming its SA twice with different names itself — every job render path goes through it, so the check cannot be skipped. Also the SA side of the hook copies (ADR 0010, 0011): every SA the release creates (`releaseServiceAccounts`), whether it creates one (`releaseCreatesServiceAccount`), the SA a copy binds (`serviceAccountCopyName`), the match of a hook to the SA copy (`hookReadsServiceAccountCopy`) and to the `rbacs.roles` copies (`hookRbacCopy`, over `rbacServiceAccounts`), and the SA a hook's pod runs as (`hookServiceAccountName`). Templates never read `serviceAccount.*` from values |
 | `_hook-helpers.tpl` | The three `helm.sh/hook*` annotations, weights and delete policies, driven by a role table; the phase cut `hookReadsPrereqCopy`, the one enumeration of the hooks it admits (`prereqCopyHooks`) and the consumer scans of the ExternalSecret, `rbacs.roles` and ServiceAccount hook copies |
 | `_render-helpers.tpl` | `printScalar`, the single home of how a number from values is printed, in integer and string fields alike; shared render blocks, `renderAnnotations`, the ConfigMap/Secret `data:` bodies and the Role `rules:` block shared with the hook-prerequisite copies, and the two port helpers |
 | `_keda-helpers.tpl` | KEDA names, trigger and `authenticationRef` resolution, the CRD guard |
@@ -113,13 +113,14 @@ is the source of truth, this table is only the routing.
    is negative, the exact ordering failure the invariant exists to prevent
 7. **Hook prerequisite copies**: the deployment ConfigMap/Secret are duplicated
    as hook-annotated resources, because normal resources are not updated until
-   after hooks complete. A ServiceAccount the release creates (a deployment's or
-   an `rbacs.roles` entry's) gets a copy `<sa>-hook` for every hook of either
-   scope bound to it in a `hookReadsPrereqCopy` phase, and the hook's pod runs as
-   the copy — **never** under the real name: under Argo CD `pre-install` runs on
-   every sync, and a same-name copy's deletion takes the live SA with it. The
-   predicate is `releaseCreatesServiceAccount`, the match
-   `hookReadsServiceAccountCopy`, the name `serviceAccountCopyName`. Read
+   after hooks complete. A ServiceAccount the release creates (a deployment's,
+   an `rbacs.roles` entry's or a cronjob's) gets a copy `<sa>-hook` for every
+   hook of either scope bound to it in a `hookReadsPrereqCopy` phase, and the
+   hook's pod runs as the copy — **never** under the real name: under Argo CD
+   `pre-install` runs on every sync, and a same-name copy's deletion takes the
+   live SA with it. The scan is `releaseServiceAccounts`, the match
+   `hookReadsServiceAccountCopy`, the name `serviceAccountCopyName`, and
+   hook.yaml is the one emitter, whoever creates the SA. Read
    `docs/adr/0011-hook-prerequisite-serviceaccount-copy-own-name.md` before
    touching it.
    An ExternalSecret a `pre-*` or `post-delete` hook references (`externalSecrets: [{name: <key>}]`,
@@ -131,8 +132,8 @@ is the source of truth, this table is only the routing.
    from `renderExternalSecretSpec`, the same helper as the real one. Read
    `docs/adr/0007-hook-prerequisite-externalsecret-copy.md` before touching it.
    An `rbacs.roles` entry whose SA such a hook runs as gets a copy as well: Role
-   `<role>-hook`, RoleBinding `<binding>-hook`, and `<sa>-hook` when the entry
-   creates the SA — then the hook's pod runs as `<sa>-hook`. The match is
+   `<role>-hook` and RoleBinding `<binding>-hook`, bound to the SA copy when the
+   release creates the SA (the SA copy above). The match is
    `hookRbacCopy`, the SA choice `serviceAccountCopyName`, the Role's rules
    `renderRoleRules`; each is a single home, read by rbac.yaml, hook.yaml and
    the validator alike. Own names for the same Argo CD reason. Read `docs/adr/0010-hook-prerequisite-rbac-copy.md`

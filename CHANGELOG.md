@@ -57,9 +57,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   `pre-install`. So a root-level hook naming the deployment's SA, and a revision
   that adds a deployment with a `pre-upgrade` hook, now work. The copy carries
   the real SA's annotations and automount, and a copy name that truncates back
-  onto the real one fails the render. Its delete policy is the other hook
-  copies' (`before-hook-creation,hook-succeeded`): after a failed hook it stays
-  until the next hook run replaces it, as the prereq ConfigMap and Secret do.
+  onto the real one fails the render. A cronjob's own chart-created SA gets the
+  same copy when a hook names it.
   **The pod loses an identity keyed on the
   SA name:** a Workload Identity / IRSA binding on
   `system:serviceaccount:<ns>:<sa>` does not reach `<sa>-hook`. To keep it,

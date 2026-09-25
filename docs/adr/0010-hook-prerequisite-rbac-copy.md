@@ -71,7 +71,8 @@ the entry creates it. The hook runs as whatever SA the copy binds.
   deployment's SA included, and the helper is `serviceAccountCopyName`.
   The choice lives in one helper, `serviceAccountCopyName` (originally
   `rbacCopyServiceAccountName`), for the copy's
-  subject, for the pod and for the validator alike. When several entries share one SA, each entry's
+  subject, for the pod and for the validator alike. *Amended by ADR 0011:* the
+  SA copy itself is rendered by hook.yaml, with every other SA copy. When several entries share one SA, each entry's
   copied RoleBinding binds the same SA the hook runs as.
 - **One copy per entry, whatever the number of hooks.** The copy's phases are the
   union of its consumers' phases. Its weight comes from the earliest consumer, on

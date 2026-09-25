@@ -223,10 +223,9 @@ Usage: {{ $consumers := include "global-chart.rbacHookConsumers" $root | fromJso
 
 {{/*
 The hooks that run as the copy of each ServiceAccount the release creates, in
-both scopes: the input of the ServiceAccount hook-prerequisite copy (ADR 0011),
-for hook.yaml, which emits a deployment's, and for validateNameCollisions,
-which registers its name. rbac.yaml emits the copy of a SA an rbacs.roles
-entry creates from rbacHookConsumers, whose hooks are the same.
+both scopes: the input of the ServiceAccount hook-prerequisite copy (ADR 0010,
+ADR 0011), for hook.yaml, which emits every one of them, and for
+validateNameCollisions, which registers their names.
 Returns JSON: SA name -> hookType -> values path -> command, the shape
 minHookWeight reads, as the scans above. A SA no such hook runs as is absent:
 it gets no copy. Which hook runs as which copy is hookReadsServiceAccountCopy's

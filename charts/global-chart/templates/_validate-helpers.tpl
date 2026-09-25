@@ -213,7 +213,7 @@ Called from validate.yaml.
        real name so the copy is the one blamed. <name>-hook lands on an entry
        already named so, and a name at its limit truncates back onto its own
        real one — a copy sharing the real name would delete it under
-       hook-succeeded. The copied SA exists only when the role creates it. */ -}}
+       hook-succeeded. The copied SA is registered in 8, with every SA copy. */ -}}
 {{- $rbacConsumers := include "global-chart.rbacHookConsumers" $root | fromJson -}}
 {{- /* The copy's name derives from the real one, so neither serviceAccount.name
        nor create: false is a way out: the name has to change */ -}}
@@ -222,26 +222,16 @@ Called from validate.yaml.
   {{- if hasKey $rbacConsumers $role.name -}}
     {{- $owner := printf "rbacs.roles[%d] ('%s') (hook prerequisite copy)" $i $role.name -}}
     {{- include "global-chart.registerName" (dict "names" $roleNames "kind" "Role" "name" (include "global-chart.rbacRoleHookName" $role.name) "owner" $owner "hint" $copyHint) -}}
-    {{- /* The SA copy exists where rbac.yaml renders it: on the entry creating
-           the SA */ -}}
-    {{- $sa := include "global-chart.rbacServiceAccount" $role | fromJson -}}
-    {{- if $sa.create -}}
-      {{- include "global-chart.registerSAName" (dict "names" $saNames "sa" (dict "create" true "name" (include "global-chart.serviceAccountCopyName" (dict "root" $root "name" $sa.name))) "owner" $owner "hint" $copyHint) -}}
-    {{- end -}}
     {{- include "global-chart.registerName" (dict "names" $bindingNames "kind" "RoleBinding" "name" (include "global-chart.rbacRoleBindingHookName" $role.name) "owner" $owner "hint" $copyHint) -}}
   {{- end -}}
 {{- end -}}
-{{- /* 8. The hook-prerequisite copy of a deployment's ServiceAccount (ADR
-       0011), under the same rule and after every real name: <sa>-hook lands on
-       another SA the chart creates, or truncates back onto its own real name. */ -}}
-{{- $saConsumers := include "global-chart.serviceAccountHookConsumers" $root | fromJson -}}
-{{- range $name, $deploy := .Values.deployments -}}
-  {{- if and $deploy (eq (include "global-chart.deploymentEnabled" $deploy) "true") -}}
-    {{- $deploySA := include "global-chart.deploymentServiceAccount" (dict "root" $root "deploymentName" $name "deployment" $deploy) | fromJson -}}
-    {{- if and $deploySA.create (hasKey $saConsumers $deploySA.name) -}}
-      {{- include "global-chart.registerSAName" (dict "names" $saNames "sa" (dict "create" true "name" (include "global-chart.serviceAccountCopyName" (dict "root" $root "name" $deploySA.name))) "owner" (printf "deployments.%s (hook prerequisite copy)" $name) "hint" $copyHint) -}}
-    {{- end -}}
-  {{- end -}}
+{{- /* 8. The hook-prerequisite copy of every ServiceAccount the release
+       creates that a hook runs as (ADR 0010, ADR 0011), under the same rule and
+       after every real name: <sa>-hook lands on another SA the chart creates, or
+       truncates back onto its own real name. Blamed on the SA's creator. */ -}}
+{{- $releaseSAs := include "global-chart.releaseServiceAccounts" $root | fromJson -}}
+{{- range $saName, $_ := (include "global-chart.serviceAccountHookConsumers" $root | fromJson) -}}
+  {{- include "global-chart.registerSAName" (dict "names" $saNames "sa" (dict "create" true "name" (include "global-chart.serviceAccountCopyName" (dict "root" $root "name" $saName))) "owner" (printf "%s (hook prerequisite copy)" (index $releaseSAs $saName).owner) "hint" $copyHint) -}}
 {{- end -}}
 
 {{- end }}

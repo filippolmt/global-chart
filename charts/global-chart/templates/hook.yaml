@@ -2,9 +2,46 @@
   Hooks can be defined in two places:
   1. Root level: .Values.hooks (standalone, optional fromDeployment for image)
   2. Inside deployments: .Values.deployments.<name>.hooks (inherits image, configMap, secret, SA from deployment)
+  Part 0 renders the hook-prerequisite copy of the ServiceAccounts those hooks
+  run as.
 */}}
 
 {{- $root := . }}
+
+{{- /*
+  PART 0: hook-prerequisite copy of every ServiceAccount the release creates
+  that a hook runs as (ADR 0010, ADR 0011) — a deployment's, an rbacs.roles
+  entry's or a cronjob's.
+
+  Such a SA is a normal resource: Helm creates it after the pre-* hooks and
+  deletes it before post-delete, so a hook bound to it in those phases would
+  reference a SA that is not there (issue #71). The copy has its own name,
+  <sa>-hook, and the hook's pod runs as it (hookServiceAccountName): a
+  same-name copy would be applied over the live SA and deleted with it by
+  hook-succeeded under Argo CD, where pre-install runs on every sync (issue
+  #141). It carries the real SA's annotations and automount, but an identity
+  keyed on the SA name (Workload Identity, IRSA) does not reach it.
+  One copy per SA, whatever the number of hooks and their scope: phases
+  aggregated, weight from the earliest consumer, role prereq.
+*/ -}}
+{{- $releaseSAs := include "global-chart.releaseServiceAccounts" $root | fromJson }}
+{{- range $saName, $consumers := (include "global-chart.serviceAccountHookConsumers" $root | fromJson) }}
+{{- $sa := index $releaseSAs $saName }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "global-chart.serviceAccountCopyName" (dict "root" $root "name" $saName) }}
+  namespace: {{ $root.Release.Namespace | quote }}
+  labels:
+    {{- include "global-chart.hookLabelsWithComponent" (dict "root" $root "deploymentName" $sa.deploymentName) | nindent 4 }}
+  annotations:
+    {{- with (include "global-chart.renderAnnotations" (dict "root" $root "own" $sa.annotations)) }}
+    {{- . | nindent 4 }}
+    {{- end }}
+    {{- include "global-chart.hookAnnotations" (dict "hookType" (keys $consumers | sortAlpha | join ",") "role" "prereq" "weight" (include "global-chart.minHookWeight" (dict "hooks" $consumers))) | nindent 4 }}
+automountServiceAccountToken: {{ $sa.automount }}
+{{- end }}
 
 {{/* ====== PART 1: Root-level hooks ====== */}}
 {{- if .Values.hooks }}
@@ -74,17 +111,12 @@ spec:
 {{- end }}
 
 {{/* ====== PART 2: Deployment-level hooks (inherit from deployment) ====== */}}
-{{- /* The hooks of either scope that run as each SA copy, scanned once */ -}}
-{{- $saConsumers := include "global-chart.serviceAccountHookConsumers" $root | fromJson }}
 {{- range $deployName, $deploy := .Values.deployments }}
 {{- if $deploy }}
-{{- /* Enabled, with or without hooks of its own: a root-level hook can run as
-       the deployment's SA and need its copy */ -}}
-{{- if eq (include "global-chart.deploymentEnabled" $deploy) "true" }}
+{{- if and (eq (include "global-chart.deploymentEnabled" $deploy) "true") $deploy.hooks }}
 
 {{- /* Compute deployment-level values ONCE per deployment (before hookType/command loops) */ -}}
 {{- $deployFullname := include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $deployName) -}}
-{{- if $deploy.hooks }}
 {{- $hasDeployConfigMap := and $deploy.configMap (gt (len $deploy.configMap) 0) -}}
 {{- $hasDeploySecret := and $deploy.secret (gt (len $deploy.secret) 0) -}}
 {{- /* Aggregate ALL hook types for prerequisite resources (sorted for deterministic output) */ -}}
@@ -134,43 +166,6 @@ metadata:
 type: Opaque
 data:
   {{- include "global-chart.renderSecretData" $deploy.secret | nindent 2 }}
-{{- end }}
-
-{{- end }}
-
-{{- /*
-  Hook-prerequisite copy of the deployment's ServiceAccount (ADR 0011).
-
-  The SA is a normal resource: Helm creates it after the pre-* hooks and deletes
-  it before post-delete, so a hook bound to it in those phases references a SA
-  that is not there (issue #71). The copy has its own name, <sa>-hook, and the
-  hook's pod runs as it (hookServiceAccountName): a same-name copy would be
-  applied over the live SA and deleted with it by hook-succeeded under Argo CD,
-  where pre-install runs on every sync (issue #141). It carries the real SA's
-  annotations and automount, but an identity keyed on the SA name (Workload
-  Identity, IRSA) does not reach it.
-  One copy per SA, whatever the number of hooks and their scope: phases
-  aggregated, weight from the earliest consumer, role prereq. The copy of a SA
-  an rbacs.roles entry creates is rbac.yaml's.
-*/ -}}
-{{- $deploySA := include "global-chart.deploymentServiceAccount" (dict "root" $root "deploymentName" $deployName "deployment" $deploy) | fromJson }}
-{{- if $deploySA.create }}
-{{- with index $saConsumers $deploySA.name }}
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: {{ include "global-chart.serviceAccountCopyName" (dict "root" $root "name" $deploySA.name) }}
-  namespace: {{ $root.Release.Namespace | quote }}
-  labels:
-    {{- include "global-chart.hookLabelsWithComponent" (dict "root" $root "deploymentName" $deployName) | nindent 4 }}
-  annotations:
-    {{- with (include "global-chart.renderAnnotations" (dict "root" $root "own" $deploySA.annotations)) }}
-    {{- . | nindent 4 }}
-    {{- end }}
-    {{- include "global-chart.hookAnnotations" (dict "hookType" (keys . | sortAlpha | join ",") "role" "prereq" "weight" (include "global-chart.minHookWeight" (dict "hooks" .))) | nindent 4 }}
-automountServiceAccountToken: {{ $deploySA.automount }}
-{{- end }}
 {{- end }}
 
 {{- /* Each hook's name, values path and ServiceAccount, resolved once, before
@@ -261,3 +256,4 @@ spec:
 {{- end }}
 {{- end }}
 {{- end }}
+

@@ -56,36 +56,21 @@ subjects:
 ---
 {{- end }}
 {{- /*
-  Hook-prerequisite copy of the entry (ADR 0010): the Role, the RoleBinding and
-  the SA are normal resources, applied after the pre-* hooks and gone before
+  Hook-prerequisite copy of the entry (ADR 0010): the Role and the RoleBinding
+  are normal resources, applied after the pre-* hooks and gone before
   post-delete, so a hook running as the role's SA in those phases would run
-  without its rules — or, when the role creates the SA, as a SA that does not
-  exist. Every copy has its own name (<name>-hook): a same-name copy deleted by
-  hook-succeeded would take the live resource with it under Argo CD, where
-  pre-install runs on every sync. One copy per entry, whatever the number of
-  hooks: phases aggregated, weight from the earliest consumer, role prereq.
+  without its rules. Every copy has its own name (<name>-hook): a same-name copy
+  deleted by hook-succeeded would take the live resource with it under Argo CD,
+  where pre-install runs on every sync. One copy per entry, whatever the number
+  of hooks: phases aggregated, weight from the earliest consumer, role prereq.
+  The copy of the SA itself, when the release creates it, is hook.yaml's (ADR
+  0011); the RoleBinding copy binds it through serviceAccountCopyName.
 */ -}}
 {{- with index $consumers $role.name }}
 {{- $hookTypes := keys . | sortAlpha | join "," }}
 {{- $weight := include "global-chart.minHookWeight" (dict "hooks" .) }}
 {{- $copySA := include "global-chart.serviceAccountCopyName" (dict "root" $root "name" $resolved.name) }}
 {{- $roleCopy := include "global-chart.rbacRoleHookName" $role.name }}
-{{- if $resolved.create }}
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: {{ $copySA }}
-  namespace: {{ $root.Release.Namespace | quote }}
-  labels:
-    {{- include "global-chart.hookLabelsWithComponent" (dict "root" $root) | nindent 4 }}
-  annotations:
-    {{- with (include "global-chart.renderAnnotations" (dict "root" $root "own" $resolved.annotations)) }}
-    {{- . | nindent 4 }}
-    {{- end }}
-    {{- include "global-chart.hookAnnotations" (dict "hookType" $hookTypes "role" "prereq" "weight" $weight) | nindent 4 }}
-automountServiceAccountToken: {{ $resolved.automount }}
----
-{{- end }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:

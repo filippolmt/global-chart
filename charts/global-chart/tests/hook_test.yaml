@@ -1164,6 +1164,33 @@ tests:
           value: app-sa-hook
         documentIndex: 1
 
+  # A cronjob's own SA is a normal resource too: a hook naming it runs as its copy
+  - it: should copy a cronjob-created SA for a pre-install hook naming it
+    set:
+      cronJobs:
+        report:
+          image: myapp:v1
+          schedule: "0 3 * * *"
+          serviceAccount:
+            create: true
+            name: report-sa
+      hooks:
+        pre-install:
+          seed:
+            image: myapp:v1
+            serviceAccountName: report-sa
+    asserts:
+      - hasDocuments:
+          count: 2
+      - equal:
+          path: metadata.name
+          value: report-sa-hook
+        documentIndex: 0
+      - equal:
+          path: spec.template.spec.serviceAccountName
+          value: report-sa-hook
+        documentIndex: 1
+
   # ====== Deployment-level hook: explicit empty should NOT inherit ======
   - it: should not inherit hostAliases when hook sets empty list
     set:
@@ -2053,11 +2080,11 @@ tests:
     asserts:
       - isKind:
           of: ConfigMap
-        documentIndex: 0
+        documentIndex: 1
       - equal:
           path: metadata.annotations["helm.sh/hook-weight"]
           value: "3"
-        documentIndex: 0
+        documentIndex: 1
 
   - it: should set weight 3 on prerequisite Secret for deployment-level hook
     set:
@@ -2073,11 +2100,11 @@ tests:
     asserts:
       - isKind:
           of: Secret
-        documentIndex: 0
+        documentIndex: 1
       - equal:
           path: metadata.annotations["helm.sh/hook-weight"]
           value: "3"
-        documentIndex: 0
+        documentIndex: 1
 
   - it: should set weight 5 on SA for deployment-level hook
     set:
@@ -2137,11 +2164,11 @@ tests:
     asserts:
       - isKind:
           of: ConfigMap
-        documentIndex: 0
+        documentIndex: 1
       - equal:
           path: metadata.annotations["helm.sh/hook"]
           value: "pre-install,pre-upgrade"
-        documentIndex: 0
+        documentIndex: 1
 
   - it: should aggregate all hook types on prerequisite Secret when deployment has multiple hook types
     set:
@@ -2160,11 +2187,11 @@ tests:
     asserts:
       - isKind:
           of: Secret
-        documentIndex: 0
+        documentIndex: 1
       - equal:
           path: metadata.annotations["helm.sh/hook"]
           value: "pre-install,pre-upgrade"
-        documentIndex: 0
+        documentIndex: 1
 
   # ====== hasKey default conversions ======
   - it: should render restartPolicy Never by default on root-level hook
@@ -2231,15 +2258,15 @@ tests:
               migrate:
                 command: ["./migrate.sh"]
     asserts:
-      # Documents: Secret prereq (0), SA copy (1), Job (2) — no ConfigMap prereq
+      # Documents: SA copy (0), Secret prereq (1), Job (2) — no ConfigMap prereq
       - hasDocuments:
           count: 3
       - isKind:
           of: Secret
-        documentIndex: 0
+        documentIndex: 1
       - isKind:
           of: ServiceAccount
-        documentIndex: 1
+        documentIndex: 0
       - isKind:
           of: Job
         documentIndex: 2
@@ -2258,19 +2285,19 @@ tests:
               migrate:
                 command: ["./migrate.sh"]
     asserts:
-      # Documents: ConfigMap prereq (0), SA copy (1), Job (2) — no Secret prereq
+      # Documents: SA copy (0), ConfigMap prereq (1), Job (2) — no Secret prereq
       - hasDocuments:
           count: 3
       - isKind:
           of: ConfigMap
-        documentIndex: 0
+        documentIndex: 1
       - equal:
           path: metadata.annotations["helm.sh/hook"]
           value: "pre-install"
-        documentIndex: 0
+        documentIndex: 1
       - isKind:
           of: ServiceAccount
-        documentIndex: 1
+        documentIndex: 0
       - isKind:
           of: Job
         documentIndex: 2
@@ -2289,19 +2316,19 @@ tests:
               migrate:
                 command: ["./migrate.sh"]
     asserts:
-      # Documents: Secret prereq (0), SA copy (1), Job (2) — no ConfigMap prereq
+      # Documents: SA copy (0), Secret prereq (1), Job (2) — no ConfigMap prereq
       - hasDocuments:
           count: 3
       - isKind:
           of: Secret
-        documentIndex: 0
+        documentIndex: 1
       - equal:
           path: metadata.annotations["helm.sh/hook"]
           value: "pre-install"
-        documentIndex: 0
+        documentIndex: 1
       - isKind:
           of: ServiceAccount
-        documentIndex: 1
+        documentIndex: 0
       - isKind:
           of: Job
         documentIndex: 2
@@ -2324,20 +2351,20 @@ tests:
               seed:
                 command: ["./seed.sh"]
     asserts:
-      # Documents: ConfigMap prereq (0), Secret prereq (1), SA copy (2),
+      # Documents: SA copy (0), ConfigMap prereq (1), Secret prereq (2),
       # Job migrate (3), Job seed (4)
       # Only 1 ConfigMap + 1 Secret prereq and 1 SA copy, NOT 2 each
       - hasDocuments:
           count: 5
       - isKind:
           of: ConfigMap
-        documentIndex: 0
-      - isKind:
-          of: Secret
         documentIndex: 1
       - isKind:
-          of: ServiceAccount
+          of: Secret
         documentIndex: 2
+      - isKind:
+          of: ServiceAccount
+        documentIndex: 0
       - isKind:
           of: Job
         documentIndex: 3
@@ -2697,42 +2724,42 @@ tests:
       # role prereq: w-7, fixed policy, explicit deletePolicy ignored
       - isKind:
           of: ConfigMap
-        documentIndex: 0
+        documentIndex: 1
       - equal:
           path: metadata.annotations["helm.sh/hook-weight"]
           value: "3"
-        documentIndex: 0
+        documentIndex: 1
       - equal:
           path: metadata.annotations["helm.sh/hook-delete-policy"]
           value: before-hook-creation,hook-succeeded
-        documentIndex: 0
+        documentIndex: 1
       - isKind:
           of: Secret
-        documentIndex: 1
+        documentIndex: 2
       - equal:
           path: metadata.annotations["helm.sh/hook-weight"]
           value: "3"
-        documentIndex: 1
+        documentIndex: 2
       - equal:
           path: metadata.annotations["helm.sh/hook-delete-policy"]
           value: before-hook-creation,hook-succeeded
-        documentIndex: 1
+        documentIndex: 2
       # the deployment SA copy is plumbing too: role prereq (ADR 0011)
       - isKind:
           of: ServiceAccount
-        documentIndex: 2
+        documentIndex: 0
       - equal:
           path: metadata.annotations["helm.sh/hook"]
           value: pre-install
-        documentIndex: 2
+        documentIndex: 0
       - equal:
           path: metadata.annotations["helm.sh/hook-weight"]
           value: "3"
-        documentIndex: 2
+        documentIndex: 0
       - equal:
           path: metadata.annotations["helm.sh/hook-delete-policy"]
           value: before-hook-creation,hook-succeeded
-        documentIndex: 2
+        documentIndex: 0
       # role sa: w-5, explicit deletePolicy honoured
       - isKind:
           of: ServiceAccount
@@ -3421,6 +3448,37 @@ tests:
 
   # ====== ADR 0010: a pre-* hook running as an rbacs.roles SA the chart creates
   # runs as its hook-prerequisite copy ======
+  # The SA copy is rendered here, whoever creates the SA (ADR 0011)
+  - it: should give an rbacs.roles SA copy the real SA's annotations and automount, and hook labels
+    set:
+      rbacs:
+        roles:
+          - name: scaler
+            serviceAccount:
+              name: scaler
+              automount: false
+              annotations:
+                example.com/owner: platform
+            rules: []
+      hooks:
+        pre-install:
+          migrate:
+            image: myapp:v1
+            serviceAccountName: scaler
+    asserts:
+      - equal:
+          path: metadata.annotations["example.com/owner"]
+          value: platform
+        documentIndex: 0
+      - equal:
+          path: automountServiceAccountToken
+          value: false
+        documentIndex: 0
+      - equal:
+          path: metadata.labels["app.kubernetes.io/component"]
+          value: hook
+        documentIndex: 0
+
   - it: should run a pre-upgrade hook as the copy of the role's created SA
     set:
       rbacs:
@@ -3438,11 +3496,13 @@ tests:
                 command: ["./migrate.sh"]
                 serviceAccountName: scaler
     asserts:
+      # the SA copy (0), then the Job (1)
       - hasDocuments:
-          count: 1
+          count: 2
       - equal:
           path: spec.template.spec.serviceAccountName
           value: scaler-hook
+        documentIndex: 1
 
   - it: should run a root pre-install hook as the copy of the role's created SA
     set:
@@ -3461,6 +3521,7 @@ tests:
       - equal:
           path: spec.template.spec.serviceAccountName
           value: scaler-hook
+        documentIndex: 1
 
   - it: should keep the real SA for a post-upgrade hook and for a role binding an existing SA
     set:
@@ -3515,6 +3576,7 @@ tests:
       - equal:
           path: spec.template.spec.serviceAccountName
           value: cleaner-hook
+        documentIndex: 1
 
   - it: should keep the real SA for a pre-delete hook, which runs before anything is deleted
     set:
@@ -3554,4 +3616,5 @@ tests:
       - equal:
           path: spec.template.spec.serviceAccountName
           value: scaler-hook
+        documentIndex: 1
 

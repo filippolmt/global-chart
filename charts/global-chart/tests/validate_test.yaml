@@ -754,6 +754,23 @@ tests:
       - failedTemplate:
           errorPattern: "Name collision: ServiceAccount 'd{63}' created for deployments.app \\(hook prerequisite copy\\) conflicts with the one created for deployments.app"
 
+  - it: should blame a cronjob when its SA copy lands on a created ServiceAccount
+    set:
+      cronJobs:
+        report:
+          image: myapp:v1
+          schedule: "0 3 * * *"
+          serviceAccount: { create: true, name: report-sa }
+      rbacs:
+        roles:
+          - { name: other, serviceAccount: { name: report-sa-hook }, rules: [] }
+      hooks:
+        pre-upgrade:
+          seed: { image: myapp:v1, serviceAccountName: report-sa }
+    asserts:
+      - failedTemplate:
+          errorPattern: "Name collision: ServiceAccount 'report-sa-hook' created for cronJobs.report \\(hook prerequisite copy\\) conflicts with the one created for rbacs.roles\\[0\\] \\('other'\\)"
+
   # A Role name is used verbatim up to 253 characters, the copy is truncated to
   # the same 253: at the limit it lands on the real Role
   - it: should fail when a role's hook copy truncates back onto the real Role

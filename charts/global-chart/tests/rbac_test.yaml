@@ -146,7 +146,7 @@ tests:
   # ====== hook-prerequisite copy of an rbacs.roles entry (ADR 0010) ======
   # The Role, RoleBinding and SA are normal resources, applied after the pre-*
   # hooks: a hook running as the role's SA needs a copy, under its own names.
-  - it: should emit a hook copy of the SA, Role and RoleBinding for a pre-upgrade hook running as the role's SA
+  - it: should emit a hook copy of the Role and RoleBinding, bound to the SA copy, for a pre-upgrade hook running as the role's SA
     set:
       rbacs:
         roles:
@@ -166,44 +166,39 @@ tests:
                 command: ["./migrate.sh"]
                 serviceAccountName: scaler
     asserts:
+      # SA, Role, RoleBinding + the Role and RoleBinding copies; the SA copy is
+      # hook.yaml's (ADR 0011)
       - hasDocuments:
-          count: 6
-      - isKind:
-          of: ServiceAccount
-        documentIndex: 3
-      - equal:
-          path: metadata.name
-          value: scaler-hook
-        documentIndex: 3
+          count: 5
       - isKind:
           of: Role
-        documentIndex: 4
+        documentIndex: 3
       - equal:
           path: metadata.name
           value: scaler-hook
-        documentIndex: 4
+        documentIndex: 3
       - equal:
           path: rules
           value:
             - apiGroups: ["apps"]
               resources: ["deployments/scale"]
               verbs: ["patch"]
-        documentIndex: 4
+        documentIndex: 3
       - isKind:
           of: RoleBinding
-        documentIndex: 5
+        documentIndex: 4
       - equal:
           path: metadata.name
           value: scaler-rolebinding-hook
-        documentIndex: 5
+        documentIndex: 4
       - equal:
           path: roleRef.name
           value: scaler-hook
-        documentIndex: 5
+        documentIndex: 4
       - equal:
           path: subjects[0].name
           value: scaler-hook
-        documentIndex: 5
+        documentIndex: 4
       - equal:
           path: metadata.annotations["helm.sh/hook"]
           value: pre-upgrade
@@ -211,11 +206,11 @@ tests:
       - equal:
           path: metadata.annotations["helm.sh/hook-weight"]
           value: "3"
-        documentIndex: 4
+        documentIndex: 3
       - equal:
           path: metadata.annotations["helm.sh/hook-delete-policy"]
           value: before-hook-creation,hook-succeeded
-        documentIndex: 5
+        documentIndex: 4
 
   - it: should bind the existing SA in the copy and not copy it when the role does not create one
     set:
@@ -355,10 +350,10 @@ tests:
             image: myapp:v1
             serviceAccountName: shared
     asserts:
-      # scaler: SA, Role, RoleBinding + copies of the three; reader: Role,
-      # RoleBinding + copies of the two — the SA is copied once, by its creator
+      # scaler: SA, Role, RoleBinding + copies of the Role and RoleBinding;
+      # reader: Role, RoleBinding + their copies — the SA copy is hook.yaml's
       - hasDocuments:
-          count: 10
+          count: 9
       - equal:
           path: subjects[0].name
           value: shared-hook
@@ -433,7 +428,7 @@ tests:
             serviceAccountName: scaler
     asserts:
       - hasDocuments:
-          count: 6
+          count: 5
       - equal:
           path: metadata.annotations["helm.sh/hook"]
           value: pre-rollback
@@ -477,33 +472,3 @@ tests:
         documentSelector:
           path: metadata.name
           value: scaler
-
-  - it: should give the SA copy the real SA's annotations and automount, and hook labels
-    set:
-      rbacs:
-        roles:
-          - name: scaler
-            serviceAccount:
-              name: scaler
-              automount: false
-              annotations:
-                example.com/owner: platform
-            rules: []
-      hooks:
-        pre-install:
-          migrate:
-            image: myapp:v1
-            serviceAccountName: scaler
-    asserts:
-      - equal:
-          path: metadata.annotations["example.com/owner"]
-          value: platform
-        documentIndex: 3
-      - equal:
-          path: automountServiceAccountToken
-          value: false
-        documentIndex: 3
-      - equal:
-          path: metadata.labels["app.kubernetes.io/component"]
-          value: hook
-        documentIndex: 3

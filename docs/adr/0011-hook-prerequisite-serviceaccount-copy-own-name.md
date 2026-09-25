@@ -39,19 +39,21 @@ own names; this ADR does the same for the deployment's SA.
 - **Which lifecycle.** The `prereq` row of `hookAnnotations`: w-7 from the
   earliest consumer, `before-hook-creation,hook-succeeded`. The
   `pre-install-sa` row, and its `hook-succeeded,hook-failed` policy, are gone:
-  both existed only because the copy shared the real SA's name. Without
-  `hook-failed`, a copy left by a failed hook stays until the next hook run
-  replaces it (`before-hook-creation`), and an uninstall does not remove it:
-  hook resources are outside the release manifest. The prereq ConfigMap and
-  Secret already behave this way.
-- **One answer to "the release creates this SA".**
-  `releaseCreatesServiceAccount` is true when an enabled deployment or an
-  `rbacs.roles` entry creates a SA under that name. `serviceAccountCopyName`
+  both existed only because the copy shared the real SA's name. A failed hook
+  does not leave the copy behind: when a Job fails, Helm deletes the hooks of
+  the phase that ran before it under their `hook-succeeded` policy
+  (`pkg/action/hooks.go`, `deleteHooksByPolicy(executingHooks[0:i],
+  HookSucceeded)`), and the copy, at w-7, always ran before it.
+- **One answer to "the release creates this SA".** `releaseServiceAccounts`
+  scans every SA the release creates: an enabled deployment's, an
+  `rbacs.roles` entry's, and a cronjob's own SA in either scope — a normal
+  resource like the others, which a hook can name. `releaseCreatesServiceAccount`
+  asks it. `serviceAccountCopyName`
   (the SA a copy binds, for rbac.yaml, hook.yaml and the validator) and
   `hookReadsServiceAccountCopy` (whether a hook runs as the copy) both read it.
   So a deployment that creates `app`, an `rbacs.roles` entry that binds `app`
   with `create: false`, and a `pre-install` hook running as `app` end up with
-  one SA copy `app-hook`, rendered by hook.yaml, bound by the RoleBinding copy
+  one SA copy `app-hook`, bound by the RoleBinding copy
   and run as by the pod. That case used to work only because the ADR 0002 copy
   had the real name.
 - **Both scopes.** The match is by resolved name, so a root-level hook naming
@@ -60,9 +62,12 @@ own names; this ADR does the same for the deployment's SA.
   "an SA I manage"; the name is what the pod runs as, and the SA is missing all
   the same. One copy per SA, whatever the number of hooks and their scope, with
   the phases aggregated — the scan is `serviceAccountHookConsumers`.
-- **Who renders it.** hook.yaml renders the copy of a deployment's SA. The copy
-  of a SA an `rbacs.roles` entry creates stays in rbac.yaml (ADR 0010): its
-  consumers are the same hooks.
+- **One emitter.** hook.yaml renders every SA copy, whoever creates the SA,
+  from the one consumer scan; `validateNameCollisions` registers each copy from
+  the same scan and blames the SA's creator. This moves the copy of an
+  `rbacs.roles` entry's SA out of rbac.yaml, where ADR 0010 had put it: two
+  emitters would keep the phase and weight rules of one kind of copy in two
+  places.
 
 ## Considered options
 
@@ -84,9 +89,6 @@ own names; this ADR does the same for the deployment's SA.
   annotations, but a binding keyed on the name is not moved by them. The fix is
   the one ADR 0010 gives: create the SA outside the release and bind it with
   `create: false`.
-- **A failed hook leaves `<sa>-hook` behind**, with the real SA's annotations
-  (an IRSA role ARN, say), until the next hook run of the release. ADR 0002's
-  copy was removed by `hook-failed`.
 - Hooks in the other phases (`post-*`, `pre-delete`, `test`) keep the real SA.
 - `make e2e` runs a `pre-install` and a `pre-upgrade` hook bound to the
   deployment's chart-created SA, asserts that both ran as `<sa>-hook`, that the
