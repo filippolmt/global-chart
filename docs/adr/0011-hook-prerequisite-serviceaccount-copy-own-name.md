@@ -39,7 +39,11 @@ own names; this ADR does the same for the deployment's SA.
 - **Which lifecycle.** The `prereq` row of `hookAnnotations`: w-7 from the
   earliest consumer, `before-hook-creation,hook-succeeded`. The
   `pre-install-sa` row, and its `hook-succeeded,hook-failed` policy, are gone:
-  both existed only because the copy shared the real SA's name.
+  both existed only because the copy shared the real SA's name. Without
+  `hook-failed`, a copy left by a failed hook stays until the next hook run
+  replaces it (`before-hook-creation`), and an uninstall does not remove it:
+  hook resources are outside the release manifest. The prereq ConfigMap and
+  Secret already behave this way.
 - **One answer to "the release creates this SA".**
   `releaseCreatesServiceAccount` is true when an enabled deployment or an
   `rbacs.roles` entry creates a SA under that name. `serviceAccountCopyName`
@@ -80,6 +84,9 @@ own names; this ADR does the same for the deployment's SA.
   annotations, but a binding keyed on the name is not moved by them. The fix is
   the one ADR 0010 gives: create the SA outside the release and bind it with
   `create: false`.
+- **A failed hook leaves `<sa>-hook` behind**, with the real SA's annotations
+  (an IRSA role ARN, say), until the next hook run of the release. ADR 0002's
+  copy was removed by `hook-failed`.
 - Hooks in the other phases (`post-*`, `pre-delete`, `test`) keep the real SA.
 - `make e2e` runs a `pre-install` and a `pre-upgrade` hook bound to the
   deployment's chart-created SA, asserts that both ran as `<sa>-hook`, that the

@@ -284,5 +284,5 @@ Params: root · hookType · sa (the hook's jobServiceAccount result).
 Usage: {{ $saName := include "global-chart.hookServiceAccountName" (dict "root" $root "hookType" $hookType "sa" $sa) }}
 */}}
 {{- define "global-chart.hookServiceAccountName" -}}
-{{- ternary (include "global-chart.serviceAccountHookName" .sa.name) .sa.name (eq (include "global-chart.hookReadsServiceAccountCopy" .) "true") -}}
+{{- ternary (include "global-chart.serviceAccountCopyName" (dict "root" .root "name" .sa.name)) .sa.name (eq (include "global-chart.hookReadsServiceAccountCopy" .) "true") -}}
 {{- end -}}

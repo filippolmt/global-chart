@@ -377,10 +377,10 @@ e2e: kind-cluster kind-keda kind-eso check-helm-floor ## Install/upgrade/uninsta
 	for hook in migration early; do \
 		[ "$$(kubectl -n $$ns get job $$rel-$(GLOBAL_CHART_NAME)-app-pre-install-$$hook -o jsonpath='{.status.succeeded}' 2>/dev/null)" = "1" ] \
 			|| { echo "FAIL: pre-install hook Job '$$hook' did not succeed (issue #71 regression)"; exit 1; }; \
+		[ "$$(kubectl -n $$ns get job $$rel-$(GLOBAL_CHART_NAME)-app-pre-install-$$hook -o jsonpath='{.spec.template.spec.serviceAccountName}')" = "$$rel-$(GLOBAL_CHART_NAME)-app-hook" ] \
+			|| { echo "FAIL: pre-install hook '$$hook' did not run as the deployment SA copy <sa>-hook (ADR 0011)"; exit 1; }; \
 	done; \
-	echo "    both pre-install hooks ran under the chart-created ServiceAccount"; \
-	[ "$$(kubectl -n $$ns get job $$rel-$(GLOBAL_CHART_NAME)-app-pre-install-migration -o jsonpath='{.spec.template.spec.serviceAccountName}')" = "$$rel-$(GLOBAL_CHART_NAME)-app-hook" ] \
-		|| { echo "FAIL: the pre-install hook did not run as the deployment SA copy <sa>-hook (ADR 0011)"; exit 1; }; \
+	echo "    both pre-install hooks bound to the chart-created ServiceAccount succeeded"; \
 	echo "    ... as its hook copy <sa>-hook, never under the real SA's name (ADR 0011)"; \
 	echo "    both read the ExternalSecret's value through its hook copy, envFrom and volume (issue #110)"; \
 	kubectl -n $$ns wait --for=delete externalsecret/$$rel-$(GLOBAL_CHART_NAME)-e2e-env-hook \

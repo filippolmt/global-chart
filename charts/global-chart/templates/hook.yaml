@@ -74,6 +74,8 @@ spec:
 {{- end }}
 
 {{/* ====== PART 2: Deployment-level hooks (inherit from deployment) ====== */}}
+{{- /* The hooks of either scope that run as each SA copy, scanned once */ -}}
+{{- $saConsumers := include "global-chart.serviceAccountHookConsumers" $root | fromJson }}
 {{- range $deployName, $deploy := .Values.deployments }}
 {{- if $deploy }}
 {{- /* Enabled, with or without hooks of its own: a root-level hook can run as
@@ -153,7 +155,7 @@ data:
 */ -}}
 {{- $deploySA := include "global-chart.deploymentServiceAccount" (dict "root" $root "deploymentName" $deployName "deployment" $deploy) | fromJson }}
 {{- if $deploySA.create }}
-{{- with index (include "global-chart.serviceAccountHookConsumers" $root | fromJson) $deploySA.name }}
+{{- with index $saConsumers $deploySA.name }}
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -259,4 +261,3 @@ spec:
 {{- end }}
 {{- end }}
 {{- end }}
-

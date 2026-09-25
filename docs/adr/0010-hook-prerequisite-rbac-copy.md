@@ -69,7 +69,8 @@ the entry creates it. The hook runs as whatever SA the copy binds.
   outside the release: the copy binds it as is and the hook keeps its identity.
   *Amended by ADR 0011:* "creates" now means the release creates it, a
   deployment's SA included, and the helper is `serviceAccountCopyName`.
-  The choice lives in one helper, `rbacCopyServiceAccountName`, for the copy's
+  The choice lives in one helper, `serviceAccountCopyName` (originally
+  `rbacCopyServiceAccountName`), for the copy's
   subject, for the pod and for the validator alike. When several entries share one SA, each entry's
   copied RoleBinding binds the same SA the hook runs as.
 - **One copy per entry, whatever the number of hooks.** The copy's phases are the

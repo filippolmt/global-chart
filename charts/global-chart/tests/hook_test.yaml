@@ -2665,7 +2665,7 @@ tests:
           value: Job
 
   # ====== hookAnnotations role table ======
-  # One render covering all four roles of the helper. Both hooks carry an
+  # One render covering all three roles of the helper. Both hooks carry an
   # explicit deletePolicy: it reaches the resources they own (their Job, and the
   # ServiceAccount the chart creates for one of them) and never reaches the
   # plumbing copies, which keep the fixed policy of their role. The plumbing
