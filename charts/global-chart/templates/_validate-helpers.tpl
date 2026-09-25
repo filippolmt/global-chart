@@ -150,15 +150,23 @@ Called from validate.yaml.
        into, not owned, so several of them sharing a target stays legal — but
        not one a copy owns, which the copy's deletion would garbage-collect:
        those are checked against the copies alone, on a throwaway copy of
-       $copyTargets, so that two of them still never meet each other. The
-       copy's target also joins $secretNames, against the chart's own Secrets. */ -}}
+       $copyTargets, so that two of them still never meet each other. An
+       Owner target, the copy's included, also joins $secretNames, against the
+       chart's own Secrets: Owner adopts a Helm Secret, the two overwrite each
+       other's data and the ExternalSecret's deletion garbage-collects it
+       (issue #153). Merge and None stay out: Helm's patch keeps the keys Merge
+       adds, and None writes nothing (ADR 0013,
+       docs/adr/0013-an-owner-externalsecret-target-cannot-be-a-chart-secret.md). */ -}}
 {{- $consumers := include "global-chart.externalSecretHookConsumers" $root | fromJson -}}
 {{- range $key, $secret := .Values.externalSecrets -}}
   {{- if $secret -}}
     {{- $nameCtx := dict "root" $root "key" $key "secret" $secret -}}
-    {{- include "global-chart.registerName" (dict "names" $esNames "kind" "ExternalSecret" "name" (include "global-chart.externalSecretName" $nameCtx) "owner" (printf "externalSecrets.%s" $key)) -}}
+    {{- $owner := printf "externalSecrets.%s" $key -}}
+    {{- include "global-chart.registerName" (dict "names" $esNames "kind" "ExternalSecret" "name" (include "global-chart.externalSecretName" $nameCtx) "owner" $owner) -}}
     {{- if eq (include "global-chart.externalSecretCreationPolicy" $secret) "Owner" -}}
-      {{- include "global-chart.registerName" (dict "names" $esOwnedNames "kind" "Secret" "name" (include "global-chart.externalSecretTargetName" $nameCtx) "owner" (printf "externalSecrets.%s" $key)) -}}
+      {{- $target := include "global-chart.externalSecretTargetName" $nameCtx -}}
+      {{- include "global-chart.registerName" (dict "names" $esOwnedNames "kind" "Secret" "name" $target "owner" $owner) -}}
+      {{- include "global-chart.registerName" (dict "names" $secretNames "kind" "Secret" "name" $target "owner" $owner) -}}
     {{- end -}}
   {{- end -}}
 {{- end -}}
@@ -356,10 +364,39 @@ Called from validate.yaml. Emits nothing on success.
 {{- end }}
 
 {{/*
-Validate that a deployment does not enable both the native HPA and KEDA.
+The active HPA targets of a deployment's `autoscaling` map, as JSON: the ONE
+home of "a target is active", read by validateAutoscalingConflict and by
+hpa.yaml to build its metrics list. Never re-derive it inline — two templates
+deriving one fact on their own is how issue #82 happened.
+
+A target is active when it is set and `float64` reads it as positive; 0, ""
+and an absent key all mean "this metric is off". Keys are `cpu` and `memory`,
+the resource names, each carrying the raw value for printScalar: an int cast
+here would truncate in silence. The schema admits only digits in a string
+target, since `float64 "80%"` is 0 (ADR 0012,
+docs/adr/0012-autoscaling-enabled-requires-an-active-metric.md).
+Usage: {{ include "global-chart.hpaActiveTargets" $hpa | fromJson }}
+*/}}
+{{- define "global-chart.hpaActiveTargets" -}}
+{{- $out := dict -}}
+{{- range $res, $key := dict "cpu" "targetCPUUtilizationPercentage" "memory" "targetMemoryUtilizationPercentage" -}}
+  {{- if and (hasKey $ $key) (gt (float64 (get $ $key)) 0.0) -}}
+    {{- $_ := set $out $res (get $ $key) -}}
+  {{- end -}}
+{{- end -}}
+{{- toJson $out -}}
+{{- end -}}
+
+{{/*
+Validate that a deployment does not enable both the native HPA and KEDA, and
+that an enabled HPA has an active target.
 KEDA creates and owns its own HorizontalPodAutoscaler (the *derived HPA*) for
 every ScaledObject, so a chart-rendered HPA on the same Deployment gives two
 controllers writing spec.replicas.
+The Deployment drops spec.replicas whenever autoscaling is enabled, so with no
+active target neither side owns the count and Kubernetes defaults it to one
+pod (issue #151, ADR 0012). The KEDA conflict fails first: it is the more
+fundamental error, and fixing it can make the other moot.
 Called from validate.yaml. Emits nothing on success.
 */}}
 {{- define "global-chart.validateAutoscalingConflict" -}}
@@ -370,6 +407,9 @@ Called from validate.yaml. Emits nothing on success.
     {{- $keda := default (dict) $deploy.keda -}}
     {{- if and $hpa.enabled $keda.enabled -}}
       {{- fail (printf "deployments.%s: autoscaling.enabled and keda.enabled are mutually exclusive. KEDA creates and owns its own HorizontalPodAutoscaler for the ScaledObject; a chart-rendered HPA on the same Deployment would fight it. Disable one of the two." $name) -}}
+    {{- end -}}
+    {{- if and $hpa.enabled (not (include "global-chart.hpaActiveTargets" $hpa | fromJson)) -}}
+      {{- fail (printf "deployments.%s.autoscaling.enabled is true but neither targetCPUUtilizationPercentage nor targetMemoryUtilizationPercentage is a positive number; without one no HPA renders and the Deployment runs a single replica. Set a target or disable autoscaling." $name) -}}
     {{- end -}}
   {{- end -}}
   {{- end -}}

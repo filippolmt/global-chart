@@ -2,6 +2,8 @@
 # 63, so the copy <binding>-hook truncates back onto the real RoleBinding's
 # name, and a copy sharing the real name would delete it under hook-succeeded
 # (ADR 0010).
+# Expected fail substring: "Name collision: RoleBinding '"
+# Expected fail substring: "(hook prerequisite copy) conflicts with rbacs.roles[0]"
 rbacs:
   roles:
     - name: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb

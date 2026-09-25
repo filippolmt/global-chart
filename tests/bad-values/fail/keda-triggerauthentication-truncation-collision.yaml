@@ -1,5 +1,6 @@
 # Two keys sharing a long prefix truncate to one TriggerAuthentication name, and
 # a ScaledObject meant for the first reads the second's credentials (issue #117).
+# Expected fail substring: "Name collision: TriggerAuthentication"
 kedaTriggerAuthentications:
   abcdefghij-klmnopqrst-uvwxyz-abcdefghijklmnopqrstuvwxyz-1:
     env: [{ parameter: p, name: A }]

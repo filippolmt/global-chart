@@ -134,12 +134,14 @@ deployments: {}
   #   # -- Pod termination grace period in seconds (Kubernetes default: 30)
   #   terminationGracePeriodSeconds: 30
   #
-  #   # -- Horizontal Pod Autoscaling configuration
+  #   # -- Horizontal Pod Autoscaling configuration. With enabled: true at least
+  #   # one target must be positive; 0 or "" turns that metric off. Digits only:
+  #   # "80%" is rejected.
   #   autoscaling:
   #     enabled: false
   #     minReplicas: 2
   #     maxReplicas: 10
-  #     targetCPUUtilizationPercentage: ""
+  #     targetCPUUtilizationPercentage: 80
   #     targetMemoryUtilizationPercentage: ""
   #     behavior:
   #       scaleUp: {}

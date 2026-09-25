@@ -134,7 +134,7 @@ unit-test: ## Run helm-unittest via Docker
 	@docker run --rm -u $$(id -u):$$(id -g) -v $(CURDIR)/$(CHART_DIR)/$(GLOBAL_CHART_NAME):/apps -w /apps $(HELM_UNITTEST_IMAGE) .
 	@echo "==> All unit tests passed!"
 
-validate-bad-values: ## Verify bad-values are rejected: schema/ by values.schema.json, fail/ by a template fail
+validate-bad-values: ## Verify bad-values are rejected: schema/ by values.schema.json, fail/ by the template fail each names
 	@echo "==> Validating bad-values are correctly rejected..."
 	@set -e; for f in tests/bad-values/schema/*.yaml; do \
 		[ -e "$$f" ] || { echo "    FAIL: tests/bad-values/schema/ holds no fixture; green here would be vacuous"; exit 1; }; \
@@ -148,14 +148,19 @@ validate-bad-values: ## Verify bad-values are rejected: schema/ by values.schema
 	done
 	@set -e; for f in tests/bad-values/fail/*.yaml; do \
 		[ -e "$$f" ] || { echo "    FAIL: tests/bad-values/fail/ holds no fixture; green here would be vacuous"; exit 1; }; \
-		if helm template global-chart-bad-values ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) -f "$$f" >/dev/null 2>&1; then \
+		subs=$$(sed -n 's/^# Expected fail substring: "\(.*\)"$$/\1/p' "$$f"); \
+		[ -n "$$subs" ] || { echo "    FAIL: $$f declares no '# Expected fail substring: \"...\"' line; without one, any fail passes it"; exit 1; }; \
+		if out=$$(helm template global-chart-bad-values ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) -f "$$f" 2>&1); then \
 			echo "    FAIL: $$f should have been rejected but was accepted"; \
 			exit 1; \
 		elif helm lint $(STRICT) -f "$$f" ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) 2>&1 | grep -qF "$(SCHEMA_REJECTION)"; then \
 			echo "    FAIL: $$f is rejected by values.schema.json; it belongs in tests/bad-values/schema/"; \
 			exit 1; \
 		else \
-			echo "    OK: $$f rejected by a template fail"; \
+			echo "$$subs" | while IFS= read -r sub; do \
+				printf '%s' "$$out" | grep -qF -- "$$sub" || { echo "    FAIL: $$f was rejected, but not by the fail it expects: missing \"$$sub\""; echo "          got: $$out"; exit 1; }; \
+			done; \
+			echo "    OK: $$f rejected by the expected template fail"; \
 		fi; \
 	done
 	@python3 tests/bad-values/check-closure-coverage.py

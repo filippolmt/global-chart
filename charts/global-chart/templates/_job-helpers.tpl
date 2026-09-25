@@ -33,6 +33,12 @@ Accepts a dict with:
                    externalSecrets entry; root-level callers omit it
   errCtx         - values path of the job, for the fail message of its own
                    externalSecrets entries
+
+The pod-level `automountServiceAccountToken` follows the usual chain: the job's
+own value, then the deployment's pod-level value, else omitted and the
+ServiceAccount decides. The pod field wins over the SA's at admission, so the
+deployment's value is never carried into an SA the job creates (ADR 0014,
+docs/adr/0014-job-pod-automount-follows-the-inheritance-chain.md).
 */}}
 {{- define "global-chart.jobPodSpec" -}}
 {{- $root := .root -}}
@@ -209,6 +215,12 @@ volumes:
 {{- end }}
 {{- with $saName }}
 serviceAccountName: {{ . | quote }}
+{{- end }}
+{{- /* Pod-level token automount: explicit > inherited from deployment > omit (ADR 0014) */ -}}
+{{- if hasKey $job "automountServiceAccountToken" }}
+automountServiceAccountToken: {{ $job.automountServiceAccountToken }}
+{{- else if hasKey $deploy "automountServiceAccountToken" }}
+automountServiceAccountToken: {{ $deploy.automountServiceAccountToken }}
 {{- end }}
 {{- /* NodeSelector: explicit > inherited from deployment */ -}}
 {{- $nodeSelector := ternary $job.nodeSelector $deploy.nodeSelector (hasKey $job "nodeSelector") -}}

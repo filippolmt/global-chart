@@ -65,6 +65,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   create the SA outside the release and bind it with `serviceAccount.create:
   false` and `name`. No values change.
 
+- **Behaviour change: `autoscaling.enabled` with no active target fails at
+  render** (issue #151,
+  [ADR 0012](docs/adr/0012-autoscaling-enabled-requires-an-active-metric.md)).
+  The Deployment drops `spec.replicas` whenever autoscaling is enabled, while
+  the HPA rendered only with a positive CPU or memory target. With neither, no
+  HPA rendered and Kubernetes ran **one** pod, ignoring `replicaCount` and
+  `minReplicas`; `helm lint` passed. The render now fails, naming the
+  deployment. A string target takes digits only: `"80%"`, which read as 0 and
+  hit the same path, is rejected by the schema, as are a leading zero and a
+  negative number. `0` and `""` still turn one metric off. The HPA and the
+  validator read the active targets from one helper, `hpaActiveTargets`.
+
+- **Behaviour change: a job's pod follows `automountServiceAccountToken`**
+  (issue #154, [ADR 0014](docs/adr/0014-job-pod-automount-follows-the-inheritance-chain.md)).
+  Hooks and cronjobs never rendered the pod-level field: a job's own value
+  reached only a ServiceAccount the job creates, so a job running as its
+  deployment's SA, or as the hook copy `<sa>-hook`, got the token anyway. The
+  pod field now takes the job's own value, then, for a deployment-level job,
+  the deployment's pod-level `automountServiceAccountToken`; with neither set
+  it is omitted and the ServiceAccount decides, as before. A root-level job
+  reads only its own value. The deployment's value is not carried into an SA
+  the job creates: the pod field already wins over it.
+
 - **A `pre-delete` hook reads the real Secret of its `externalSecrets`
   entries**, not the hook-prerequisite copy (ADR 0007, amended by ADR 0010).
   `pre-delete` runs before Helm deletes anything, so the real Secret is there;
@@ -79,6 +102,37 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   output changes.
 
 ### Fixed
+
+- **An `Owner` ExternalSecret whose target is a Secret the chart renders now
+  fails at render** (issue #153,
+  [ADR 0013](docs/adr/0013-an-owner-externalsecret-target-cannot-be-a-chart-secret.md)).
+  `externalSecrets.<key>` and `deployments.<key>.secret` both default to
+  `<fullname>-<key>`, so naming an ExternalSecret after its deployment rendered
+  one Secret owned by Helm and an ExternalSecret adopting it: Helm and ESO
+  overwrote each other's `data`, and deleting the ExternalSecret
+  garbage-collected the Helm Secret. The `Owner` target (the default policy) is
+  now checked against every chart Secret, the `-hook-secret` prerequisite copy
+  included. `Merge` and `None` stay allowed: Helm keeps the keys `Merge` adds.
+
+- **An ExternalSecret's `target.creationPolicy` and `target.deletionPolicy`
+  take ESO's values only**: `Owner`, `Orphan`, `Merge`, `None`,
+  `CreateOrMerge`, and `Delete`, `Merge`, `Retain`. Any string passed `helm
+  lint` and the ExternalSecret CRD rejected it at apply; the name collision
+  checks, which branch on the policy, also read a typo such as `owner` as
+  "not Owner".
+
+- **A string PDB bound is a count or a percentage.** `pdb.minAvailable` and
+  `pdb.maxUnavailable` took any string and printed it unquoted: `"two"` passed
+  `helm lint` and the API server rejected it, and `"010"` reached it as the
+  octal 8. A string now holds digits with no leading zero, optionally followed
+  by `%` (`"25%"`, `"2"`).
+
+- **A string hook `weight` with a leading zero is rejected by the schema**,
+  both scopes. The weight arithmetic reads it with base detection, so `"010"`
+  rendered `helm.sh/hook-weight: "8"` on the Job and `"3"` on its
+  ServiceAccount, and the hook ran in a different order than written. A string
+  weight now holds a plain integer (`"10"`, `"-5"`). `"007"`, which happened to
+  read as 7, is rejected too.
 
 - **Tolerations, host aliases, DNS options and KEDA credential references are
   checked by the schema** (issue #145). `tolerations[]`, `hostAliases[]` and
@@ -227,7 +281,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 ### Migration guide from 2.7.x
 
 > No values change shape. What changes is **which ServiceAccount a hook's pod
-> runs as** in the copy phases, and **which values the chart accepts**: values
+> runs as** in the copy phases, **whether a job's pod mounts its token**, and
+> **which values the chart accepts**: values
 > that rendered but could never be applied, or were ignored in silence, now
 > fail at `helm lint` or at render. Run `helm lint` and then `helm template`
 > (or `helm diff upgrade`) against your own values before upgrading — every
@@ -260,7 +315,29 @@ deployments:
 `{}` used to mean "Role only"; it now renders `<name>-sa` and its RoleBinding
 (issue #124). **Action:** drop the `serviceAccount` key to keep a Role alone.
 
-#### 3. The schema rejects values that could never be applied (MEDIUM)
+#### 3. Jobs of a deployment with pod-level `automountServiceAccountToken: false` lose the token (MEDIUM)
+
+A deployment-level hook or cronjob now inherits the deployment's pod-level
+`automountServiceAccountToken` (issue #154), whichever ServiceAccount it runs
+as — its deployment's, the hook copy `<sa>-hook`, or one it names in
+`serviceAccountName`. A job that calls the Kubernetes API sees a missing token
+or a `403`.
+
+**Who is affected:** only deployments that set pod-level
+`automountServiceAccountToken: false` and have jobs needing the API.
+
+**Action:** set it back on the job.
+
+```yaml
+deployments:
+  app:
+    automountServiceAccountToken: false
+    cronJobs:
+      reconcile:
+        automountServiceAccountToken: true
+```
+
+#### 4. The schema rejects values that could never be applied (MEDIUM)
 
 - **Numbers in string fields** (issues #137, #145): `additionalEnvs[].value`, a
   job's `env[].value`, a KEDA trigger's `metadata` values,
@@ -270,6 +347,13 @@ deployments:
   and a TriggerAuthentication `secretTargetRef` / `env` entry (issues #137,
   #145). Kubernetes or KEDA dropped them in silence. **Action:** fix the key
   the error names.
+- **An HPA target that is not a plain number** (#151): `"80%"`, `"010"`, `-1`.
+  `"80%"` read as 0 and switched the HPA off. **Action:** write `80`.
+- **A string hook `weight` or PDB bound with a leading zero**, or a PDB bound
+  that is not a count or a percentage: `"010"` read as octal 8. **Action:**
+  drop the zero (`"10"`), write the percentage as `"25%"`.
+- **An ExternalSecret policy outside ESO's enum** (`creationPolicy: owner`).
+  **Action:** use ESO's spelling (`Owner`).
 - **Names Kubernetes rejects**: `nameOverride` / `fullnameOverride` (#120),
   `rbacs.roles[].name` (#121), `serviceAccount.name` and a job's
   `serviceAccountName` (#123), Service port names and named `targetPort`s
@@ -278,35 +362,41 @@ deployments:
 - **`additionalEnvs` on a deployment-level cronjob or hook** (#146): it never
   reached the manifest. **Action:** move it to the job's `env`.
 
-#### 4. Contradictory values now fail at render (MEDIUM)
+#### 5. Contradictory values now fail at render (MEDIUM)
 
 - Two `rbacs.roles` entries landing on one Role, RoleBinding or ServiceAccount
   (#122), two `kedaTriggerAuthentications` keys truncated to one name (#117), a
   hook copy whose name truncates back onto its real one (ADR 0010, ADR 0011).
+- `autoscaling.enabled: true` with no positive CPU or memory target (#151).
+  It rendered no HPA and one pod. Set a target, or disable autoscaling.
 - A job naming its ServiceAccount twice with different names (#133).
+- An `Owner` ExternalSecret whose target is a chart Secret, typically one named
+  after a deployment that also declares `secret:` (#153): rename `target.name`,
+  or drop `secret:` from the deployment.
 - A ConfigMap value set to `null` (#132): set `""`.
 - A dotted fullname with a Deployment or root hook, a leading digit with a
   Service (#120).
 
 **Action:** the error names the values path; rename, or keep one of the two.
 
-#### 5. A `pre-delete` hook reads the real Secret of its `externalSecrets` (LOW)
+#### 6. A `pre-delete` hook reads the real Secret of its `externalSecrets` (LOW)
 
 It used to read the hook copy (ADR 0010). The real Secret is still there when
 `pre-delete` runs, so nothing to do unless you relied on the copy's name.
 
-#### 6. Error messages name their owners by values path (LOW)
+#### 7. Error messages name their owners by values path (LOW)
 
 `deployments.api`, `cronJobs.cleanup`, not `deployment 'api'` (#133, #135).
 **Action:** update any pattern matched against the old wording.
 
 #### Migration checklist
 
-- [ ] `helm lint` your values and fix every rejection (point 3)
-- [ ] `helm template` your values and fix every render failure (point 4)
+- [ ] `helm lint` your values and fix every rejection (point 4)
+- [ ] `helm template` your values and fix every render failure (point 5)
 - [ ] Check which hooks run as `<sa>-hook`, and move identity-bound SAs outside the release (point 1)
 - [ ] Look for `rbacs.roles[].serviceAccount: {}` (point 2)
-- [ ] Update CI patterns matched against error messages (point 6)
+- [ ] Look for jobs under a deployment with pod-level `automountServiceAccountToken: false` that need the API (point 3)
+- [ ] Update CI patterns matched against error messages (point 7)
 - [ ] Check Helm is 3.18.6 or newer, or the schema closures are ignored (issue #116)
 - [ ] `helm diff upgrade`, then upgrade
 

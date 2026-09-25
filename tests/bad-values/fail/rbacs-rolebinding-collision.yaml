@@ -1,5 +1,6 @@
 # The RoleBinding drops a trailing -role, so `reader` and `reader-role` both
 # yield `reader-rolebinding` (issue #122).
+# Expected fail substring: "Name collision: RoleBinding 'reader-rolebinding'"
 rbacs:
   roles:
     - { name: reader, serviceAccount: {}, rules: [] }

@@ -1,0 +1,8 @@
+# A PDB bound that is neither a count nor a percentage: it printed unquoted,
+# passed lint, and the API server rejected it ("two") or read it as octal ("010").
+deployments:
+  app:
+    image: nginx:1.25
+    pdb:
+      enabled: true
+      minAvailable: "010"
