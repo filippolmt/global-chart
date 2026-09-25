@@ -1,6 +1,7 @@
 # A fullname starting with a digit is a valid subdomain and label, so the schema
 # lets it through, but a Service name is a DNS-1035 label, which starts with a
 # letter (issue #120). Only the render knows whether a Service is rendered.
+# Expected fail substring: "starts with a digit, but deployments.web renders a Service"
 fullnameOverride: 1app
 deployments:
   web:

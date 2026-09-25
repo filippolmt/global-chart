@@ -39,7 +39,10 @@ The Makefile carries the rest. Three rules about when to run what:
 - `tests/` — lint scenario values + `bad-values/` for rejection tests, split into
   `schema/` (rejected by `values.schema.json`) and `fail/` (rejected by a
   template `fail`). The directory *is* the declaration and `validate-bad-values`
-  asserts it, so a schema hole covered by a `fail` cannot pass as coverage
+  asserts it, so a schema hole covered by a `fail` cannot pass as coverage.
+  Every `fail/` fixture carries one or more `# Expected fail substring: "…"`
+  lines, and each must appear in the error: a fixture rejected by the wrong
+  `fail` does not pass
 
 ### Helper Files
 
