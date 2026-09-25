@@ -102,8 +102,10 @@ deployments:
     serviceAccount:
       create: true
     # Hooks inside deployment - inherit image, configMap, secret, SA.
-    # A pre-install hook works with a chart-created SA too: the chart emits a
-    # hook-annotated copy of it, since normal resources are created after hooks.
+    # A pre-* or post-delete hook works with a chart-created SA too: the chart
+    # emits a hook copy <sa>-hook and the hook runs as it (ADR 0011), since
+    # normal resources are created after hooks. An identity keyed on the SA
+    # name (Workload Identity, IRSA) does not reach the copy.
     hooks:
       pre-upgrade:
         migrate:

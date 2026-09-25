@@ -52,7 +52,11 @@ which stay open for extended resources like `nvidia.com/gpu`;
 `kedaTrigger.metadata` and `autoscaling.behavior` (*amended by issue #137:*
 `kedaTrigger.metadata` values must be strings, the ScaledObject's
 `map[string]string`, and the EnvVar lists close on `$defs/envVar`, whose three
-fields leave nothing to decide); the
+fields leave nothing to decide. *Amended by issue #145:* `dnsConfig.options[]`
+closes on `$defs/dnsConfigOption`, and `tolerations[]`, `hostAliases[]` and the
+`kedaTriggerAuthentication` `secretTargetRef[]` / `env[]` entries, which the
+list above left implicit, close on their own `$defs`: all five are small,
+fixed Kubernetes or KEDA shapes); the
 `kedaTriggerAuthentication` provider blocks; and the `filters[]` entries of an
 `httpRouteRule` and of its `backendRefs`, which declare `type` as a constraint
 but carry the Gateway API filter payload underneath.

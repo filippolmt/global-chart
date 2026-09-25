@@ -1,0 +1,13 @@
+# A deployment-level job does not take additionalEnvs (issue #146): no template
+# read it, so it was a silent no-op. The job's own `env` is the field; the
+# deployment's additionalEnvs is inherited on its own.
+deployments:
+  app:
+    image: nginx:1.25
+    cronJobs:
+      report:
+        schedule: "0 3 * * *"
+        command: ["true"]
+        additionalEnvs:
+          - name: LIMIT
+            value: "1"

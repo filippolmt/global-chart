@@ -16,9 +16,10 @@ no module to extend. We centralise the whole hook lifecycle — weight, offset,
 delete policy — in `hookAnnotations`, in a new `_hook-helpers.tpl`.
 
 The interface is `hookAnnotations(hookType · role · command | weight)`. `role` is one
-of four values and is **orthogonal to scope**: a hook resource is a `job`, a `sa`
+of four values (three since ADR 0011) and is **orthogonal to scope**: a hook resource is a `job`, a `sa`
 (chart-created ServiceAccount for a single hook), a `prereq` (the ConfigMap/Secret
-copies) or a `pre-install-sa` (the ServiceAccount copy of ADR 0002). The role
+copies) or a `pre-install-sa` (the ServiceAccount copy of ADR 0002; *removed by
+ADR 0011*, whose copy has its own name and takes the `prereq` row). The role
 selects a row of a table — weight offset, delete-policy default, and whether the
 resource belongs to one hook — and nothing else.
 

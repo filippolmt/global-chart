@@ -1,0 +1,9 @@
+# covers: kedaEnvRef
+# An unknown key in an env reference (typo of containerName): KEDA reads the
+# variable from the first container instead of the one intended.
+kedaTriggerAuthentications:
+  auth:
+    env:
+      - parameter: password
+        name: REDIS_PASSWORD
+        container: worker

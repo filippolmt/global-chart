@@ -46,6 +46,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Changed
 
+- **Behaviour change: a hook bound to a ServiceAccount the release creates runs
+  as its hook copy `<sa>-hook`** (issue #141, ADR 0011, superseding ADR 0002).
+  The copy of a deployment's chart-created SA used to share the real SA's name
+  and was deleted after the hook. Under Argo CD, which runs `pre-install` on
+  every sync, that deleted the **live** SA each time, and the running pods lost
+  their bound tokens. The copy now has its own name. It is rendered for every
+  hook of either scope bound to that SA in a `pre-install`, `pre-upgrade`,
+  `pre-rollback` or `post-delete` phase, not only a deployment-level
+  `pre-install`. So a root-level hook naming the deployment's SA, and a revision
+  that adds a deployment with a `pre-upgrade` hook, now work. The copy carries
+  the real SA's annotations and automount, and a copy name that truncates back
+  onto the real one fails the render. A cronjob's own chart-created SA gets the
+  same copy when a hook names it.
+  **The pod loses an identity keyed on the
+  SA name:** a Workload Identity / IRSA binding on
+  `system:serviceaccount:<ns>:<sa>` does not reach `<sa>-hook`. To keep it,
+  create the SA outside the release and bind it with `serviceAccount.create:
+  false` and `name`. No values change.
+
 - **A `pre-delete` hook reads the real Secret of its `externalSecrets`
   entries**, not the hook-prerequisite copy (ADR 0007, amended by ADR 0010).
   `pre-delete` runs before Helm deletes anything, so the real Secret is there;
@@ -60,6 +79,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   output changes.
 
 ### Fixed
+
+- **Tolerations, host aliases, DNS options and KEDA credential references are
+  checked by the schema** (issue #145). `tolerations[]`, `hostAliases[]` and
+  `dnsConfig.options[]` (deployments and jobs, both scopes) and a
+  TriggerAuthentication's `secretTargetRef[]` and `env[]` entries were open
+  objects: a typo (`efect`, `hostname`, `keyy`) installed and was dropped by
+  Kubernetes or KEDA, and a number in `tolerations[].value` rendered unquoted
+  and was rejected at apply. They now reject an unknown key, and a
+  toleration's `value` must be a string (`value: "1"`). A DNS option's `value`
+  still takes a number, which the template prints and quotes.
+  `extraContainers` and `extraInitContainers` stay pass-through: how much of a
+  Container to admit is ADR 0006's open question (issue #148).
+
+- **`additionalEnvs` on a deployment-level cronjob or hook is rejected**
+  (issue #146). The schema declared it, but no template read it, so it was a
+  silent no-op. Use the job's own `env`; the deployment's `additionalEnvs` is
+  still inherited as before.
 
 - **A number in a field Kubernetes types as a string is rejected by the schema**
   (issue #137), not by the API server at apply. `additionalEnvs[].value` and a
@@ -187,6 +223,92 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   render** (issue #117). The second TriggerAuthentication overwrote the first
   at apply, and a ScaledObject meant for the first read the second's
   credentials.
+
+### Migration guide from 2.7.x
+
+> No values change shape. What changes is **which ServiceAccount a hook's pod
+> runs as** in the copy phases, and **which values the chart accepts**: values
+> that rendered but could never be applied, or were ignored in silence, now
+> fail at `helm lint` or at render. Run `helm lint` and then `helm template`
+> (or `helm diff upgrade`) against your own values before upgrading — every
+> case below shows up there.
+
+#### 1. A hook bound to a chart-created ServiceAccount runs as `<sa>-hook` (HIGH if you rely on Workload Identity / IRSA)
+
+A `pre-install`, `pre-upgrade`, `pre-rollback` or `post-delete` hook, in either
+scope, whose ServiceAccount the release creates (a deployment's, an
+`rbacs.roles` entry's, a cronjob's) now runs as the hook copy `<sa>-hook`
+(ADR 0011). An identity bound to `system:serviceaccount:<ns>:<sa>` does not
+reach it, so a migration that reads a cloud secret through that identity gets
+a permission error.
+
+**Who is affected:** hooks in those phases that inherit or name a SA the chart
+creates, and rely on an identity keyed on the SA name.
+
+**Action:** create the SA outside the release and bind it.
+
+```yaml
+deployments:
+  app:
+    serviceAccount:
+      create: false
+      name: app   # created by Terraform, say, with its IRSA / WI binding
+```
+
+#### 2. `rbacs.roles[].serviceAccount: {}` now creates the ServiceAccount (MEDIUM)
+
+`{}` used to mean "Role only"; it now renders `<name>-sa` and its RoleBinding
+(issue #124). **Action:** drop the `serviceAccount` key to keep a Role alone.
+
+#### 3. The schema rejects values that could never be applied (MEDIUM)
+
+- **Numbers in string fields** (issues #137, #145): `additionalEnvs[].value`, a
+  job's `env[].value`, a KEDA trigger's `metadata` values,
+  `tolerations[].value`. They rendered unquoted and the apply failed.
+  **Action:** quote them (`value: "10"`).
+- **Unknown keys** in an env entry, a toleration, a host alias, a DNS option
+  and a TriggerAuthentication `secretTargetRef` / `env` entry (issues #137,
+  #145). Kubernetes or KEDA dropped them in silence. **Action:** fix the key
+  the error names.
+- **Names Kubernetes rejects**: `nameOverride` / `fullnameOverride` (#120),
+  `rbacs.roles[].name` (#121), `serviceAccount.name` and a job's
+  `serviceAccountName` (#123), Service port names and named `targetPort`s
+  (#118). **Action:** use a DNS-1123 name, or a 15-character `IANA_SVC_NAME`
+  for ports.
+- **`additionalEnvs` on a deployment-level cronjob or hook** (#146): it never
+  reached the manifest. **Action:** move it to the job's `env`.
+
+#### 4. Contradictory values now fail at render (MEDIUM)
+
+- Two `rbacs.roles` entries landing on one Role, RoleBinding or ServiceAccount
+  (#122), two `kedaTriggerAuthentications` keys truncated to one name (#117), a
+  hook copy whose name truncates back onto its real one (ADR 0010, ADR 0011).
+- A job naming its ServiceAccount twice with different names (#133).
+- A ConfigMap value set to `null` (#132): set `""`.
+- A dotted fullname with a Deployment or root hook, a leading digit with a
+  Service (#120).
+
+**Action:** the error names the values path; rename, or keep one of the two.
+
+#### 5. A `pre-delete` hook reads the real Secret of its `externalSecrets` (LOW)
+
+It used to read the hook copy (ADR 0010). The real Secret is still there when
+`pre-delete` runs, so nothing to do unless you relied on the copy's name.
+
+#### 6. Error messages name their owners by values path (LOW)
+
+`deployments.api`, `cronJobs.cleanup`, not `deployment 'api'` (#133, #135).
+**Action:** update any pattern matched against the old wording.
+
+#### Migration checklist
+
+- [ ] `helm lint` your values and fix every rejection (point 3)
+- [ ] `helm template` your values and fix every render failure (point 4)
+- [ ] Check which hooks run as `<sa>-hook`, and move identity-bound SAs outside the release (point 1)
+- [ ] Look for `rbacs.roles[].serviceAccount: {}` (point 2)
+- [ ] Update CI patterns matched against error messages (point 6)
+- [ ] Check Helm is 3.18.6 or newer, or the schema closures are ignored (issue #116)
+- [ ] `helm diff upgrade`, then upgrade
 
 ---
 

@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: superseded by 0011
 ---
 
 # Duplicate a deployment's ServiceAccount as a pre-install hook resource

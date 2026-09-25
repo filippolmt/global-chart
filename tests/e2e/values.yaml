@@ -5,9 +5,11 @@
 # helm-unittest cannot see (it renders YAML, it does not run Helm).
 #
 # Covers:
-# - a pre-install hook bound to a chart-created ServiceAccount (issue #71):
-#   the SA is a normal resource, created AFTER pre-install hooks, so the chart
-#   must emit a hook-prerequisite copy or the Job can never schedule
+# - pre-install and pre-upgrade hooks bound to a chart-created ServiceAccount
+#   (issue #71, ADR 0011): the SA is a normal resource, created AFTER the pre-*
+#   hooks, so the chart emits a hook-prerequisite copy <sa>-hook and the Job
+#   runs as it. Its own name, so the pre-upgrade copy lives beside the real SA
+#   and its deletion leaves it alone (issue #141): the SA UID survives the upgrade
 # - the prereq ConfigMap/Secret copies feeding the hook's env
 # - deployment-level command/args (issue #72)
 # - a root-level hook, which creates its own ServiceAccount
@@ -115,7 +117,7 @@ deployments:
           command: ["sh", "-c"]
           args: ['[ "$FOO" = bar ] && [ "$DB_PASSWORD" = supersecret ] && [ "$E2E_TOKEN" = s3cr3t ] && [ "$(cat /etc/e2e-es/app.conf)" = conf ]']
         # Negative weight on purpose. minJobWeight becomes -5, so the derived
-        # prereq ConfigMap/Secret land at -12 and the SA copy at -10. Were those
+        # prereq ConfigMap/Secret and the SA copy land at -12. Were those
         # ever floored at 0 they would sort AFTER this Job, which would then
         # start without the ConfigMap it reads. Guards the weight invariant in
         # CLAUDE.md pattern 6 at runtime, where helm-unittest cannot see it.
