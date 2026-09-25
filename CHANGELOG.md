@@ -91,6 +91,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Fixed
 
+- **An `Owner` ExternalSecret whose target is a Secret the chart renders now
+  fails at render** (issue #153,
+  [ADR 0013](docs/adr/0013-an-owner-externalsecret-target-cannot-be-a-chart-secret.md)).
+  `externalSecrets.<key>` and `deployments.<key>.secret` both default to
+  `<fullname>-<key>`, so naming an ExternalSecret after its deployment rendered
+  one Secret owned by Helm and an ExternalSecret adopting it: Helm and ESO
+  overwrote each other's `data`, and deleting the ExternalSecret
+  garbage-collected the Helm Secret. The `Owner` target (the default policy) is
+  now checked against every chart Secret, the `-hook-secret` prerequisite copy
+  included. `Merge` and `None` stay allowed: Helm keeps the keys `Merge` adds.
+
 - **Tolerations, host aliases, DNS options and KEDA credential references are
   checked by the schema** (issue #145). `tolerations[]`, `hostAliases[]` and
   `dnsConfig.options[]` (deployments and jobs, both scopes) and a
@@ -317,6 +328,9 @@ deployments:
   (#122), two `kedaTriggerAuthentications` keys truncated to one name (#117), a
   hook copy whose name truncates back onto its real one (ADR 0010, ADR 0011).
 - A job naming its ServiceAccount twice with different names (#133).
+- An `Owner` ExternalSecret whose target is a chart Secret, typically one named
+  after a deployment that also declares `secret:` (#153): rename `target.name`,
+  or drop `secret:` from the deployment.
 - A ConfigMap value set to `null` (#132): set `""`.
 - A dotted fullname with a Deployment or root hook, a leading digit with a
   Service (#120).

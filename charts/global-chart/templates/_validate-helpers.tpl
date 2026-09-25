@@ -150,15 +150,23 @@ Called from validate.yaml.
        into, not owned, so several of them sharing a target stays legal — but
        not one a copy owns, which the copy's deletion would garbage-collect:
        those are checked against the copies alone, on a throwaway copy of
-       $copyTargets, so that two of them still never meet each other. The
-       copy's target also joins $secretNames, against the chart's own Secrets. */ -}}
+       $copyTargets, so that two of them still never meet each other. An
+       Owner target, the copy's included, also joins $secretNames, against the
+       chart's own Secrets: Owner adopts a Helm Secret, the two overwrite each
+       other's data and the ExternalSecret's deletion garbage-collects it
+       (issue #153). Merge and None stay out: Helm's patch keeps the keys Merge
+       adds, and None writes nothing (ADR 0013,
+       docs/adr/0013-an-owner-externalsecret-target-cannot-be-a-chart-secret.md). */ -}}
 {{- $consumers := include "global-chart.externalSecretHookConsumers" $root | fromJson -}}
 {{- range $key, $secret := .Values.externalSecrets -}}
   {{- if $secret -}}
     {{- $nameCtx := dict "root" $root "key" $key "secret" $secret -}}
-    {{- include "global-chart.registerName" (dict "names" $esNames "kind" "ExternalSecret" "name" (include "global-chart.externalSecretName" $nameCtx) "owner" (printf "externalSecrets.%s" $key)) -}}
+    {{- $owner := printf "externalSecrets.%s" $key -}}
+    {{- include "global-chart.registerName" (dict "names" $esNames "kind" "ExternalSecret" "name" (include "global-chart.externalSecretName" $nameCtx) "owner" $owner) -}}
     {{- if eq (include "global-chart.externalSecretCreationPolicy" $secret) "Owner" -}}
-      {{- include "global-chart.registerName" (dict "names" $esOwnedNames "kind" "Secret" "name" (include "global-chart.externalSecretTargetName" $nameCtx) "owner" (printf "externalSecrets.%s" $key)) -}}
+      {{- $target := include "global-chart.externalSecretTargetName" $nameCtx -}}
+      {{- include "global-chart.registerName" (dict "names" $esOwnedNames "kind" "Secret" "name" $target "owner" $owner) -}}
+      {{- include "global-chart.registerName" (dict "names" $secretNames "kind" "Secret" "name" $target "owner" $owner) -}}
     {{- end -}}
   {{- end -}}
 {{- end -}}
