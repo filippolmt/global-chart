@@ -1,0 +1,14 @@
+# ScaledObject triggers[].metadata is map[string]string (issue #137). A number
+# renders unquoted, passes `helm lint`, then the apply is rejected.
+deployments:
+  web:
+    image: nginx:1.25
+    keda:
+      enabled: true
+      triggers:
+        - type: cron
+          metadata:
+            timezone: UTC
+            start: "0 0 * * *"
+            end: "59 23 * * *"
+            desiredReplicas: 2

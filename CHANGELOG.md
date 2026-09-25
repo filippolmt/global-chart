@@ -61,6 +61,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Fixed
 
+- **A number in a field Kubernetes types as a string is rejected by the schema**
+  (issue #137), not by the API server at apply. `additionalEnvs[].value` and a
+  job's `env[].value` (EnvVar.value, both scopes) and a KEDA trigger's
+  `metadata` values (`map[string]string`) accepted a number, rendered it
+  unquoted, and passed `helm lint`; the apply then failed. Quote the number
+  (`value: "10"`). An env entry now also rejects a key other than `name`,
+  `value` and `valueFrom`. Values that set a number there were already broken
+  at apply, so no working install changes.
+
 - **Large Job spec integers render in plain digits** — `activeDeadlineSeconds`,
   `ttlSecondsAfterFinished`, `backoffLimit`, `parallelism` and `completions`,
   on hooks and cronjobs. Helm reads a number from a values file as a float64,

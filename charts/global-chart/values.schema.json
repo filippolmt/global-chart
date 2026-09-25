@@ -276,6 +276,19 @@
       },
       "then": { "required": ["triggers"] }
     },
+    "envVar": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string" },
+        "value": {
+          "description": "A string, as EnvVar.value is: quote a number (\"10\"), or the API server rejects the manifest.",
+          "type": "string"
+        },
+        "valueFrom": { "type": "object" }
+      },
+      "additionalProperties": false
+    },
     "kedaTrigger": {
       "type": "object",
       "required": ["type"],
@@ -287,7 +300,11 @@
           "enum": ["AverageValue", "Value", "Utilization"]
         },
         "useCachedMetrics": { "type": "boolean" },
-        "metadata": { "type": "object" },
+        "metadata": {
+          "description": "map[string]string in the ScaledObject: quote a number (\"10\").",
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
         "authenticationRef": {
           "type": "object",
           "required": ["name"],
@@ -520,7 +537,7 @@
           "type": "array",
           "items": { "$ref": "#/$defs/externalSecretRef" }
         },
-        "additionalEnvs": { "type": "array" },
+        "additionalEnvs": { "type": "array", "items": { "$ref": "#/$defs/envVar" } },
         "extraInitContainers": { "type": "array" },
         "extraContainers": { "type": "array" },
         "podRecreation": {
@@ -581,7 +598,7 @@
         "affinity": { "type": "object" },
         "hostAliases": { "type": "array" },
         "dnsConfig": { "$ref": "#/$defs/dnsConfig" },
-        "env": { "type": "array" },
+        "env": { "type": "array", "items": { "$ref": "#/$defs/envVar" } },
         "envFromConfigMaps": {
           "type": "array",
           "items": { "type": "string" }
@@ -654,7 +671,7 @@
     "deploymentJobSpec": {
       "type": "object",
       "properties": {
-        "additionalEnvs": { "type": "array" },
+        "additionalEnvs": { "type": "array", "items": { "$ref": "#/$defs/envVar" } },
         "inheritDeploymentConfigMap": { "type": "boolean" },
         "inheritDeploymentSecret": { "type": "boolean" }
       }
