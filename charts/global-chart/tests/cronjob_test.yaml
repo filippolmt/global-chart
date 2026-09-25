@@ -520,6 +520,29 @@ tests:
           value: "svc.cluster.local"
         documentIndex: 0
 
+  # ndots: 0 disables search-domain expansion; a truthiness test dropped the
+  # value and the resolver fell back to ndots:5 (issue #136).
+  - it: should keep an inherited dnsConfig option value of 0 in a deployment-level cronjob
+    set:
+      deployments:
+        backend:
+          image: myapp:v1
+          dnsConfig:
+            options:
+              - name: ndots
+                value: 0
+          cronJobs:
+            cleanup:
+              schedule: "0 4 * * *"
+              command: ["./cleanup.sh"]
+    asserts:
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.dnsConfig.options
+          value:
+            - name: ndots
+              value: "0"
+        documentIndex: 0
+
   # ====== global imagePullSecrets ======
   - it: should use global.imagePullSecrets when cronjob has none
     documentSelector:
