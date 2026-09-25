@@ -48,8 +48,8 @@ Examples: "nginx" → "registry/nginx", "myorg/myapp" → "registry/myorg/myapp"
   {{- if and $globalRegistry $needsRegistry }}
     {{- $repo = printf "%s/%s" $globalRegistry $repo -}}
   {{- end -}}
-  {{- $digest := default "" $img.digest | toString | trim -}}
-  {{- $tag := default "" $img.tag | toString | trim -}}
+  {{- $digest := include "global-chart.printScalar" (default "" $img.digest) | trim -}}
+  {{- $tag := include "global-chart.printScalar" (default "" $img.tag) | trim -}}
   {{- if $repo }}
     {{- if $digest }}
       {{- printf "%s@%s" $repo $digest -}}

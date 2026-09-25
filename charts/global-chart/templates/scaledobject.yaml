@@ -27,22 +27,22 @@ spec:
     kind: Deployment
     name: {{ $depFullname }}
   {{- if hasKey $keda "minReplicaCount" }}
-  minReplicaCount: {{ include "global-chart.int" $keda.minReplicaCount }}
+  minReplicaCount: {{ include "global-chart.printScalar" $keda.minReplicaCount }}
   {{- end }}
   {{- if hasKey $keda "maxReplicaCount" }}
-  maxReplicaCount: {{ include "global-chart.int" $keda.maxReplicaCount }}
+  maxReplicaCount: {{ include "global-chart.printScalar" $keda.maxReplicaCount }}
   {{- end }}
   {{- if hasKey $keda "idleReplicaCount" }}
-  idleReplicaCount: {{ include "global-chart.int" $keda.idleReplicaCount }}
+  idleReplicaCount: {{ include "global-chart.printScalar" $keda.idleReplicaCount }}
   {{- end }}
   {{- if hasKey $keda "pollingInterval" }}
-  pollingInterval: {{ include "global-chart.int" $keda.pollingInterval }}
+  pollingInterval: {{ include "global-chart.printScalar" $keda.pollingInterval }}
   {{- end }}
   {{- if hasKey $keda "cooldownPeriod" }}
-  cooldownPeriod: {{ include "global-chart.int" $keda.cooldownPeriod }}
+  cooldownPeriod: {{ include "global-chart.printScalar" $keda.cooldownPeriod }}
   {{- end }}
   {{- if hasKey $keda "initialCooldownPeriod" }}
-  initialCooldownPeriod: {{ include "global-chart.int" $keda.initialCooldownPeriod }}
+  initialCooldownPeriod: {{ include "global-chart.printScalar" $keda.initialCooldownPeriod }}
   {{- end }}
   {{- with $keda.fallback }}
   fallback:

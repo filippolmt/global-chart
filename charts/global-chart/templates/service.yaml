@@ -21,20 +21,20 @@ metadata:
 spec:
   type: {{ ternary $svc.type "ClusterIP" (hasKey $svc "type") }}
   ports:
-    - port: {{ include "global-chart.int" $primary.port }}
-      targetPort: {{ include "global-chart.int" $primary.targetPort }}
+    - port: {{ include "global-chart.printScalar" $primary.port }}
+      targetPort: {{ include "global-chart.printScalar" $primary.targetPort }}
       protocol: {{ $primary.protocol }}
       name: {{ $primary.name }}
     {{- range (default (list) $svc.extraPorts) }}
     - name: {{ .name }}
-      port: {{ include "global-chart.int" .port }}
-      targetPort: {{ include "global-chart.int" .targetPort }}
+      port: {{ include "global-chart.printScalar" .port }}
+      targetPort: {{ include "global-chart.printScalar" .targetPort }}
       protocol: {{ (default "TCP" .protocol) | upper }}
       {{- with .appProtocol }}
       appProtocol: {{ . }}
       {{- end }}
       {{- with .nodePort }}
-      nodePort: {{ include "global-chart.int" . }}
+      nodePort: {{ include "global-chart.printScalar" . }}
       {{- end }}
     {{- end }}
   selector:

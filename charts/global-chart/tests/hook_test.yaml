@@ -3209,3 +3209,33 @@ tests:
         documentSelector:
           path: kind
           value: Job
+
+  # ====== Numbers from values in string fields (issue #132) ======
+  # A values-file number is a float64, and toString prints it as 1e+07 from a
+  # million up: the API server accepts that in a string field and the
+  # application silently reads the wrong value. A non-integral float keeps its
+  # form (1.5 is never truncated). set: values reach the template as float64.
+  - it: should render a large number in plain digits on the prerequisite ConfigMap copy
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          configMap:
+            LIMIT: 10000000
+            RATIO: 1.5
+          hooks:
+            post-upgrade:
+              migrate:
+                command: ["./migrate.sh"]
+    asserts:
+      - isKind:
+          of: ConfigMap
+        documentIndex: 0
+      - equal:
+          path: data.LIMIT
+          value: "10000000"
+        documentIndex: 0
+      - equal:
+          path: data.RATIO
+          value: "1.5"
+        documentIndex: 0

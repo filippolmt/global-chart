@@ -3,27 +3,48 @@ Rendering helpers for global-chart.
 */}}
 
 {{/*
-Print an integer read from values. The rule: every integer printed from values
-goes through this helper — never a bare {{ $x.field }}, and never a site-local
-int64/%d of its own (jobSpecVerbatimFields included, issue #132).
+Print a scalar read from values. The rule: every number printed from values
+goes through this helper — never a bare {{ $x.field }}, never toString or
+printf "%v" of a values-derived scalar, and never a site-local int64/%d
+(jobSpecVerbatimFields included, issue #132). Integer fields print it as is,
+string fields pipe it to quote.
 Why: Helm reads a number from a values file as a float64, and the template
-default format prints a float64 in exponent notation from a million upward —
-10000000 renders as 1e+07, which the schema accepts (it is an integer), helm
-lint passes, and the API server rejects for an integer field. --set parses the
-same number as an int64, so testing with --set hides the defect; the values
-file is how the chart is normally used. The same holds for a port read back
-through fromJson, which turns every number into a float64. toYaml goes through
-JSON encoding and is unaffected, so a block rendered with toYaml needs nothing.
-The string branch: int-or-string fields (pdb minAvailable/maxUnavailable,
-Service targetPort) keep a string exactly as today — returned unchanged,
-unquoted — so "50%" still renders as 50% and a named targetPort as its name.
-Usage: {{ include "global-chart.int" $deploy.revisionHistoryLimit }}
+default format (toString and printf "%v" alike) prints a float64 in exponent
+notation from a million upward. In an integer field, 10000000 renders as 1e+07,
+which the schema accepts, helm lint passes and the API server rejects. In a
+string field it is worse: LIMIT: 10000000 in a ConfigMap renders "1e+07", the
+API server accepts it and the application silently reads the wrong value; an
+image tag 20240101 renders as nginx:2.0240101e+07. --set parses the same number
+as an int64, so testing with --set hides the defect; the values file is how the
+chart is normally used. A port read back through fromJson is a float64 too.
+toYaml goes through JSON encoding and is unaffected, so a block rendered with
+toYaml needs nothing.
+Contract, by kind of value:
+- string: returned unchanged, unquoted. Int-or-string fields (pdb
+  minAvailable/maxUnavailable, Service targetPort) keep "50%" as 50% and a
+  named targetPort as its name, exactly as before.
+- float64 with no fractional part, within int64 range: %d after int64, so
+  10000000 prints as 10000000.
+- any other number (1.5, a float64 beyond int64 range, an int from --set or a
+  template literal): toString. 1.5 stays 1.5 — never truncated. A float64
+  beyond ±9.2e18 keeps Go's exponent form: int64 cannot hold it, and a YAML
+  number that large has already lost its low digits to float64 anyway.
+- bool: toString, true/false as before.
+- nil: fails. A null that reaches a printed field would otherwise render as
+  "<nil>" (toString) or 0 (int64) — a value the user never wrote. The typed
+  fields cannot carry a null (the schema rejects it); the free-form maps can,
+  a ConfigMap value above all: set "" for an empty value, or remove the key.
+Maps and slices are not scalars: callers render them with toYaml.
+Usage: {{ include "global-chart.printScalar" $deploy.revisionHistoryLimit }}
+       {{ include "global-chart.printScalar" $value | quote }}
 */}}
-{{- define "global-chart.int" -}}
-{{- if kindIs "string" . -}}
-{{- . -}}
-{{- else -}}
+{{- define "global-chart.printScalar" -}}
+{{- if kindIs "invalid" . -}}
+{{- fail "printScalar: a null value reached a field the chart prints (for example a ConfigMap value set to null). Set a value — \"\" for an empty string — or remove the key." -}}
+{{- else if and (kindIs "float64" .) (eq (floor .) .) (lt . 9.2e18) (gt . -9.2e18) -}}
 {{- printf "%d" (int64 .) -}}
+{{- else -}}
+{{- toString . -}}
 {{- end -}}
 {{- end }}
 
@@ -104,7 +125,7 @@ dnsConfig:
     {{- range $dnsConfig.options }}
     - name: {{ .name }}
       {{- if .value }}
-      value: {{ .value | quote }}
+      value: {{ include "global-chart.printScalar" .value | quote }}
       {{- end }}
     {{- end }}
   {{- end }}
@@ -162,7 +183,8 @@ Render the body of a ConfigMap "data:" block: one "key: value" line per entry, a
 indent 0. The caller owns the "data:" key and applies its own nindent 2.
 Usage: {{- include "global-chart.renderConfigMapData" $deploy.configMap | nindent 2 }}
 Map/slice values are serialized with toYaml into a block scalar, everything else
-stringified and quoted: ConfigMap.data is map[string]string, so every value has to
+printed through printScalar and quoted — a bare toString turned 10000000 into
+"1e+07" (issue #132) — and a null value fails there: ConfigMap.data is map[string]string, so every value has to
 render as a YAML string or the API server rejects the manifest.
 Returns empty string on an empty map; callers guard on the map being non-empty.
 Built by joining lines rather than by literal text + whitespace control, unlike the
@@ -176,7 +198,7 @@ caller's nindent turns into a line of bare spaces.
 {{- if or (kindIs "map" $value) (kindIs "slice" $value) -}}
 {{- $lines = append $lines (printf "%s: |-\n%s" $key (toYaml $value | indent 2)) -}}
 {{- else -}}
-{{- $lines = append $lines (printf "%s: %s" $key (toString $value | quote)) -}}
+{{- $lines = append $lines (printf "%s: %s" $key (include "global-chart.printScalar" $value | quote)) -}}
 {{- end -}}
 {{- end -}}
 {{- join "\n" $lines -}}
@@ -226,6 +248,8 @@ Resolution priority (mirrors the historical inline ingress logic):
   3. Otherwise: fail with actionable message.
 
 Output: JSON string of the form {"name":"<svc>","port":<int>}
+The port comes back from fromJson a float64: print it through
+global-chart.printScalar, never bare.
 */}}
 {{- define "global-chart.resolveBackend" -}}
 {{- $root := .root -}}
@@ -287,7 +311,8 @@ single-key branches of externalsecret.yaml so their defaults can never drift.
 CRD level — so they are emitted only when the key is present, keyed on `hasKey`
 rather than truthiness: an explicit empty string is the user's input and is
 passed through, not silently dropped. `version` goes through `quote` because the
-schema accepts a number for it (`version: 3`) while the CRD wants a string.
+schema accepts a number for it (`version: 3`) while the CRD wants a string;
+printScalar first, so a large number does not become "1e+07".
 Usage: {{- include "global-chart.renderExternalSecretRemoteRef" (dict "remote" $remote "keyError" (printf "externalSecrets.%s.remote.key is mandatory" $name)) | nindent 8 }}
 Inputs (dict):
   - remote    (required) — the remote map (key + optional conversion/decoding/metadata strategies, property, version)
@@ -303,7 +328,7 @@ metadataPolicy: {{ ternary $remote.metadataPolicy "None" (hasKey $remote "metada
 property: {{ $remote.property | quote }}
 {{- end }}
 {{- if hasKey $remote "version" }}
-version: {{ $remote.version | quote }}
+version: {{ include "global-chart.printScalar" $remote.version | quote }}
 {{- end }}
 {{- end }}
 
@@ -325,6 +350,8 @@ already-declared port would buy nothing and risk a duplicate name, which the API
 server rejects. The protocol is part of the key because the same number under
 two protocols is a distinct port — TCP and UDP on 53 is the ordinary DNS shape.
 Usage: {{ include "global-chart.containerPorts" $svc | fromJsonArray }}
+The output is JSON, so every number comes back a float64: print containerPort
+through global-chart.printScalar, never bare.
 */}}
 {{- define "global-chart.containerPorts" -}}
 {{- $svc := . -}}
@@ -365,6 +392,8 @@ required by the schema, so they share no default worth a home.
 Usage: {{ $primary := include "global-chart.servicePrimaryPort" $svc | fromJson }}
 Input: the deployment's service map, already defaulted to (dict) by the caller.
 Output: JSON of the form {"port":80,"name":"http","protocol":"TCP","targetPort":"http"}
+Every number comes back from fromJson a float64: print port and targetPort
+through global-chart.printScalar, never bare.
 */}}
 {{- define "global-chart.servicePrimaryPort" -}}
 {{- $svc := . -}}
