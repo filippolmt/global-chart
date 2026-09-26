@@ -54,7 +54,7 @@ ESO_NAMESPACE := external-secrets
 # copies under a real sync, where pre-install runs on every sync and a failed
 # operation marks every hook HookFailed (issues #149, #164).
 # renovate: datasource=github-releases depName=argoproj/argo-cd
-ARGOCD_VERSION := v3.5.2
+ARGOCD_VERSION := v3.5.3
 ARGOCD_NAMESPACE := argocd
 # Helm just below the floor the job schema closures need (issue #116): the
 # NOTES.txt warning must show on it. helm-unittest runs its own newer Helm and
