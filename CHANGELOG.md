@@ -7,6 +7,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
+### Added
+
+- **`deployments.<name>.priorityClassName`** (issue #168). Names an existing
+  PriorityClass for the pod; the chart does not render the cluster-scoped
+  PriorityClass itself. Deployment-level hooks and cronjobs inherit it, an
+  explicit value overrides it and `""` stops the inheritance; root-level jobs
+  use only their own. Unset, the output is unchanged.
+
 ### Fixed
 
 - **An `Orphan` ExternalSecret whose target is a chart-rendered Secret now fails

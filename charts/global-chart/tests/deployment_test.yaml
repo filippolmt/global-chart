@@ -1720,3 +1720,24 @@ tests:
     asserts:
       - failedTemplate:
           errorMessage: "deployments.main.mountedConfigFiles.bundles[0]: 'mountDir' is required"
+
+  # ====== priorityClassName (issue #168) ======
+  - it: should render priorityClassName when set
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          priorityClassName: prod-high
+    asserts:
+      - equal:
+          path: spec.template.spec.priorityClassName
+          value: prod-high
+
+  - it: should omit priorityClassName when unset
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+    asserts:
+      - notExists:
+          path: spec.template.spec.priorityClassName

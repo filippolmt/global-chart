@@ -591,6 +591,14 @@
           "type": "object",
           "additionalProperties": { "type": "string" }
         },
+        "priorityClassName": {
+          "description": "Name of an existing PriorityClass for the pod (a DNS-1123 subdomain, at most 253 characters). The PriorityClass itself is cluster-scoped and not rendered by the chart. Deployment-level hooks and cronjobs inherit it; null or \"\" means unset.",
+          "anyOf": [
+            { "type": "null" },
+            { "const": "" },
+            { "$ref": "#/$defs/dns1123Subdomain", "maxLength": 253 }
+          ]
+        },
         "tolerations": { "type": "array", "items": { "$ref": "#/$defs/toleration" } },
         "affinity": { "type": "object" },
         "secret": { "type": "object", "additionalProperties": {} },
@@ -665,6 +673,14 @@
         "nodeSelector": {
           "type": "object",
           "additionalProperties": { "type": "string" }
+        },
+        "priorityClassName": {
+          "description": "Name of an existing PriorityClass for the job pod. Deployment-level: explicit > inherited from the deployment, \"\" stops the inheritance. Root-level: only this value.",
+          "anyOf": [
+            { "type": "null" },
+            { "const": "" },
+            { "$ref": "#/$defs/dns1123Subdomain", "maxLength": 253 }
+          ]
         },
         "tolerations": { "type": "array", "items": { "$ref": "#/$defs/toleration" } },
         "affinity": { "type": "object" },

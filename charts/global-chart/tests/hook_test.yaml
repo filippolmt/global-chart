@@ -3836,3 +3836,93 @@ tests:
           value:
             - configMapRef:
                 name: prod-settings
+
+  # ====== priorityClassName (issue #168) ======
+  - it: should inherit priorityClassName from deployment
+    documentSelector:
+      path: kind
+      value: Job
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          priorityClassName: prod-high
+          hooks:
+            post-upgrade:
+              migrate:
+                command: ["./migrate.sh"]
+    asserts:
+      - equal:
+          path: spec.template.spec.priorityClassName
+          value: prod-high
+
+  - it: should let a deployment-level hook override priorityClassName
+    documentSelector:
+      path: kind
+      value: Job
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          priorityClassName: prod-high
+          hooks:
+            post-upgrade:
+              migrate:
+                command: ["./migrate.sh"]
+                priorityClassName: batch-low
+    asserts:
+      - equal:
+          path: spec.template.spec.priorityClassName
+          value: batch-low
+
+  - it: should stop priorityClassName inheritance with an empty string
+    documentSelector:
+      path: kind
+      value: Job
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          priorityClassName: prod-high
+          hooks:
+            post-upgrade:
+              migrate:
+                command: ["./migrate.sh"]
+                priorityClassName: ""
+    asserts:
+      - notExists:
+          path: spec.template.spec.priorityClassName
+
+  - it: should render priorityClassName on a root-level hook, never inherited via fromDeployment
+    documentSelector:
+      path: kind
+      value: Job
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          priorityClassName: prod-high
+      hooks:
+        post-install:
+          migrate:
+            fromDeployment: backend
+            command: ["./migrate.sh"]
+    asserts:
+      - notExists:
+          path: spec.template.spec.priorityClassName
+
+  - it: should render an explicit priorityClassName on a root-level hook
+    documentSelector:
+      path: kind
+      value: Job
+    set:
+      hooks:
+        post-install:
+          migrate:
+            image: myapp:v1
+            command: ["./migrate.sh"]
+            priorityClassName: batch-low
+    asserts:
+      - equal:
+          path: spec.template.spec.priorityClassName
+          value: batch-low

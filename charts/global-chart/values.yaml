@@ -254,6 +254,9 @@ deployments: {}
   #   # -- Pod tolerations
   #   tolerations: []
   #
+  #   # -- Existing PriorityClass for the pod (cluster-scoped, not rendered by the chart)
+  #   priorityClassName: ""
+  #
   #   # -- Pod affinity/anti-affinity rules
   #   affinity: {}
   #
@@ -318,7 +321,7 @@ deployments: {}
   #     post-upgrade:
   #       migrate:
   #         command: ["./migrate.sh"]
-  #         # Inherits: image, configMap, secret, serviceAccount, nodeSelector, tolerations, affinity
+  #         # Inherits: image, configMap, secret, serviceAccount, nodeSelector, tolerations, affinity, priorityClassName
   #         # Can override with explicit values if needed
   #
   #   # -- CronJobs defined inside deployment (inherit image, configMap, secret, SA)
@@ -326,7 +329,7 @@ deployments: {}
   #     backup:
   #       schedule: "0 2 * * *"
   #       command: ["./backup.sh"]
-  #       # Inherits: image, configMap, secret, serviceAccount, nodeSelector, tolerations, affinity
+  #       # Inherits: image, configMap, secret, serviceAccount, nodeSelector, tolerations, affinity, priorityClassName
   #       # Can override with explicit values if needed
   #       # Hardening (all optional):
   #       # timeZone: "Europe/Rome"          # CronJob spec, k8s >=1.27

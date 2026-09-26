@@ -1,0 +1,6 @@
+# priorityClassName names an existing PriorityClass: a DNS-1123 subdomain.
+# `Prod_High` renders, lints, and the API server rejects the Deployment.
+deployments:
+  main:
+    image: nginx:1.25
+    priorityClassName: Prod_High
