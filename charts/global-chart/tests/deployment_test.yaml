@@ -1060,6 +1060,161 @@ tests:
       - exists:
           path: spec.template.metadata.annotations.checksum/secret
 
+  # ====== externalSecrets checksum (issue #174) ======
+  - it: should not render the externalSecrets checksum without references
+    set:
+      externalSecrets:
+        app-conf:
+          secretstore: { kind: ClusterSecretStore, name: store }
+          secretkey: KEY
+          remote: { key: app/conf }
+          target:
+            template:
+              data:
+                app.conf: "addons_path = /a"
+        other:
+          secretstore: { kind: ClusterSecretStore, name: store }
+          secretkey: KEY
+          remote: { key: other }
+      deployments:
+        main:
+          image: "nginx:1.25"
+    asserts:
+      - notExists:
+          path: spec.template.metadata.annotations["checksum/external-secrets"]
+
+  - it: should render the externalSecrets checksum of the referenced entries
+    set:
+      externalSecrets:
+        app-conf:
+          secretstore: { kind: ClusterSecretStore, name: store }
+          secretkey: KEY
+          remote: { key: app/conf }
+          target:
+            template:
+              data:
+                app.conf: "addons_path = /a"
+        other:
+          secretstore: { kind: ClusterSecretStore, name: store }
+          secretkey: KEY
+          remote: { key: other }
+      deployments:
+        main:
+          image: "nginx:1.25"
+          externalSecrets:
+            - name: app-conf
+              mountPath: /etc/app
+    asserts:
+      - equal:
+          path: spec.template.metadata.annotations["checksum/external-secrets"]
+          value: e8a4e7c38854f7aef2e858b9e61659e322234167472fbea562243aa902527a0c
+
+  - it: should change the externalSecrets checksum with target.template
+    set:
+      externalSecrets:
+        app-conf:
+          secretstore: { kind: ClusterSecretStore, name: store }
+          secretkey: KEY
+          remote: { key: app/conf }
+          target:
+            template:
+              data:
+                app.conf: "addons_path = /b"
+        other:
+          secretstore: { kind: ClusterSecretStore, name: store }
+          secretkey: KEY
+          remote: { key: other }
+      deployments:
+        main:
+          image: "nginx:1.25"
+          externalSecrets:
+            - name: app-conf
+              mountPath: /etc/app
+    asserts:
+      - notEqual:
+          path: spec.template.metadata.annotations["checksum/external-secrets"]
+          value: e8a4e7c38854f7aef2e858b9e61659e322234167472fbea562243aa902527a0c
+
+  - it: should change the externalSecrets checksum with remote.key
+    set:
+      externalSecrets:
+        app-conf:
+          secretstore: { kind: ClusterSecretStore, name: store }
+          secretkey: KEY
+          remote: { key: app/conf-v2 }
+          target:
+            template:
+              data:
+                app.conf: "addons_path = /a"
+        other:
+          secretstore: { kind: ClusterSecretStore, name: store }
+          secretkey: KEY
+          remote: { key: other }
+      deployments:
+        main:
+          image: "nginx:1.25"
+          externalSecrets:
+            - name: app-conf
+              mountPath: /etc/app
+    asserts:
+      - notEqual:
+          path: spec.template.metadata.annotations["checksum/external-secrets"]
+          value: e8a4e7c38854f7aef2e858b9e61659e322234167472fbea562243aa902527a0c
+
+  - it: should keep the externalSecrets checksum when an unreferenced entry changes
+    set:
+      externalSecrets:
+        app-conf:
+          secretstore: { kind: ClusterSecretStore, name: store }
+          secretkey: KEY
+          remote: { key: app/conf }
+          target:
+            template:
+              data:
+                app.conf: "addons_path = /a"
+        other:
+          secretstore: { kind: ClusterSecretStore, name: store }
+          secretkey: KEY
+          remote: { key: other-v2 }
+      deployments:
+        main:
+          image: "nginx:1.25"
+          externalSecrets:
+            - name: app-conf
+              mountPath: /etc/app
+    asserts:
+      - equal:
+          path: spec.template.metadata.annotations["checksum/external-secrets"]
+          value: e8a4e7c38854f7aef2e858b9e61659e322234167472fbea562243aa902527a0c
+
+  - it: should let podAnnotations override the externalSecrets checksum
+    set:
+      externalSecrets:
+        app-conf:
+          secretstore: { kind: ClusterSecretStore, name: store }
+          secretkey: KEY
+          remote: { key: app/conf }
+          target:
+            template:
+              data:
+                app.conf: "addons_path = /a"
+        other:
+          secretstore: { kind: ClusterSecretStore, name: store }
+          secretkey: KEY
+          remote: { key: other }
+      deployments:
+        main:
+          image: "nginx:1.25"
+          externalSecrets:
+            - name: app-conf
+              mountPath: /etc/app
+          podAnnotations:
+            checksum/external-secrets: pinned-by-hand
+    asserts:
+      - equal:
+          path: spec.template.metadata.annotations["checksum/external-secrets"]
+          value: pinned-by-hand
+
   # ====== strategy ======
   - it: should render strategy when configured
     set:

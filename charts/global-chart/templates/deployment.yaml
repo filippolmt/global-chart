@@ -52,6 +52,25 @@ spec:
             "checksum/config" (toYaml $deploy.configMap | sha256sum)
             "checksum/secret" (toYaml $deploy.secret | sha256sum)
             "checksum/mounted-config-files" (toYaml $deploy.mountedConfigFiles | sha256sum) }}
+      {{- /* checksum/external-secrets (issue #174): the rendered spec of every
+             externalSecrets entry the deployment references, in list order — so a
+             change to target.template, remote.key or the list itself rolls the pods.
+             Only with references: an always-present key would roll every deployment
+             once on upgrade for nothing. It hashes the spec, not the values: a new
+             version in the external store, the window before ESO rewrites the
+             Secret on rollout, and a target.immutable Secret are not covered.
+             Hooks and cronjobs get none: their pods are created on every run.
+             A reference naming no key is skipped here and rejected, with its own
+             message, by resolveExternalSecretRefs below. */ -}}
+      {{- if $deploy.externalSecrets }}
+      {{- $specs := list }}
+      {{- range $ref := $deploy.externalSecrets }}
+      {{- with index (default (dict) $root.Values.externalSecrets) $ref.name }}
+      {{- $specs = append $specs (include "global-chart.renderExternalSecretSpec" (dict "root" $root "key" $ref.name "secret" .)) }}
+      {{- end }}
+      {{- end }}
+      {{- $_ := set $checksums "checksum/external-secrets" ($specs | join "\n---\n" | sha256sum) }}
+      {{- end }}
       {{- if $podRecreation.enabled }}
       {{- $_ := set $checksums "timestamp" (now | date "20060102150405") }}
       {{- end }}

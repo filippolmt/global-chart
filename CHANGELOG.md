@@ -5,6 +5,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ---
 
+## [3.0.1] — 2026-09-26
+
+### Fixed
+
+- **A change to a referenced `externalSecrets` entry rolls the deployment's
+  pods** (issue #174). The pod template gets a `checksum/external-secrets`
+  annotation, the sha256 of the rendered specs of the entries listed in
+  `deployments.<name>.externalSecrets`: a change to `target.template` (a config
+  file rendered by ESO and mounted with `mountPath`, say) updated the Secret and
+  the hooks, which read the hook-prerequisite copy, while the pods kept the old
+  content. A new version of the value in the external store is still not
+  covered — the chart never sees it. **Upgrading rolls, once, every deployment
+  that references `externalSecrets`**, since the annotation is new; deployments
+  without references are untouched.
+
+---
+
 ## [3.0.0] — 2026-09-26
 
 ### Changed
