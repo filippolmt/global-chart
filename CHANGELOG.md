@@ -5,6 +5,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ---
 
+## [Unreleased]
+
+### Fixed
+
+- **An `Orphan` ExternalSecret whose target is a chart-rendered Secret now fails
+  at render** (issue #161, [ADR 0013](docs/adr/0013-an-owner-externalsecret-target-cannot-be-a-chart-secret.md)).
+  `Orphan` clears the Secret's `data` down to its own keys, like `Owner`, so
+  Helm and ESO overwrite each other on every upgrade and every refresh; 2.8.0
+  caught only `Owner`. `Merge`, `CreateOrMerge` and `None` stay allowed. Two
+  `Orphan` ExternalSecrets sharing one target now fail too.
+
 ## [2.8.0] — 2026-09-25
 
 ### Added
