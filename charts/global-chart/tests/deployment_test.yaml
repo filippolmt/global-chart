@@ -1677,3 +1677,46 @@ tests:
           value:
             - name: regcred
             - name: other
+
+  # The mounted file's name and paths are quoted like its ConfigMap key
+  # (issue #152): a bare 1.10 reached the API server as the float 1.1
+  - it: should quote the mounted file's paths
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          mountedConfigFiles:
+            files:
+              - name: myconfig
+                filename: "1.10"
+                targetPath: /etc/1.10
+                content: "a"
+            bundles:
+              - mountDir: /etc/bundle
+                files:
+                  - name: appconfig
+                    relPath: sub/1.20
+                    content: "b"
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].volumeMounts[0].subPath
+          value: "1.10"
+      - equal:
+          path: spec.template.spec.volumes[1].projected.sources[0].configMap.items[0]
+          value: { key: "1.20", path: sub/1.20 }
+
+  # A bundle with no mountDir rendered `mountPath:` as null (issue #157)
+  - it: should fail when a mountedConfigFiles bundle has no mountDir
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          mountedConfigFiles:
+            bundles:
+              - files:
+                  - name: appconfig
+                    relPath: sub/app.yaml
+                    content: "b"
+    asserts:
+      - failedTemplate:
+          errorMessage: "deployments.main.mountedConfigFiles.bundles[0]: 'mountDir' is required"

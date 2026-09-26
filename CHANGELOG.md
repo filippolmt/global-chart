@@ -37,9 +37,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   indentation from the first line: content such as `"  indented: first\nsecond:
   line"` (a YAML fragment, Python) ended the scalar early and failed with `did
   not find expected key`. Values are now `|2` block scalars, for `files` and
-  `bundles` alike. A `files` entry with no `filename` or no `targetPath` now
-  fails naming its values path, instead of a bare YAML parse error or a null
-  `mountPath`.
+  `bundles` alike. A `files` entry with no `filename` or no `targetPath`, a
+  bundle with no `mountDir` and a bundle file with no `relPath` now fail naming
+  their values path, instead of a bare YAML parse error, a null `mountPath` or
+  a key `.`.
 - **`imagePullSecrets` items and a job's `restartPolicy` are validated by the
   schema** (issue #158). On deployments and jobs `imagePullSecrets` was a bare
   array, so `[regcred, 5]` passed lint and crashed the render with `wrong type
@@ -53,8 +54,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   reparsed as a YAML 1.1 scalar and reached the API server as `"true"`,
   `"false"`, `"31"`, `"7"` or `"1.1"`; the app found its key missing without any
   error. The deployment ConfigMap and Secret, their hook-prerequisite copies and
-  the mounted config file ConfigMaps now quote every key. The rendered keys of
-  an unaffected map do not change.
+  the mounted config file ConfigMaps now quote every key, and the Deployment
+  quotes the mounted file's `subPath`, `mountPath` and projected `key`/`path`
+  alike. The rendered keys of an unaffected map do not change.
 - **A deployment-level job can drop the deployment's `envFromSecrets` /
   `envFromConfigMaps`** (issue #159). A hook or cronjob always received them,
   whatever it set: `inheritDeploymentSecret: false` covers only the generated

@@ -48,7 +48,7 @@ metadata:
     {{- . | nindent 4 }}
   {{- end }}
 data:
-  {{ $f.relPath | base | quote }}: |2
+  {{ required (printf "deployments.%s.mountedConfigFiles.bundles[%d].files[%d] (%s): 'relPath' is required" $name $bi $fi $f.name) $f.relPath | base | quote }}: |2
     {{- $content := required (printf "deployments.%s.mountedConfigFiles.bundles[%d].files[%d] (%s): 'content' is required" $name $bi $fi $f.name) $f.content -}}
     {{- $content | nindent 4 -}}
 {{- end }}

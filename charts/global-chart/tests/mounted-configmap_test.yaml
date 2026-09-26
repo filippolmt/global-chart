@@ -196,3 +196,19 @@ tests:
           path: data
           value: { "1.10": "b\n" }
         documentIndex: 1
+
+  # A bundle file with no relPath rendered its ConfigMap key as "." (issue #157)
+  - it: should fail when a bundle file entry has no relPath
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          mountedConfigFiles:
+            bundles:
+              - mountDir: /etc/bundle
+                files:
+                  - name: appconfig
+                    content: "b"
+    asserts:
+      - failedTemplate:
+          errorMessage: "deployments.main.mountedConfigFiles.bundles[0].files[0] (appconfig): 'relPath' is required"

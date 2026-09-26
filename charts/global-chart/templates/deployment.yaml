@@ -183,15 +183,15 @@ spec:
             {{- if and $mountedConfigFiles $mountedConfigFiles.files }}
             {{- range $i, $f := $mountedConfigFiles.files }}
             - name: {{ include "global-chart.mountedFileVolumeName" (dict "fileName" $f.name) }}
-              mountPath: {{ required (printf "deployments.%s.mountedConfigFiles.files[%d] (%s): 'targetPath' is required" $name $i $f.name) $f.targetPath }}
-              subPath: {{ $f.filename }}
+              mountPath: {{ required (printf "deployments.%s.mountedConfigFiles.files[%d] (%s): 'targetPath' is required" $name $i $f.name) $f.targetPath | quote }}
+              subPath: {{ $f.filename | quote }}
               readOnly: true
             {{- end }}
             {{- end }}
             {{- if and $mountedConfigFiles $mountedConfigFiles.bundles }}
             {{- range $bi, $b := $mountedConfigFiles.bundles }}
             - name: {{ include "global-chart.mountedBundleVolumeName" (dict "bundleIndex" $bi) }}
-              mountPath: {{ $b.mountDir }}
+              mountPath: {{ required (printf "deployments.%s.mountedConfigFiles.bundles[%d]: 'mountDir' is required" $name $bi) $b.mountDir | quote }}
               readOnly: true
             {{- end }}
             {{- end }}
@@ -228,8 +228,8 @@ spec:
               - configMap:
                   name: {{ include "global-chart.mountedConfigMapName" (dict "deploymentFullname" $depFullname "fileName" $f.name) }}
                   items:
-                    - key: {{ $f.relPath | base }}
-                      path: {{ $f.relPath }}
+                    - key: {{ $f.relPath | base | quote }}
+                      path: {{ $f.relPath | quote }}
             {{- end }}
         {{- end }}
         {{- end }}
