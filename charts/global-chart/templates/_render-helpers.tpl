@@ -191,6 +191,20 @@ chart never emits it, so there is nothing to collide with.
 {{- end }}
 
 {{/*
+Fail on a null value of a ConfigMap or Secret data map, naming <path>.<key>.
+Single home of the null check shared by renderConfigMapData and renderSecretData
+(issue #166): both data maps hold strings only, and a null is a value nobody
+wrote — "<nil>" in a ConfigMap, the base64 of "null" in a Secret. Renders
+nothing when the value is set.
+Usage: {{- include "global-chart.rejectNullDataValue" (dict "value" $value "path" $path "key" $key "kind" "Secret") -}}
+*/}}
+{{- define "global-chart.rejectNullDataValue" -}}
+{{- if kindIs "invalid" .value -}}
+{{- fail (printf "%s.%s: a null value reached a %s, which holds strings only. Set a value — \"\" for an empty string — or remove the key." .path .key .kind) -}}
+{{- end -}}
+{{- end }}
+
+{{/*
 Render the body of a ConfigMap "data:" block: one "key: value" line per entry, at
 indent 0. The caller owns the "data:" key and applies its own nindent 2.
 Usage: {{- include "global-chart.renderConfigMapData" (dict "data" $deploy.configMap "deploymentName" $name) | nindent 2 }}
@@ -214,9 +228,8 @@ caller's nindent turns into a line of bare spaces.
 {{- $path := printf "deployments.%s.configMap" .deploymentName -}}
 {{- $lines := list -}}
 {{- range $key, $value := .data -}}
-{{- if kindIs "invalid" $value -}}
-{{- fail (printf "%s.%s: a null value reached a ConfigMap, whose values are strings. Set a value — \"\" for an empty string — or remove the key." $path $key) -}}
-{{- else if or (kindIs "map" $value) (kindIs "slice" $value) -}}
+{{- include "global-chart.rejectNullDataValue" (dict "value" $value "path" $path "key" $key "kind" "ConfigMap") -}}
+{{- if or (kindIs "map" $value) (kindIs "slice" $value) -}}
 {{- $lines = append $lines (printf "%s: |-\n%s" ($key | quote) (toYaml $value | indent 2)) -}}
 {{- else -}}
 {{- $lines = append $lines (printf "%s: %s" ($key | quote) (include "global-chart.printScalar" $value | quote)) -}}
@@ -239,9 +252,8 @@ Returns empty string on an empty map; callers guard on the map being non-empty.
 {{- $path := printf "deployments.%s.secret" .deploymentName -}}
 {{- $lines := list -}}
 {{- range $key, $value := .data -}}
-{{- if kindIs "invalid" $value -}}
-{{- fail (printf "%s.%s: a null value reached a Secret, where it would render as the string \"null\". Set a value — \"\" for an empty string — or remove the key." $path $key) -}}
-{{- else if kindIs "string" $value -}}
+{{- include "global-chart.rejectNullDataValue" (dict "value" $value "path" $path "key" $key "kind" "Secret") -}}
+{{- if kindIs "string" $value -}}
 {{- $lines = append $lines (printf "%s: %s" ($key | quote) ($value | b64enc | quote)) -}}
 {{- else -}}
 {{- $lines = append $lines (printf "%s: %s" ($key | quote) (toYaml $value | b64enc | quote)) -}}
