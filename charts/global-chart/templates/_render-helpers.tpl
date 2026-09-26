@@ -92,6 +92,8 @@ Render a single volume entry. Supports both:
 
 {{/*
 Render imagePullSecrets block. Accepts a list of strings or objects with "name" key.
+Every scope holds its items to $defs/imagePullSecret in the schema (issue #158),
+so an item here is one of the two.
 Usage: {{ include "global-chart.renderImagePullSecrets" $listOrNil }}
 Returns empty string if list is nil/empty.
 */}}
@@ -101,10 +103,8 @@ imagePullSecrets:
   {{- range . }}
     {{- if kindIs "string" . }}
   - name: {{ . | quote }}
-    {{- else if hasKey . "name" }}
-  - name: {{ .name | quote }}
     {{- else }}
-  {{ fail "imagePullSecrets must be a list of strings or objects with a 'name' key." }}
+  - name: {{ .name | quote }}
     {{- end }}
   {{- end }}
 {{- end }}

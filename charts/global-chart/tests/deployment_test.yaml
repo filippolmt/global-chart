@@ -1474,7 +1474,7 @@ tests:
             - badkey: value
     asserts:
       - failedTemplate:
-          errorMessage: "imagePullSecrets must be a list of strings or objects with a 'name' key."
+          errorPattern: "at '/deployments/main/imagePullSecrets/0'"
 
   # ====== automountServiceAccountToken (pod-level, Issue #73) ======
   - it: should not render automountServiceAccountToken when not set
@@ -1652,3 +1652,28 @@ tests:
     asserts:
       - failedTemplate:
           errorMessage: "deployments.main.mountedConfigFiles.files[0] (myconfig): 'targetPath' is required"
+
+  # imagePullSecrets items share global.imagePullSecrets' shape: a number
+  # used to pass the schema and crash the render (issue #158).
+  - it: should reject an imagePullSecrets item that is neither a string nor a name map
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          imagePullSecrets: [regcred, { name: other }, 5]
+    asserts:
+      - failedTemplate:
+          errorPattern: "at '/deployments/main/imagePullSecrets/2'"
+
+  - it: should render imagePullSecrets given as strings and as name maps
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          imagePullSecrets: [regcred, { name: other }]
+    asserts:
+      - equal:
+          path: spec.template.spec.imagePullSecrets
+          value:
+            - name: regcred
+            - name: other

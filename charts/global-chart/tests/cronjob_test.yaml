@@ -950,6 +950,31 @@ tests:
           path: spec.jobTemplate.spec.template.spec.restartPolicy
           value: Never
 
+  - it: should reject restartPolicy Always
+    set:
+      cronJobs:
+        backup:
+          schedule: "0 2 * * *"
+          image: busybox:1.36
+          command: ["echo", "backup"]
+          restartPolicy: Always
+    asserts:
+      - failedTemplate:
+          errorPattern: "restartPolicy"
+
+  # imagePullSecrets items share global.imagePullSecrets' shape: a number
+  # used to pass the schema and crash the render (issue #158).
+  - it: should reject an imagePullSecrets item that is neither a string nor a name map
+    set:
+      cronJobs:
+        backup:
+          schedule: "0 2 * * *"
+          image: busybox:1.36
+          imagePullSecrets: [regcred, 5]
+    asserts:
+      - failedTemplate:
+          errorPattern: "at '/cronJobs/backup/imagePullSecrets/1'"
+
   # ====== issue #48: empty metadata blocks (root-level) ======
   - it: should NOT render empty jobTemplate.metadata when no annotations set
     set:

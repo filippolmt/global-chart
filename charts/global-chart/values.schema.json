@@ -52,23 +52,25 @@
     "rbacs": { "$ref": "#/$defs/rbacs" }
   },
   "$defs": {
+    "imagePullSecret": {
+      "description": "A pull secret by name: a string, or a map with only name.",
+      "oneOf": [
+        { "type": "string" },
+        {
+          "type": "object",
+          "properties": { "name": { "type": "string" } },
+          "required": ["name"],
+          "additionalProperties": false
+        }
+      ]
+    },
     "global": {
       "type": "object",
       "properties": {
         "imageRegistry": { "type": "string" },
         "imagePullSecrets": {
           "type": "array",
-          "items": {
-            "oneOf": [
-              { "type": "string" },
-              {
-                "type": "object",
-                "properties": { "name": { "type": "string" } },
-                "required": ["name"],
-                "additionalProperties": false
-              }
-            ]
-          }
+          "items": { "$ref": "#/$defs/imagePullSecret" }
         },
         "commonLabels": {
           "type": "object",
@@ -543,7 +545,7 @@
         "image": { "$ref": "#/$defs/image" },
         "command": { "type": "array", "items": { "type": "string" } },
         "args": { "type": "array", "items": { "type": "string" } },
-        "imagePullSecrets": { "type": "array" },
+        "imagePullSecrets": { "type": "array", "items": { "$ref": "#/$defs/imagePullSecret" } },
         "serviceAccount": { "$ref": "#/$defs/serviceAccount" },
         "annotations": {
           "description": "Annotations on the Deployment's own metadata, merged over global.commonAnnotations. Not podAnnotations, and not propagated to the Service, ServiceAccount, HPA or any other resource of the deployment.",
@@ -652,7 +654,7 @@
           "type": "string",
           "enum": ["Always", "IfNotPresent", "Never"]
         },
-        "imagePullSecrets": { "type": "array" },
+        "imagePullSecrets": { "type": "array", "items": { "$ref": "#/$defs/imagePullSecret" } },
         "nodeSelector": {
           "type": "object",
           "additionalProperties": { "type": "string" }
@@ -681,7 +683,7 @@
         "automountServiceAccountToken": { "type": "boolean" },
         "volumes": { "type": "array" },
         "volumeMounts": { "type": "array" },
-        "restartPolicy": { "type": "string" },
+        "restartPolicy": { "type": "string", "enum": ["OnFailure", "Never"] },
         "podSecurityContext": { "type": "object" },
         "securityContext": { "type": "object" }
       }

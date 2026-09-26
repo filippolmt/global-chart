@@ -40,6 +40,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   `bundles` alike. A `files` entry with no `filename` or no `targetPath` now
   fails naming its values path, instead of a bare YAML parse error or a null
   `mountPath`.
+- **`imagePullSecrets` items and a job's `restartPolicy` are validated by the
+  schema** (issue #158). On deployments and jobs `imagePullSecrets` was a bare
+  array, so `[regcred, 5]` passed lint and crashed the render with `wrong type
+  for value`; its items now share `global.imagePullSecrets`' shape, a string or
+  `{name}`. A job's `restartPolicy` takes `OnFailure` or `Never` only: `Always`
+  passed lint and was rejected at apply. An item with no `name`, which failed
+  at render with `imagePullSecrets must be a list of strings or objects with a
+  'name' key.`, is now rejected by the schema instead.
 
 ## [2.8.0] — 2026-09-25
 

@@ -290,6 +290,22 @@ tests:
           value: "OnFailure"
         documentIndex: 1
 
+  # A Job pod takes OnFailure or Never only: Always passed lint and was
+  # rejected at apply (issue #158).
+  - it: should reject restartPolicy Always on a deployment-level hook
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          hooks:
+            pre-install:
+              migrate:
+                command: ["./migrate.sh"]
+                restartPolicy: Always
+    asserts:
+      - failedTemplate:
+          errorPattern: "restartPolicy"
+
   # ====== Root-level hook command and args ======
   - it: should render command and args on root-level hook
     set:
