@@ -5,6 +5,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ---
 
+## [3.0.1] — 2026-09-26
+
+### Fixed
+
+- **A change to a referenced `externalSecrets` entry rolls the deployment's
+  pods** (issue #174). The pod template gets a `checksum/external-secrets`
+  annotation, the sha256 of the rendered specs of the entries listed in
+  `deployments.<name>.externalSecrets`. Before, a change to `target.template`
+  updated the Secret and the hooks, which read the hook-prerequisite copy,
+  while pods that read the Secret only at startup kept the old content. What
+  the checksum does not cover: [Rolling the pods on an ExternalSecret
+  change](README.md#rolling-the-pods-on-an-externalsecret-change).
+
+### Migration guide from 3.0.0
+
+- The first upgrade to 3.0.1 rolls, once, every deployment that references
+  `externalSecrets`: the annotation is new to its pod template. Deployments
+  without references are untouched. To defer the rollout, pin the annotation
+  through `podAnnotations` (`checksum/external-secrets: <any value>`; while it is
+  pinned, a spec change does not roll the pods either) and drop
+  it when a rollout is acceptable.
+
+---
+
 ## [3.0.0] — 2026-09-26
 
 ### Changed
