@@ -492,6 +492,14 @@
         { "pattern": "[a-z]" }
       ]
     },
+    "optionalObjectName": {
+      "description": "The name of an existing object, used verbatim: a DNS-1123 subdomain of at most 253 characters, or null / \"\" for unset. Shared by serviceAccountName and priorityClassName.",
+      "anyOf": [
+        { "type": "null" },
+        { "const": "" },
+        { "$ref": "#/$defs/dns1123Subdomain", "maxLength": 253 }
+      ]
+    },
     "dns1123Subdomain": {
       "description": "A DNS-1123 subdomain: dot-separated DNS-1123 labels. Constrains the keys of the externalSecrets and kedaTriggerAuthentications maps, which become part of a resource name, rbacs.roles[].name, which becomes the Role, RoleBinding and default ServiceAccount names, serviceAccount.name / serviceAccountName in every scope, and nameOverride / fullnameOverride. No maxLength here: the map keys are prefixed by the fullname, which the schema cannot see; the names used verbatim add maxLength 253 at their call site.",
       "type": "string",
@@ -593,11 +601,7 @@
         },
         "priorityClassName": {
           "description": "Name of an existing PriorityClass for the pod (a DNS-1123 subdomain, at most 253 characters). The PriorityClass itself is cluster-scoped and not rendered by the chart. Deployment-level hooks and cronjobs inherit it; null or \"\" means unset.",
-          "anyOf": [
-            { "type": "null" },
-            { "const": "" },
-            { "$ref": "#/$defs/dns1123Subdomain", "maxLength": 253 }
-          ]
+          "$ref": "#/$defs/optionalObjectName"
         },
         "tolerations": { "type": "array", "items": { "$ref": "#/$defs/toleration" } },
         "affinity": { "type": "object" },
@@ -655,11 +659,7 @@
         "serviceAccount": { "$ref": "#/$defs/serviceAccount" },
         "serviceAccountName": {
           "description": "Existing ServiceAccount the job runs as. Same rule as serviceAccount.name: a DNS-1123 subdomain of at most 253 characters; null or \"\" means unset.",
-          "anyOf": [
-            { "type": "null" },
-            { "const": "" },
-            { "$ref": "#/$defs/dns1123Subdomain", "maxLength": 253 }
-          ]
+          "$ref": "#/$defs/optionalObjectName"
         },
         "serviceAccountAnnotations": {
           "type": "object",
@@ -675,12 +675,8 @@
           "additionalProperties": { "type": "string" }
         },
         "priorityClassName": {
-          "description": "Name of an existing PriorityClass for the job pod. Deployment-level: explicit > inherited from the deployment, \"\" stops the inheritance. Root-level: only this value.",
-          "anyOf": [
-            { "type": "null" },
-            { "const": "" },
-            { "$ref": "#/$defs/dns1123Subdomain", "maxLength": 253 }
-          ]
+          "description": "Name of an existing PriorityClass for the job pod. Deployment-level: explicit > inherited from the deployment. Explicit null or \"\" stops the inheritance. Root-level: only this value.",
+          "$ref": "#/$defs/optionalObjectName"
         },
         "tolerations": { "type": "array", "items": { "$ref": "#/$defs/toleration" } },
         "affinity": { "type": "object" },

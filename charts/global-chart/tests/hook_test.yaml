@@ -3893,7 +3893,7 @@ tests:
       - notExists:
           path: spec.template.spec.priorityClassName
 
-  - it: should render priorityClassName on a root-level hook, never inherited via fromDeployment
+  - it: should not inherit priorityClassName on a root-level hook via fromDeployment
     documentSelector:
       path: kind
       value: Job
