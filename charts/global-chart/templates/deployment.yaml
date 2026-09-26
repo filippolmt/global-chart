@@ -9,6 +9,9 @@
 {{- $podRecreation := default (dict) $deploy.podRecreation }}
 {{- $dnsConfig := default (dict) $deploy.dnsConfig }}
 {{- $svc := default (dict) $deploy.service }}
+{{- /* externalSecrets: the Deployment always reads the real Secret, never the
+       hook copy (ADR 0007). Resolved once, for the pod's checksum and its env/volumes */ -}}
+{{- $es := include "global-chart.resolveExternalSecretRefs" (dict "root" $root "refs" $deploy.externalSecrets "hook" false "volumes" $deploy.volumes "errCtx" (printf "deployments.%s" $name)) | fromJson }}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -59,17 +62,9 @@ spec:
              once on upgrade for nothing. It hashes the spec, not the values: a new
              version in the external store, the window before ESO rewrites the
              Secret on rollout, and a target.immutable Secret are not covered.
-             Hooks and cronjobs get none: their pods are created on every run.
-             A reference naming no key is skipped here and rejected, with its own
-             message, by resolveExternalSecretRefs below. */ -}}
-      {{- if $deploy.externalSecrets }}
-      {{- $specs := list }}
-      {{- range $ref := $deploy.externalSecrets }}
-      {{- with index (default (dict) $root.Values.externalSecrets) $ref.name }}
-      {{- $specs = append $specs (include "global-chart.renderExternalSecretSpec" (dict "root" $root "key" $ref.name "secret" .)) }}
-      {{- end }}
-      {{- end }}
-      {{- $_ := set $checksums "checksum/external-secrets" ($specs | join "\n---\n" | sha256sum) }}
+             Hooks and cronjobs get none: their pods are created on every run. */ -}}
+      {{- with $es.specs }}
+      {{- $_ := set $checksums "checksum/external-secrets" (join "\n---\n" . | sha256sum) }}
       {{- end }}
       {{- if $podRecreation.enabled }}
       {{- $_ := set $checksums "timestamp" (now | date "20060102150405") }}
@@ -160,10 +155,8 @@ spec:
           resources:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-          {{- /* externalSecrets: the Deployment always reads the real Secret, never
-                 the hook copy (ADR 0007). A mountPath makes the entry a volume;
-                 any other entry is a secret source, in the secret group */ -}}
-          {{- $es := include "global-chart.resolveExternalSecretRefs" (dict "root" $root "refs" $deploy.externalSecrets "hook" false "volumes" $deploy.volumes "errCtx" (printf "deployments.%s" $name)) | fromJson }}
+          {{- /* externalSecrets ($es, resolved at the top): a mountPath makes the
+                 entry a volume; any other entry is a secret source, in the secret group */ -}}
           {{- $esEnv := $es.env }}
           {{- $esMounted := $es.mounted }}
           {{- if or $deploy.configMap $deploy.envFromConfigMaps $deploy.secret $deploy.envFromSecrets $esEnv }}

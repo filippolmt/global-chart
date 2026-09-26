@@ -211,7 +211,7 @@ the entries it references, in list order. A change to `target.template`, to
 `remote.key`/`property` or to the list rolls its pods, as `checksum/secret` does
 for `secret`. It hashes the spec, not the values, so it does **not** cover a new
 version of the value in the external store (that needs something like
-Reloader), nor the window in which the new pods may start before ESO has
+Reloader, see issue #175), nor the window in which the new pods may start before ESO has
 rewritten the Secret, nor a `target.immutable: true` Secret, which ESO cannot
 update in place. `podAnnotations` overrides it like the other checksums; hooks
 and cronjobs get none, since their pods are created on every run.

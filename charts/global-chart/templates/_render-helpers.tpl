@@ -566,7 +566,10 @@ target:
 Resolve a list of externalSecrets references ({name, mountPath?}) to what a pod
 consumes, split by form: `env` holds the Secret names to inject as envFrom
 sources, `mounted` the {secretName, volumeName, mountPath} of the entries that
-carry a mountPath. Returns JSON {env: [...], mounted: [...]}; callers do
+carry a mountPath. `specs` holds the real ExternalSecret spec of every entry,
+in list order, rendered by renderExternalSecretSpec whatever `hook` says: the
+input of the Deployment's checksum/external-secrets (issue #174), ignored by the
+jobs. Returns JSON {env: [...], mounted: [...], specs: [...]}; callers do
 `include ... | fromJson` and render `mounted` through
 renderExternalSecretVolumeMounts / renderExternalSecretVolumes.
 A reference names a key of the root externalSecrets map, never a Secret name:
@@ -587,13 +590,14 @@ Params:
 {{- $readsCopy := and (hasKey . "hook") .hook -}}
 {{- $taken := dict -}}
 {{- range (default (list) .volumes) -}}{{- $_ := set $taken (toString .name) true -}}{{- end -}}
-{{- $out := dict "env" (list) "mounted" (list) -}}
+{{- $out := dict "env" (list) "mounted" (list) "specs" (list) -}}
 {{- range $ref := (default (list) .refs) -}}
   {{- $secret := index (default (dict) $root.Values.externalSecrets) $ref.name -}}
   {{- if not $secret -}}
     {{- fail (printf "%s.externalSecrets references '%s', which is not a key of externalSecrets. Name the key of the externalSecrets entry, not the Secret it produces." $.errCtx $ref.name) -}}
   {{- end -}}
   {{- $nameCtx := dict "root" $root "key" $ref.name "secret" $secret -}}
+  {{- $_ := set $out "specs" (append $out.specs (include "global-chart.renderExternalSecretSpec" $nameCtx)) -}}
   {{- $secretName := include (ternary "global-chart.externalSecretHookTargetName" "global-chart.externalSecretTargetName" $readsCopy) $nameCtx -}}
   {{- if $ref.mountPath -}}
     {{- $volumeName := include "global-chart.externalSecretVolumeName" (dict "key" $ref.name) -}}
