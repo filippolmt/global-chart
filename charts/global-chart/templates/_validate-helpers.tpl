@@ -439,7 +439,7 @@ side dedups in containerPorts; the Service side has nothing to dedup into), and
 may carry nodePort only on a NodePort or LoadBalancer Service.
 Called from validate.yaml. Emits nothing on success.
 */}}
-{{- define "global-chart.validateServiceTargetPorts" -}}
+{{- define "global-chart.validateServicePorts" -}}
 {{- range $name, $deploy := .Values.deployments -}}
   {{- if $deploy -}}
   {{- if eq (include "global-chart.deploymentEnabled" $deploy) "true" -}}

@@ -124,7 +124,7 @@ containers:
   securityContext:
     {{- toYaml . | nindent 4 }}
   {{- end }}
-  {{- /* EnvFrom: deployment's configMap/secret + explicit envFromConfigMaps/envFromSecrets + deployment's envFromConfigMaps/envFromSecrets */ -}}
+  {{- /* EnvFrom, by proximity: deployment's configMap/secret, deployment's envFromConfigMaps/envFromSecrets and inherited externalSecrets, then the job's own */ -}}
   {{- /* Opt-out flags, default true, set false to break inheritance:
          inheritDeploymentSecret/inheritDeploymentConfigMap for the generated
          Secret/ConfigMap, inheritDeploymentEnvFromSecrets/-ConfigMaps for the

@@ -364,7 +364,7 @@ version: {{ include "global-chart.printScalar" $remote.version | quote }}
 {{/*
 Container ports for a deployment's pod spec, derived from its Service definition.
 Single source of truth for the pod side of the Service: deployment.yaml renders
-this list, and validateServiceTargetPorts checks named targetPorts against it,
+this list, and validateServicePorts checks named targetPorts against it,
 so the two can never drift — that drift is what made service.targetPort unusable
 (issue #82).
 
@@ -408,7 +408,7 @@ Numbers come back float64: see the file header.
 {{/*
 The primary port of a deployment's Service: the single home of its four
 defaults (`port` 80, `name` "http", `protocol` TCP, `targetPort` following the
-name). Consumed by service.yaml, containerPorts, validateServiceTargetPorts,
+name). Consumed by service.yaml, containerPorts, validateServicePorts,
 resolveBackend and the connection test — every place that used to carry its own
 copy of one of them.
 

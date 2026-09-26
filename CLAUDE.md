@@ -59,7 +59,7 @@ is the source of truth, this table is only the routing.
 | `_hook-helpers.tpl` | The three `helm.sh/hook*` annotations, weights and delete policies, driven by a role table; the phase cut `hookReadsPrereqCopy`, the one enumeration of the hooks it admits (`prereqCopyHooks`) and the consumer scans of the ExternalSecret, `rbacs.roles` and ServiceAccount hook copies |
 | `_render-helpers.tpl` | `printScalar`, the single home of how a number from values is printed, in integer and string fields alike; shared render blocks, `renderAnnotations`, the ConfigMap/Secret `data:` bodies and the Role `rules:` block shared with the hook-prerequisite copies, and the two port helpers |
 | `_keda-helpers.tpl` | KEDA names, trigger and `authenticationRef` resolution, the CRD guard |
-| `_validate-helpers.tpl` | The fullname against the labels it leads, name collisions, routing and autoscaling conflicts, named-`targetPort` resolution. Also `hpaActiveTargets`, the single home of "an HPA target is active", read by the autoscaling validator and by `hpa.yaml` |
+| `_validate-helpers.tpl` | The fullname against the labels it leads, name collisions, routing and autoscaling conflicts, the Service ports (`validateServicePorts`: named-`targetPort` resolution, duplicate port names and port+protocol pairs, `nodePort` only on NodePort/LoadBalancer). Also `hpaActiveTargets`, the single home of "an HPA target is active", read by the autoscaling validator and by `hpa.yaml` |
 
 ### Key Design Patterns
 
@@ -201,7 +201,7 @@ is the source of truth, this table is only the routing.
     `global.commonLabels`. Pod/Service selectors never included it
 13. **The primary port has one source per side**: `servicePrimaryPort` owns the
     Service side, `containerPorts` owns the pod side. Every consumer —
-    `service.yaml`, `deployment.yaml`, `validateServiceTargetPorts`,
+    `service.yaml`, `deployment.yaml`, `validateServicePorts`,
     `resolveBackend`, `tests/test-connection.yaml` — reads one of the two; the
     rules and the deduplication live in their header comments in
     `_render-helpers.tpl`. **Never derive a port or one of its defaults inline.**
