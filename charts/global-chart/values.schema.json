@@ -67,7 +67,11 @@
     "global": {
       "type": "object",
       "properties": {
-        "imageRegistry": { "type": "string" },
+        "imageRegistry": {
+          "type": "string",
+          "pattern": "^(?:(?:localhost(?::[0-9]+)?|(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9])(?:\\.(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]))+(?::[0-9]+)?|(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]):[0-9]+)(?:/[a-z0-9]+(?:(?:[._]|__|-+)[a-z0-9]+)*)*)?$",
+          "description": "Registry host, with optional port and path, prepended to every image whose first segment is not already a registry. A host carries a \".\" or a \":\" port, or is localhost: the same test imageString applies. Never a URL."
+        },
         "imagePullSecrets": {
           "type": "array",
           "items": { "$ref": "#/$defs/imagePullSecret" }
@@ -84,18 +88,32 @@
       "additionalProperties": false
     },
     "image": {
+      "$comment": "The host, path-component, tag and digest fragments are repeated in the patterns of the string branch, repository, tag, digest and global.imageRegistry: JSON Schema cannot compose patterns, so change them together. The host alternative mirrors the registry test in imageString (_image-helpers.tpl).",
       "oneOf": [
         { "type": "null" },
         {
           "type": "string",
-          "description": "Full image string, e.g. nginx:1.25"
+          "pattern": "^(?:(?:(?:localhost(?::[0-9]+)?|(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9])(?:\\.(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]))+(?::[0-9]+)?|(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]):[0-9]+)/)?[a-z0-9]+(?:(?:[._]|__|-+)[a-z0-9]+)*(?:/[a-z0-9]+(?:(?:[._]|__|-+)[a-z0-9]+)*)*(?::[A-Za-z0-9_][A-Za-z0-9_.-]{0,127})?(?:@[A-Za-z][A-Za-z0-9]*(?:[-_+.][A-Za-z][A-Za-z0-9]*)*:[0-9a-fA-F]{32,})?)?$",
+          "description": "Full image reference, e.g. nginx:1.25, held to the reference grammar the kubelet parses: [host/]path[:tag][@digest], lowercase path components. A host carries a \".\" or a \":\" port, or is localhost, the same test imageString applies. A reference outside it rendered and then failed at pull time with InvalidImageName. IPv6 registry hosts are not accepted."
         },
         {
           "type": "object",
           "properties": {
-            "repository": { "type": "string" },
-            "tag": { "type": ["string", "number"] },
-            "digest": { "type": "string" },
+            "repository": {
+              "type": "string",
+              "pattern": "^(?:(?:(?:localhost(?::[0-9]+)?|(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9])(?:\\.(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]))+(?::[0-9]+)?|(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]):[0-9]+)/)?[a-z0-9]+(?:(?:[._]|__|-+)[a-z0-9]+)*(?:/[a-z0-9]+(?:(?:[._]|__|-+)[a-z0-9]+)*)*)?$",
+              "description": "[registry[:port]/]path, lowercase path components; no tag or digest, which have their own fields."
+            },
+            "tag": {
+              "type": "string",
+              "pattern": "^([A-Za-z0-9_][A-Za-z0-9_.-]{0,127})?$",
+              "description": "An OCI tag: up to 128 characters of [A-Za-z0-9_.-], not starting with . or -. Quote a numeric-looking tag: YAML reads a bare 1.20 as the number 1.2, which no template can turn back into 1.20."
+            },
+            "digest": {
+              "type": "string",
+              "pattern": "^(?:[A-Za-z][A-Za-z0-9]*(?:[-_+.][A-Za-z][A-Za-z0-9]*)*:[0-9a-fA-F]{32,})?$",
+              "description": "A digest as the kubelet parses it (distribution/reference): <algorithm>:<hex>, at least 32 hex characters, e.g. sha256:<64 hex>. Wins over tag when both are set."
+            },
             "pullPolicy": {
               "type": "string",
               "enum": ["Always", "IfNotPresent", "Never"]
@@ -521,7 +539,6 @@
               "name": { "$ref": "#/$defs/mountedConfigFileName" },
               "filename": { "type": "string" },
               "targetPath": { "type": "string" },
-              "mountPath": { "type": "string", "deprecated": true, "description": "DEPRECATED and read by no template: it is targetPath that sets where the file is mounted. Kept only because additionalProperties is false, which makes removal breaking; it goes at the next major. The one knowing exception to the 'every schema field is used by a template' rule in CLAUDE.md." },
               "content": { "type": "string" }
             },
             "additionalProperties": false

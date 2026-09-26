@@ -1,0 +1,7 @@
+# global.imageRegistry is prepended to every image, so it has to be a registry
+# host (with optional port and path), never a URL (issue #173).
+global:
+  imageRegistry: "https://registry.example.com"
+deployments:
+  web:
+    image: nginx:1.25

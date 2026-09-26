@@ -5,6 +5,54 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ---
 
+## [3.0.0] — 2026-09-26
+
+### Changed
+
+- **`image.tag` is string-only** (issue #138), in every scope. YAML reads a bare
+  number before any template sees it: `tag: 1.20` became `nginx:1.2`, a
+  different image, and `tag: 0` rendered no tag at all. The schema now rejects
+  a numeric tag.
+- **Image references follow the OCI reference grammar** (issue #173). The
+  string form (`image: "nginx:1.25"`), `image.repository`, `image.tag`,
+  `image.digest` and `global.imageRegistry` each get a schema `pattern`, the
+  grammar the kubelet parses: a reference like `nginx:1.25:alpine`, an
+  uppercase path such as `Nginx` or `MyOrg/app`, a trailing `:` or `@`, a
+  digest that is not `<algorithm>:` plus at least 32 hex characters, or an
+  `https://` registry rendered an image the kubelet rejected at pull time with
+  `InvalidImageName`. A first segment counts as a registry host only with a
+  `.`, a `:` port or as `localhost`, the same test that decides whether
+  `global.imageRegistry` is prepended, so the two can no longer disagree. IPv6
+  registry hosts are not accepted.
+- **Image references are used as written.** 2.x trimmed surrounding whitespace
+  from the image string, `repository`, `tag` and `digest`; the schema now
+  rejects it instead.
+- **A null value in `deployments.<name>.secret` fails at render** (issue #166),
+  as a null `configMap` value already did. It rendered the base64 of the string
+  `null`, which the app read as its secret. The message names the values path
+  (`deployments.<name>.secret.<key>`), and the hook-prerequisite Secret copy
+  fails with the same one. A null `configMap` value now names its path too
+  (`deployments.<name>.configMap.<key>`), in place of the generic `printScalar`
+  message.
+
+### Removed
+
+- **`deployments.<name>.mountedConfigFiles.files[].mountPath`** (issue #115).
+  Deprecated since the schema `$defs` were closed and read by no template:
+  `targetPath` sets where the file is mounted. Values that still set it are now
+  rejected by the schema, with an error naming the path.
+
+### Migration guide from 2.x
+
+- Quote a numeric-looking `image.tag`: `tag: "1.20"`, not `tag: 1.20`. A tag
+  or any image reference the schema now rejects never pulled; fix it to the
+  real reference. Remove any whitespace around an image value.
+- Replace a null `secret:` value with `""` for an empty value, or remove the key.
+- Delete `mountedConfigFiles.files[].mountPath`: `targetPath` already does what
+  it was meant to do.
+
+---
+
 ## [2.9.0] — 2026-09-26
 
 ### Added

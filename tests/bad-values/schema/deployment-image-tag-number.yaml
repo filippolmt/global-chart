@@ -1,0 +1,8 @@
+# A bare numeric image tag (issue #138). YAML reads 1.20 as the number 1.2
+# before any template sees it, so the chart would render nginx:1.20 as
+# nginx:1.2, a different image. image.tag is string-only: quote it.
+deployments:
+  web:
+    image:
+      repository: nginx
+      tag: 1.20

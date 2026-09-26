@@ -1,0 +1,8 @@
+# An image tag outside the OCI reference grammar ([A-Za-z0-9_][A-Za-z0-9_.-]{0,127}).
+# The chart rendered nginx:1.25:alpine, the API server accepted it, and the
+# failure surfaced only at pull time as InvalidImageName.
+deployments:
+  web:
+    image:
+      repository: nginx
+      tag: "1.25:alpine"

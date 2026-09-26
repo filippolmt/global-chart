@@ -39,7 +39,7 @@ deployments: {}
   #     repository: nginx
   #     # -- Image pull policy: Always, IfNotPresent, or Never
   #     pullPolicy: IfNotPresent
-  #     # -- Image tag (e.g., "1.23.3")
+  #     # -- Image tag, a string (e.g., "1.23.3"): quote a numeric-looking tag
   #     tag: "1.23"
   #
   #   # -- Override the image ENTRYPOINT. Omit to keep the image default.
@@ -312,8 +312,6 @@ deployments: {}
   #   # or cronJob does NOT inherit them (see CLAUDE.md, "Not inheritable").
   #   mountedConfigFiles:
   #     files: []      # each: name, filename, targetPath, content
-  #                    # (`mountPath` is deprecated and read by no template —
-  #                    #  it is `targetPath` that sets the mount path)
   #     bundles: []
   #
   #   # -- Hooks defined inside deployment (inherit image, configMap, secret, SA)

@@ -1,0 +1,5 @@
+# A reference ending in "@" carries no digest (issue #173). It rendered as
+# written and the pull failed with InvalidImageName.
+deployments:
+  web:
+    image: "nginx@"

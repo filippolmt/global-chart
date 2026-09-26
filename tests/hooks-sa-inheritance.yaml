@@ -267,7 +267,6 @@ deployments:
       files:
         - name: odoo-nginx-config
           filename: odoo.conf
-          mountPath: /etc/nginx/conf.d
           targetPath: /etc/nginx/conf.d/odoo.conf
           content: |
             # Upstream Odoo
@@ -376,7 +375,6 @@ deployments:
 
         - name: odoo-maintenance-page
           filename: odoo-maintenance.html
-          mountPath: /usr/share/nginx/html
           targetPath: /usr/share/nginx/html/odoo-maintenance.html
           content: |
             <!DOCTYPE html>

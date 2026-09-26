@@ -10,6 +10,10 @@ Supports two calling conventions:
 When global.imageRegistry is set, the registry is prepended to both string and map images
 unless the first path segment already looks like a registry (contains "." or ":" or equals "localhost").
 Examples: "nginx" → "registry/nginx", "myorg/myapp" → "registry/myorg/myapp", "ghcr.io/org/app" → unchanged.
+The registry test is the one values.schema.json's host alternative mirrors (issue #173):
+a first segment is a host only with a ".", a ":" or as "localhost", so the schema never
+accepts as a host what this helper would prefix. Values are used as written, not
+trimmed: the schema patterns reject surrounding whitespace.
 */}}
 {{- define "global-chart.imageString" -}}
 {{- $img := . -}}
@@ -20,48 +24,28 @@ Examples: "nginx" → "registry/nginx", "myorg/myapp" → "registry/myorg/myapp"
   {{- $global := default (dict) .global -}}
   {{- $globalRegistry = default "" $global.imageRegistry -}}
 {{- end -}}
-{{- if kindIs "string" $img }}
-  {{- $trimmed := $img | trim -}}
-  {{- if $trimmed }}
-    {{- $needsRegistry := true -}}
-    {{- if contains "/" $trimmed -}}
-      {{- $firstSegment := index (splitList "/" $trimmed) 0 -}}
-      {{- if or (contains "." $firstSegment) (contains ":" $firstSegment) (eq $firstSegment "localhost") -}}
-        {{- $needsRegistry = false -}}
-      {{- end -}}
-    {{- end -}}
-    {{- if and $globalRegistry $needsRegistry }}
-      {{- printf "%s/%s" $globalRegistry $trimmed -}}
-    {{- else }}
-      {{- $trimmed -}}
-    {{- end }}
-  {{- end }}
-{{- else if and (kindIs "map" $img) $img.repository }}
-  {{- $repo := $img.repository | trim -}}
-  {{- $needsRegistry := true -}}
-  {{- if contains "/" $repo -}}
-    {{- $firstSegment := index (splitList "/" $repo) 0 -}}
-    {{- if or (contains "." $firstSegment) (contains ":" $firstSegment) (eq $firstSegment "localhost") -}}
-      {{- $needsRegistry = false -}}
-    {{- end -}}
+{{- $name := "" -}}
+{{- $suffix := "" -}}
+{{- if kindIs "string" $img -}}
+  {{- $name = $img -}}
+{{- else if and (kindIs "map" $img) $img.repository -}}
+  {{- $name = $img.repository -}}
+  {{- if $img.digest -}}
+    {{- $suffix = printf "@%s" $img.digest -}}
+  {{- else if $img.tag -}}
+    {{- $suffix = printf ":%s" $img.tag -}}
   {{- end -}}
-  {{- if and $globalRegistry $needsRegistry }}
-    {{- $repo = printf "%s/%s" $globalRegistry $repo -}}
-  {{- end -}}
-  {{- $digest := include "global-chart.printScalar" (default "" $img.digest) | trim -}}
-  {{- $tag := include "global-chart.printScalar" (default "" $img.tag) | trim -}}
-  {{- if $repo }}
-    {{- if $digest }}
-      {{- printf "%s@%s" $repo $digest -}}
-    {{- else if $tag }}
-      {{- printf "%s:%s" $repo $tag -}}
-    {{- else }}
-      {{- $repo -}}
-    {{- end }}
-  {{- end }}
-{{- else if and (kindIs "map" $img) $img.digest }}
+{{- else if and (kindIs "map" $img) $img.digest -}}
   {{- fail "image definitions that set a digest must also provide a repository (expected repository@digest)" -}}
-{{- end }}
+{{- end -}}
+{{- if $name -}}
+  {{- $firstSegment := index (splitList "/" $name) 0 -}}
+  {{- $hasRegistry := and (contains "/" $name) (or (contains "." $firstSegment) (contains ":" $firstSegment) (eq $firstSegment "localhost")) -}}
+  {{- if and $globalRegistry (not $hasRegistry) -}}
+    {{- $name = printf "%s/%s" $globalRegistry $name -}}
+  {{- end -}}
+  {{- printf "%s%s" $name $suffix -}}
+{{- end -}}
 {{- end }}
 
 {{/*

@@ -286,11 +286,11 @@ tests:
         main:
           image:
             repository: nginx
-            digest: sha256:abc123
+            digest: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
     asserts:
       - equal:
           path: spec.template.spec.containers[0].image
-          value: "nginx@sha256:abc123"
+          value: "nginx@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 
   # ====== resources ======
   - it: should render resources
@@ -1175,6 +1175,20 @@ tests:
           path: spec.template.spec.containers[0].image
           value: "registry.example.com/myapp:v1"
 
+  # A first segment with a ":" port is a host, in the schema and in
+  # imageString alike (issue #173): the registry is not prepended.
+  - it: should not prepend global.imageRegistry to a host with a port
+    set:
+      global:
+        imageRegistry: registry.example.com
+      deployments:
+        main:
+          image: "Mirror:5000/myapp:v1"
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: "Mirror:5000/myapp:v1"
+
   - it: should not prepend imageRegistry when not set
     set:
       deployments:
@@ -1400,13 +1414,13 @@ tests:
           path: spec.selector.matchLabels.team
 
   # ====== Negative tests: fail/required paths ======
-  - it: should render correctly with numeric image tag
+  - it: should render correctly with numeric-looking image tag
     set:
       deployments:
         main:
           image:
             repository: myapp/api
-            tag: 1.25
+            tag: "1.25"
     asserts:
       - isKind:
           of: Deployment
@@ -1612,30 +1626,19 @@ tests:
               value: ""
             - name: single-request
 
-  # A date-shaped numeric tag rendered as nginx:2.0240101e+07.
-  - it: should render a large numeric image tag in plain digits
+  # The tag is string-only (issue #138): a bare 1.20 is the number 1.2 before
+  # any template sees it. Quoted, the trailing zero survives.
+  - it: should keep a quoted numeric-looking image tag verbatim
     set:
       deployments:
         main:
           image:
             repository: nginx
-            tag: 20240101
+            tag: "1.20"
     asserts:
       - equal:
           path: spec.template.spec.containers[0].image
-          value: nginx:20240101
-
-  - it: should keep a fractional numeric image tag
-    set:
-      deployments:
-        main:
-          image:
-            repository: nginx
-            tag: 1.5
-    asserts:
-      - equal:
-          path: spec.template.spec.containers[0].image
-          value: nginx:1.5
+          value: nginx:1.20
 
   # A missing targetPath rendered `mountPath:` as null, rejected at apply
   # (issue #157).

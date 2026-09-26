@@ -24,12 +24,11 @@ default format (toString and printf "%v" alike) prints a float64 in exponent
 notation from a million upward. In an integer field, 10000000 renders as 1e+07,
 which the schema accepts, helm lint passes and the API server rejects. In a
 string field it is worse: LIMIT: 10000000 in a ConfigMap renders "1e+07", the
-API server accepts it and the application silently reads the wrong value; an
-image tag 20240101 renders as nginx:2.0240101e+07. --set parses the same number
-as an int64, so testing with --set hides the defect; the values file is how the
-chart is normally used. A port read back through fromJson is a float64 too.
-toYaml goes through JSON encoding and is unaffected, so a block rendered with
-toYaml needs nothing.
+API server accepts it and the application silently reads the wrong value.
+--set parses the same number as an int64, so testing with --set hides the
+defect; the values file is how the chart is normally used. A port read back
+through fromJson is a float64 too. toYaml goes through JSON encoding and is
+unaffected, so a block rendered with toYaml needs nothing.
 Contract, by kind of value:
 - string: returned unchanged, unquoted. Int-or-string fields (pdb
   minAvailable/maxUnavailable, Service targetPort) keep "50%" as 50% and a
@@ -44,14 +43,15 @@ Contract, by kind of value:
 - nil: fails. A null that reaches a printed field would otherwise render as
   "<nil>" (toString) or 0 (int64) — a value the user never wrote. The typed
   fields cannot carry a null (the schema rejects it); the free-form maps can,
-  a ConfigMap value above all: set "" for an empty value, or remove the key.
+  and renderConfigMapData checks for it first, naming the values path this
+  helper does not know. This fail is the net under every other caller.
 Maps and slices are not scalars: callers render them with toYaml.
 Usage: {{ include "global-chart.printScalar" $deploy.revisionHistoryLimit }}
        {{ include "global-chart.printScalar" $value | quote }}
 */}}
 {{- define "global-chart.printScalar" -}}
 {{- if kindIs "invalid" . -}}
-{{- fail "printScalar: a null value reached a field the chart prints (for example a ConfigMap value set to null). Set a value — \"\" for an empty string — or remove the key." -}}
+{{- fail "printScalar: a null value reached a field the chart prints. Set a value — \"\" for an empty string — or remove the key." -}}
 {{- else if and (kindIs "float64" .) (eq (floor .) .) (lt . 9.2e18) (gt . -9.2e18) -}}
 {{- printf "%d" (int64 .) -}}
 {{- else -}}
@@ -191,13 +191,30 @@ chart never emits it, so there is nothing to collide with.
 {{- end }}
 
 {{/*
+Fail on a null value of a ConfigMap or Secret data map, naming <path>.<key>.
+Single home of the null check shared by renderConfigMapData and renderSecretData
+(issue #166): both data maps hold strings only, and a null is a value nobody
+wrote — "<nil>" in a ConfigMap, the base64 of "null" in a Secret. Renders
+nothing when the value is set.
+Usage: {{- include "global-chart.rejectNullDataValue" (dict "value" $value "path" $path "key" $key "kind" "Secret") -}}
+*/}}
+{{- define "global-chart.rejectNullDataValue" -}}
+{{- if kindIs "invalid" .value -}}
+{{- fail (printf "%s.%s: a null value reached a %s, which holds strings only. Set a value — \"\" for an empty string — or remove the key." .path .key .kind) -}}
+{{- end -}}
+{{- end }}
+
+{{/*
 Render the body of a ConfigMap "data:" block: one "key: value" line per entry, at
 indent 0. The caller owns the "data:" key and applies its own nindent 2.
-Usage: {{- include "global-chart.renderConfigMapData" $deploy.configMap | nindent 2 }}
+Usage: {{- include "global-chart.renderConfigMapData" (dict "data" $deploy.configMap "deploymentName" $name) | nindent 2 }}
 Map/slice values are serialized with toYaml into a block scalar, everything else
 printed through printScalar and quoted — a bare toString turned 10000000 into
-"1e+07" (issue #132) — and a null value fails there: ConfigMap.data is map[string]string, so every value has to
-render as a YAML string or the API server rejects the manifest.
+"1e+07" (issue #132). A null value fails, naming
+deployments.<deploymentName>.configMap.<key>, before it reaches printScalar,
+whose own null message cannot name the key:
+ConfigMap.data is map[string]string, so every value has to render as a YAML
+string or the API server rejects the manifest.
 Keys are quoted, here and in renderSecretData: a bare `on`, `0x1F` or `1.10` is
 reparsed as a YAML 1.1 scalar and reaches the API server as "true", "31", "1.1"
 (issue #152).
@@ -208,8 +225,10 @@ body-only helper written as a literal range emits a leading newline, which the
 caller's nindent turns into a line of bare spaces.
 */}}
 {{- define "global-chart.renderConfigMapData" -}}
+{{- $path := printf "deployments.%s.configMap" .deploymentName -}}
 {{- $lines := list -}}
-{{- range $key, $value := . -}}
+{{- range $key, $value := .data -}}
+{{- include "global-chart.rejectNullDataValue" (dict "value" $value "path" $path "key" $key "kind" "ConfigMap") -}}
 {{- if or (kindIs "map" $value) (kindIs "slice" $value) -}}
 {{- $lines = append $lines (printf "%s: |-\n%s" ($key | quote) (toYaml $value | indent 2)) -}}
 {{- else -}}
@@ -222,13 +241,18 @@ caller's nindent turns into a line of bare spaces.
 {{/*
 Render the body of a Secret "data:" block: one "key: <base64>" line per entry, at
 indent 0. The caller owns the "data:" key and applies its own nindent 2.
-Usage: {{- include "global-chart.renderSecretData" $deploy.secret | nindent 2 }}
-Strings are base64-encoded as-is, everything else through toYaml first.
+Usage: {{- include "global-chart.renderSecretData" (dict "data" $deploy.secret "deploymentName" $name) | nindent 2 }}
+Strings are base64-encoded as-is, everything else through toYaml first. A null
+fails, naming deployments.<deploymentName>.secret.<key>: toYaml nil is the
+string "null", and the app would read those four characters as its secret
+(issue #166). renderConfigMapData fails on a null the same way.
 Returns empty string on an empty map; callers guard on the map being non-empty.
 */}}
 {{- define "global-chart.renderSecretData" -}}
+{{- $path := printf "deployments.%s.secret" .deploymentName -}}
 {{- $lines := list -}}
-{{- range $key, $value := . -}}
+{{- range $key, $value := .data -}}
+{{- include "global-chart.rejectNullDataValue" (dict "value" $value "path" $path "key" $key "kind" "Secret") -}}
 {{- if kindIs "string" $value -}}
 {{- $lines = append $lines (printf "%s: %s" ($key | quote) ($value | b64enc | quote)) -}}
 {{- else -}}

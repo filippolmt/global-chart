@@ -1,0 +1,6 @@
+# The string form of an image held to the OCI reference grammar (issue #173).
+# nginx:1.25:alpine rendered as written, the API server accepted it, and the
+# kubelet rejected it at pull time with InvalidImageName.
+deployments:
+  web:
+    image: "nginx:1.25:alpine"
