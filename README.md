@@ -10,7 +10,7 @@ The chart supports **multiple deployments** in a single release, each with indep
 - **Multi-deployment support**
   Define multiple independent deployments under `deployments.*`. Each gets its own Service, ConfigMap, Secret, ServiceAccount, HPA, PDB, and NetworkPolicy.
 - **Deployment primitives**
-  Image can be a string (`nginx:1.25`) or a map (`repository/tag/digest`). Probes, resources, autoscaling (HPA), scheduling constraints, extra containers/init containers, pod recreation bumps, and ConfigMap/Secret `envFrom` are all configurable. `command`/`args` override the image entrypoint per deployment, so one image can back several workloads (web, worker, …); they are never inherited by the deployment's hooks/cronJobs.
+  Image can be a string (`nginx:1.25`) or a map (`repository/tag/digest`), held by the schema to the reference grammar the kubelet parses; `tag` is a string, so quote a numeric-looking one (`"1.20"`). Probes, resources, autoscaling (HPA), scheduling constraints, extra containers/init containers, pod recreation bumps, and ConfigMap/Secret `envFrom` are all configurable. `command`/`args` override the image entrypoint per deployment, so one image can back several workloads (web, worker, …); they are never inherited by the deployment's hooks/cronJobs.
 - **Networking**
   First-class Service configuration (with per-service annotations) plus optional Ingress with TLS, class annotations, and routes to specific deployments. DNS options and host aliases can be defined per-deployment.
 - **Configuration distribution**
@@ -30,7 +30,7 @@ The chart supports **multiple deployments** in a single release, each with indep
 - **Global values**
   `global.imageRegistry`, `global.imagePullSecrets`, `global.commonLabels`, `global.commonAnnotations` apply across all resources.
 - **Validation**
-  JSON Schema Draft 2019-09 (`values.schema.json`) for input validation and IDE autocomplete. Name collision detection at render time.
+  JSON Schema Draft 2019-09 (`values.schema.json`) for input validation and IDE autocomplete. Name collision detection at render time, and a null `configMap` / `secret` value fails there, naming its values path.
 
 ## Prerequisites
 
@@ -337,7 +337,7 @@ All configuration lives under `charts/global-chart/values.yaml`. See `charts/glo
 
 ## Changelog
 
-See [CHANGELOG.md](CHANGELOG.md) for version history, breaking changes, and migration guides.
+See [CHANGELOG.md](CHANGELOG.md) for version history, breaking changes, and migration guides. Upgrading from 2.x: follow *Migration guide from 2.x* in the 3.0.0 entry.
 
 ## Useful references
 

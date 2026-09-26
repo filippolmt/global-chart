@@ -39,7 +39,7 @@ deployments: {}
   #     repository: nginx
   #     # -- Image pull policy: Always, IfNotPresent, or Never
   #     pullPolicy: IfNotPresent
-  #     # -- Image tag (e.g., "1.23.3")
+  #     # -- Image tag, a string (e.g., "1.23.3"): quote a numeric-looking tag
   #     tag: "1.23"
   #
   #   # -- Override the image ENTRYPOINT. Omit to keep the image default.
