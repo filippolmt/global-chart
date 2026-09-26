@@ -76,7 +76,7 @@ is the source of truth, this table is only the routing.
    secret, SA, envFrom, `externalSecrets`, imagePullSecrets, hostAliases,
    securityContext, dnsConfig (cronjobs only), nodeSelector, tolerations,
    affinity, priorityClassName. Override with an
-   explicit value; use empty `{}` or `[]` to stop inheritance — except the
+   explicit value; use empty `{}`, `[]` or `""` (priorityClassName) to stop inheritance — except the
    `envFrom` lists, which are **additive**: a job's `envFromConfigMaps` /
    `envFromSecrets` (`[]` included) come after the deployment's and never
    replace them. The opt-outs are toggles instead, all default `true`:

@@ -3926,3 +3926,19 @@ tests:
       - equal:
           path: spec.template.spec.priorityClassName
           value: batch-low
+
+  - it: should omit priorityClassName when neither the hook nor its deployment sets it
+    documentSelector:
+      path: kind
+      value: Job
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          hooks:
+            post-upgrade:
+              migrate:
+                command: ["./migrate.sh"]
+    asserts:
+      - notExists:
+          path: spec.template.spec.priorityClassName

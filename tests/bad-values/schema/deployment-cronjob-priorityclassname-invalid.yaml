@@ -1,0 +1,10 @@
+# A job's priorityClassName names an existing PriorityClass: a DNS-1123
+# subdomain. `Batch_Low` renders, lints, and the API server rejects the CronJob.
+deployments:
+  main:
+    image: nginx:1.25
+    cronJobs:
+      cleanup:
+        schedule: "0 2 * * *"
+        command: ["true"]
+        priorityClassName: Batch_Low

@@ -2086,3 +2086,19 @@ tests:
       - equal:
           path: spec.jobTemplate.spec.template.spec.priorityClassName
           value: batch-low
+
+  - it: should omit priorityClassName when neither the cronjob nor its deployment sets it
+    documentSelector:
+      path: kind
+      value: CronJob
+    set:
+      deployments:
+        backend:
+          image: "myapp:v1"
+          cronJobs:
+            cleanup:
+              schedule: "0 2 * * *"
+              command: ["./cleanup.sh"]
+    asserts:
+      - notExists:
+          path: spec.jobTemplate.spec.template.spec.priorityClassName
