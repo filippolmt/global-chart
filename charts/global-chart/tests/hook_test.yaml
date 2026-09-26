@@ -3942,3 +3942,20 @@ tests:
     asserts:
       - notExists:
           path: spec.template.spec.priorityClassName
+
+  # The hook-prerequisite Secret copy shares renderSecretData, so a null value
+  # fails there too, with the same message (issue #166).
+  - it: should fail on a null secret value in the hook-prerequisite Secret copy
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          secret:
+            EMPTY: null
+          hooks:
+            pre-install:
+              migrate:
+                command: ["true"]
+    asserts:
+      - failedTemplate:
+          errorPattern: "deployments.main.secret.EMPTY: a null value reached a Secret"

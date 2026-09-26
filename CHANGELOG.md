@@ -13,6 +13,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   number before any template sees it: `tag: 1.20` became `nginx:1.2`, a
   different image, and `tag: 0` rendered no tag at all. The schema now rejects
   a numeric tag.
+- **A null value in `deployments.<name>.secret` fails at render** (issue #166),
+  like a null `configMap` value already did. It rendered the base64 of the
+  string `null`, which the app read as its secret. The hook-prerequisite Secret
+  copy fails the same way; the message names the values path.
 
 ### Removed
 
@@ -24,6 +28,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 ### Migration guide from 2.x
 
 - Quote a numeric-looking `image.tag`: `tag: "1.20"`, not `tag: 1.20`.
+- Replace a null `secret:` value with `""` for an empty value, or remove the key.
 - Delete `mountedConfigFiles.files[].mountPath`: `targetPath` already does what
   it was meant to do.
 

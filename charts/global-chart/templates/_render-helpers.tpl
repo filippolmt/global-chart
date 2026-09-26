@@ -221,14 +221,20 @@ caller's nindent turns into a line of bare spaces.
 {{/*
 Render the body of a Secret "data:" block: one "key: <base64>" line per entry, at
 indent 0. The caller owns the "data:" key and applies its own nindent 2.
-Usage: {{- include "global-chart.renderSecretData" $deploy.secret | nindent 2 }}
-Strings are base64-encoded as-is, everything else through toYaml first.
+Usage: {{- include "global-chart.renderSecretData" (dict "data" $deploy.secret "path" (printf "deployments.%s.secret" $name)) | nindent 2 }}
+Strings are base64-encoded as-is, everything else through toYaml first. A null
+fails, naming "<path>.<key>": toYaml nil is the string "null", and the app would
+read those four characters as its secret (issue #166), where a null ConfigMap
+value already fails in printScalar.
 Returns empty string on an empty map; callers guard on the map being non-empty.
 */}}
 {{- define "global-chart.renderSecretData" -}}
+{{- $path := .path -}}
 {{- $lines := list -}}
-{{- range $key, $value := . -}}
-{{- if kindIs "string" $value -}}
+{{- range $key, $value := .data -}}
+{{- if kindIs "invalid" $value -}}
+{{- fail (printf "%s.%s: a null value reached a Secret, where it would render as the string \"null\". Set a value — \"\" for an empty string — or remove the key." $path $key) -}}
+{{- else if kindIs "string" $value -}}
 {{- $lines = append $lines (printf "%s: %s" ($key | quote) ($value | b64enc | quote)) -}}
 {{- else -}}
 {{- $lines = append $lines (printf "%s: %s" ($key | quote) (toYaml $value | b64enc | quote)) -}}
