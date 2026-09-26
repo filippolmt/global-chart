@@ -17,7 +17,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   as a null `configMap` value already did. It rendered the base64 of the string
   `null`, which the app read as its secret. The message names the values path
   (`deployments.<name>.secret.<key>`), and the hook-prerequisite Secret copy
-  fails with the same one.
+  fails with the same one. A null `configMap` value now names its path too
+  (`deployments.<name>.configMap.<key>`), in place of the generic `printScalar`
+  message.
 
 ### Removed
 

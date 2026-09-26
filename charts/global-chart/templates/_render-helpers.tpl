@@ -43,14 +43,15 @@ Contract, by kind of value:
 - nil: fails. A null that reaches a printed field would otherwise render as
   "<nil>" (toString) or 0 (int64) — a value the user never wrote. The typed
   fields cannot carry a null (the schema rejects it); the free-form maps can,
-  a ConfigMap value above all: set "" for an empty value, or remove the key.
+  and renderConfigMapData checks for it first, naming the values path this
+  helper does not know. This fail is the net under every other caller.
 Maps and slices are not scalars: callers render them with toYaml.
 Usage: {{ include "global-chart.printScalar" $deploy.revisionHistoryLimit }}
        {{ include "global-chart.printScalar" $value | quote }}
 */}}
 {{- define "global-chart.printScalar" -}}
 {{- if kindIs "invalid" . -}}
-{{- fail "printScalar: a null value reached a field the chart prints (for example a ConfigMap value set to null). Set a value — \"\" for an empty string — or remove the key." -}}
+{{- fail "printScalar: a null value reached a field the chart prints. Set a value — \"\" for an empty string — or remove the key." -}}
 {{- else if and (kindIs "float64" .) (eq (floor .) .) (lt . 9.2e18) (gt . -9.2e18) -}}
 {{- printf "%d" (int64 .) -}}
 {{- else -}}
@@ -192,11 +193,13 @@ chart never emits it, so there is nothing to collide with.
 {{/*
 Render the body of a ConfigMap "data:" block: one "key: value" line per entry, at
 indent 0. The caller owns the "data:" key and applies its own nindent 2.
-Usage: {{- include "global-chart.renderConfigMapData" $deploy.configMap | nindent 2 }}
+Usage: {{- include "global-chart.renderConfigMapData" (dict "data" $deploy.configMap "path" (printf "deployments.%s.configMap" $name)) | nindent 2 }}
 Map/slice values are serialized with toYaml into a block scalar, everything else
 printed through printScalar and quoted — a bare toString turned 10000000 into
-"1e+07" (issue #132) — and a null value fails there: ConfigMap.data is map[string]string, so every value has to
-render as a YAML string or the API server rejects the manifest.
+"1e+07" (issue #132). A null value fails, naming "<path>.<key>", before it
+reaches printScalar, whose own null message cannot name the key:
+ConfigMap.data is map[string]string, so every value has to render as a YAML
+string or the API server rejects the manifest.
 Keys are quoted, here and in renderSecretData: a bare `on`, `0x1F` or `1.10` is
 reparsed as a YAML 1.1 scalar and reaches the API server as "true", "31", "1.1"
 (issue #152).
@@ -207,9 +210,12 @@ body-only helper written as a literal range emits a leading newline, which the
 caller's nindent turns into a line of bare spaces.
 */}}
 {{- define "global-chart.renderConfigMapData" -}}
+{{- $path := .path -}}
 {{- $lines := list -}}
-{{- range $key, $value := . -}}
-{{- if or (kindIs "map" $value) (kindIs "slice" $value) -}}
+{{- range $key, $value := .data -}}
+{{- if kindIs "invalid" $value -}}
+{{- fail (printf "%s.%s: a null value reached a ConfigMap, whose values are strings. Set a value — \"\" for an empty string — or remove the key." $path $key) -}}
+{{- else if or (kindIs "map" $value) (kindIs "slice" $value) -}}
 {{- $lines = append $lines (printf "%s: |-\n%s" ($key | quote) (toYaml $value | indent 2)) -}}
 {{- else -}}
 {{- $lines = append $lines (printf "%s: %s" ($key | quote) (include "global-chart.printScalar" $value | quote)) -}}

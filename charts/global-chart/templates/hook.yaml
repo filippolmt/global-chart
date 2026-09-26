@@ -148,7 +148,7 @@ metadata:
     {{- end }}
     {{- include "global-chart.hookAnnotations" (dict "hookType" $allHookTypes "role" "prereq" "weight" $minJobWeight) | nindent 4 }}
 data:
-  {{- include "global-chart.renderConfigMapData" $deploy.configMap | nindent 2 }}
+  {{- include "global-chart.renderConfigMapData" (dict "data" $deploy.configMap "path" (printf "deployments.%s.configMap" $deployName)) | nindent 2 }}
 {{- end }}
 {{- if $hasDeploySecret }}
 ---

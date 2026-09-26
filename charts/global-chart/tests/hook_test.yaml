@@ -3959,3 +3959,20 @@ tests:
     asserts:
       - failedTemplate:
           errorPattern: "deployments.main.secret.EMPTY: a null value reached a Secret"
+
+  # The hook-prerequisite ConfigMap copy shares renderConfigMapData, so a null
+  # value fails there with the same path as the real ConfigMap.
+  - it: should fail on a null configMap value in the hook-prerequisite ConfigMap copy
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          configMap:
+            EMPTY: null
+          hooks:
+            pre-install:
+              migrate:
+                command: ["true"]
+    asserts:
+      - failedTemplate:
+          errorPattern: "deployments.main.configMap.EMPTY: a null value reached a ConfigMap"

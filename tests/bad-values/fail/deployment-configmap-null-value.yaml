@@ -1,0 +1,8 @@
+# A null ConfigMap value is a value nobody wrote; ConfigMap.data holds strings.
+# The fail names the values path, like the null Secret value (issue #166).
+# Expected fail substring: "deployments.web.configMap.EMPTY: a null value reached a ConfigMap"
+deployments:
+  web:
+    image: nginx:1.25
+    configMap:
+      EMPTY: null
