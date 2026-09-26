@@ -71,6 +71,32 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   one. The job now takes the deployment's `pullPolicy` when it sets neither
   `image` nor `imagePullPolicy`, as a deployment-level job already did.
 
+### Migration guide from 2.8.x
+
+> No values change shape. The new rejections are **breaking for values that
+> were already invalid**: each one rendered something the API server refused,
+> or that ESO and Helm overwrote in turn. Run `helm lint` and `helm template`
+> against your own values before upgrading — every case shows up there.
+
+| If you have | Change it to |
+|---|---|
+| An `Orphan` ExternalSecret whose target is a chart Secret | Rename `target.name`, drop `secret:` from the deployment, or use `Merge` |
+| `service.type: ExternalName` | A Service outside the chart; the chart's never worked |
+| `extraPorts[].nodePort` on a ClusterIP Service | Drop `nodePort`, or set `service.type: NodePort` / `LoadBalancer` |
+| An extra port repeating a port name or port+protocol | A distinct name / port (the primary defaults to `http`, 80/TCP) |
+| `ingress.hosts[].service.port: 0` | Omit `port` |
+| An ingress host with no `paths` | At least one path |
+| `pathType: prefix` (any case or value outside the enum) | `Exact`, `Prefix` or `ImplementationSpecific` |
+| A PDB bound `"2"` | `2` (a percentage stays a string: `"25%"`) |
+| A number or a `{name}`-less map in `imagePullSecrets` | A string or `{name: …}` |
+| A job `restartPolicy: Always` | `OnFailure` or `Never` |
+
+Two changes alter a render with no values change: ConfigMap and Secret keys are
+now quoted (a YAML 1.1 key such as `on` or `1.10` reaches the API server as
+written, not as `"true"` / `"1.1"`: an app that read the rewritten key has to
+read the real one), and a root-level job with `fromDeployment` now takes the
+deployment's `pullPolicy`.
+
 ## [2.8.0] — 2026-09-25
 
 ### Added
