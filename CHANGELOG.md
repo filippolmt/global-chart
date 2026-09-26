@@ -32,6 +32,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   `ImplementationSpecific`. A PDB `minAvailable` / `maxUnavailable` is an
   integer or a percentage string (`"25%"`): a digit string such as `"2"` is
   rejected, spell it `2`.
+- **A mounted config file whose content starts with indentation renders**
+  (issue #157). The ConfigMap value was a bare `|` block scalar, which takes its
+  indentation from the first line: content such as `"  indented: first\nsecond:
+  line"` (a YAML fragment, Python) ended the scalar early and failed with `did
+  not find expected key`. Values are now `|2` block scalars, for `files` and
+  `bundles` alike. A `files` entry with no `filename` or no `targetPath` now
+  fails naming its values path, instead of a bare YAML parse error or a null
+  `mountPath`.
 
 ## [2.8.0] — 2026-09-25
 

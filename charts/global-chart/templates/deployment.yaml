@@ -183,7 +183,7 @@ spec:
             {{- if and $mountedConfigFiles $mountedConfigFiles.files }}
             {{- range $i, $f := $mountedConfigFiles.files }}
             - name: {{ include "global-chart.mountedFileVolumeName" (dict "fileName" $f.name) }}
-              mountPath: {{ $f.targetPath }}
+              mountPath: {{ required (printf "deployments.%s.mountedConfigFiles.files[%d] (%s): 'targetPath' is required" $name $i $f.name) $f.targetPath }}
               subPath: {{ $f.filename }}
               readOnly: true
             {{- end }}

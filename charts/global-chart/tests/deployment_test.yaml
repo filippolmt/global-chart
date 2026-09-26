@@ -1636,3 +1636,19 @@ tests:
       - equal:
           path: spec.template.spec.containers[0].image
           value: nginx:1.5
+
+  # A missing targetPath rendered `mountPath:` as null, rejected at apply
+  # (issue #157).
+  - it: should fail when a mountedConfigFiles entry has no targetPath
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          mountedConfigFiles:
+            files:
+              - name: myconfig
+                filename: config.yaml
+                content: "a: b"
+    asserts:
+      - failedTemplate:
+          errorMessage: "deployments.main.mountedConfigFiles.files[0] (myconfig): 'targetPath' is required"
