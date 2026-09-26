@@ -48,6 +48,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   passed lint and was rejected at apply. An item with no `name`, which failed
   at render with `imagePullSecrets must be a list of strings or objects with a
   'name' key.`, is now rejected by the schema instead.
+- **ConfigMap and Secret data keys are quoted** (issue #152). A key was
+  rendered bare, so a valid key such as `on`, `no`, `0x1F`, `007` or `1.10` was
+  reparsed as a YAML 1.1 scalar and reached the API server as `"true"`,
+  `"false"`, `"31"`, `"7"` or `"1.1"`; the app found its key missing without any
+  error. The deployment ConfigMap and Secret, their hook-prerequisite copies and
+  the mounted config file ConfigMaps now quote every key. The rendered keys of
+  an unaffected map do not change.
 
 ## [2.8.0] — 2026-09-25
 

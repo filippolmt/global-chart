@@ -198,6 +198,9 @@ Map/slice values are serialized with toYaml into a block scalar, everything else
 printed through printScalar and quoted — a bare toString turned 10000000 into
 "1e+07" (issue #132) — and a null value fails there: ConfigMap.data is map[string]string, so every value has to
 render as a YAML string or the API server rejects the manifest.
+Keys are quoted, here and in renderSecretData: a bare `on`, `0x1F` or `1.10` is
+reparsed as a YAML 1.1 scalar and reaches the API server as "true", "31", "1.1"
+(issue #152).
 Returns empty string on an empty map; callers guard on the map being non-empty.
 Built by joining lines rather than by literal text + whitespace control, unlike the
 block helpers above: those own their block key and so start on literal text, while a
@@ -208,9 +211,9 @@ caller's nindent turns into a line of bare spaces.
 {{- $lines := list -}}
 {{- range $key, $value := . -}}
 {{- if or (kindIs "map" $value) (kindIs "slice" $value) -}}
-{{- $lines = append $lines (printf "%s: |-\n%s" $key (toYaml $value | indent 2)) -}}
+{{- $lines = append $lines (printf "%s: |-\n%s" ($key | quote) (toYaml $value | indent 2)) -}}
 {{- else -}}
-{{- $lines = append $lines (printf "%s: %s" $key (include "global-chart.printScalar" $value | quote)) -}}
+{{- $lines = append $lines (printf "%s: %s" ($key | quote) (include "global-chart.printScalar" $value | quote)) -}}
 {{- end -}}
 {{- end -}}
 {{- join "\n" $lines -}}
@@ -227,9 +230,9 @@ Returns empty string on an empty map; callers guard on the map being non-empty.
 {{- $lines := list -}}
 {{- range $key, $value := . -}}
 {{- if kindIs "string" $value -}}
-{{- $lines = append $lines (printf "%s: %s" $key ($value | b64enc | quote)) -}}
+{{- $lines = append $lines (printf "%s: %s" ($key | quote) ($value | b64enc | quote)) -}}
 {{- else -}}
-{{- $lines = append $lines (printf "%s: %s" $key (toYaml $value | b64enc | quote)) -}}
+{{- $lines = append $lines (printf "%s: %s" ($key | quote) (toYaml $value | b64enc | quote)) -}}
 {{- end -}}
 {{- end -}}
 {{- join "\n" $lines -}}

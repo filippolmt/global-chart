@@ -169,3 +169,30 @@ tests:
     asserts:
       - failedTemplate:
           errorMessage: "deployments.main.mountedConfigFiles.files[0] (myconfig): 'filename' is required"
+
+  - it: should quote a filename YAML 1.1 would rewrite
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          mountedConfigFiles:
+            files:
+              - name: myconfig
+                filename: "on"
+                targetPath: /etc/on
+                content: "a"
+            bundles:
+              - mountDir: /etc/bundle
+                files:
+                  - name: appconfig
+                    relPath: sub/1.10
+                    content: "b"
+    asserts:
+      - equal:
+          path: data
+          value: { "on": "a\n" }
+        documentIndex: 0
+      - equal:
+          path: data
+          value: { "1.10": "b\n" }
+        documentIndex: 1
