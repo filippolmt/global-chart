@@ -57,9 +57,9 @@ is the source of truth, this table is only the routing.
 | `_job-helpers.tpl` | One implementation of the pod spec, image resolution, the CronJob spec fields (`cronJobSpecFields`) and the Job spec fields table (`jobSpecVerbatimFields`) for **every** hook and cronjob, both scopes — root-level callers simply pass no `deploy`. `jobValuesPath` is the single home of the name a job carries in error messages |
 | `_serviceaccount-helpers.tpl` | Every ServiceAccount the chart renders or binds, resolved to `{create, name, automount, annotations}`: deployment, rbac and job resolvers, with the deployment and rbac defaults in `resolveServiceAccount`; the job resolver keeps its own chain, and rejects a job naming its SA twice with different names itself — every job render path goes through it, so the check cannot be skipped. Also the SA side of the hook copies (ADR 0010, 0011): every SA the release creates (`releaseServiceAccounts`), whether it creates one (`releaseCreatesServiceAccount`), the SA a copy binds (`serviceAccountCopyName`), the match of a hook to the SA copy (`hookReadsServiceAccountCopy`) and to the `rbacs.roles` copies (`hookRbacCopy`, over `rbacServiceAccounts`), and the SA a hook's pod runs as (`hookServiceAccountName`). Templates never read `serviceAccount.*` from values |
 | `_hook-helpers.tpl` | The three `helm.sh/hook*` annotations, weights and delete policies, driven by a role table; the phase cut `hookReadsPrereqCopy`, the one enumeration of the hooks it admits (`prereqCopyHooks`) and the consumer scans of the ExternalSecret, `rbacs.roles` and ServiceAccount hook copies |
-| `_render-helpers.tpl` | `printScalar`, the single home of how a number from values is printed, in integer and string fields alike; shared render blocks, `renderAnnotations`, the ConfigMap/Secret `data:` bodies and the Role `rules:` block shared with the hook-prerequisite copies, and the two port helpers |
+| `_render-helpers.tpl` | `printScalar`, the single home of how a number from values is printed, in integer and string fields alike; shared render blocks, `renderAnnotations`, the ConfigMap/Secret `data:` bodies and the Role `rules:` block shared with the hook-prerequisite copies, and the port helpers (`containerPorts`, `servicePrimaryPort`, `extraPortProtocol`, `serviceType`) |
 | `_keda-helpers.tpl` | KEDA names, trigger and `authenticationRef` resolution, the CRD guard |
-| `_validate-helpers.tpl` | The fullname against the labels it leads, name collisions, routing and autoscaling conflicts, the Service ports (`validateServicePorts`: named-`targetPort` resolution, duplicate port names and port+protocol pairs, `nodePort` only on NodePort/LoadBalancer). Also `hpaActiveTargets`, the single home of "an HPA target is active", read by the autoscaling validator and by `hpa.yaml` |
+| `_validate-helpers.tpl` | The fullname against the labels it leads, name collisions, routing and autoscaling conflicts, named-`targetPort` resolution (`validateServiceTargetPorts`), the Service-side port constraints (`validateServicePorts`: duplicate port names and port+protocol pairs, `nodePort` only on NodePort/LoadBalancer). Also `hpaActiveTargets`, the single home of "an HPA target is active", read by the autoscaling validator and by `hpa.yaml` |
 
 ### Key Design Patterns
 
@@ -201,10 +201,12 @@ is the source of truth, this table is only the routing.
     `global.commonLabels`. Pod/Service selectors never included it
 13. **The primary port has one source per side**: `servicePrimaryPort` owns the
     Service side, `containerPorts` owns the pod side. Every consumer —
-    `service.yaml`, `deployment.yaml`, `validateServicePorts`,
-    `resolveBackend`, `tests/test-connection.yaml` — reads one of the two; the
-    rules and the deduplication live in their header comments in
-    `_render-helpers.tpl`. **Never derive a port or one of its defaults inline.**
+    `service.yaml`, `deployment.yaml`, `validateServiceTargetPorts`,
+    `validateServicePorts`, `resolveBackend`, `tests/test-connection.yaml` —
+    reads one of the two; the rules and the deduplication live in their header
+    comments in `_render-helpers.tpl`. An extra port's protocol default and the
+    Service type default have their own homes beside them,
+    `extraPortProtocol` and `serviceType`. **Never derive a port or one of its defaults inline.**
     A Service targeting a port name nothing declares is created happily by
     Kubernetes and simply has no endpoints, so the failure appears at request
     time, far from its cause. Three separate bugs came from `deployment.yaml` and

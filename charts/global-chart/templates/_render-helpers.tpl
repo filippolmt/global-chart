@@ -364,7 +364,7 @@ version: {{ include "global-chart.printScalar" $remote.version | quote }}
 {{/*
 Container ports for a deployment's pod spec, derived from its Service definition.
 Single source of truth for the pod side of the Service: deployment.yaml renders
-this list, and validateServicePorts checks named targetPorts against it,
+this list, and validateServiceTargetPorts checks named targetPorts against it,
 so the two can never drift — that drift is what made service.targetPort unusable
 (issue #82).
 
@@ -393,7 +393,7 @@ Numbers come back float64: see the file header.
 {{- $numbers := dict (printf "%s/%s" (include "global-chart.printScalar" $containerPort) $protocol) true -}}
 {{- range (default (list) $svc.extraPorts) -}}
   {{- if not (kindIs "string" .targetPort) -}}
-    {{- $extraProtocol := default "TCP" .protocol | upper -}}
+    {{- $extraProtocol := include "global-chart.extraPortProtocol" . -}}
     {{- $key := printf "%s/%s" (include "global-chart.printScalar" .targetPort) $extraProtocol -}}
     {{- if and (not (hasKey $names .name)) (not (hasKey $numbers $key)) -}}
       {{- $ports = append $ports (dict "name" .name "containerPort" .targetPort "protocol" $extraProtocol) -}}
@@ -408,7 +408,8 @@ Numbers come back float64: see the file header.
 {{/*
 The primary port of a deployment's Service: the single home of its four
 defaults (`port` 80, `name` "http", `protocol` TCP, `targetPort` following the
-name). Consumed by service.yaml, containerPorts, validateServicePorts,
+name). Consumed by service.yaml, containerPorts, validateServiceTargetPorts,
+validateServicePorts,
 resolveBackend and the connection test — every place that used to carry its own
 copy of one of them.
 
@@ -416,7 +417,8 @@ The default targetPort follows the port's name, not the literal "http": with a
 custom portName and no targetPort, "http" would name a port nothing declares.
 
 Only the primary port is here. extraPorts entries have name/port/targetPort all
-required by the schema, so they share no default worth a home.
+required by the schema; their one default, the protocol, lives in
+extraPortProtocol.
 Usage: {{ $primary := include "global-chart.servicePrimaryPort" $svc | fromJson }}
 Input: the deployment's service map, already defaulted to (dict) by the caller.
 Output: JSON of the form {"port":80,"name":"http","protocol":"TCP","targetPort":"http"}
@@ -431,6 +433,26 @@ Numbers come back float64: see the file header.
       "protocol" (ternary $svc.protocol "TCP" (hasKey $svc "protocol") | upper)
       "targetPort" (ternary $svc.targetPort $name (hasKey $svc "targetPort"))
     | toJson -}}
+{{- end }}
+
+{{/*
+The protocol of a service.extraPorts entry: its own, uppercased, or TCP. The one
+home of that default, read by service.yaml, containerPorts and
+validateServicePorts.
+Usage: {{ include "global-chart.extraPortProtocol" $extraPort }}
+*/}}
+{{- define "global-chart.extraPortProtocol" -}}
+{{- default "TCP" .protocol | upper -}}
+{{- end }}
+
+{{/*
+The type of a deployment's Service: its own, or ClusterIP. The one home of that
+default, read by service.yaml and validateServicePorts.
+Usage: {{ include "global-chart.serviceType" $svc }}
+Input: the deployment's service map, already defaulted to (dict) by the caller.
+*/}}
+{{- define "global-chart.serviceType" -}}
+{{- ternary .type "ClusterIP" (hasKey . "type") -}}
 {{- end }}
 
 {{/*

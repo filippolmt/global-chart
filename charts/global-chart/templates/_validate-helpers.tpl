@@ -422,24 +422,17 @@ Called from validate.yaml. Emits nothing on success.
 {{- end }}
 
 {{/*
-Validate a deployment's Service ports: every named targetPort resolves to a
-container port the chart declares, and no port carries what the API server
-rejects (issue #155).
+Validate that every named Service targetPort resolves to a container port the
+chart declares.
 
 A targetPort naming a port that no container declares is the one Service
 misconfiguration Kubernetes accepts in silence: the Service is created, the pod
 is Ready, and the port simply has no endpoints. It surfaces at request time, far
 from its cause. Numbers need no check — a numeric targetPort reaches a pod port
 whether or not the container declares it.
-
-The Service side is checked here, not in the schema, because the primary port's
-defaults live in servicePrimaryPort: an extraPorts entry may not repeat a port
-name or a port+protocol pair of the primary port or of another entry (the pod
-side dedups in containerPorts; the Service side has nothing to dedup into), and
-may carry nodePort only on a NodePort or LoadBalancer Service.
 Called from validate.yaml. Emits nothing on success.
 */}}
-{{- define "global-chart.validateServicePorts" -}}
+{{- define "global-chart.validateServiceTargetPorts" -}}
 {{- range $name, $deploy := .Values.deployments -}}
   {{- if $deploy -}}
   {{- if eq (include "global-chart.deploymentEnabled" $deploy) "true" -}}
@@ -450,8 +443,7 @@ Called from validate.yaml. Emits nothing on success.
         {{- $_ := set $declared .name true -}}
       {{- end -}}
       {{- $known := keys $declared | sortAlpha | join ", " -}}
-      {{- $primary := include "global-chart.servicePrimaryPort" $svc | fromJson -}}
-      {{- $targetPort := $primary.targetPort -}}
+      {{- $targetPort := (include "global-chart.servicePrimaryPort" $svc | fromJson).targetPort -}}
       {{- if and (hasKey $svc "targetPort") (kindIs "string" $svc.targetPort) (not (hasKey $declared $targetPort)) -}}
         {{- fail (printf "deployments.%s.service.targetPort names the port '%s', which no container port declares (declared: %s). A Service port whose targetPort names nothing gets no endpoints. Use the port number, or a name one of the declared ports carries." $name $targetPort $known) -}}
       {{- end -}}
@@ -460,12 +452,38 @@ Called from validate.yaml. Emits nothing on success.
           {{- fail (printf "deployments.%s.service.extraPorts '%s' has targetPort '%s', which no container port declares (declared: %s). A Service port whose targetPort names nothing gets no endpoints. Give it the port number instead, and it will be declared on the container under this name." $name .name .targetPort $known) -}}
         {{- end -}}
       {{- end -}}
-      {{- $type := ternary $svc.type "ClusterIP" (hasKey $svc "type") -}}
+    {{- end -}}
+  {{- end -}}
+  {{- end -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+Validate the Service side of a deployment's ports against what the API server
+rejects (issue #155): an extraPorts entry may not repeat a port name or a
+port+protocol pair of the primary port or of another entry, and may carry
+nodePort only on a NodePort or LoadBalancer Service.
+
+A template fail, not the schema: the primary port's defaults live in
+servicePrimaryPort, an extra port's protocol in extraPortProtocol and the type
+in serviceType, and the schema sees none of them. The pod side dedups in
+containerPorts; the Service side has nothing to dedup into, since every port is
+rendered.
+Called from validate.yaml. Emits nothing on success.
+*/}}
+{{- define "global-chart.validateServicePorts" -}}
+{{- range $name, $deploy := .Values.deployments -}}
+  {{- if $deploy -}}
+  {{- if eq (include "global-chart.deploymentEnabled" $deploy) "true" -}}
+    {{- $svc := default (dict) $deploy.service -}}
+    {{- if eq (include "global-chart.serviceEnabled" $svc) "true" -}}
+      {{- $primary := include "global-chart.servicePrimaryPort" $svc | fromJson -}}
+      {{- $type := include "global-chart.serviceType" $svc -}}
       {{- $portNames := dict $primary.name "service.portName" -}}
       {{- $portNumbers := dict (printf "%s/%s" (include "global-chart.printScalar" $primary.port) $primary.protocol) "service.port" -}}
       {{- range (default (list) $svc.extraPorts) -}}
         {{- $owner := printf "extraPorts '%s'" .name -}}
-        {{- $number := printf "%s/%s" (include "global-chart.printScalar" .port) (default "TCP" .protocol | upper) -}}
+        {{- $number := printf "%s/%s" (include "global-chart.printScalar" .port) (include "global-chart.extraPortProtocol" .) -}}
         {{- if and (hasKey . "nodePort") (not (has $type (list "NodePort" "LoadBalancer"))) -}}
           {{- fail (printf "deployments.%s.service.%s sets nodePort, which the API server accepts only on a NodePort or LoadBalancer Service (type: %s). Drop nodePort, or set service.type." $name $owner $type) -}}
         {{- end -}}
