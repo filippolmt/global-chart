@@ -340,6 +340,10 @@ deployments: {}
   #       # Opt-out of deployment ConfigMap/Secret env injection (defaults: true):
   #       # inheritDeploymentConfigMap: false
   #       # inheritDeploymentSecret: false
+  #       # Opt-out of the deployment's envFromConfigMaps/envFromSecrets (defaults:
+  #       # true). The job's own lists add to them, never replace them:
+  #       # inheritDeploymentEnvFromConfigMaps: false
+  #       # inheritDeploymentEnvFromSecrets: false
 
 # -- Ingress configuration
 ingress:
@@ -458,7 +462,9 @@ cronJobs: {}
   # Note: root-level cronJobs do NOT auto-inherit ConfigMap/Secret from deployments.
   # Use envFromConfigMaps / envFromSecrets to reference them by name explicitly.
   # Deployment-level cronJobs (deployments.<name>.cronJobs) DO auto-inherit; use
-  # inheritDeploymentConfigMap/inheritDeploymentSecret: false to opt out.
+  # inheritDeploymentConfigMap/inheritDeploymentSecret: false to opt out, and
+  # inheritDeploymentEnvFromConfigMaps/inheritDeploymentEnvFromSecrets: false
+  # for the deployment's envFromConfigMaps/envFromSecrets.
 
 # -- Hook jobs for chart lifecycle (install/upgrade). Can also be defined inside deployments to inherit image, configMap, secret, SA.
 hooks: {}

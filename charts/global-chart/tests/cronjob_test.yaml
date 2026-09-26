@@ -1279,6 +1279,55 @@ tests:
             secretRef:
               name: RELEASE-NAME-global-chart-backend
 
+  # inheritDeploymentSecret covers only the generated Secret: the deployment's
+  # envFromSecrets / envFromConfigMaps have their own opt-outs (issue #159),
+  # independent of the job's own lists and of externalSecrets.
+  - it: should opt out of the deployment's envFromSecrets and envFromConfigMaps
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          envFromSecrets: [prod-db-admin-credentials]
+          envFromConfigMaps: [prod-settings]
+          cronJobs:
+            report:
+              schedule: "0 3 * * *"
+              command: ["true"]
+              inheritDeploymentEnvFromSecrets: false
+              inheritDeploymentEnvFromConfigMaps: false
+              envFromSecrets: [report-token]
+    documentIndex: 0
+    asserts:
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.containers[0].envFrom
+          value:
+            - secretRef:
+                name: report-token
+
+  - it: should keep the deployment's envFrom lists ahead of the job's own by default
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          envFromSecrets: [prod-db-admin-credentials]
+          envFromConfigMaps: [prod-settings]
+          cronJobs:
+            report:
+              schedule: "0 3 * * *"
+              command: ["true"]
+              envFromSecrets: [report-token]
+    documentIndex: 0
+    asserts:
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.containers[0].envFrom
+          value:
+            - configMapRef:
+                name: prod-settings
+            - secretRef:
+                name: prod-db-admin-credentials
+            - secretRef:
+                name: report-token
+
   - it: should opt out of deployment configMap inheritance when inheritDeploymentConfigMap=false
     set:
       deployments:

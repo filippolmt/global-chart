@@ -19,6 +19,7 @@ The chart supports **multiple deployments** in a single release, each with indep
   Helm hook jobs and CronJobs can be defined in two ways:
   - **Root level** (`hooks.*`, `cronJobs.*`): Standalone, use `fromDeployment` to copy image from a deployment
   - **Inside deployments** (`deployments.*.hooks`, `deployments.*.cronJobs`): Inherit image, configMap, secret, serviceAccount, hostAliases, podSecurityContext, securityContext, dnsConfig (cronJobs), nodeSelector, tolerations, affinity, and more from the parent deployment
+  - A deployment-level job's `envFrom` adds its own `envFromConfigMaps` / `envFromSecrets` after the deployment's, never replacing them. To drop what it inherits, set `false` on `inheritDeploymentConfigMap` / `inheritDeploymentSecret` (the generated ConfigMap/Secret) or `inheritDeploymentEnvFromConfigMaps` / `inheritDeploymentEnvFromSecrets` (the deployment's lists)
   - Hook prerequisite ConfigMap/Secret are created automatically with correct weight ordering
   - A `pre-*` or `post-delete` hook can read a Secret produced by the release's own `externalSecrets`: reference it by key (see [Reading an ExternalSecret from a hook](#reading-an-externalsecret-from-a-hook))
 - **Secret management**

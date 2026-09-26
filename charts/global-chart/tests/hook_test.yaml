@@ -3755,3 +3755,26 @@ tests:
       - equal:
           path: metadata.annotations["helm.sh/hook-weight"]
           value: "-10"
+
+  # A deployment-level hook opts out of one list and keeps the other (issue #159)
+  - it: should opt a deployment-level hook out of the deployment's envFromSecrets only
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          envFromSecrets: [prod-db-admin-credentials]
+          envFromConfigMaps: [prod-settings]
+          hooks:
+            pre-upgrade:
+              migrate:
+                command: ["./migrate.sh"]
+                inheritDeploymentEnvFromSecrets: false
+    documentSelector:
+      path: kind
+      value: Job
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].envFrom
+          value:
+            - configMapRef:
+                name: prod-settings

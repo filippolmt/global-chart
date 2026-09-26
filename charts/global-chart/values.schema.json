@@ -737,7 +737,15 @@
       "type": "object",
       "properties": {
         "inheritDeploymentConfigMap": { "type": "boolean" },
-        "inheritDeploymentSecret": { "type": "boolean" }
+        "inheritDeploymentSecret": { "type": "boolean" },
+        "inheritDeploymentEnvFromConfigMaps": {
+          "type": "boolean",
+          "description": "false drops the deployment's envFromConfigMaps from this job's envFrom. Default true."
+        },
+        "inheritDeploymentEnvFromSecrets": {
+          "type": "boolean",
+          "description": "false drops the deployment's envFromSecrets from this job's envFrom. Default true. externalSecrets have their own rule: a job's own list replaces the inherited one."
+        }
       }
     },
     "cronJob": {

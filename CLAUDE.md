@@ -75,11 +75,17 @@ is the source of truth, this table is only the routing.
    secret, SA, envFrom, `externalSecrets`, imagePullSecrets, hostAliases,
    securityContext, dnsConfig (cronjobs only), nodeSelector, tolerations,
    affinity. Override with an
-   explicit value; use empty `{}` or `[]` to stop inheritance. Toggle
-   `inheritDeploymentConfigMap: false` / `inheritDeploymentSecret: false` to
-   break ConfigMap/Secret env injection without removing them from the
-   deployment (defensive: limits the secret leak surface for narrow-scope
-   cronjobs/hooks)
+   explicit value; use empty `{}` or `[]` to stop inheritance — except the
+   `envFrom` lists, which are **additive**: a job's `envFromConfigMaps` /
+   `envFromSecrets` (`[]` included) come after the deployment's and never
+   replace them. The opt-outs are toggles instead, all default `true`:
+   `inheritDeploymentConfigMap: false` / `inheritDeploymentSecret: false`
+   break the generated ConfigMap/Secret env injection without removing them
+   from the deployment, and `inheritDeploymentEnvFromConfigMaps: false` /
+   `inheritDeploymentEnvFromSecrets: false` drop the deployment's
+   `envFromConfigMaps` / `envFromSecrets` (issue #159). Defensive: they limit
+   the secret leak surface for narrow-scope cronjobs/hooks. `externalSecrets`
+   is not an `envFrom` list here: a job's own replaces the inherited one
    - **Not inheritable**: `command` / `args`. A deployment-level hook or cronjob
      never picks up its parent's entrypoint — a migration hook inheriting
      `python -m app.worker` would silently run the worker. Locked by regression

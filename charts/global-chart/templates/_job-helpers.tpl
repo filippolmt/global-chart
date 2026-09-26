@@ -118,9 +118,15 @@ containers:
     {{- toYaml . | nindent 4 }}
   {{- end }}
   {{- /* EnvFrom: deployment's configMap/secret + explicit envFromConfigMaps/envFromSecrets + deployment's envFromConfigMaps/envFromSecrets */ -}}
-  {{- /* Opt-out flags: inheritDeploymentSecret/inheritDeploymentConfigMap default true, set false to break inheritance */ -}}
+  {{- /* Opt-out flags, default true, set false to break inheritance:
+         inheritDeploymentSecret/inheritDeploymentConfigMap for the generated
+         Secret/ConfigMap, inheritDeploymentEnvFromSecrets/-ConfigMaps for the
+         deployment's envFromSecrets/envFromConfigMaps (issue #159). The job's
+         own lists add to what it inherits, they never replace it */ -}}
   {{- $inheritCM := ternary $job.inheritDeploymentConfigMap true (hasKey $job "inheritDeploymentConfigMap") -}}
   {{- $inheritSec := ternary $job.inheritDeploymentSecret true (hasKey $job "inheritDeploymentSecret") -}}
+  {{- $deployEnvFromCMs := ternary $job.inheritDeploymentEnvFromConfigMaps true (hasKey $job "inheritDeploymentEnvFromConfigMaps") | ternary $deploy.envFromConfigMaps list -}}
+  {{- $deployEnvFromSecrets := ternary $job.inheritDeploymentEnvFromSecrets true (hasKey $job "inheritDeploymentEnvFromSecrets") | ternary $deploy.envFromSecrets list -}}
   {{- $hasDeployConfigMap := and $inheritCM $deploy.configMap (gt (len $deploy.configMap) 0) -}}
   {{- $hasDeploySecret := and $inheritSec $deploy.secret (gt (len $deploy.secret) 0) -}}
   {{- /* externalSecrets: inherited when the job does not set its own (hasKey), and
@@ -136,7 +142,7 @@ containers:
   {{- $esEnvInherited := $esInherited.env -}}
   {{- $esEnvOwn := $esOwn.env -}}
   {{- $esMounted := concat $esInherited.mounted $esOwn.mounted -}}
-  {{- $hasEnvFrom := or $hasDeployConfigMap $hasDeploySecret $job.envFromConfigMaps $job.envFromSecrets $deploy.envFromConfigMaps $deploy.envFromSecrets $esEnvInherited $esEnvOwn -}}
+  {{- $hasEnvFrom := or $hasDeployConfigMap $hasDeploySecret $job.envFromConfigMaps $job.envFromSecrets $deployEnvFromCMs $deployEnvFromSecrets $esEnvInherited $esEnvOwn -}}
   {{- if $hasEnvFrom }}
   envFrom:
     {{- /* Deployment's generated ConfigMap (using configMapRef name - differs for hooks vs cronjobs) */ -}}
@@ -150,12 +156,12 @@ containers:
         name: {{ $secretRef | quote }}
     {{- end }}
     {{- /* Deployment's external ConfigMaps */ -}}
-    {{- range $cm := $deploy.envFromConfigMaps }}
+    {{- range $cm := $deployEnvFromCMs }}
     - configMapRef:
         name: {{ $cm | quote }}
     {{- end }}
     {{- /* Deployment's external Secrets */ -}}
-    {{- range $sec := $deploy.envFromSecrets }}
+    {{- range $sec := $deployEnvFromSecrets }}
     - secretRef:
         name: {{ $sec | quote }}
     {{- end }}

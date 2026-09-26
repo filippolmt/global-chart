@@ -55,6 +55,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   error. The deployment ConfigMap and Secret, their hook-prerequisite copies and
   the mounted config file ConfigMaps now quote every key. The rendered keys of
   an unaffected map do not change.
+- **A deployment-level job can drop the deployment's `envFromSecrets` /
+  `envFromConfigMaps`** (issue #159). A hook or cronjob always received them,
+  whatever it set: `inheritDeploymentSecret: false` covers only the generated
+  Secret, and a job's own `envFromSecrets: []` adds nothing rather than
+  replacing the list. So a narrow-scope cronjob could not shed the deployment's
+  external credentials. New toggles `inheritDeploymentEnvFromSecrets` and
+  `inheritDeploymentEnvFromConfigMaps` (default `true`) drop them. The job's own
+  lists stay additive, and `externalSecrets` keeps its own rule. The docs that
+  said `[]` stopped the `envFrom` inheritance are corrected. No values change.
 
 ## [2.8.0] — 2026-09-25
 
