@@ -67,7 +67,11 @@
     "global": {
       "type": "object",
       "properties": {
-        "imageRegistry": { "type": "string" },
+        "imageRegistry": {
+          "type": "string",
+          "pattern": "^(?:(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9])(?:\\.(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]))*(?::[0-9]+)?(?:/[a-z0-9]+(?:(?:[._]|__|-+)[a-z0-9]+)*)*)?$",
+          "description": "Registry host, with optional port and path, prepended to every image whose first segment is not already a registry. A host, never a URL."
+        },
         "imagePullSecrets": {
           "type": "array",
           "items": { "$ref": "#/$defs/imagePullSecret" }
@@ -88,12 +92,17 @@
         { "type": "null" },
         {
           "type": "string",
-          "description": "Full image string, e.g. nginx:1.25"
+          "pattern": "^(?:(?:(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9])(?:\\.(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]))*(?::[0-9]+)?/)?[a-z0-9]+(?:(?:[._]|__|-+)[a-z0-9]+)*(?:/[a-z0-9]+(?:(?:[._]|__|-+)[a-z0-9]+)*)*(?::[A-Za-z0-9_][A-Za-z0-9_.-]{0,127})?(?:@[a-z0-9]+(?:[+._-][a-z0-9]+)*:[a-zA-Z0-9=_-]+)?)?$",
+          "description": "Full image reference, e.g. nginx:1.25, held to the OCI reference grammar: [registry[:port]/]path[:tag][@digest], lowercase path components. A reference outside it rendered and then failed at pull time with InvalidImageName. IPv6 registry hosts are not accepted."
         },
         {
           "type": "object",
           "properties": {
-            "repository": { "type": "string" },
+            "repository": {
+              "type": "string",
+              "pattern": "^(?:(?:(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9])(?:\\.(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]))*(?::[0-9]+)?/)?[a-z0-9]+(?:(?:[._]|__|-+)[a-z0-9]+)*(?:/[a-z0-9]+(?:(?:[._]|__|-+)[a-z0-9]+)*)*)?$",
+              "description": "[registry[:port]/]path, lowercase path components; no tag or digest, which have their own fields."
+            },
             "tag": {
               "type": "string",
               "pattern": "^([A-Za-z0-9_][A-Za-z0-9_.-]{0,127})?$",

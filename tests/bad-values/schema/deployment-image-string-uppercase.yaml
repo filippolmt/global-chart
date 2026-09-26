@@ -1,0 +1,5 @@
+# A repository path component is lowercase in the OCI reference grammar
+# (issue #173). Nginx:1.25 rendered, and the pull failed with InvalidImageName.
+deployments:
+  web:
+    image: "Nginx:1.25"
