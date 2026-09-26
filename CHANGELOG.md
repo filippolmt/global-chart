@@ -7,6 +7,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
+### Changed
+
+- **`image.tag` is string-only** (issue #138), in every scope. YAML reads a bare
+  number before any template sees it: `tag: 1.20` became `nginx:1.2`, a
+  different image, and `tag: 0` rendered no tag at all. The schema now rejects
+  a numeric tag.
+
 ### Removed
 
 - **`deployments.<name>.mountedConfigFiles.files[].mountPath`** (issue #115).
@@ -16,6 +23,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Migration guide from 2.x
 
+- Quote a numeric-looking `image.tag`: `tag: "1.20"`, not `tag: 1.20`.
 - Delete `mountedConfigFiles.files[].mountPath`: `targetPath` already does what
   it was meant to do.
 

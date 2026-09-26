@@ -49,7 +49,7 @@ Examples: "nginx" → "registry/nginx", "myorg/myapp" → "registry/myorg/myapp"
     {{- $repo = printf "%s/%s" $globalRegistry $repo -}}
   {{- end -}}
   {{- $digest := include "global-chart.printScalar" (default "" $img.digest) | trim -}}
-  {{- $tag := include "global-chart.printScalar" (default "" $img.tag) | trim -}}
+  {{- $tag := default "" $img.tag | trim -}}
   {{- if $repo }}
     {{- if $digest }}
       {{- printf "%s@%s" $repo $digest -}}

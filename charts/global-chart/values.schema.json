@@ -94,7 +94,7 @@
           "type": "object",
           "properties": {
             "repository": { "type": "string" },
-            "tag": { "type": ["string", "number"] },
+            "tag": { "type": "string", "description": "Quote a numeric-looking tag: YAML reads a bare 1.20 as the number 1.2, which no template can turn back into 1.20." },
             "digest": { "type": "string" },
             "pullPolicy": {
               "type": "string",

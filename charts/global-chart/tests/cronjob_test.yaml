@@ -1857,27 +1857,6 @@ tests:
           path: kind
           value: CronJob
 
-  # ====== Numbers from values in string fields (issue #132) ======
-  # A values-file number is a float64, and toString prints it as 1e+07 from a
-  # million up: the API server accepts that in a string field and the
-  # application silently reads the wrong value. A non-integral float keeps its
-  # form (1.5 is never truncated). set: values reach the template as float64.
-  - it: should render a large numeric image tag in plain digits on a cronjob
-    set:
-      cronJobs:
-        big:
-          schedule: "0 0 * * *"
-          image:
-            repository: busybox
-            tag: 20240101
-    asserts:
-      - equal:
-          path: spec.jobTemplate.spec.template.spec.containers[0].image
-          value: busybox:20240101
-        documentSelector:
-          path: kind
-          value: CronJob
-
   # ====== Pod-level automountServiceAccountToken (issue #154, ADR 0014) ======
   # The pod field wins over the ServiceAccount's at admission. Chain: the job's
   # own value > (deployment scope only) the deployment's pod-level value > omit.
