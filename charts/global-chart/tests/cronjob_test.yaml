@@ -1996,3 +1996,109 @@ tests:
         documentSelector:
           path: kind
           value: CronJob
+
+  # ====== priorityClassName (issue #168) ======
+  - it: should inherit priorityClassName from deployment
+    documentSelector:
+      path: kind
+      value: CronJob
+    set:
+      deployments:
+        backend:
+          image: "myapp:v1"
+          priorityClassName: prod-high
+          cronJobs:
+            cleanup:
+              schedule: "0 2 * * *"
+              command: ["./cleanup.sh"]
+    asserts:
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.priorityClassName
+          value: prod-high
+
+  - it: should let a deployment-level cronjob override priorityClassName
+    documentSelector:
+      path: kind
+      value: CronJob
+    set:
+      deployments:
+        backend:
+          image: "myapp:v1"
+          priorityClassName: prod-high
+          cronJobs:
+            cleanup:
+              schedule: "0 2 * * *"
+              command: ["./cleanup.sh"]
+              priorityClassName: batch-low
+    asserts:
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.priorityClassName
+          value: batch-low
+
+  - it: should stop priorityClassName inheritance with an empty string
+    documentSelector:
+      path: kind
+      value: CronJob
+    set:
+      deployments:
+        backend:
+          image: "myapp:v1"
+          priorityClassName: prod-high
+          cronJobs:
+            cleanup:
+              schedule: "0 2 * * *"
+              command: ["./cleanup.sh"]
+              priorityClassName: ""
+    asserts:
+      - notExists:
+          path: spec.jobTemplate.spec.template.spec.priorityClassName
+
+  - it: should not inherit priorityClassName on a root-level cronjob via fromDeployment
+    documentSelector:
+      path: kind
+      value: CronJob
+    set:
+      deployments:
+        backend:
+          image: "myapp:v1"
+          priorityClassName: prod-high
+      cronJobs:
+        cleanup:
+          schedule: "0 2 * * *"
+          fromDeployment: backend
+          command: ["./cleanup.sh"]
+    asserts:
+      - notExists:
+          path: spec.jobTemplate.spec.template.spec.priorityClassName
+
+  - it: should render an explicit priorityClassName on a root-level cronjob
+    documentSelector:
+      path: kind
+      value: CronJob
+    set:
+      cronJobs:
+        cleanup:
+          schedule: "0 2 * * *"
+          image: "myapp:v1"
+          command: ["./cleanup.sh"]
+          priorityClassName: batch-low
+    asserts:
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.priorityClassName
+          value: batch-low
+
+  - it: should omit priorityClassName when neither the cronjob nor its deployment sets it
+    documentSelector:
+      path: kind
+      value: CronJob
+    set:
+      deployments:
+        backend:
+          image: "myapp:v1"
+          cronJobs:
+            cleanup:
+              schedule: "0 2 * * *"
+              command: ["./cleanup.sh"]
+    asserts:
+      - notExists:
+          path: spec.jobTemplate.spec.template.spec.priorityClassName

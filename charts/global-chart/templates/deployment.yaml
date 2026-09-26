@@ -249,6 +249,9 @@ spec:
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- with $deploy.priorityClassName }}
+      priorityClassName: {{ . | quote }}
+      {{- end }}
       {{- with $deploy.topologySpreadConstraints }}
       topologySpreadConstraints:
         {{- toYaml . | nindent 8 }}

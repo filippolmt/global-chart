@@ -252,6 +252,11 @@ affinity:
 tolerations:
   {{- toYaml . | nindent 2 }}
 {{- end }}
+{{- /* PriorityClassName: explicit > inherited from deployment; "" stops it */ -}}
+{{- $priorityClassName := ternary $job.priorityClassName $deploy.priorityClassName (hasKey $job "priorityClassName") -}}
+{{- with $priorityClassName }}
+priorityClassName: {{ . | quote }}
+{{- end }}
 restartPolicy: {{ default "Never" (ternary $job.restartPolicy "" (hasKey $job "restartPolicy")) | quote }}
 {{- end }}
 
