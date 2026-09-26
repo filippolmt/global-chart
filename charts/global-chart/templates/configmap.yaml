@@ -16,7 +16,7 @@ metadata:
     {{- . | nindent 4 }}
   {{- end }}
 data:
-  {{- include "global-chart.renderConfigMapData" (dict "data" $deploy.configMap "path" (printf "deployments.%s.configMap" $name)) | nindent 2 }}
+  {{- include "global-chart.renderConfigMapData" (dict "data" $deploy.configMap "deploymentName" $name) | nindent 2 }}
 {{- end }}
 {{- end }}
 {{- end }}
