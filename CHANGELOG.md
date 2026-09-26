@@ -12,7 +12,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 - **`image.tag` is string-only** (issue #138), in every scope. YAML reads a bare
   number before any template sees it: `tag: 1.20` became `nginx:1.2`, a
   different image, and `tag: 0` rendered no tag at all. The schema now rejects
-  a numeric tag.
+  a numeric tag. `image.tag` and `image.digest` now also follow the OCI
+  reference grammar: a tag like `1.25:alpine`, or a digest with no
+  `<algorithm>:` prefix, rendered an image the kubelet rejected at pull time
+  with `InvalidImageName`; the schema rejects both now.
 - **A null value in `deployments.<name>.secret` fails at render** (issue #166),
   as a null `configMap` value already did. It rendered the base64 of the string
   `null`, which the app read as its secret. The message names the values path
@@ -30,7 +33,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Migration guide from 2.x
 
-- Quote a numeric-looking `image.tag`: `tag: "1.20"`, not `tag: 1.20`.
+- Quote a numeric-looking `image.tag`: `tag: "1.20"`, not `tag: 1.20`. A tag
+  or digest the schema now rejects never pulled; fix it to the real reference.
 - Replace a null `secret:` value with `""` for an empty value, or remove the key.
 - Delete `mountedConfigFiles.files[].mountPath`: `targetPath` already does what
   it was meant to do.

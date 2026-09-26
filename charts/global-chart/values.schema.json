@@ -94,8 +94,16 @@
           "type": "object",
           "properties": {
             "repository": { "type": "string" },
-            "tag": { "type": "string", "description": "Quote a numeric-looking tag: YAML reads a bare 1.20 as the number 1.2, which no template can turn back into 1.20." },
-            "digest": { "type": "string" },
+            "tag": {
+              "type": "string",
+              "pattern": "^([A-Za-z0-9_][A-Za-z0-9_.-]{0,127})?$",
+              "description": "An OCI tag: up to 128 characters of [A-Za-z0-9_.-], not starting with . or -. Quote a numeric-looking tag: YAML reads a bare 1.20 as the number 1.2, which no template can turn back into 1.20."
+            },
+            "digest": {
+              "type": "string",
+              "pattern": "^([a-z0-9]+([+._-][a-z0-9]+)*:[a-zA-Z0-9=_-]+)?$",
+              "description": "An OCI digest, <algorithm>:<encoded>, e.g. sha256:<hex>. Wins over tag when both are set."
+            },
             "pullPolicy": {
               "type": "string",
               "enum": ["Always", "IfNotPresent", "Never"]
