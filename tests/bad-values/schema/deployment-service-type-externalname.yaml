@@ -1,0 +1,8 @@
+# ExternalName needs spec.externalName and neither ports nor a selector; the
+# chart's Service renders ports and a selector and has no externalName field,
+# so the API server answered `spec.externalName: Required value` (issue #155).
+deployments:
+  web:
+    image: nginx:1.25
+    service:
+      type: ExternalName

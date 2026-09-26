@@ -30,7 +30,7 @@ time.
   sits in the resolver, not in _validate-helpers.tpl, because every render path
   of a job — hook.yaml, cronjob.yaml and the validator — goes through it, so no
   path can use the contradictory values before the check has run. Same reason
-  jobImageString owns its fromDeployment fail.
+  jobImageSource owns its fromDeployment fail.
 The names these default to come from the naming helpers in _helpers.tpl.
 */}}
 

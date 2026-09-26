@@ -100,7 +100,9 @@ deployments: {}
   #     # -- Protocol for the service port (TCP|UDP)
   #     protocol: TCP
   #     # -- Additional ports exposed by the same Service (multi-port workloads)
-  #     # Each entry requires: name, port, targetPort. Optional: protocol, appProtocol, nodePort.
+  #     # Each entry requires: name, port, targetPort. Optional: protocol, appProtocol,
+  #     # nodePort (NodePort or LoadBalancer Service only). Names and port+protocol
+  #     # pairs must be unique across the primary port and every entry.
   #     # A numeric targetPort is declared on the container under the entry's name,
   #     # so other ports may target it by that name.
   #     extraPorts: []
@@ -205,7 +207,7 @@ deployments: {}
   #   pdb:
   #     # -- Enable PDB for this deployment
   #     enabled: false
-  #     # -- Minimum available pods (integer or percentage)
+  #     # -- Minimum available pods: an integer, or a percentage string ("25%")
   #     minAvailable: 1
   #     # -- Maximum unavailable pods (alternative to minAvailable)
   #     # maxUnavailable: 1
@@ -338,6 +340,10 @@ deployments: {}
   #       # Opt-out of deployment ConfigMap/Secret env injection (defaults: true):
   #       # inheritDeploymentConfigMap: false
   #       # inheritDeploymentSecret: false
+  #       # Opt-out of the deployment's envFromConfigMaps/envFromSecrets (defaults:
+  #       # true). The job's own lists add to them, never replace them:
+  #       # inheritDeploymentEnvFromConfigMaps: false
+  #       # inheritDeploymentEnvFromSecrets: false
 
 # -- Ingress configuration
 ingress:
@@ -355,12 +361,12 @@ ingress:
     - host: chart-example.local
       # -- Name of the deployment to route traffic to (required unless service.name is set)
       deployment: ""
-      # -- Service backend override (use instead of deployment for external services)
+      # -- Service backend override (use instead of deployment for external services).
+      # Optional `port`, 1-65535: omitted, it is the deployment's service.port, or 80
+      # for a service.name backend
       service:
         # -- Explicit service name (overrides deployment reference)
         name: ""
-        # -- Service port (default: deployment's service.port or 80)
-        port: 0
       # -- HTTP path definitions for this host
       paths:
         - path: /
@@ -456,7 +462,9 @@ cronJobs: {}
   # Note: root-level cronJobs do NOT auto-inherit ConfigMap/Secret from deployments.
   # Use envFromConfigMaps / envFromSecrets to reference them by name explicitly.
   # Deployment-level cronJobs (deployments.<name>.cronJobs) DO auto-inherit; use
-  # inheritDeploymentConfigMap/inheritDeploymentSecret: false to opt out.
+  # inheritDeploymentConfigMap/inheritDeploymentSecret: false to opt out, and
+  # inheritDeploymentEnvFromConfigMaps/inheritDeploymentEnvFromSecrets: false
+  # for the deployment's envFromConfigMaps/envFromSecrets.
 
 # -- Hook jobs for chart lifecycle (install/upgrade). Can also be defined inside deployments to inherit image, configMap, secret, SA.
 hooks: {}

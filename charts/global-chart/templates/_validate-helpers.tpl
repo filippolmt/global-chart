@@ -150,12 +150,14 @@ Called from validate.yaml.
        into, not owned, so several of them sharing a target stays legal — but
        not one a copy owns, which the copy's deletion would garbage-collect:
        those are checked against the copies alone, on a throwaway copy of
-       $copyTargets, so that two of them still never meet each other. An
-       Owner target, the copy's included, also joins $secretNames, against the
-       chart's own Secrets: Owner adopts a Helm Secret, the two overwrite each
-       other's data and the ExternalSecret's deletion garbage-collects it
-       (issue #153). Merge and None stay out: Helm's patch keeps the keys Merge
-       adds, and None writes nothing (ADR 0013,
+       $copyTargets, so that two of them still never meet each other. A target
+       whose policy rewrites the Secret's data — Owner, the copy's included,
+       and Orphan — also joins $secretNames, against the chart's own Secrets:
+       Owner adopts a Helm Secret, the two overwrite each other's data and the
+       ExternalSecret's deletion garbage-collects it (issue #153); Orphan
+       fights the same way without the garbage collection (issue #161). Merge,
+       CreateOrMerge and None stay out: Helm's patch keeps the keys the first
+       two add, and None writes nothing (ADR 0013,
        docs/adr/0013-an-owner-externalsecret-target-cannot-be-a-chart-secret.md). */ -}}
 {{- $consumers := include "global-chart.externalSecretHookConsumers" $root | fromJson -}}
 {{- range $key, $secret := .Values.externalSecrets -}}
@@ -163,9 +165,11 @@ Called from validate.yaml.
     {{- $nameCtx := dict "root" $root "key" $key "secret" $secret -}}
     {{- $owner := printf "externalSecrets.%s" $key -}}
     {{- include "global-chart.registerName" (dict "names" $esNames "kind" "ExternalSecret" "name" (include "global-chart.externalSecretName" $nameCtx) "owner" $owner) -}}
+    {{- $target := include "global-chart.externalSecretTargetName" $nameCtx -}}
     {{- if eq (include "global-chart.externalSecretCreationPolicy" $secret) "Owner" -}}
-      {{- $target := include "global-chart.externalSecretTargetName" $nameCtx -}}
       {{- include "global-chart.registerName" (dict "names" $esOwnedNames "kind" "Secret" "name" $target "owner" $owner) -}}
+    {{- end -}}
+    {{- if eq (include "global-chart.externalSecretRewritesTarget" $secret) "true" -}}
       {{- include "global-chart.registerName" (dict "names" $secretNames "kind" "Secret" "name" $target "owner" $owner) -}}
     {{- end -}}
   {{- end -}}
@@ -446,6 +450,50 @@ Called from validate.yaml. Emits nothing on success.
         {{- if and (kindIs "string" .targetPort) (not (hasKey $declared .targetPort)) -}}
           {{- fail (printf "deployments.%s.service.extraPorts '%s' has targetPort '%s', which no container port declares (declared: %s). A Service port whose targetPort names nothing gets no endpoints. Give it the port number instead, and it will be declared on the container under this name." $name .name .targetPort $known) -}}
         {{- end -}}
+      {{- end -}}
+    {{- end -}}
+  {{- end -}}
+  {{- end -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+Validate the Service side of a deployment's ports against what the API server
+rejects (issue #155): an extraPorts entry may not repeat a port name or a
+port+protocol pair of the primary port or of another entry, and may carry
+nodePort only on a NodePort or LoadBalancer Service.
+
+A template fail, not the schema: the primary port's defaults live in
+servicePrimaryPort, an extra port's protocol in extraPortProtocol and the type
+in serviceType, and the schema sees none of them. The pod side dedups in
+containerPorts; the Service side has nothing to dedup into, since every port is
+rendered.
+Called from validate.yaml. Emits nothing on success.
+*/}}
+{{- define "global-chart.validateServicePorts" -}}
+{{- range $name, $deploy := .Values.deployments -}}
+  {{- if $deploy -}}
+  {{- if eq (include "global-chart.deploymentEnabled" $deploy) "true" -}}
+    {{- $svc := default (dict) $deploy.service -}}
+    {{- if eq (include "global-chart.serviceEnabled" $svc) "true" -}}
+      {{- $primary := include "global-chart.servicePrimaryPort" $svc | fromJson -}}
+      {{- $type := include "global-chart.serviceType" $svc -}}
+      {{- $portNames := dict $primary.name "service.portName" -}}
+      {{- $portNumbers := dict (printf "%s/%s" (include "global-chart.printScalar" $primary.port) $primary.protocol) "service.port" -}}
+      {{- range (default (list) $svc.extraPorts) -}}
+        {{- $owner := printf "extraPorts '%s'" .name -}}
+        {{- $number := printf "%s/%s" (include "global-chart.printScalar" .port) (include "global-chart.extraPortProtocol" .) -}}
+        {{- if and (hasKey . "nodePort") (not (has $type (list "NodePort" "LoadBalancer"))) -}}
+          {{- fail (printf "deployments.%s.service.%s sets nodePort, which the API server accepts only on a NodePort or LoadBalancer Service (type: %s). Drop nodePort, or set service.type." $name $owner $type) -}}
+        {{- end -}}
+        {{- if hasKey $portNames .name -}}
+          {{- fail (printf "deployments.%s.service.%s repeats the port name '%s' of %s. The API server rejects two Service ports with one name." $name $owner .name (get $portNames .name)) -}}
+        {{- end -}}
+        {{- if hasKey $portNumbers $number -}}
+          {{- fail (printf "deployments.%s.service.%s repeats port %s of %s. The API server rejects two Service ports with one port and protocol." $name $owner $number (get $portNumbers $number)) -}}
+        {{- end -}}
+        {{- $_ := set $portNames .name $owner -}}
+        {{- $_ := set $portNumbers $number $owner -}}
       {{- end -}}
     {{- end -}}
   {{- end -}}

@@ -32,15 +32,18 @@ fields Helm's own field manager dropped. A fight remains only on a key both
 sides write, which is a values mistake the render cannot see; `helm upgrade
 --force` (a replace) also drops ESO's keys until its next refresh.
 
-`Orphan` and `CreateOrMerge` are left as they are, as `Merge` and `None` were
-before this change. `CreateOrMerge` keeps existing keys like `Merge`. `Orphan`
-clears `data` like `Owner` but sets no ownerReference, so it fights Helm without
-the garbage collection; joining it to `Owner` is a separate decision (issue
-#161), and the
-schema does not constrain `creationPolicy` today.
+**`Orphan` joins `Owner`; `CreateOrMerge` stays allowed** (issue #161, amended
+after the first decision left both open). The criterion is what the
+ExternalSecret does to `data`, not who owns the Secret: `Orphan` clears `data`
+down to its own keys like `Owner` (ESO's `ApplyTemplate` keeps existing keys
+only for `Merge` and `CreateOrMerge`), so it fights Helm on every upgrade and
+every refresh, only without the ownerReference and the garbage collection.
+`CreateOrMerge` keeps existing keys like `Merge`. Only the `Owner` target joins
+the Secrets an ExternalSecret *owns*: `Orphan` sets no ownerReference, so it
+cannot trigger `ErrSecretIsOwned`.
 
 ## Consequences
 
-- A release with an ExternalSecret named after a deployment that also declares
-  `secret:` now fails to render. The migration guide gives the cure: rename
-  `target.name`, or drop `secret:` from the deployment.
+- A release with an `Owner` or `Orphan` ExternalSecret named after a deployment
+  that also declares `secret:` now fails to render. The migration guide gives
+  the cure: rename `target.name`, or drop `secret:` from the deployment.

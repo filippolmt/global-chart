@@ -950,6 +950,31 @@ tests:
           path: spec.jobTemplate.spec.template.spec.restartPolicy
           value: Never
 
+  - it: should reject restartPolicy Always
+    set:
+      cronJobs:
+        backup:
+          schedule: "0 2 * * *"
+          image: busybox:1.36
+          command: ["echo", "backup"]
+          restartPolicy: Always
+    asserts:
+      - failedTemplate:
+          errorPattern: "restartPolicy"
+
+  # imagePullSecrets items share global.imagePullSecrets' shape: a number
+  # used to pass the schema and crash the render (issue #158).
+  - it: should reject an imagePullSecrets item that is neither a string nor a name map
+    set:
+      cronJobs:
+        backup:
+          schedule: "0 2 * * *"
+          image: busybox:1.36
+          imagePullSecrets: [regcred, 5]
+    asserts:
+      - failedTemplate:
+          errorPattern: "at '/cronJobs/backup/imagePullSecrets/1'"
+
   # ====== issue #48: empty metadata blocks (root-level) ======
   - it: should NOT render empty jobTemplate.metadata when no annotations set
     set:
@@ -1253,6 +1278,55 @@ tests:
           content:
             secretRef:
               name: RELEASE-NAME-global-chart-backend
+
+  # inheritDeploymentSecret covers only the generated Secret: the deployment's
+  # envFromSecrets / envFromConfigMaps have their own opt-outs (issue #159),
+  # independent of the job's own lists and of externalSecrets.
+  - it: should opt out of the deployment's envFromSecrets and envFromConfigMaps
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          envFromSecrets: [prod-db-admin-credentials]
+          envFromConfigMaps: [prod-settings]
+          cronJobs:
+            report:
+              schedule: "0 3 * * *"
+              command: ["true"]
+              inheritDeploymentEnvFromSecrets: false
+              inheritDeploymentEnvFromConfigMaps: false
+              envFromSecrets: [report-token]
+    documentIndex: 0
+    asserts:
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.containers[0].envFrom
+          value:
+            - secretRef:
+                name: report-token
+
+  - it: should keep the deployment's envFrom lists ahead of the job's own by default
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          envFromSecrets: [prod-db-admin-credentials]
+          envFromConfigMaps: [prod-settings]
+          cronJobs:
+            report:
+              schedule: "0 3 * * *"
+              command: ["true"]
+              envFromSecrets: [report-token]
+    documentIndex: 0
+    asserts:
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.containers[0].envFrom
+          value:
+            - configMapRef:
+                name: prod-settings
+            - secretRef:
+                name: prod-db-admin-credentials
+            - secretRef:
+                name: report-token
 
   - it: should opt out of deployment configMap inheritance when inheritDeploymentConfigMap=false
     set:

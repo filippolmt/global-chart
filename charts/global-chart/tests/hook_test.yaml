@@ -38,6 +38,64 @@ tests:
           value: "myapp:v2"
         documentIndex: 1
 
+  # fromDeployment copies the deployment's pullPolicy with its image: with a
+  # mutable tag the hook would otherwise run a stale cached image (issue #160).
+  - it: should take the fromDeployment deployment's pullPolicy
+    set:
+      deployments:
+        backend:
+          image: { repository: registry.example.com/app, tag: latest, pullPolicy: Always }
+      hooks:
+        pre-upgrade:
+          migrate:
+            fromDeployment: backend
+            command: ["./migrate"]
+    documentSelector:
+      path: kind
+      value: Job
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].imagePullPolicy
+          value: Always
+
+  - it: should keep the job's own imagePullPolicy over the fromDeployment one
+    set:
+      deployments:
+        backend:
+          image: { repository: registry.example.com/app, tag: latest, pullPolicy: Always }
+      hooks:
+        pre-upgrade:
+          migrate:
+            fromDeployment: backend
+            imagePullPolicy: Never
+            command: ["./migrate"]
+    documentSelector:
+      path: kind
+      value: Job
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].imagePullPolicy
+          value: Never
+
+  - it: should not take the fromDeployment pullPolicy when the job sets its own image
+    set:
+      deployments:
+        backend:
+          image: { repository: registry.example.com/app, tag: latest, pullPolicy: Always }
+      hooks:
+        pre-upgrade:
+          migrate:
+            fromDeployment: backend
+            image: busybox:1.36
+            command: ["true"]
+    documentSelector:
+      path: kind
+      value: Job
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].imagePullPolicy
+          value: IfNotPresent
+
   - it: should fail when fromDeployment references non-existent deployment
     set:
       deployments:
@@ -289,6 +347,22 @@ tests:
           path: spec.template.spec.restartPolicy
           value: "OnFailure"
         documentIndex: 1
+
+  # A Job pod takes OnFailure or Never only: Always passed lint and was
+  # rejected at apply (issue #158).
+  - it: should reject restartPolicy Always on a deployment-level hook
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          hooks:
+            pre-install:
+              migrate:
+                command: ["./migrate.sh"]
+                restartPolicy: Always
+    asserts:
+      - failedTemplate:
+          errorPattern: "restartPolicy"
 
   # ====== Root-level hook command and args ======
   - it: should render command and args on root-level hook
@@ -3739,3 +3813,26 @@ tests:
       - equal:
           path: metadata.annotations["helm.sh/hook-weight"]
           value: "-10"
+
+  # A deployment-level hook opts out of one list and keeps the other (issue #159)
+  - it: should opt a deployment-level hook out of the deployment's envFromSecrets only
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          envFromSecrets: [prod-db-admin-credentials]
+          envFromConfigMaps: [prod-settings]
+          hooks:
+            pre-upgrade:
+              migrate:
+                command: ["./migrate.sh"]
+                inheritDeploymentEnvFromSecrets: false
+    documentSelector:
+      path: kind
+      value: Job
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].envFrom
+          value:
+            - configMapRef:
+                name: prod-settings

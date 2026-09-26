@@ -1,0 +1,11 @@
+# An extra port repeating the primary port's 80/TCP: the API server answers
+# `spec.ports[1]: Duplicate value` (issue #155).
+# Expected fail substring: "deployments.web.service.extraPorts 'alt' repeats port 80/TCP of service.port"
+deployments:
+  web:
+    image: nginx:1.25
+    service:
+      extraPorts:
+        - name: alt
+          port: 80
+          targetPort: 8080

@@ -1,3 +1,9 @@
+{{- /* Every data value is a `|2` block scalar, its content at the key's
+       indent + 2: a bare `|` takes its indentation from the content's first
+       line, so content starting with indentation ended the scalar early
+       (issue #157). Every key is quoted: a bare `on` or `1.10` is reparsed as
+       a YAML 1.1 scalar and reaches the API server as another key (issue
+       #152). */ -}}
 {{- $root := . -}}
 {{- range $name, $deploy := .Values.deployments }}
 {{- if $deploy }}
@@ -21,7 +27,7 @@ metadata:
     {{- . | nindent 4 }}
   {{- end }}
 data:
-  {{ $f.filename }}: |
+  {{ required (printf "deployments.%s.mountedConfigFiles.files[%d] (%s): 'filename' is required" $name $i $f.name) $f.filename | quote }}: |2
     {{- $content := required (printf "deployments.%s.mountedConfigFiles.files[%d] (%s): 'content' is required" $name $i $f.name) $f.content -}}
     {{- $content | nindent 4 -}}
 {{- end }}
@@ -42,7 +48,7 @@ metadata:
     {{- . | nindent 4 }}
   {{- end }}
 data:
-  {{ $f.relPath | base }}: |
+  {{ required (printf "deployments.%s.mountedConfigFiles.bundles[%d].files[%d] (%s): 'relPath' is required" $name $bi $fi $f.name) $f.relPath | base | quote }}: |2
     {{- $content := required (printf "deployments.%s.mountedConfigFiles.bundles[%d].files[%d] (%s): 'content' is required" $name $bi $fi $f.name) $f.content -}}
     {{- $content | nindent 4 -}}
 {{- end }}

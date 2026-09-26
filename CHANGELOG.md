@@ -5,6 +5,100 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ---
 
+## [Unreleased]
+
+### Fixed
+
+- **An `Orphan` ExternalSecret whose target is a chart-rendered Secret now fails
+  at render** (issue #161, [ADR 0013](docs/adr/0013-an-owner-externalsecret-target-cannot-be-a-chart-secret.md)).
+  `Orphan` clears the Secret's `data` down to its own keys, like `Owner`, so
+  Helm and ESO overwrite each other on every upgrade and every refresh; 2.8.0
+  caught only `Owner`. `Merge`, `CreateOrMerge` and `None` stay allowed. Two
+  `Orphan` ExternalSecrets sharing one target now fail too.
+- **Service shapes the API server rejects now fail at `helm lint` or at
+  render** (issue #155). `service.type: ExternalName` is removed from the
+  schema: the chart renders ports and a selector and no `spec.externalName`, so
+  the Service was always rejected. An `extraPorts[].nodePort` on a Service that
+  is not `NodePort` or `LoadBalancer` now fails at render, and so does an
+  `extraPorts` entry repeating a port name or a port+protocol pair of the
+  primary port or of another entry (a default primary port is 80/TCP named
+  `http`).
+- **Ingress and PDB values the API server rejects now fail at `helm lint`**
+  (issue #156). `values.yaml` shipped `ingress.hosts[0].service.port: 0`, which
+  counted as set and rendered `port.number: 0`; the line is gone, so a host
+  takes its deployment's port, or 80 for a `service.name` backend. The schema
+  now holds `ingress.hosts[].service.port` to 1–65535, requires at least one
+  entry in `paths`, and restricts `pathType` to `Exact`, `Prefix` and
+  `ImplementationSpecific`. A PDB `minAvailable` / `maxUnavailable` is an
+  integer or a percentage string (`"25%"`): a digit string such as `"2"` is
+  rejected, spell it `2`.
+- **A mounted config file whose content starts with indentation renders**
+  (issue #157). The ConfigMap value was a bare `|` block scalar, which takes its
+  indentation from the first line: content such as `"  indented: first\nsecond:
+  line"` (a YAML fragment, Python) ended the scalar early and failed with `did
+  not find expected key`. Values are now `|2` block scalars, for `files` and
+  `bundles` alike. A `files` entry with no `filename` or no `targetPath`, a
+  bundle with no `mountDir` and a bundle file with no `relPath` now fail naming
+  their values path, instead of a bare YAML parse error, a null `mountPath` or
+  a key `.`.
+- **`imagePullSecrets` items and a job's `restartPolicy` are validated by the
+  schema** (issue #158). On deployments and jobs `imagePullSecrets` was a bare
+  array, so `[regcred, 5]` passed lint and crashed the render with `wrong type
+  for value`; its items now share `global.imagePullSecrets`' shape, a string or
+  `{name}`. A job's `restartPolicy` takes `OnFailure` or `Never` only: `Always`
+  passed lint and was rejected at apply. An item with no `name`, which failed
+  at render with `imagePullSecrets must be a list of strings or objects with a
+  'name' key.`, is now rejected by the schema instead.
+- **ConfigMap and Secret data keys are quoted** (issue #152). A key was
+  rendered bare, so a valid key such as `on`, `no`, `0x1F`, `007` or `1.10` was
+  reparsed as a YAML 1.1 scalar and reached the API server as `"true"`,
+  `"false"`, `"31"`, `"7"` or `"1.1"`; the app found its key missing without any
+  error. The deployment ConfigMap and Secret, their hook-prerequisite copies and
+  the mounted config file ConfigMaps now quote every key, and the Deployment
+  quotes the mounted file's `subPath`, `mountPath` and projected `key`/`path`
+  alike. The rendered keys of an unaffected map do not change.
+- **A deployment-level job can drop the deployment's `envFromSecrets` /
+  `envFromConfigMaps`** (issue #159). A hook or cronjob always received them,
+  whatever it set: `inheritDeploymentSecret: false` covers only the generated
+  Secret, and a job's own `envFromSecrets: []` adds nothing rather than
+  replacing the list. So a narrow-scope cronjob could not shed the deployment's
+  external credentials. New toggles `inheritDeploymentEnvFromSecrets` and
+  `inheritDeploymentEnvFromConfigMaps` (default `true`) drop them. The job's own
+  lists stay additive, and `externalSecrets` keeps its own rule. The docs that
+  said `[]` stopped the `envFrom` inheritance are corrected. No values change.
+- **`fromDeployment` copies the deployment's `pullPolicy` with its image**
+  (issue #160). A root-level hook or cronjob took the image string and fell
+  back to `IfNotPresent`, so with a mutable tag and `pullPolicy: Always` the
+  migration could run a stale cached image while the Deployment pulled the new
+  one. The job now takes the deployment's `pullPolicy` when it sets neither
+  `image` nor `imagePullPolicy`, as a deployment-level job already did.
+
+### Migration guide from 2.8.x
+
+> No values change shape. The new rejections are **breaking for values that
+> were already invalid**: each one rendered something the API server refused,
+> or that ESO and Helm overwrote in turn. Run `helm lint` and `helm template`
+> against your own values before upgrading — every case shows up there.
+
+| If you have | Change it to |
+|---|---|
+| An `Orphan` ExternalSecret whose target is a chart Secret | Rename `target.name`, drop `secret:` from the deployment, or use `Merge` |
+| `service.type: ExternalName` | A Service outside the chart; the chart's never worked |
+| `extraPorts[].nodePort` on a ClusterIP Service | Drop `nodePort`, or set `service.type: NodePort` / `LoadBalancer` |
+| An extra port repeating a port name or port+protocol | A distinct name / port (the primary defaults to `http`, 80/TCP) |
+| `ingress.hosts[].service.port: 0` | Omit `port` |
+| An ingress host with no `paths` | At least one path |
+| `pathType: prefix` (any case or value outside the enum) | `Exact`, `Prefix` or `ImplementationSpecific` |
+| A PDB bound `"2"` | `2` (a percentage stays a string: `"25%"`) |
+| A number or a `{name}`-less map in `imagePullSecrets` | A string or `{name: …}` |
+| A job `restartPolicy: Always` | `OnFailure` or `Never` |
+
+Two changes alter a render with no values change: ConfigMap and Secret keys are
+now quoted (a YAML 1.1 key such as `on` or `1.10` reaches the API server as
+written, not as `"true"` / `"1.1"`: an app that read the rewritten key has to
+read the real one), and a root-level job with `fromDeployment` now takes the
+deployment's `pullPolicy`.
+
 ## [2.8.0] — 2026-09-25
 
 ### Added

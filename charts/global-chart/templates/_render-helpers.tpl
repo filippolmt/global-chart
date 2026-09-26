@@ -92,6 +92,8 @@ Render a single volume entry. Supports both:
 
 {{/*
 Render imagePullSecrets block. Accepts a list of strings or objects with "name" key.
+Every scope holds its items to $defs/imagePullSecret in the schema (issue #158),
+so an item here is one of the two.
 Usage: {{ include "global-chart.renderImagePullSecrets" $listOrNil }}
 Returns empty string if list is nil/empty.
 */}}
@@ -101,10 +103,8 @@ imagePullSecrets:
   {{- range . }}
     {{- if kindIs "string" . }}
   - name: {{ . | quote }}
-    {{- else if hasKey . "name" }}
-  - name: {{ .name | quote }}
     {{- else }}
-  {{ fail "imagePullSecrets must be a list of strings or objects with a 'name' key." }}
+  - name: {{ .name | quote }}
     {{- end }}
   {{- end }}
 {{- end }}
@@ -198,6 +198,9 @@ Map/slice values are serialized with toYaml into a block scalar, everything else
 printed through printScalar and quoted — a bare toString turned 10000000 into
 "1e+07" (issue #132) — and a null value fails there: ConfigMap.data is map[string]string, so every value has to
 render as a YAML string or the API server rejects the manifest.
+Keys are quoted, here and in renderSecretData: a bare `on`, `0x1F` or `1.10` is
+reparsed as a YAML 1.1 scalar and reaches the API server as "true", "31", "1.1"
+(issue #152).
 Returns empty string on an empty map; callers guard on the map being non-empty.
 Built by joining lines rather than by literal text + whitespace control, unlike the
 block helpers above: those own their block key and so start on literal text, while a
@@ -208,9 +211,9 @@ caller's nindent turns into a line of bare spaces.
 {{- $lines := list -}}
 {{- range $key, $value := . -}}
 {{- if or (kindIs "map" $value) (kindIs "slice" $value) -}}
-{{- $lines = append $lines (printf "%s: |-\n%s" $key (toYaml $value | indent 2)) -}}
+{{- $lines = append $lines (printf "%s: |-\n%s" ($key | quote) (toYaml $value | indent 2)) -}}
 {{- else -}}
-{{- $lines = append $lines (printf "%s: %s" $key (include "global-chart.printScalar" $value | quote)) -}}
+{{- $lines = append $lines (printf "%s: %s" ($key | quote) (include "global-chart.printScalar" $value | quote)) -}}
 {{- end -}}
 {{- end -}}
 {{- join "\n" $lines -}}
@@ -227,9 +230,9 @@ Returns empty string on an empty map; callers guard on the map being non-empty.
 {{- $lines := list -}}
 {{- range $key, $value := . -}}
 {{- if kindIs "string" $value -}}
-{{- $lines = append $lines (printf "%s: %s" $key ($value | b64enc | quote)) -}}
+{{- $lines = append $lines (printf "%s: %s" ($key | quote) ($value | b64enc | quote)) -}}
 {{- else -}}
-{{- $lines = append $lines (printf "%s: %s" $key (toYaml $value | b64enc | quote)) -}}
+{{- $lines = append $lines (printf "%s: %s" ($key | quote) (toYaml $value | b64enc | quote)) -}}
 {{- end -}}
 {{- end -}}
 {{- join "\n" $lines -}}
@@ -390,7 +393,7 @@ Numbers come back float64: see the file header.
 {{- $numbers := dict (printf "%s/%s" (include "global-chart.printScalar" $containerPort) $protocol) true -}}
 {{- range (default (list) $svc.extraPorts) -}}
   {{- if not (kindIs "string" .targetPort) -}}
-    {{- $extraProtocol := default "TCP" .protocol | upper -}}
+    {{- $extraProtocol := include "global-chart.extraPortProtocol" . -}}
     {{- $key := printf "%s/%s" (include "global-chart.printScalar" .targetPort) $extraProtocol -}}
     {{- if and (not (hasKey $names .name)) (not (hasKey $numbers $key)) -}}
       {{- $ports = append $ports (dict "name" .name "containerPort" .targetPort "protocol" $extraProtocol) -}}
@@ -406,6 +409,7 @@ Numbers come back float64: see the file header.
 The primary port of a deployment's Service: the single home of its four
 defaults (`port` 80, `name` "http", `protocol` TCP, `targetPort` following the
 name). Consumed by service.yaml, containerPorts, validateServiceTargetPorts,
+validateServicePorts,
 resolveBackend and the connection test — every place that used to carry its own
 copy of one of them.
 
@@ -413,7 +417,8 @@ The default targetPort follows the port's name, not the literal "http": with a
 custom portName and no targetPort, "http" would name a port nothing declares.
 
 Only the primary port is here. extraPorts entries have name/port/targetPort all
-required by the schema, so they share no default worth a home.
+required by the schema; their one default, the protocol, lives in
+extraPortProtocol.
 Usage: {{ $primary := include "global-chart.servicePrimaryPort" $svc | fromJson }}
 Input: the deployment's service map, already defaulted to (dict) by the caller.
 Output: JSON of the form {"port":80,"name":"http","protocol":"TCP","targetPort":"http"}
@@ -428,6 +433,26 @@ Numbers come back float64: see the file header.
       "protocol" (ternary $svc.protocol "TCP" (hasKey $svc "protocol") | upper)
       "targetPort" (ternary $svc.targetPort $name (hasKey $svc "targetPort"))
     | toJson -}}
+{{- end }}
+
+{{/*
+The protocol of a service.extraPorts entry: its own, uppercased, or TCP. The one
+home of that default, read by service.yaml, containerPorts and
+validateServicePorts.
+Usage: {{ include "global-chart.extraPortProtocol" $extraPort }}
+*/}}
+{{- define "global-chart.extraPortProtocol" -}}
+{{- default "TCP" .protocol | upper -}}
+{{- end }}
+
+{{/*
+The type of a deployment's Service: its own, or ClusterIP. The one home of that
+default, read by service.yaml and validateServicePorts.
+Usage: {{ include "global-chart.serviceType" $svc }}
+Input: the deployment's service map, already defaulted to (dict) by the caller.
+*/}}
+{{- define "global-chart.serviceType" -}}
+{{- ternary .type "ClusterIP" (hasKey . "type") -}}
 {{- end }}
 
 {{/*
@@ -595,4 +620,16 @@ Usage: {{ include "global-chart.externalSecretCreationPolicy" $secret }}
 {{- define "global-chart.externalSecretCreationPolicy" -}}
 {{- $target := default (dict) .target -}}
 {{- ternary $target.creationPolicy "Owner" (hasKey $target "creationPolicy") -}}
+{{- end -}}
+
+{{/*
+Whether an externalSecrets entry rewrites its target: clears the Secret's data
+down to its own keys on every refresh, owner or not (Owner, Orphan). Merge and
+CreateOrMerge keep the keys they did not write, and None writes nothing. A
+rewritten Secret cannot also be one the chart renders (issue #161, ADR 0013);
+validateNameCollisions reads this. Returns "true" or "false".
+Usage: {{ include "global-chart.externalSecretRewritesTarget" $secret }}
+*/}}
+{{- define "global-chart.externalSecretRewritesTarget" -}}
+{{- has (include "global-chart.externalSecretCreationPolicy" .) (list "Owner" "Orphan") -}}
 {{- end -}}

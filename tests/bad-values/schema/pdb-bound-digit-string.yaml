@@ -1,0 +1,8 @@
+# A PDB bound is an integer count or a "N%" string; a digit string with no
+# percent sign is rejected (issue #156).
+deployments:
+  web:
+    image: nginx:1.25
+    pdb:
+      enabled: true
+      minAvailable: "2"

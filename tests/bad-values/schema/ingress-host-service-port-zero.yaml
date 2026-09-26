@@ -1,0 +1,11 @@
+# ingress.hosts[].service.port: 0 used to ship in values.yaml; resolveBackend
+# reads it as set and renders port.number 0, rejected by the API server
+# (issue #156).
+ingress:
+  enabled: true
+  hosts:
+    - host: example.com
+      service: { name: ext, port: 0 }
+      paths:
+        - path: /
+          pathType: Prefix

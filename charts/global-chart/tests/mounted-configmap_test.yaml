@@ -118,3 +118,97 @@ tests:
     asserts:
       - failedTemplate:
           errorPattern: "content.*is required"
+
+  # ====== Content and keys that broke the YAML (issue #157) ======
+  # A bare `|` takes its indentation from the first line: a first line more
+  # indented than the next ended the scalar early and the render failed with
+  # "did not find expected key".
+  - it: should keep a file whose first line is indented
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          mountedConfigFiles:
+            files:
+              - name: myconfig
+                filename: frag.yaml
+                targetPath: /etc/frag.yaml
+                content: "  indented: first\nsecond: line\n"
+    asserts:
+      - equal:
+          path: data["frag.yaml"]
+          value: "  indented: first\nsecond: line\n"
+
+  - it: should keep a bundle file whose first line is indented
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          mountedConfigFiles:
+            bundles:
+              - mountDir: /etc/bundle
+                files:
+                  - name: appconfig
+                    relPath: sub/snippet.py
+                    content: "    return x\ndef f():\n"
+    asserts:
+      - equal:
+          path: data["snippet.py"]
+          value: "    return x\ndef f():\n"
+
+  - it: should fail when files entry has no filename
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          mountedConfigFiles:
+            files:
+              - name: myconfig
+                targetPath: /etc/config/config.yaml
+                content: "a: b"
+    asserts:
+      - failedTemplate:
+          errorMessage: "deployments.main.mountedConfigFiles.files[0] (myconfig): 'filename' is required"
+
+  - it: should quote a filename YAML 1.1 would rewrite
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          mountedConfigFiles:
+            files:
+              - name: myconfig
+                filename: "on"
+                targetPath: /etc/on
+                content: "a"
+            bundles:
+              - mountDir: /etc/bundle
+                files:
+                  - name: appconfig
+                    relPath: sub/1.10
+                    content: "b"
+    asserts:
+      - equal:
+          path: data
+          value: { "on": "a\n" }
+        documentIndex: 0
+      - equal:
+          path: data
+          value: { "1.10": "b\n" }
+        documentIndex: 1
+
+  # A bundle file with no relPath rendered its ConfigMap key as "." (issue #157)
+  - it: should fail when a bundle file entry has no relPath
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          mountedConfigFiles:
+            bundles:
+              - mountDir: /etc/bundle
+                files:
+                  - name: appconfig
+                    content: "b"
+    asserts:
+      - failedTemplate:
+          errorMessage: "deployments.main.mountedConfigFiles.bundles[0].files[0] (appconfig): 'relPath' is required"

@@ -102,7 +102,11 @@ initContainers:
 containers:
 - name: {{ $containerName }}
   image: {{ $imageRef | quote }}
-  imagePullPolicy: {{ include "global-chart.imagePullPolicy" (dict "override" $job.imagePullPolicy "image" (default $deploy.image $job.image)) | quote }}
+  {{- /* The pullPolicy follows the image to wherever it came from: a
+         root-level fromDeployment copies the deployment's pullPolicy with its
+         image (issue #160) */ -}}
+  {{- $imageSource := include "global-chart.jobImageSource" (dict "root" $root "job" $job "deploy" $deploy "errCtx" .errCtx) | fromJson }}
+  imagePullPolicy: {{ include "global-chart.imagePullPolicy" (dict "override" $job.imagePullPolicy "image" $imageSource.image) | quote }}
   {{- if $job.command }}
   command:
     {{- toYaml $job.command | nindent 4 }}
@@ -117,10 +121,18 @@ containers:
   securityContext:
     {{- toYaml . | nindent 4 }}
   {{- end }}
-  {{- /* EnvFrom: deployment's configMap/secret + explicit envFromConfigMaps/envFromSecrets + deployment's envFromConfigMaps/envFromSecrets */ -}}
-  {{- /* Opt-out flags: inheritDeploymentSecret/inheritDeploymentConfigMap default true, set false to break inheritance */ -}}
+  {{- /* EnvFrom, by proximity: deployment's configMap/secret, deployment's envFromConfigMaps/envFromSecrets and inherited externalSecrets, then the job's own */ -}}
+  {{- /* Opt-out flags, default true, set false to break inheritance:
+         inheritDeploymentSecret/inheritDeploymentConfigMap for the generated
+         Secret/ConfigMap, inheritDeploymentEnvFromSecrets/-ConfigMaps for the
+         deployment's envFromSecrets/envFromConfigMaps (issue #159). The job's
+         own lists add to what it inherits, they never replace it */ -}}
   {{- $inheritCM := ternary $job.inheritDeploymentConfigMap true (hasKey $job "inheritDeploymentConfigMap") -}}
   {{- $inheritSec := ternary $job.inheritDeploymentSecret true (hasKey $job "inheritDeploymentSecret") -}}
+  {{- $inheritEnvFromCMs := ternary $job.inheritDeploymentEnvFromConfigMaps true (hasKey $job "inheritDeploymentEnvFromConfigMaps") -}}
+  {{- $inheritEnvFromSecrets := ternary $job.inheritDeploymentEnvFromSecrets true (hasKey $job "inheritDeploymentEnvFromSecrets") -}}
+  {{- $deployEnvFromCMs := ternary $deploy.envFromConfigMaps list $inheritEnvFromCMs -}}
+  {{- $deployEnvFromSecrets := ternary $deploy.envFromSecrets list $inheritEnvFromSecrets -}}
   {{- $hasDeployConfigMap := and $inheritCM $deploy.configMap (gt (len $deploy.configMap) 0) -}}
   {{- $hasDeploySecret := and $inheritSec $deploy.secret (gt (len $deploy.secret) 0) -}}
   {{- /* externalSecrets: inherited when the job does not set its own (hasKey), and
@@ -136,7 +148,7 @@ containers:
   {{- $esEnvInherited := $esInherited.env -}}
   {{- $esEnvOwn := $esOwn.env -}}
   {{- $esMounted := concat $esInherited.mounted $esOwn.mounted -}}
-  {{- $hasEnvFrom := or $hasDeployConfigMap $hasDeploySecret $job.envFromConfigMaps $job.envFromSecrets $deploy.envFromConfigMaps $deploy.envFromSecrets $esEnvInherited $esEnvOwn -}}
+  {{- $hasEnvFrom := or $hasDeployConfigMap $hasDeploySecret $job.envFromConfigMaps $job.envFromSecrets $deployEnvFromCMs $deployEnvFromSecrets $esEnvInherited $esEnvOwn -}}
   {{- if $hasEnvFrom }}
   envFrom:
     {{- /* Deployment's generated ConfigMap (using configMapRef name - differs for hooks vs cronjobs) */ -}}
@@ -150,12 +162,12 @@ containers:
         name: {{ $secretRef | quote }}
     {{- end }}
     {{- /* Deployment's external ConfigMaps */ -}}
-    {{- range $cm := $deploy.envFromConfigMaps }}
+    {{- range $cm := $deployEnvFromCMs }}
     - configMapRef:
         name: {{ $cm | quote }}
     {{- end }}
     {{- /* Deployment's external Secrets */ -}}
-    {{- range $sec := $deploy.envFromSecrets }}
+    {{- range $sec := $deployEnvFromSecrets }}
     - secretRef:
         name: {{ $sec | quote }}
     {{- end }}
@@ -289,15 +301,16 @@ same job.
 {{- end -}}
 
 {{/*
-Resolve the image string for a cronjob/hook command, unifying the choice across
-root-level and deployment-level jobs. Returns the image string, and fails when
-none resolves: the one home of the "image is required" message, which callers
-used to spell out each with its own printf.
+Choose the image value (a string or a repository/tag map) a cronjob/hook runs:
+the one home of the resolution order, read by jobImageString for the image and
+by jobPodSpec for the pullPolicy, so the two follow one source (issue #160).
+Returns JSON {"image": <value or null>}; fails only on a fromDeployment naming
+no deployment.
 
 Accepts a dict with:
   root    - top-level chart context
   job     - the cronjob/hook command map
-  deploy  - the parent deployment map (omit/nil for root-level jobs)
+  deploy  - the parent deployment map (omit/nil/empty for root-level jobs)
   errCtx  - values path of the job, from jobValuesPath (required): names the job
             in the failure messages
 
@@ -308,26 +321,39 @@ Resolution order:
                               matching prior behavior)
   3. job.fromDeployment      (root-level only: lookup + fail if missing)
 */}}
-{{- define "global-chart.jobImageString" -}}
-{{- $root := .root -}}
+{{- define "global-chart.jobImageSource" -}}
 {{- $job := .job -}}
-{{- $deploy := .deploy -}}
-{{- $errCtx := required "jobImageString: errCtx is required (build it with jobValuesPath)" .errCtx -}}
-{{- $global := $root.Values.global -}}
-{{- $img := "" -}}
+{{- $errCtx := required "jobImageSource: errCtx is required (build it with jobValuesPath)" .errCtx -}}
+{{- $image := dict -}}
 {{- if hasKey $job "image" -}}
-  {{- $img = include "global-chart.imageString" (dict "image" $job.image "global" $global) -}}
-{{- else if $deploy -}}
-  {{- $img = include "global-chart.imageString" (dict "image" $deploy.image "global" $global) -}}
+  {{- $image = dict "image" $job.image -}}
+{{- else if .deploy -}}
+  {{- $image = dict "image" .deploy.image -}}
 {{- else if $job.fromDeployment -}}
-  {{- $dep := index $root.Values.deployments $job.fromDeployment -}}
+  {{- $dep := index .root.Values.deployments $job.fromDeployment -}}
   {{- if not $dep -}}
     {{- fail (printf "%s.fromDeployment references deployment '%s' which does not exist in .Values.deployments" $errCtx $job.fromDeployment) -}}
   {{- end -}}
-  {{- $img = include "global-chart.imageString" (dict "image" $dep.image "global" $global) -}}
+  {{- $image = dict "image" $dep.image -}}
+{{- end -}}
+{{- $image | toJson -}}
+{{- end -}}
+
+{{/*
+Resolve the image string for a cronjob/hook command, from jobImageSource.
+Returns the image string, and fails when none resolves: the one home of the
+"image is required" message, which callers used to spell out each with its own
+printf. Takes the same dict as jobImageSource.
+*/}}
+{{- define "global-chart.jobImageString" -}}
+{{- $errCtx := required "jobImageString: errCtx is required (build it with jobValuesPath)" .errCtx -}}
+{{- $source := include "global-chart.jobImageSource" . | fromJson -}}
+{{- $img := "" -}}
+{{- if hasKey $source "image" -}}
+  {{- $img = include "global-chart.imageString" (dict "image" $source.image "global" .root.Values.global) -}}
 {{- end -}}
 {{- if not $img -}}
-  {{- if $deploy -}}
+  {{- if .deploy -}}
     {{- fail (printf "image is required for %s" $errCtx) -}}
   {{- else -}}
     {{- fail (printf "image is required for %s (set %s.image or %s.fromDeployment)" $errCtx $errCtx $errCtx) -}}

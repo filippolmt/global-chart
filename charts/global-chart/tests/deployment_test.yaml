@@ -1474,7 +1474,7 @@ tests:
             - badkey: value
     asserts:
       - failedTemplate:
-          errorMessage: "imagePullSecrets must be a list of strings or objects with a 'name' key."
+          errorPattern: "at '/deployments/main/imagePullSecrets/0'"
 
   # ====== automountServiceAccountToken (pod-level, Issue #73) ======
   - it: should not render automountServiceAccountToken when not set
@@ -1636,3 +1636,87 @@ tests:
       - equal:
           path: spec.template.spec.containers[0].image
           value: nginx:1.5
+
+  # A missing targetPath rendered `mountPath:` as null, rejected at apply
+  # (issue #157).
+  - it: should fail when a mountedConfigFiles entry has no targetPath
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          mountedConfigFiles:
+            files:
+              - name: myconfig
+                filename: config.yaml
+                content: "a: b"
+    asserts:
+      - failedTemplate:
+          errorMessage: "deployments.main.mountedConfigFiles.files[0] (myconfig): 'targetPath' is required"
+
+  # imagePullSecrets items share global.imagePullSecrets' shape: a number
+  # used to pass the schema and crash the render (issue #158).
+  - it: should reject an imagePullSecrets item that is neither a string nor a name map
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          imagePullSecrets: [regcred, { name: other }, 5]
+    asserts:
+      - failedTemplate:
+          errorPattern: "at '/deployments/main/imagePullSecrets/2'"
+
+  - it: should render imagePullSecrets given as strings and as name maps
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          imagePullSecrets: [regcred, { name: other }]
+    asserts:
+      - equal:
+          path: spec.template.spec.imagePullSecrets
+          value:
+            - name: regcred
+            - name: other
+
+  # The mounted file's name and paths are quoted like its ConfigMap key
+  # (issue #152): a bare 1.10 reached the API server as the float 1.1
+  - it: should quote the mounted file's paths
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          mountedConfigFiles:
+            files:
+              - name: myconfig
+                filename: "1.10"
+                targetPath: /etc/1.10
+                content: "a"
+            bundles:
+              - mountDir: /etc/bundle
+                files:
+                  - name: appconfig
+                    relPath: sub/1.20
+                    content: "b"
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].volumeMounts[0].subPath
+          value: "1.10"
+      - equal:
+          path: spec.template.spec.volumes[1].projected.sources[0].configMap.items[0]
+          value: { key: "1.20", path: sub/1.20 }
+
+  # A bundle with no mountDir rendered `mountPath:` as null (issue #157)
+  - it: should fail when a mountedConfigFiles bundle has no mountDir
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          mountedConfigFiles:
+            bundles:
+              - files:
+                  - name: appconfig
+                    relPath: sub/app.yaml
+                    content: "b"
+    asserts:
+      - failedTemplate:
+          errorMessage: "deployments.main.mountedConfigFiles.bundles[0]: 'mountDir' is required"

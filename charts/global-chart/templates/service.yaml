@@ -19,7 +19,7 @@ metadata:
     {{- . | nindent 4 }}
   {{- end }}
 spec:
-  type: {{ ternary $svc.type "ClusterIP" (hasKey $svc "type") }}
+  type: {{ include "global-chart.serviceType" $svc }}
   ports:
     - port: {{ include "global-chart.printScalar" $primary.port }}
       targetPort: {{ include "global-chart.printScalar" $primary.targetPort }}
@@ -29,7 +29,7 @@ spec:
     - name: {{ .name }}
       port: {{ include "global-chart.printScalar" .port }}
       targetPort: {{ include "global-chart.printScalar" .targetPort }}
-      protocol: {{ (default "TCP" .protocol) | upper }}
+      protocol: {{ include "global-chart.extraPortProtocol" . }}
       {{- with .appProtocol }}
       appProtocol: {{ . }}
       {{- end }}

@@ -1,0 +1,11 @@
+# An extra port named like the primary port: two Service ports named `http`,
+# rejected by the API server (issue #155).
+# Expected fail substring: "deployments.web.service.extraPorts 'http' repeats the port name 'http' of service.portName"
+deployments:
+  web:
+    image: nginx:1.25
+    service:
+      extraPorts:
+        - name: http
+          port: 81
+          targetPort: 8081

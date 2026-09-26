@@ -1,0 +1,11 @@
+# A mountedConfigFiles entry with no filename rendered the ConfigMap key as
+# `: |` and failed with a bare YAML parse error (issue #157).
+# Expected fail substring: "deployments.web.mountedConfigFiles.files[0] (app-conf): 'filename' is required"
+deployments:
+  web:
+    image: nginx:1.25
+    mountedConfigFiles:
+      files:
+        - name: app-conf
+          targetPath: /etc/app/app.conf
+          content: "a: b"

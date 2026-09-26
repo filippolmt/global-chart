@@ -1,0 +1,7 @@
+# A host with no paths renders `paths:` as null: `Required value` at apply
+# (issue #156).
+ingress:
+  enabled: true
+  hosts:
+    - host: example.com
+      service: { name: ext }
