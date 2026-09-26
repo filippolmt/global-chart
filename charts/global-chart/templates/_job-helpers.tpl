@@ -102,7 +102,14 @@ initContainers:
 containers:
 - name: {{ $containerName }}
   image: {{ $imageRef | quote }}
-  imagePullPolicy: {{ include "global-chart.imagePullPolicy" (dict "override" $job.imagePullPolicy "image" (default $deploy.image $job.image)) | quote }}
+  {{- /* The pullPolicy follows the image to wherever it came from, in
+         jobImageString's order: a root-level fromDeployment copies the
+         deployment's pullPolicy with its image (issue #160) */ -}}
+  {{- $policyImage := default $deploy.image $job.image -}}
+  {{- if and (not $policyImage) $job.fromDeployment -}}
+    {{- $policyImage = (index $root.Values.deployments $job.fromDeployment).image -}}
+  {{- end }}
+  imagePullPolicy: {{ include "global-chart.imagePullPolicy" (dict "override" $job.imagePullPolicy "image" $policyImage) | quote }}
   {{- if $job.command }}
   command:
     {{- toYaml $job.command | nindent 4 }}

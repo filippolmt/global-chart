@@ -64,6 +64,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   `inheritDeploymentEnvFromConfigMaps` (default `true`) drop them. The job's own
   lists stay additive, and `externalSecrets` keeps its own rule. The docs that
   said `[]` stopped the `envFrom` inheritance are corrected. No values change.
+- **`fromDeployment` copies the deployment's `pullPolicy` with its image**
+  (issue #160). A root-level hook or cronjob took the image string and fell
+  back to `IfNotPresent`, so with a mutable tag and `pullPolicy: Always` the
+  migration could run a stale cached image while the Deployment pulled the new
+  one. The job now takes the deployment's `pullPolicy` when it sets neither
+  `image` nor `imagePullPolicy`, as a deployment-level job already did.
 
 ## [2.8.0] — 2026-09-25
 
