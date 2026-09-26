@@ -33,11 +33,11 @@ tests:
         main:
           image:
             repository: myapp/api
-            digest: "sha256:abcdef1234567890"
+            digest: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
     asserts:
       - equal:
           path: spec.template.spec.containers[0].image
-          value: "myapp/api@sha256:abcdef1234567890"
+          value: "myapp/api@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 
   # ====== imageString: digest-only should fail ======
   - it: should fail when digest is set without repository
@@ -45,7 +45,7 @@ tests:
       deployments:
         main:
           image:
-            digest: "sha256:abcdef1234567890"
+            digest: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
     asserts:
       - failedTemplate:
           errorMessage: "image definitions that set a digest must also provide a repository (expected repository@digest)"

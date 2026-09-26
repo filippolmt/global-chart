@@ -286,11 +286,11 @@ tests:
         main:
           image:
             repository: nginx
-            digest: sha256:abc123
+            digest: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
     asserts:
       - equal:
           path: spec.template.spec.containers[0].image
-          value: "nginx@sha256:abc123"
+          value: "nginx@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 
   # ====== resources ======
   - it: should render resources
@@ -1174,6 +1174,20 @@ tests:
       - equal:
           path: spec.template.spec.containers[0].image
           value: "registry.example.com/myapp:v1"
+
+  # A first segment with a ":" port is a host, in the schema and in
+  # imageString alike (issue #173): the registry is not prepended.
+  - it: should not prepend global.imageRegistry to a host with a port
+    set:
+      global:
+        imageRegistry: registry.example.com
+      deployments:
+        main:
+          image: "Mirror:5000/myapp:v1"
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: "Mirror:5000/myapp:v1"
 
   - it: should not prepend imageRegistry when not set
     set:

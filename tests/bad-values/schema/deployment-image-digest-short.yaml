@@ -1,0 +1,8 @@
+# The kubelet parses a digest as <algorithm>:<hex>, with at least 32 hex
+# characters (distribution/reference). sha256:abc passed a looser OCI pattern
+# and still failed at pull time with InvalidImageName (issue #173).
+deployments:
+  web:
+    image:
+      repository: nginx
+      digest: "sha256:abc"

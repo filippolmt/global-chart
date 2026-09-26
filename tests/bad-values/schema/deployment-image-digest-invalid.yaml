@@ -1,6 +1,7 @@
-# An image digest with no algorithm prefix. The OCI grammar is
-# <algorithm>:<encoded>, e.g. sha256:<hex>; the chart rendered nginx@abcdef
-# and the failure surfaced only at pull time as InvalidImageName.
+# An image digest with no algorithm prefix. The kubelet parses a digest as
+# <algorithm>:<hex> (distribution/reference), e.g. sha256:<64 hex>; the chart
+# rendered nginx@abcdef and the failure surfaced only at pull time as
+# InvalidImageName.
 deployments:
   web:
     image:

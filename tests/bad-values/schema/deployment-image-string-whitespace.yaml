@@ -1,0 +1,5 @@
+# Surrounding whitespace is not part of an image reference (issue #173). 2.x
+# trimmed it in imageString; 3.0.0 holds the value to the grammar as written.
+deployments:
+  web:
+    image: " nginx:1.25"

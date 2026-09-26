@@ -69,8 +69,8 @@
       "properties": {
         "imageRegistry": {
           "type": "string",
-          "pattern": "^(?:(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9])(?:\\.(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]))*(?::[0-9]+)?(?:/[a-z0-9]+(?:(?:[._]|__|-+)[a-z0-9]+)*)*)?$",
-          "description": "Registry host, with optional port and path, prepended to every image whose first segment is not already a registry. A host, never a URL."
+          "pattern": "^(?:(?:localhost(?::[0-9]+)?|(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9])(?:\\.(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]))+(?::[0-9]+)?|(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]):[0-9]+)(?:/[a-z0-9]+(?:(?:[._]|__|-+)[a-z0-9]+)*)*)?$",
+          "description": "Registry host, with optional port and path, prepended to every image whose first segment is not already a registry. A host carries a \".\" or a \":\" port, or is localhost: the same test imageString applies. Never a URL."
         },
         "imagePullSecrets": {
           "type": "array",
@@ -88,19 +88,20 @@
       "additionalProperties": false
     },
     "image": {
+      "$comment": "The host, path-component, tag and digest fragments are repeated in the patterns of the string branch, repository, tag, digest and global.imageRegistry: JSON Schema cannot compose patterns, so change them together. The host alternative mirrors the registry test in imageString (_image-helpers.tpl).",
       "oneOf": [
         { "type": "null" },
         {
           "type": "string",
-          "pattern": "^(?:(?:(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9])(?:\\.(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]))*(?::[0-9]+)?/)?[a-z0-9]+(?:(?:[._]|__|-+)[a-z0-9]+)*(?:/[a-z0-9]+(?:(?:[._]|__|-+)[a-z0-9]+)*)*(?::[A-Za-z0-9_][A-Za-z0-9_.-]{0,127})?(?:@[a-z0-9]+(?:[+._-][a-z0-9]+)*:[a-zA-Z0-9=_-]+)?)?$",
-          "description": "Full image reference, e.g. nginx:1.25, held to the OCI reference grammar: [registry[:port]/]path[:tag][@digest], lowercase path components. A reference outside it rendered and then failed at pull time with InvalidImageName. IPv6 registry hosts are not accepted."
+          "pattern": "^(?:(?:(?:localhost(?::[0-9]+)?|(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9])(?:\\.(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]))+(?::[0-9]+)?|(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]):[0-9]+)/)?[a-z0-9]+(?:(?:[._]|__|-+)[a-z0-9]+)*(?:/[a-z0-9]+(?:(?:[._]|__|-+)[a-z0-9]+)*)*(?::[A-Za-z0-9_][A-Za-z0-9_.-]{0,127})?(?:@[A-Za-z][A-Za-z0-9]*(?:[-_+.][A-Za-z][A-Za-z0-9]*)*:[0-9a-fA-F]{32,})?)?$",
+          "description": "Full image reference, e.g. nginx:1.25, held to the reference grammar the kubelet parses: [host/]path[:tag][@digest], lowercase path components. A host carries a \".\" or a \":\" port, or is localhost, the same test imageString applies. A reference outside it rendered and then failed at pull time with InvalidImageName. IPv6 registry hosts are not accepted."
         },
         {
           "type": "object",
           "properties": {
             "repository": {
               "type": "string",
-              "pattern": "^(?:(?:(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9])(?:\\.(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]))*(?::[0-9]+)?/)?[a-z0-9]+(?:(?:[._]|__|-+)[a-z0-9]+)*(?:/[a-z0-9]+(?:(?:[._]|__|-+)[a-z0-9]+)*)*)?$",
+              "pattern": "^(?:(?:(?:localhost(?::[0-9]+)?|(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9])(?:\\.(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]))+(?::[0-9]+)?|(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]):[0-9]+)/)?[a-z0-9]+(?:(?:[._]|__|-+)[a-z0-9]+)*(?:/[a-z0-9]+(?:(?:[._]|__|-+)[a-z0-9]+)*)*)?$",
               "description": "[registry[:port]/]path, lowercase path components; no tag or digest, which have their own fields."
             },
             "tag": {
@@ -110,8 +111,8 @@
             },
             "digest": {
               "type": "string",
-              "pattern": "^([a-z0-9]+([+._-][a-z0-9]+)*:[a-zA-Z0-9=_-]+)?$",
-              "description": "An OCI digest, <algorithm>:<encoded>, e.g. sha256:<hex>. Wins over tag when both are set."
+              "pattern": "^(?:[A-Za-z][A-Za-z0-9]*(?:[-_+.][A-Za-z][A-Za-z0-9]*)*:[0-9a-fA-F]{32,})?$",
+              "description": "A digest as the kubelet parses it (distribution/reference): <algorithm>:<hex>, at least 32 hex characters, e.g. sha256:<64 hex>. Wins over tag when both are set."
             },
             "pullPolicy": {
               "type": "string",
