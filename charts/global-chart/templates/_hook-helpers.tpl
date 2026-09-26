@@ -61,11 +61,15 @@ Usage:
 {{- $command := default (dict) .command -}}
 {{- $weight := int (ternary .weight (include "global-chart.effectiveHookWeight" $command) (hasKey . "weight")) -}}
 {{- /* Role table: offset from the Job weight, default delete policy, and whether
-       the resource belongs to one hook. */ -}}
+       the resource belongs to one hook. The plumbing (sa, prereq) deletes itself on
+       failure too: Argo CD marks every hook of a failed operation HookFailed, so
+       without hook-failed a copy outlives the attempt and the retry's
+       before-hook-creation races the garbage collector on what it owned (ADR 0015).
+       The Job keeps no hook-failed: a failed Job is the record of what broke. */ -}}
 {{- $table := dict
-      "job"            (dict "offset" 0  "policy" "before-hook-creation"                "ownedByHook" true)
-      "sa"             (dict "offset" -5 "policy" "before-hook-creation,hook-succeeded" "ownedByHook" true)
-      "prereq"         (dict "offset" -7 "policy" "before-hook-creation,hook-succeeded" "ownedByHook" false) -}}
+      "job"            (dict "offset" 0  "policy" "before-hook-creation"                            "ownedByHook" true)
+      "sa"             (dict "offset" -5 "policy" "before-hook-creation,hook-succeeded,hook-failed" "ownedByHook" true)
+      "prereq"         (dict "offset" -7 "policy" "before-hook-creation,hook-succeeded,hook-failed" "ownedByHook" false) -}}
 {{- $row := index $table .role -}}
 {{- /* Both guards fail loudly on purpose. With neither, an unknown role silently
        takes offset 0 and renders a null delete policy — an invalid annotation the

@@ -50,6 +50,12 @@ HELM_REPO_ENV := HELM_REPOSITORY_CONFIG=$(KIND_BIN_DIR)/helm-repositories.yaml \
 ESO_VERSION := 2.11.0
 ESO_REPO_URL := https://charts.external-secrets.io
 ESO_NAMESPACE := external-secrets
+# Argo CD core (no UI, no dex), for `make e2e-argocd`: the hook-prerequisite
+# copies under a real sync, where pre-install runs on every sync and a failed
+# operation marks every hook HookFailed (issues #149, #164).
+# renovate: datasource=github-releases depName=argoproj/argo-cd
+ARGOCD_VERSION := v3.5.2
+ARGOCD_NAMESPACE := argocd
 # Helm just below the floor the job schema closures need (issue #116): the
 # NOTES.txt warning must show on it. helm-unittest runs its own newer Helm and
 # cannot fake .Capabilities.HelmVersion, so only this target sees the warning.
@@ -95,7 +101,7 @@ TEST_CASES := \
 .PHONY: help all lint-chart unit-test validate-bad-values generate-templates \
 	kubeconform kube-linter-manifests kube-linter generate-docs package \
 	install install-test01 render clean clean-all \
-	kind-install kind-cluster kind-keda kind-eso kind-delete e2e check-helm-floor
+	kind-install kind-cluster kind-keda kind-eso kind-argocd kind-delete e2e e2e-argocd check-helm-floor
 
 # ============================================================================
 # Help
@@ -344,6 +350,15 @@ kind-eso: kind-cluster ## Install External Secrets Operator (operator + CRDs) an
 	@KUBECONFIG=$(KIND_KUBECONFIG) kubectl wait --for=condition=Ready clustersecretstore/e2e-fake --timeout=120s >/dev/null
 	@echo "    External Secrets Operator ready, fake ClusterSecretStore Ready"
 
+kind-argocd: kind-cluster ## Install Argo CD (core) into the e2e kind cluster
+	@echo "==> Installing Argo CD $(ARGOCD_VERSION) (core)..."
+	@KUBECONFIG=$(KIND_KUBECONFIG) kubectl create namespace $(ARGOCD_NAMESPACE) --dry-run=client -o yaml \
+		| KUBECONFIG=$(KIND_KUBECONFIG) kubectl apply -f - >/dev/null
+	@KUBECONFIG=$(KIND_KUBECONFIG) kubectl apply -n $(ARGOCD_NAMESPACE) --server-side --force-conflicts \
+		-f https://raw.githubusercontent.com/argoproj/argo-cd/$(ARGOCD_VERSION)/manifests/core-install.yaml >/dev/null
+	@KUBECONFIG=$(KIND_KUBECONFIG) kubectl -n $(ARGOCD_NAMESPACE) rollout status statefulset/argocd-application-controller --timeout=300s >/dev/null
+	@KUBECONFIG=$(KIND_KUBECONFIG) kubectl -n $(ARGOCD_NAMESPACE) rollout status deploy/argocd-repo-server --timeout=300s >/dev/null
+
 kind-delete: ## Delete the e2e kind cluster
 	@if [ -x "$(KIND)" ]; then $(KIND) delete cluster --name "$(KIND_CLUSTER)"; fi
 	@rm -f "$(KIND_KUBECONFIG)" "$(HELM_FLOOR_KUBECONFIG)"
@@ -364,7 +379,7 @@ check-helm-floor: kind-cluster ## Assert NOTES.txt warns on a Helm below 3.18.6
 		|| { echo "FAIL: NOTES.txt did not warn on $(HELM_FLOOR_IMAGE)"; exit 1; }
 	@echo "    warning shown below the floor"
 
-e2e: kind-cluster kind-keda kind-eso check-helm-floor ## Install/upgrade/uninstall tests/e2e/values.yaml on kind and assert the hook lifecycle
+e2e: kind-cluster kind-keda kind-eso check-helm-floor ## Install/upgrade/rollback/uninstall tests/e2e/values.yaml on kind and assert the hook lifecycle
 	@set -e; \
 	export KUBECONFIG=$(KIND_KUBECONFIG); \
 	ns=$(E2E_NAMESPACE); rel=$(E2E_RELEASE); \
@@ -473,6 +488,23 @@ e2e: kind-cluster kind-keda kind-eso check-helm-floor ## Install/upgrade/uninsta
 	{ [ "$$(kubectl -n $$ns get deployment $$rel-$(GLOBAL_CHART_NAME)-worker -o jsonpath='{.spec.replicas}')" = "3" ] \
 		|| { echo "FAIL: upgrade reset spec.replicas on a KEDA-scaled Deployment"; exit 1; }; }; \
 	echo "    upgrade left spec.replicas to the autoscaler"; \
+	echo "==> Rolling back to revision 1 (exercises the pre-rollback hook)..."; \
+	sa_before=$$(kubectl -n $$ns get sa $$rel-$(GLOBAL_CHART_NAME)-app -o jsonpath='{.metadata.uid}'); \
+	reader_before=$$(kubectl -n $$ns get sa e2e-hook-reader -o jsonpath='{.metadata.uid}'); \
+	helm rollback $$rel 1 -n $$ns --wait --timeout 180s >/dev/null; \
+	[ "$$(kubectl -n $$ns get job $$rel-$(GLOBAL_CHART_NAME)-pre-rollback-rbac-read -o jsonpath='{.status.succeeded}' 2>/dev/null)" = "1" ] \
+		|| { echo "FAIL: the pre-rollback hook could not use the rbacs.roles and ExternalSecret copies (issue #143)"; exit 1; }; \
+	[ "$$(kubectl -n $$ns get job $$rel-$(GLOBAL_CHART_NAME)-pre-rollback-rbac-read -o jsonpath='{.spec.template.spec.serviceAccountName}')" = "e2e-hook-reader-hook" ] \
+		|| { echo "FAIL: the pre-rollback hook did not run as the rbacs.roles SA copy (ADR 0010)"; exit 1; }; \
+	echo "    pre-rollback hook ran as the rbacs.roles SA copy and read the ExternalSecret copy"; \
+	kubectl -n $$ns wait --for=delete sa/e2e-hook-reader-hook role/e2e-hook-reader-hook \
+		rolebinding/e2e-hook-reader-rolebinding-hook externalsecret/$$rel-$(GLOBAL_CHART_NAME)-e2e-env-hook \
+		secret/$$rel-$(GLOBAL_CHART_NAME)-e2e-env-hook --timeout=60s >/dev/null 2>&1 \
+		|| { echo "FAIL: hook copies survived the pre-rollback phase"; kubectl -n $$ns get sa,role,rolebinding,externalsecret,secret; exit 1; }; \
+	[ "$$sa_before" = "$$(kubectl -n $$ns get sa $$rel-$(GLOBAL_CHART_NAME)-app -o jsonpath='{.metadata.uid}')" ] \
+		&& [ "$$reader_before" = "$$(kubectl -n $$ns get sa e2e-hook-reader -o jsonpath='{.metadata.uid}')" ] \
+		|| { echo "FAIL: rollback recreated a real ServiceAccount, bound tokens would be invalidated"; exit 1; }; \
+	echo "    pre-rollback copies cleaned up, real ServiceAccounts kept their UID"; \
 	echo "==> Uninstalling and checking for orphaned hook resources..."; \
 	helm uninstall $$rel -n $$ns --timeout 180s >/dev/null; \
 	[ "$$(kubectl -n $$ns get job $$rel-$(GLOBAL_CHART_NAME)-post-delete-farewell -o jsonpath='{.status.succeeded}' 2>/dev/null)" = "1" ] \
@@ -491,6 +523,9 @@ e2e: kind-cluster kind-keda kind-eso check-helm-floor ## Install/upgrade/uninsta
 	if [ -n "$$keda_orphans" ]; then echo "FAIL: KEDA resources orphaned after uninstall:"; echo "$$keda_orphans"; exit 1; fi; \
 	echo "    no orphaned ScaledObject/TriggerAuthentication/ExternalSecret, derived HPA garbage-collected"; \
 	echo "==> e2e passed"
+
+e2e-argocd: kind-cluster kind-eso kind-argocd ## Sync tests/e2e/argocd through Argo CD on kind and assert the hook copies (issues #149, #164)
+	@KUBECONFIG=$(KIND_KUBECONFIG) ARGOCD_NAMESPACE=$(ARGOCD_NAMESPACE) tests/e2e/argocd/run.sh ./$(CHART_DIR)/$(GLOBAL_CHART_NAME)
 
 install-test01: ## Install test01 (has kubectl pre-step; or use: make install SCENARIO=test01)
 	kubectl apply -f tests/test01/test01.yaml || true

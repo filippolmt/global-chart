@@ -1,0 +1,10 @@
+# EnvVar.value is a string (issue #137), in an init container's env (issue #148).
+deployments:
+  app:
+    image: nginx:1.25
+    extraInitContainers:
+      - name: init
+        image: busybox:1.36
+        env:
+          - name: LIMIT
+            value: 10000000

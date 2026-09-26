@@ -339,6 +339,13 @@
       },
       "additionalProperties": false
     },
+    "container": {
+      "description": "A Kubernetes Container, passed through to the manifest. Open on purpose (ADR 0006): only env is held, to envVar, so a numeric value fails here and not at apply (issue #148).",
+      "type": "object",
+      "properties": {
+        "env": { "type": "array", "items": { "$ref": "#/$defs/envVar" } }
+      }
+    },
     "envVar": {
       "type": "object",
       "required": ["name"],
@@ -603,8 +610,8 @@
           "items": { "$ref": "#/$defs/externalSecretRef" }
         },
         "additionalEnvs": { "type": "array", "items": { "$ref": "#/$defs/envVar" } },
-        "extraInitContainers": { "type": "array" },
-        "extraContainers": { "type": "array" },
+        "extraInitContainers": { "type": "array", "items": { "$ref": "#/$defs/container" } },
+        "extraContainers": { "type": "array", "items": { "$ref": "#/$defs/container" } },
         "podRecreation": {
           "type": "object",
           "properties": {
@@ -693,7 +700,7 @@
       "required": ["schedule"],
       "properties": {
         "schedule": { "type": "string" },
-        "initContainers": { "type": "array" },
+        "initContainers": { "type": "array", "items": { "$ref": "#/$defs/container" } },
         "successfulJobsHistoryLimit": { "type": "integer", "minimum": 0 },
         "failedJobsHistoryLimit": { "type": "integer", "minimum": 0 },
         "backoffLimit": { "type": "integer", "minimum": 0 },

@@ -1,0 +1,13 @@
+# EnvVar.value is a string (issue #137), in a cronjob's init container env
+# (issue #148).
+cronJobs:
+  report:
+    image: busybox:1.36
+    schedule: "0 3 * * *"
+    command: ["true"]
+    initContainers:
+      - name: init
+        image: busybox:1.36
+        env:
+          - name: LIMIT
+            value: 10000000

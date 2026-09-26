@@ -56,7 +56,11 @@ fields leave nothing to decide. *Amended by issue #145:* `dnsConfig.options[]`
 closes on `$defs/dnsConfigOption`, and `tolerations[]`, `hostAliases[]` and the
 `kedaTriggerAuthentication` `secretTargetRef[]` / `env[]` entries, which the
 list above left implicit, close on their own `$defs`: all five are small,
-fixed Kubernetes or KEDA shapes); the
+fixed Kubernetes or KEDA shapes. *Amended by issue #148:* the Containers of
+`extraContainers`, `extraInitContainers` and a cronjob's `initContainers` stay
+open on `$defs/container`, the one open `$defs` that declares a property: only
+its `env` is held, to `$defs/envVar`, so a numeric value fails at lint while
+every other Container field still passes through); the
 `kedaTriggerAuthentication` provider blocks; and the `filters[]` entries of an
 `httpRouteRule` and of its `backendRefs`, which declare `type` as a constraint
 but carry the Gateway API filter payload underneath.

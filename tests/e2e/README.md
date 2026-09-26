@@ -26,6 +26,9 @@ created the derived HPA with the rendered bounds → the `cron` trigger actually
 scaled the Deployment to its `desiredReplicas` → upgrade ran the pre-upgrade hook as `<sa>-hook` and kept the real SA's UID
 (issue #141) →
 upgrade did **not** reset `spec.replicas` on the KEDA-scaled Deployment →
+rollback ran the pre-rollback hook as the `rbacs.roles` SA copy, reading the
+ExternalSecret copy, the copies are gone and both real SAs kept their UID
+(issue #143) →
 post-delete hook read the ExternalSecret through its copy → uninstall leaves no orphaned
 ConfigMap/Secret/ServiceAccount/ScaledObject/TriggerAuthentication/ExternalSecret, and the
 derived HPA is garbage-collected with its ScaledObject.
@@ -41,6 +44,25 @@ It also runs in CI as its own job in `.github/workflows/helm-ci.yml`.
 
 Extend `values.yaml` and the assertion block in the `e2e` target when adding
 runtime behaviour.
+
+## `make e2e-argocd`
+
+The same kind cluster, with Argo CD core (`kind-argocd`, version pinned in the
+Makefile) and ESO instead of Helm running the hooks: under Argo CD `pre-install`
+is `PreSync` and runs on every sync, and a failed operation marks every hook
+`HookFailed`. `argocd/run.sh` packages the chart under a unique version, serves
+it from an in-cluster Helm repository (`argocd/chart-repo.yaml`), applies
+`argocd/application.yaml` and drives each sync itself (no automated sync), then
+asserts: two syncs → the `pre-install` hook ran as `<sa>-hook`, the real SA kept
+its UID, the copies are gone (issues #141, #149) → a PreSync hook that fails
+after the copies (`argocd/break.yaml`) → the copies are gone at the failure
+(`hook-failed`, ADR 0015) → with the failing hook fixed (`argocd/unbreak.yaml`)
+the next sync passes (issue #164). The race itself depends on the garbage
+collector's timing and is not reproduced: what is asserted is that no copy
+survives the failure for the next attempt to race against.
+
+It is a script rather than a Makefile recipe because it waits on Argo CD
+operations; the kubeconfig pinning is the Makefile's, as for `make e2e`.
 
 ## Deliberate, and easy to undo by accident
 

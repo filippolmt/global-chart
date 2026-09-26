@@ -889,7 +889,7 @@ tests:
         documentIndex: 0
       - equal:
           path: metadata.annotations["helm.sh/hook-delete-policy"]
-          value: "before-hook-creation,hook-succeeded"
+          value: "before-hook-creation,hook-succeeded,hook-failed"
         documentIndex: 0
       - equal:
           path: metadata.labels["app.kubernetes.io/component"]
@@ -1062,7 +1062,7 @@ tests:
         documentIndex: 0
       - equal:
           path: metadata.annotations["helm.sh/hook-delete-policy"]
-          value: "before-hook-creation,hook-succeeded"
+          value: "before-hook-creation,hook-succeeded,hook-failed"
         documentIndex: 0
 
   # The phases are hookReadsPrereqCopy's: pre-upgrade cannot tell whether the
@@ -2533,8 +2533,8 @@ tests:
 
   # Hook resources are not part of the release manifest, so Helm never removes
   # them at uninstall. Plumbing resources (prereq ConfigMap/Secret, created SAs)
-  # therefore clean themselves up with hook-succeeded; Jobs deliberately do not,
-  # they are the record of what ran.
+  # therefore clean themselves up with hook-succeeded and hook-failed (ADR 0015);
+  # Jobs deliberately do not, they are the record of what ran.
   - it: should clean up prereq ConfigMap and Secret after the hook phase
     set:
       deployments:
@@ -2556,14 +2556,14 @@ tests:
         documentIndex: 0
       - equal:
           path: metadata.annotations["helm.sh/hook-delete-policy"]
-          value: "before-hook-creation,hook-succeeded"
+          value: "before-hook-creation,hook-succeeded,hook-failed"
         documentIndex: 0
       - isKind:
           of: Secret
         documentIndex: 1
       - equal:
           path: metadata.annotations["helm.sh/hook-delete-policy"]
-          value: "before-hook-creation,hook-succeeded"
+          value: "before-hook-creation,hook-succeeded,hook-failed"
         documentIndex: 1
       # the Job keeps the old default: a completed hook Job is the audit trail
       - isKind:
@@ -2587,7 +2587,7 @@ tests:
         documentIndex: 0
       - equal:
           path: metadata.annotations["helm.sh/hook-delete-policy"]
-          value: "before-hook-creation,hook-succeeded"
+          value: "before-hook-creation,hook-succeeded,hook-failed"
         documentIndex: 0
 
   - it: should let deletePolicy override the SA cleanup default
@@ -2838,7 +2838,7 @@ tests:
         documentIndex: 1
       - equal:
           path: metadata.annotations["helm.sh/hook-delete-policy"]
-          value: before-hook-creation,hook-succeeded
+          value: before-hook-creation,hook-succeeded,hook-failed
         documentIndex: 1
       - isKind:
           of: Secret
@@ -2849,7 +2849,7 @@ tests:
         documentIndex: 2
       - equal:
           path: metadata.annotations["helm.sh/hook-delete-policy"]
-          value: before-hook-creation,hook-succeeded
+          value: before-hook-creation,hook-succeeded,hook-failed
         documentIndex: 2
       # the deployment SA copy is plumbing too: role prereq (ADR 0011)
       - isKind:
@@ -2865,7 +2865,7 @@ tests:
         documentIndex: 0
       - equal:
           path: metadata.annotations["helm.sh/hook-delete-policy"]
-          value: before-hook-creation,hook-succeeded
+          value: before-hook-creation,hook-succeeded,hook-failed
         documentIndex: 0
       # role sa: w-5, explicit deletePolicy honoured
       - isKind:
