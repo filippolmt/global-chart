@@ -12,7 +12,8 @@ make all                    # lint + test + bad-values + docs + kubeconform + ku
 make lint-chart             # lint every scenario in TEST_CASES
 make unit-test              # helm-unittest suites via Docker
 make generate-docs          # regenerate the helm-docs README
-make e2e                    # install/upgrade/uninstall on a throwaway kind cluster
+make e2e                    # install/upgrade/rollback/uninstall on a throwaway kind cluster
+make e2e-argocd             # the same cluster, synced by Argo CD (hook lifecycle under Argo)
 make render VALUES=tests/test01/values.01.yaml TEMPLATE=deployment.yaml
 ```
 

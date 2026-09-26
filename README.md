@@ -192,7 +192,15 @@ and the hook's own `activeDeadlineSeconds` do. **Argo CD** checks the copy's hea
 before the next wave and fails the sync as soon as it reports `Ready=False` —
 a transient provider error during the hook phase fails the sync.
 
-See [ADR 0007](docs/adr/0007-hook-prerequisite-externalsecret-copy.md).
+The copies delete themselves when the attempt fails, too (`hook-failed`), so a
+`syncPolicy.retry` attempt does not find the previous copy's Secret still in
+place. One race remains: with `PrunePropagationPolicy=background` and a retry
+faster than the garbage collector, the retry can still fail once with
+`secrets "<target>-hook" already exists`. Argo CD's default foreground
+propagation does not have it.
+
+See [ADR 0007](docs/adr/0007-hook-prerequisite-externalsecret-copy.md) and
+[ADR 0015](docs/adr/0015-hook-prerequisite-copies-delete-themselves-on-failure.md).
 
 ## Running a hook as an `rbacs.roles` ServiceAccount
 
@@ -283,7 +291,7 @@ The chart has multiple layers of testing:
 - **Schema validation** (`make validate-bad-values`): Verifies every fixture in `tests/bad-values/` is rejected, and by the right mechanism. The directory is the declaration: a file in `schema/` must be rejected by `values.schema.json` (the target asserts Helm's schema error message), a file in `fail/` by a template `fail` and *not* by the schema. Without the split, a schema hole covered by a `fail` is invisible. `tests/bad-values/check-closure-coverage.py` then checks that every closed `$defs` in the schema has a fixture of its own, so closing one without testing it fails here.
 - **Manifest validation** (`make kubeconform`): Validates the generated resources against the Kubernetes schema pinned in the `Makefile`.
 - **Best practices** (`make kube-linter`): Lints manifests with `addAllBuiltIn: true` and the documented exclusions.
-- **End-to-end** (`make e2e`): Installs `tests/e2e/values.yaml` on a throwaway kind cluster, then upgrades and uninstalls it. This is the only layer that exercises the *runtime* half of the chart — hook ordering, hook weights and `hook-delete-policy` cleanup — which helm-unittest cannot see because it only renders YAML. It uses its own kubeconfig under `.bin/`, so it can never reach a real cluster.
+- **End-to-end** (`make e2e`): Installs `tests/e2e/values.yaml` on a throwaway kind cluster, then upgrades and uninstalls it. This is the only layer that exercises the *runtime* half of the chart — hook ordering, hook weights and `hook-delete-policy` cleanup — which helm-unittest cannot see because it only renders YAML. It uses its own kubeconfig under `.bin/`, so it can never reach a real cluster. `make e2e-argocd` syncs the chart through Argo CD on the same cluster, where hooks follow Argo CD's lifecycle rather than Helm's.
 
 The GitHub Action (`.github/workflows/helm-ci.yml`) executes all steps on pushes and pull requests, pre-pulling Docker images with retry for resilience.
 

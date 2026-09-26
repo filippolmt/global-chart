@@ -1,0 +1,15 @@
+# Merge patch: a PreSync hook after the migration that always fails, so the
+# operation fails after every copy was created (issue #164).
+spec:
+  source:
+    helm:
+      valuesObject:
+        deployments:
+          app:
+            hooks:
+              pre-install:
+                breaker:
+                  weight: "20"
+                  backoffLimit: 0
+                  command: ["sh", "-c"]
+                  args: ["exit 1"]

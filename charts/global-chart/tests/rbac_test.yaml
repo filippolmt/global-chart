@@ -209,7 +209,7 @@ tests:
         documentIndex: 3
       - equal:
           path: metadata.annotations["helm.sh/hook-delete-policy"]
-          value: before-hook-creation,hook-succeeded
+          value: before-hook-creation,hook-succeeded,hook-failed
         documentIndex: 4
 
   - it: should bind the existing SA in the copy and not copy it when the role does not create one

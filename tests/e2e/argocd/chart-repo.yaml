@@ -1,0 +1,37 @@
+# A Helm repository inside the cluster, so Argo CD's repo-server can fetch the
+# chart under test without a registry or a git remote. The ConfigMap `chart-repo`
+# (the packaged chart and its index.yaml) is created by run.sh, and served
+# under /CHART_STAMP, the per-run path run.sh replaces.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chart-repo
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: chart-repo }
+  template:
+    metadata:
+      labels: { app: chart-repo }
+    spec:
+      containers:
+        - name: httpd
+          image: busybox:1.36
+          command: ["sh", "-c", 'mkdir -p /www/CHART_STAMP && ln -s /repo/* /www/CHART_STAMP/ && exec httpd -f -p 8080 -h /www']
+          ports:
+            - containerPort: 8080
+          volumeMounts:
+            - { name: repo, mountPath: /repo }
+      volumes:
+        - name: repo
+          configMap: { name: chart-repo }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: chart-repo
+spec:
+  selector: { app: chart-repo }
+  ports:
+    - port: 80
+      targetPort: 8080

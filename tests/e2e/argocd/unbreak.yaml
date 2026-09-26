@@ -1,0 +1,13 @@
+# Merge patch: the failing hook of break.yaml now succeeds. Fixed rather than
+# removed, as a real fix would be: before-hook-creation replaces the failed Job,
+# where a removed hook would leave it behind for Argo CD to report again.
+spec:
+  source:
+    helm:
+      valuesObject:
+        deployments:
+          app:
+            hooks:
+              pre-install:
+                breaker:
+                  args: ["true"]

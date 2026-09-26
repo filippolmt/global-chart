@@ -51,6 +51,7 @@ so the user never writes a generated name.
   silence.
 - **Lifecycle.** The copy takes the `prereq` row of the role table in
   `hookAnnotations`: weight Job − 7, `before-hook-creation,hook-succeeded`. No new row.
+  *Amended by ADR 0015:* the row now adds `hook-failed`.
   The copy is keyed by ExternalSecret, not by deployment. One copy serves every hook
   that references the key, with `helm.sh/hook` aggregated across those hooks and the
   weight derived from the minimum of their Job weights.
@@ -113,7 +114,10 @@ so the user never writes a generated name.
   during the hook phase therefore fails the sync, where Helm would have waited it out.
 - **The Secret of the copy is removed asynchronously.** Helm (or Argo CD) deletes the
   copy after the whole hook phase, and the Kubernetes garbage collector deletes its
-  Secret afterwards through the ownerReference.
+  Secret afterwards through the ownerReference. *Amended by ADR 0015:* a copy created
+  while that removal is still pending finds its target taken (`already exists`), which
+  under Argo CD `retry` is the attempt after any failure. The copy now deletes itself on
+  failure as well, so the removal runs during the retry backoff.
 - **The facts this ADR rests on** were verified on 2026-09-24 against
   `external-secrets/external-secrets` (`pkg/controllers/externalsecret/externalsecret_controller.go`,
   `applyOwnership`; `docs/guides/ownership-deletion-policy.md`), `helm/helm`

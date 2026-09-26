@@ -50,6 +50,9 @@ copy ADR 0010 rendered for an `rbacs.roles` entry.
   (with the real SA's annotations) stays until the next sync replaces it
   through `BeforeHookCreation`. The prereq ConfigMap and Secret, and the
   ExternalSecret and `rbacs.roles` copies, behave the same there.
+  *Amended by ADR 0015:* the `prereq` and `sa` rows now add `hook-failed`, so
+  under Argo CD the copies go at the failure instead of staying until the next
+  sync.
 - **One answer to "the release creates this SA".** `releaseServiceAccounts`
   scans every SA the release creates: an enabled deployment's, an
   `rbacs.roles` entry's, and a cronjob's own SA in either scope — a normal

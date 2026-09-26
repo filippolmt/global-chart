@@ -1,0 +1,55 @@
+# core-install ships no AppProject; the Application needs its "default" one.
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: default
+spec:
+  sourceRepos: ["*"]
+  destinations:
+    - { server: "*", namespace: "*" }
+  clusterResourceWhitelist:
+    - { group: "*", kind: "*" }
+---
+# No automated sync: run.sh starts every operation itself, so each one is a
+# step it can assert on. CHART_REPO and CHART_VERSION are replaced by run.sh.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: e2e
+spec:
+  project: default
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: global-chart-argocd
+  source:
+    repoURL: CHART_REPO
+    chart: global-chart
+    targetRevision: CHART_VERSION
+    helm:
+      releaseName: argo
+      valuesObject:
+        externalSecrets:
+          e2e-env:
+            secretstore: { kind: ClusterSecretStore, name: e2e-fake }
+            secretkey: E2E_TOKEN
+            remote: { key: e2e/token }
+        deployments:
+          app:
+            image: busybox:1.36
+            command: ["sh", "-c"]
+            args: ["sleep 3600"]
+            service:
+              enabled: false
+            serviceAccount:
+              create: true
+            configMap:
+              FOO: bar
+            externalSecrets:
+              - name: e2e-env
+            hooks:
+              # PreSync under Argo CD, on every sync (issue #141): the pod runs
+              # as the copy <sa>-hook and reads the ExternalSecret copy
+              pre-install:
+                migration:
+                  command: ["sh", "-c"]
+                  args: ['[ "$FOO" = bar ] && [ "$E2E_TOKEN" = s3cr3t ]']

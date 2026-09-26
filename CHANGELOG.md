@@ -73,6 +73,35 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   one. The job now takes the deployment's `pullPolicy` when it sets neither
   `image` nor `imagePullPolicy`, as a deployment-level job already did.
 
+- **The hook-prerequisite copies delete themselves when the hook phase fails**
+  (issue #164, [ADR 0015](docs/adr/0015-hook-prerequisite-copies-delete-themselves-on-failure.md)).
+  The prereq ConfigMap/Secret, the ExternalSecret, `rbacs.roles` and
+  ServiceAccount copies, and a chart-created hook SA now default to
+  `before-hook-creation,hook-succeeded,hook-failed`. Under Argo CD with
+  `syncPolicy.retry`, a failed attempt left its copies behind, and the retry
+  recreated the ExternalSecret copy while the garbage collector still held its
+  old Secret: `secrets "<target>-hook" already exists`, one more attempt lost.
+  Hook Jobs keep `before-hook-creation`, and an explicit `deletePolicy` still
+  wins. With `PrunePropagationPolicy=background` and a retry faster than the
+  garbage collector the race remains; Argo CD's default foreground propagation
+  does not have it.
+- **A number in the `env[].value` of `extraContainers`, `extraInitContainers`
+  or a cronjob's `initContainers` fails at `helm lint`** (issue #148). The
+  lists were bare arrays passed through to the manifest, so the value was
+  rejected at apply. Only `env` is held, to the chart's own `envVar` shape; the
+  rest of the Container stays open.
+
+### Tests
+
+- `make e2e` now rolls the release back between the upgrade and the uninstall:
+  a `pre-rollback` hook runs as the `rbacs.roles` SA copy and reads an
+  ExternalSecret through its copy, the copies are gone afterwards and the real
+  ServiceAccounts keep their UID (issue #143).
+- New `make e2e-argocd`: the chart synced by Argo CD core on kind. Two syncs of a
+  deployment `pre-install` hook keep the real SA's UID and run the pod as
+  `<sa>-hook` (issue #149, ADR 0011); a failing PreSync hook leaves no copy
+  behind, and the next sync passes (issue #164).
+
 ### Migration guide from 2.8.x
 
 > No values change shape. The new rejections are **breaking for values that
@@ -92,6 +121,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 | A PDB bound `"2"` | `2` (a percentage stays a string: `"25%"`) |
 | A number or a `{name}`-less map in `imagePullSecrets` | A string or `{name: …}` |
 | A job `restartPolicy: Always` | `OnFailure` or `Never` |
+| A number in a sidecar / init container `env[].value` | A string: `"10"` |
 
 Two changes alter a render with no values change: ConfigMap and Secret keys are
 now quoted (a YAML 1.1 key such as `on` or `1.10` reaches the API server as
