@@ -5,6 +5,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ---
 
+## [Unreleased]
+
+### Removed
+
+- **`deployments.<name>.mountedConfigFiles.files[].mountPath`** (issue #115).
+  Deprecated since the schema `$defs` were closed and read by no template:
+  `targetPath` sets where the file is mounted. Values that still set it are now
+  rejected by the schema, with an error naming the path.
+
+### Migration guide from 2.x
+
+- Delete `mountedConfigFiles.files[].mountPath`: `targetPath` already does what
+  it was meant to do.
+
+---
+
 ## [2.9.0] — 2026-09-26
 
 ### Added

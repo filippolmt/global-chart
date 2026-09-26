@@ -1,0 +1,14 @@
+# The deprecated mountedConfigFiles.files[].mountPath, removed in 3.0.0 (#115).
+# No template ever read it: targetPath sets where the file is mounted. Values
+# that still set it are rejected, so the dead key cannot read as configuration.
+deployments:
+  web:
+    image: nginx:1.25
+    mountedConfigFiles:
+      files:
+        - name: app-conf
+          filename: app.conf
+          mountPath: /etc/app
+          targetPath: /etc/app/app.conf
+          content: |
+            key = value

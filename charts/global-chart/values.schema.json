@@ -521,7 +521,6 @@
               "name": { "$ref": "#/$defs/mountedConfigFileName" },
               "filename": { "type": "string" },
               "targetPath": { "type": "string" },
-              "mountPath": { "type": "string", "deprecated": true, "description": "DEPRECATED and read by no template: it is targetPath that sets where the file is mounted. Kept only because additionalProperties is false, which makes removal breaking; it goes at the next major. The one knowing exception to the 'every schema field is used by a template' rule in CLAUDE.md." },
               "content": { "type": "string" }
             },
             "additionalProperties": false

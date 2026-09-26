@@ -312,8 +312,6 @@ deployments: {}
   #   # or cronJob does NOT inherit them (see CLAUDE.md, "Not inheritable").
   #   mountedConfigFiles:
   #     files: []      # each: name, filename, targetPath, content
-  #                    # (`mountPath` is deprecated and read by no template —
-  #                    #  it is `targetPath` that sets the mount path)
   #     bundles: []
   #
   #   # -- Hooks defined inside deployment (inherit image, configMap, secret, SA)
