@@ -24,9 +24,9 @@ default format (toString and printf "%v" alike) prints a float64 in exponent
 notation from a million upward. In an integer field, 10000000 renders as 1e+07,
 which the schema accepts, helm lint passes and the API server rejects. In a
 string field it is worse: LIMIT: 10000000 in a ConfigMap renders "1e+07", the
-API server accepts it and the application silently reads the wrong value. --set parses the same number
-as an int64, so testing with --set hides the defect; the values file is how the
-chart is normally used. A port read back through fromJson is a float64 too.
+API server accepts it and the application silently reads the wrong value.
+--set parses the same number as an int64, so testing with --set hides the
+defect; the values file is how the chart is normally used. A port read back through fromJson is a float64 too.
 toYaml goes through JSON encoding and is unaffected, so a block rendered with
 toYaml needs nothing.
 Contract, by kind of value:

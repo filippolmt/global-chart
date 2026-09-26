@@ -14,9 +14,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   different image, and `tag: 0` rendered no tag at all. The schema now rejects
   a numeric tag.
 - **A null value in `deployments.<name>.secret` fails at render** (issue #166),
-  like a null `configMap` value already did. It rendered the base64 of the
-  string `null`, which the app read as its secret. The hook-prerequisite Secret
-  copy fails the same way; the message names the values path.
+  as a null `configMap` value already did. It rendered the base64 of the string
+  `null`, which the app read as its secret. The message names the values path
+  (`deployments.<name>.secret.<key>`), and the hook-prerequisite Secret copy
+  fails with the same one.
 
 ### Removed
 

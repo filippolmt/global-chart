@@ -1,4 +1,4 @@
-# The deprecated mountedConfigFiles.files[].mountPath, removed in 3.0.0 (#115).
+# The deprecated mountedConfigFiles.files[].mountPath, removed at the major after 2.x (#115).
 # No template ever read it: targetPath sets where the file is mounted. Values
 # that still set it are rejected, so the dead key cannot read as configuration.
 deployments:
