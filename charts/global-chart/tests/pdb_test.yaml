@@ -204,7 +204,21 @@ tests:
       - failedTemplate:
           errorPattern: "maxUnavailable"
 
-  - it: should accept a percentage and a digit string
+  # A digit string is a count spelled as a string: the schema takes a count
+  # as an integer only (issue #156).
+  - it: should reject a digit string with no percent sign
+    set:
+      deployments:
+        main:
+          image: "nginx:1.25"
+          pdb:
+            enabled: true
+            minAvailable: "2"
+    asserts:
+      - failedTemplate:
+          errorPattern: "minAvailable"
+
+  - it: should accept a percentage
     set:
       deployments:
         main:

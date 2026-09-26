@@ -23,6 +23,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   `extraPorts` entry repeating a port name or a port+protocol pair of the
   primary port or of another entry (a default primary port is 80/TCP named
   `http`).
+- **Ingress and PDB values the API server rejects now fail at `helm lint`**
+  (issue #156). `values.yaml` shipped `ingress.hosts[0].service.port: 0`, which
+  counted as set and rendered `port.number: 0`; the line is gone, so a host
+  takes its deployment's port, or 80 for a `service.name` backend. The schema
+  now holds `ingress.hosts[].service.port` to 1–65535, requires at least one
+  entry in `paths`, and restricts `pathType` to `Exact`, `Prefix` and
+  `ImplementationSpecific`. A PDB `minAvailable` / `maxUnavailable` is an
+  integer or a percentage string (`"25%"`): a digit string such as `"2"` is
+  rejected, spell it `2`.
 
 ## [2.8.0] — 2026-09-25
 

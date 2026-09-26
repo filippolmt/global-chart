@@ -32,16 +32,15 @@ Kubernetes: `>=1.23.0-0`
 | nameOverride | string | `""` | Override the chart name. Sets `app.kubernetes.io/name`, which is part of the Deployment's immutable `spec.selector`: decide it before the first install, or every existing Deployment has to be deleted and recreated to change it. |
 | fullnameOverride | string | `""` | Override the chart fullname |
 | deployments | object | `{}` (empty map) | Multiple deployments configuration (map of named deployments). Each deployment supports an `enabled` field (bool, default `true`) to skip rendering of the Deployment and all its sub-resources (Service, ConfigMap, Secret, ServiceAccount, HPA, mounted ConfigMaps, CronJobs, Hooks). An Ingress that references a disabled deployment will fail with a clear error. |
-| ingress | object | `{"annotations":{},"className":"nginx","enabled":false,"hosts":[{"deployment":"","host":"chart-example.local","paths":[{"path":"/","pathType":"ImplementationSpecific"}],"service":{"name":"","port":0}}],"tls":[]}` | Ingress configuration |
+| ingress | object | `{"annotations":{},"className":"nginx","enabled":false,"hosts":[{"deployment":"","host":"chart-example.local","paths":[{"path":"/","pathType":"ImplementationSpecific"}],"service":{"name":""}}],"tls":[]}` | Ingress configuration |
 | ingress.enabled | bool | `false` | Enable or disable Ingress |
 | ingress.className | string | `"nginx"` | IngressClass to use (e.g., nginx) |
 | ingress.annotations | object | `{}` | Annotations to add to the Ingress |
 | ingress.tls | list | `[]` | TLS configuration for secure hosts |
-| ingress.hosts | list | `[{"deployment":"","host":"chart-example.local","paths":[{"path":"/","pathType":"ImplementationSpecific"}],"service":{"name":"","port":0}}]` | Definitions for each host rule |
+| ingress.hosts | list | `[{"deployment":"","host":"chart-example.local","paths":[{"path":"/","pathType":"ImplementationSpecific"}],"service":{"name":""}}]` | Definitions for each host rule |
 | ingress.hosts[0].deployment | string | `""` | Name of the deployment to route traffic to (required unless service.name is set) |
-| ingress.hosts[0].service | object | `{"name":"","port":0}` | Service backend override (use instead of deployment for external services) |
+| ingress.hosts[0].service | object | `{"name":""}` | Service backend override (use instead of deployment for external services). Optional `port`, 1-65535: omitted, it is the deployment's service.port, or 80 for a service.name backend |
 | ingress.hosts[0].service.name | string | `""` | Explicit service name (overrides deployment reference) |
-| ingress.hosts[0].service.port | int | `0` | Service port (default: deployment's service.port or 80) |
 | ingress.hosts[0].paths | list | `[{"path":"/","pathType":"ImplementationSpecific"}]` | HTTP path definitions for this host |
 | httpRoute | object | `{"annotations":{},"enabled":false,"hostnames":[],"parentRefs":[],"rules":[]}` | HTTPRoute (Gateway API v1) — alternative to Ingress. The chart renders only the HTTPRoute resource; the referenced Gateway must be managed externally (e.g. by your platform team or a separate infra chart). Mutually exclusive with `ingress.enabled` — enabling both fails template render. |
 | httpRoute.enabled | bool | `false` | Enable HTTPRoute rendering. Requires Gateway API v1 CRDs in the cluster. |

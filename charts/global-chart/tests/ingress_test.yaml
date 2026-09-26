@@ -365,3 +365,74 @@ tests:
       - equal:
           path: metadata.annotations["nginx.ingress.kubernetes.io/rewrite-target"]
           value: /
+
+  # ====== Values the API server rejects (issue #156) ======
+  # values.yaml used to ship service.port: 0, which hasKey read as set and
+  # rendered port.number 0. The port is now omitted there (and 0 fails the
+  # schema, so the shipped values cannot regress): a service.name backend
+  # with no port falls back to 80.
+  - it: should render port 80 for a service name with no port
+    set:
+      ingress:
+        enabled: true
+        hosts:
+          - host: example.com
+            service: { name: ext }
+            paths:
+              - path: /
+                pathType: Prefix
+    asserts:
+      - equal:
+          path: spec.rules[0].http.paths[0].backend.service.port.number
+          value: 80
+
+  - it: should reject a service port of 0
+    set:
+      ingress:
+        enabled: true
+        hosts:
+          - host: example.com
+            service: { name: ext, port: 0 }
+            paths:
+              - path: /
+                pathType: Prefix
+    asserts:
+      - failedTemplate:
+          errorPattern: "port"
+
+  - it: should reject a host with no paths
+    set:
+      ingress:
+        enabled: true
+        hosts:
+          - host: example.com
+            service: { name: ext }
+    asserts:
+      - failedTemplate:
+          errorPattern: "paths"
+
+  - it: should reject a host with an empty paths list
+    set:
+      ingress:
+        enabled: true
+        hosts:
+          - host: example.com
+            service: { name: ext }
+            paths: []
+    asserts:
+      - failedTemplate:
+          errorPattern: "paths"
+
+  - it: should reject a pathType outside the Ingress enum
+    set:
+      ingress:
+        enabled: true
+        hosts:
+          - host: example.com
+            service: { name: ext }
+            paths:
+              - path: /
+                pathType: prefix
+    asserts:
+      - failedTemplate:
+          errorPattern: "pathType"

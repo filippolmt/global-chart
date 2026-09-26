@@ -207,7 +207,7 @@ deployments: {}
   #   pdb:
   #     # -- Enable PDB for this deployment
   #     enabled: false
-  #     # -- Minimum available pods (integer or percentage)
+  #     # -- Minimum available pods: an integer, or a percentage string ("25%")
   #     minAvailable: 1
   #     # -- Maximum unavailable pods (alternative to minAvailable)
   #     # maxUnavailable: 1
@@ -357,12 +357,12 @@ ingress:
     - host: chart-example.local
       # -- Name of the deployment to route traffic to (required unless service.name is set)
       deployment: ""
-      # -- Service backend override (use instead of deployment for external services)
+      # -- Service backend override (use instead of deployment for external services).
+      # Optional `port`, 1-65535: omitted, it is the deployment's service.port, or 80
+      # for a service.name backend
       service:
         # -- Explicit service name (overrides deployment reference)
         name: ""
-        # -- Service port (default: deployment's service.port or 80)
-        port: 0
       # -- HTTP path definitions for this host
       paths:
         - path: /
