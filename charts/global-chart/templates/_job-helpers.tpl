@@ -129,8 +129,10 @@ containers:
          own lists add to what it inherits, they never replace it */ -}}
   {{- $inheritCM := ternary $job.inheritDeploymentConfigMap true (hasKey $job "inheritDeploymentConfigMap") -}}
   {{- $inheritSec := ternary $job.inheritDeploymentSecret true (hasKey $job "inheritDeploymentSecret") -}}
-  {{- $deployEnvFromCMs := ternary $job.inheritDeploymentEnvFromConfigMaps true (hasKey $job "inheritDeploymentEnvFromConfigMaps") | ternary $deploy.envFromConfigMaps list -}}
-  {{- $deployEnvFromSecrets := ternary $job.inheritDeploymentEnvFromSecrets true (hasKey $job "inheritDeploymentEnvFromSecrets") | ternary $deploy.envFromSecrets list -}}
+  {{- $inheritEnvFromCMs := ternary $job.inheritDeploymentEnvFromConfigMaps true (hasKey $job "inheritDeploymentEnvFromConfigMaps") -}}
+  {{- $inheritEnvFromSecrets := ternary $job.inheritDeploymentEnvFromSecrets true (hasKey $job "inheritDeploymentEnvFromSecrets") -}}
+  {{- $deployEnvFromCMs := ternary $deploy.envFromConfigMaps list $inheritEnvFromCMs -}}
+  {{- $deployEnvFromSecrets := ternary $deploy.envFromSecrets list $inheritEnvFromSecrets -}}
   {{- $hasDeployConfigMap := and $inheritCM $deploy.configMap (gt (len $deploy.configMap) 0) -}}
   {{- $hasDeploySecret := and $inheritSec $deploy.secret (gt (len $deploy.secret) 0) -}}
   {{- /* externalSecrets: inherited when the job does not set its own (hasKey), and

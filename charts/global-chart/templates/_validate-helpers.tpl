@@ -165,12 +165,11 @@ Called from validate.yaml.
     {{- $nameCtx := dict "root" $root "key" $key "secret" $secret -}}
     {{- $owner := printf "externalSecrets.%s" $key -}}
     {{- include "global-chart.registerName" (dict "names" $esNames "kind" "ExternalSecret" "name" (include "global-chart.externalSecretName" $nameCtx) "owner" $owner) -}}
-    {{- $policy := include "global-chart.externalSecretCreationPolicy" $secret -}}
     {{- $target := include "global-chart.externalSecretTargetName" $nameCtx -}}
-    {{- if eq $policy "Owner" -}}
+    {{- if eq (include "global-chart.externalSecretCreationPolicy" $secret) "Owner" -}}
       {{- include "global-chart.registerName" (dict "names" $esOwnedNames "kind" "Secret" "name" $target "owner" $owner) -}}
     {{- end -}}
-    {{- if has $policy (list "Owner" "Orphan") -}}
+    {{- if eq (include "global-chart.externalSecretRewritesTarget" $secret) "true" -}}
       {{- include "global-chart.registerName" (dict "names" $secretNames "kind" "Secret" "name" $target "owner" $owner) -}}
     {{- end -}}
   {{- end -}}

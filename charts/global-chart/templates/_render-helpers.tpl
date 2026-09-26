@@ -621,3 +621,15 @@ Usage: {{ include "global-chart.externalSecretCreationPolicy" $secret }}
 {{- $target := default (dict) .target -}}
 {{- ternary $target.creationPolicy "Owner" (hasKey $target "creationPolicy") -}}
 {{- end -}}
+
+{{/*
+Whether an externalSecrets entry rewrites its target: clears the Secret's data
+down to its own keys on every refresh, owner or not (Owner, Orphan). Merge and
+CreateOrMerge keep the keys they did not write, and None writes nothing. A
+rewritten Secret cannot also be one the chart renders (issue #161, ADR 0013);
+validateNameCollisions reads this. Returns "true" or "false".
+Usage: {{ include "global-chart.externalSecretRewritesTarget" $secret }}
+*/}}
+{{- define "global-chart.externalSecretRewritesTarget" -}}
+{{- has (include "global-chart.externalSecretCreationPolicy" .) (list "Owner" "Orphan") -}}
+{{- end -}}
