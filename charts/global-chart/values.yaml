@@ -100,7 +100,9 @@ deployments: {}
   #     # -- Protocol for the service port (TCP|UDP)
   #     protocol: TCP
   #     # -- Additional ports exposed by the same Service (multi-port workloads)
-  #     # Each entry requires: name, port, targetPort. Optional: protocol, appProtocol, nodePort.
+  #     # Each entry requires: name, port, targetPort. Optional: protocol, appProtocol,
+  #     # nodePort (NodePort or LoadBalancer Service only). Names and port+protocol
+  #     # pairs must be unique across the primary port and every entry.
   #     # A numeric targetPort is declared on the container under the entry's name,
   #     # so other ports may target it by that name.
   #     extraPorts: []

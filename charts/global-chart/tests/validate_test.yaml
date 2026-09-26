@@ -553,6 +553,100 @@ tests:
       - hasDocuments:
           count: 0
 
+  # ====== Service ports the API server rejects (issue #155) ======
+  - it: should fail when an extraPorts nodePort sits on a ClusterIP Service
+    set:
+      deployments:
+        web:
+          image: nginx:1.25
+          service:
+            extraPorts:
+              - name: metrics
+                port: 9090
+                targetPort: 9090
+                nodePort: 30090
+    asserts:
+      - failedTemplate:
+          errorPattern: "deployments.web.service.extraPorts 'metrics' sets nodePort, which the API server accepts only on a NodePort or LoadBalancer Service \\(type: ClusterIP\\)"
+
+  - it: should not fail when an extraPorts nodePort sits on a LoadBalancer Service
+    set:
+      deployments:
+        web:
+          image: nginx:1.25
+          service:
+            type: LoadBalancer
+            extraPorts:
+              - name: metrics
+                port: 9090
+                targetPort: 9090
+                nodePort: 30090
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should fail when an extraPorts entry repeats the primary port and protocol
+    set:
+      deployments:
+        web:
+          image: nginx:1.25
+          service:
+            extraPorts:
+              - name: alt
+                port: 80
+                targetPort: 8080
+    asserts:
+      - failedTemplate:
+          errorPattern: "deployments.web.service.extraPorts 'alt' repeats port 80/TCP of service.port"
+
+  - it: should fail when two extraPorts entries share a name
+    set:
+      deployments:
+        web:
+          image: nginx:1.25
+          service:
+            extraPorts:
+              - name: alt
+                port: 81
+                targetPort: 8081
+              - name: alt
+                port: 82
+                targetPort: 8082
+    asserts:
+      - failedTemplate:
+          errorPattern: "deployments.web.service.extraPorts 'alt' repeats the port name 'alt' of extraPorts 'alt'"
+
+  - it: should fail when an extraPorts entry takes the primary port's name
+    set:
+      deployments:
+        web:
+          image: nginx:1.25
+          service:
+            extraPorts:
+              - name: http
+                port: 81
+                targetPort: 8081
+    asserts:
+      - failedTemplate:
+          errorPattern: "deployments.web.service.extraPorts 'http' repeats the port name 'http' of service.portName"
+
+  - it: should not fail when an extraPorts entry shares the primary port under another protocol
+    set:
+      deployments:
+        web:
+          image: nginx:1.25
+          service:
+            port: 53
+            targetPort: 5353
+            extraPorts:
+              - name: dns-udp
+                port: 53
+                targetPort: 5353
+                protocol: UDP
+    asserts:
+      - hasDocuments:
+          count: 0
+
   # ====== ServiceAccount name collision ======
   # A root-level cronJob and a deployment keyed the same generate the same SA name
   # (<release>-<chart>-<key>). Both create it, and the install dies on "already

@@ -15,6 +15,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   Helm and ESO overwrite each other on every upgrade and every refresh; 2.8.0
   caught only `Owner`. `Merge`, `CreateOrMerge` and `None` stay allowed. Two
   `Orphan` ExternalSecrets sharing one target now fail too.
+- **Service shapes the API server rejects now fail at `helm lint` or at
+  render** (issue #155). `service.type: ExternalName` is removed from the
+  schema: the chart renders ports and a selector and no `spec.externalName`, so
+  the Service was always rejected. An `extraPorts[].nodePort` on a Service that
+  is not `NodePort` or `LoadBalancer` now fails at render, and so does an
+  `extraPorts` entry repeating a port name or a port+protocol pair of the
+  primary port or of another entry (a default primary port is 80/TCP named
+  `http`).
 
 ## [2.8.0] — 2026-09-25
 
