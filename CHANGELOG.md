@@ -48,6 +48,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 - **A volume `name` may not be empty** (issue #185). `name: ""` passed the
   schema and failed in `renderVolume`; the schema now rejects it.
 
+### Deprecated
+
+- **The legacy `volumes[].type` format** (issue #183), removed in 4.0.0:
+  `type: emptyDir|configMap|secret|persistentVolumeClaim` and the aliases
+  `secret.name` and `persistentVolumeClaim.name`. The schema cannot check it,
+  so a typo fails only at render. `NOTES.txt` lists every legacy volume of the
+  release by values path. **Action:** drop `type` and write the native
+  Kubernetes source; see the [migration
+  table](README.md#deprecated-the-legacy-volumestype-format).
+
 ### Fixed
 
 - **A legacy volume (`type: configMap|secret|persistentVolumeClaim`) with no
