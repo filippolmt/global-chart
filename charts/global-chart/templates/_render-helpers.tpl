@@ -75,14 +75,17 @@ helper's fail, not a schema enum.
   {{- if eq $vol.type "emptyDir" }}
   emptyDir: {}
   {{- else if eq $vol.type "configMap" }}
+  {{- $src := default (dict) $vol.configMap }}
   configMap:
-    name: {{ $vol.configMap.name | quote }}
+    name: {{ required (printf "renderVolume: legacy volume '%s' of type configMap needs configMap.name" $vol.name) $src.name | quote }}
   {{- else if eq $vol.type "secret" }}
+  {{- $src := default (dict) $vol.secret }}
   secret:
-    secretName: {{ default $vol.secret.name $vol.secret.secretName | quote }}
+    secretName: {{ required (printf "renderVolume: legacy volume '%s' of type secret needs secret.secretName (or secret.name)" $vol.name) (default $src.name $src.secretName) | quote }}
   {{- else if eq $vol.type "persistentVolumeClaim" }}
+  {{- $src := default (dict) $vol.persistentVolumeClaim }}
   persistentVolumeClaim:
-    claimName: {{ default $vol.persistentVolumeClaim.name $vol.persistentVolumeClaim.claimName | quote }}
+    claimName: {{ required (printf "renderVolume: legacy volume '%s' of type persistentVolumeClaim needs persistentVolumeClaim.claimName (or persistentVolumeClaim.name)" $vol.name) (default $src.name $src.claimName) | quote }}
   {{- else }}
   {{- fail (printf "renderVolume: unknown legacy volume type '%s' for volume '%s'. Supported types: emptyDir, configMap, secret, persistentVolumeClaim. For other volume types, use native Kubernetes volume spec (omit .type)." $vol.type $vol.name) }}
   {{- end }}

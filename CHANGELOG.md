@@ -36,9 +36,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   `volumes` stays open, a large and growing shape, but every entry must have a
   `name`. Probes inside `extraContainers` stay open with the Container (issue
   #148).
+  The fields the API server or ESO requires are required here too
+  (`tcpSocket.port`, `grpc.port`, `httpHeaders[].name`/`value`,
+  `matchExpressions[].key`/`operator`, `storeRef.name`,
+  `generatorRef.kind`/`name`), and a probe or NetworkPolicy port is 1-65535 or
+  an IANA_SVC_NAME, as a Service `targetPort` already was.
   **Action:** fix the key or value the error names. If Kubernetes adds a field
   to one of these shapes before a chart release lists it, install with
   `--skip-schema-validation` (Helm 4, and Helm 3 from 3.16) meanwhile.
+
+### Fixed
+
+- **A legacy volume (`type: configMap|secret|persistentVolumeClaim`) with no
+  source name fails naming the volume and the field it needs.** Without the
+  source block the render failed with a bare `nil pointer evaluating`; with the
+  block but no name it rendered an empty `name` / `secretName` / `claimName`,
+  which the API server rejected at apply.
 
 ---
 

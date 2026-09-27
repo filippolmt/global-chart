@@ -186,12 +186,13 @@
           "properties": {
             "host": { "type": "string" },
             "path": { "type": "string" },
-            "port": { "type": ["integer", "string"] },
+            "port": { "$ref": "#/$defs/portNumberOrName" },
             "scheme": { "type": "string", "enum": ["HTTP", "HTTPS"] },
             "httpHeaders": {
               "type": "array",
               "items": {
                 "type": "object",
+                "required": ["name", "value"],
                 "properties": {
                   "name": { "type": "string" },
                   "value": { "type": "string" }
@@ -204,16 +205,18 @@
         },
         "tcpSocket": {
           "type": "object",
+          "required": ["port"],
           "properties": {
             "host": { "type": "string" },
-            "port": { "type": ["integer", "string"] }
+            "port": { "$ref": "#/$defs/portNumberOrName" }
           },
           "additionalProperties": false
         },
         "grpc": {
           "type": "object",
+          "required": ["port"],
           "properties": {
-            "port": { "type": "integer" },
+            "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
             "service": { "type": "string" }
           },
           "additionalProperties": false
@@ -257,10 +260,7 @@
         },
         "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
         "targetPort": {
-          "oneOf": [
-            { "anyOf": [{ "const": "" }, { "$ref": "#/$defs/ianaSvcName" }] },
-            { "type": "integer", "minimum": 1, "maximum": 65535 }
-          ]
+          "anyOf": [{ "const": "" }, { "$ref": "#/$defs/portNumberOrName" }]
         },
         "protocol": {
           "type": "string",
@@ -278,10 +278,7 @@
               "name": { "$ref": "#/$defs/ianaSvcName" },
               "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
               "targetPort": {
-                "oneOf": [
-                  { "anyOf": [{ "const": "" }, { "$ref": "#/$defs/ianaSvcName" }] },
-                  { "type": "integer", "minimum": 1, "maximum": 65535 }
-                ]
+                "anyOf": [{ "const": "" }, { "$ref": "#/$defs/portNumberOrName" }]
               },
               "protocol": {
                 "type": "string",
@@ -574,8 +571,8 @@
       "type": "object",
       "properties": {
         "protocol": { "type": "string", "enum": ["TCP", "UDP", "SCTP"] },
-        "port": { "type": ["integer", "string"] },
-        "endPort": { "type": "integer" }
+        "port": { "$ref": "#/$defs/portNumberOrName" },
+        "endPort": { "type": "integer", "minimum": 1, "maximum": 65535 }
       },
       "additionalProperties": false
     },
@@ -591,6 +588,7 @@
           "type": "array",
           "items": {
             "type": "object",
+            "required": ["key", "operator"],
             "properties": {
               "key": { "type": "string" },
               "operator": { "type": "string", "enum": ["In", "NotIn", "Exists", "DoesNotExist"] },
@@ -650,6 +648,13 @@
       "description": "A DNS-1123 label: lowercase alphanumerics and '-', starting and ending with an alphanumeric. The length bound is the caller's, via maxLength next to the $ref: it depends on what the value is joined to.",
       "type": "string",
       "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+    },
+    "portNumberOrName": {
+      "description": "A port as Kubernetes takes it where a number or a name is allowed: 1-65535, or a container port name (IANA_SVC_NAME).",
+      "anyOf": [
+        { "type": "integer", "minimum": 1, "maximum": 65535 },
+        { "$ref": "#/$defs/ianaSvcName" }
+      ]
     },
     "ianaSvcName": {
       "description": "An IANA_SVC_NAME, as Kubernetes validates a Service port name, a container port name and a named targetPort: at most 15 characters, lowercase alphanumerics and '-', no leading, trailing or doubled '-', and at least one letter. Two patterns under allOf because Go regexp has no lookahead: the first fixes the shape, the second the letter. portName and targetPort also accept \"\": the API server takes it on a single-port Service (targetPort defaults to port), so it is not rejected here; extraPorts[].name never does, since extra ports make the Service multi-port.",
@@ -1024,6 +1029,7 @@
                 "properties": {
                   "storeRef": {
                     "type": "object",
+                    "required": ["name"],
                     "properties": {
                       "name": { "type": "string" },
                       "kind": { "type": "string" }
@@ -1032,6 +1038,7 @@
                   },
                   "generatorRef": {
                     "type": "object",
+                    "required": ["kind", "name"],
                     "properties": {
                       "apiVersion": { "type": "string" },
                       "kind": { "type": "string" },

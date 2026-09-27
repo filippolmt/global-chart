@@ -163,7 +163,8 @@ is the source of truth, this table is only the routing.
 10. **Schema**: `values.schema.json` validates during install/upgrade/lint. It
     does NOT use `required` on `mountedConfigFiles` items (templates handle that
     at runtime, so `failedTemplate` tests stay possible). A `$defs` that declares
-    its properties is **closed** (ADR 0006). A *passthrough surface* (a
+    its properties is **closed** (ADR 0006), unless it is a *passthrough surface*
+    that stays open under the rule that follows. A *passthrough surface* (a
     Kubernetes or operator shape handed to a manifest verbatim) whose shape is
     small and fixed is closed in full — probes, NetworkPolicy rules,
     `sourceRef`; one that is large or growing (`volumes`, `volumeMounts`,

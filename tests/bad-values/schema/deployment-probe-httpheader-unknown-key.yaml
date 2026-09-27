@@ -1,5 +1,6 @@
 # covers: probe/properties/httpGet/properties/httpHeaders/items
-# An unknown key in an httpGet header (typo of value): the header goes out empty.
+# An HTTPHeader has no valueFrom (EnvVar has): Kubernetes drops it, and the
+# header goes out with the literal value only.
 deployments:
   app:
     image: nginx:1.25
@@ -7,5 +8,9 @@ deployments:
       httpGet:
         port: 8080
         httpHeaders:
-          - name: Host
-            valeu: example.com
+          - name: Authorization
+            value: ""
+            valueFrom:
+              secretKeyRef:
+                name: probe-token
+                key: token

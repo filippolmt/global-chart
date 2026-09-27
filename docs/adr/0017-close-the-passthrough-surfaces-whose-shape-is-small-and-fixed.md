@@ -59,6 +59,12 @@ surface (issue option 2) misses the typo that motivated the issue:
   required, `scheme` HTTP/HTTPS, `httpHeaders[]` with `name`/`value`),
   `tcpSocket` (`host`, `port`), `exec` (`command`), `grpc` (`port`, `service`).
   Kubernetes' rule "exactly one handler" stays with the API server.
+- **Required fields and ports follow the shape.** A field the API server or ESO
+  requires is `required` here too: `tcpSocket.port`, `grpc.port`,
+  `httpHeaders[].name`/`value`, `matchExpressions[].key`/`operator`,
+  `storeRef.name`, `generatorRef.kind`/`name`. A port that takes a number or a
+  name (`httpGet`, `tcpSocket`, a NetworkPolicy port, a Service `targetPort`)
+  goes through one `$defs/portNumberOrName`: 1-65535 or an IANA_SVC_NAME.
 - **`dataFrom[].sourceRef`: closed.** `storeRef` (`name`, `kind`) and
   `generatorRef` (`apiVersion`, `kind`, `name`), with no `enum` on the `kind`s.
   ESO adds generator types; it does not add fields to the reference. We close the
