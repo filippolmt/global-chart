@@ -1,0 +1,7 @@
+# A volume without a name. Kubernetes rejects it at apply time; the schema
+# catches it first, and the externalSecrets volume collision check reads it.
+deployments:
+  app:
+    image: nginx:1.25
+    volumes:
+      - emptyDir: {}

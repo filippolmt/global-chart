@@ -1,0 +1,10 @@
+# covers: probe/properties/httpGet
+# An unknown key in httpGet (typo of path). Kubernetes drops it, and the probe
+# checks / instead of the health endpoint.
+deployments:
+  app:
+    image: nginx:1.25
+    livenessProbe:
+      httpGet:
+        port: 8080
+        pth: /healthz

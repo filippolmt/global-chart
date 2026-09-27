@@ -157,9 +157,74 @@
       },
       "additionalProperties": false
     },
+    "volumes": {
+      "description": "Kubernetes volumes. Open: about thirty volume sources, and the list grows (ADR 0017). Each item declares name, which the externalSecrets volume collision check reads.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": { "type": "string" }
+        }
+      }
+    },
     "probe": {
       "type": "object",
-      "description": "Kubernetes probe configuration (httpGet, tcpSocket, exec, grpc). Accepts any key: this is a Kubernetes passthrough surface, left open by ADR 0006."
+      "description": "Kubernetes probe configuration (httpGet, tcpSocket, exec, grpc). Closed in full, handler bodies included: a small, fixed shape (ADR 0017). The rule \"exactly one handler\" stays with the API server.",
+      "properties": {
+        "exec": {
+          "type": "object",
+          "properties": {
+            "command": { "type": "array", "items": { "type": "string" } }
+          },
+          "additionalProperties": false
+        },
+        "httpGet": {
+          "type": "object",
+          "required": ["port"],
+          "properties": {
+            "host": { "type": "string" },
+            "path": { "type": "string" },
+            "port": { "type": ["integer", "string"] },
+            "scheme": { "type": "string", "enum": ["HTTP", "HTTPS"] },
+            "httpHeaders": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "value": { "type": "string" }
+                },
+                "additionalProperties": false
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "tcpSocket": {
+          "type": "object",
+          "properties": {
+            "host": { "type": "string" },
+            "port": { "type": ["integer", "string"] }
+          },
+          "additionalProperties": false
+        },
+        "grpc": {
+          "type": "object",
+          "properties": {
+            "port": { "type": "integer" },
+            "service": { "type": "string" }
+          },
+          "additionalProperties": false
+        },
+        "initialDelaySeconds": { "type": "integer" },
+        "periodSeconds": { "type": "integer" },
+        "timeoutSeconds": { "type": "integer" },
+        "successThreshold": { "type": "integer" },
+        "failureThreshold": { "type": "integer" },
+        "terminationGracePeriodSeconds": { "type": "integer" }
+      },
+      "additionalProperties": false
     },
     "serviceAccount": {
       "type": "object",
@@ -460,8 +525,79 @@
           "type": "array",
           "items": { "type": "string" }
         },
-        "ingress": { "type": "array" },
-        "egress": { "type": "array" }
+        "ingress": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "from": { "type": "array", "items": { "$ref": "#/$defs/networkPolicyPeer" } },
+              "ports": { "type": "array", "items": { "$ref": "#/$defs/networkPolicyPort" } }
+            },
+            "additionalProperties": false
+          }
+        },
+        "egress": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "to": { "type": "array", "items": { "$ref": "#/$defs/networkPolicyPeer" } },
+              "ports": { "type": "array", "items": { "$ref": "#/$defs/networkPolicyPort" } }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "networkPolicyPeer": {
+      "description": "A NetworkPolicy v1 peer. Closed in full: a small, fixed shape (ADR 0017).",
+      "type": "object",
+      "properties": {
+        "podSelector": { "$ref": "#/$defs/labelSelector" },
+        "namespaceSelector": { "$ref": "#/$defs/labelSelector" },
+        "ipBlock": {
+          "type": "object",
+          "required": ["cidr"],
+          "properties": {
+            "cidr": { "type": "string" },
+            "except": { "type": "array", "items": { "type": "string" } }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "networkPolicyPort": {
+      "description": "A NetworkPolicy v1 port. Closed in full: a small, fixed shape (ADR 0017).",
+      "type": "object",
+      "properties": {
+        "protocol": { "type": "string", "enum": ["TCP", "UDP", "SCTP"] },
+        "port": { "type": ["integer", "string"] },
+        "endPort": { "type": "integer" }
+      },
+      "additionalProperties": false
+    },
+    "labelSelector": {
+      "description": "A Kubernetes LabelSelector. Closed in full: a small, fixed shape (ADR 0017).",
+      "type": "object",
+      "properties": {
+        "matchLabels": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "matchExpressions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "key": { "type": "string" },
+              "operator": { "type": "string", "enum": ["In", "NotIn", "Exists", "DoesNotExist"] },
+              "values": { "type": "array", "items": { "type": "string" } }
+            },
+            "additionalProperties": false
+          }
+        }
       },
       "additionalProperties": false
     },
@@ -624,7 +760,7 @@
         "topologySpreadConstraints": { "type": "array" },
         "pdb": { "$ref": "#/$defs/pdb" },
         "networkPolicy": { "$ref": "#/$defs/networkPolicy" },
-        "volumes": { "type": "array" },
+        "volumes": { "$ref": "#/$defs/volumes" },
         "volumeMounts": { "type": "array" },
         "nodeSelector": {
           "type": "object",
@@ -731,7 +867,7 @@
           "additionalProperties": { "type": "string" }
         },
         "automountServiceAccountToken": { "type": "boolean" },
-        "volumes": { "type": "array" },
+        "volumes": { "$ref": "#/$defs/volumes" },
         "volumeMounts": { "type": "array" },
         "restartPolicy": { "type": "string", "enum": ["OnFailure", "Never"] },
         "podSecurityContext": { "type": "object" },
@@ -881,7 +1017,30 @@
               "extract": { "type": "object" },
               "find": { "type": "object" },
               "rewrite": { "type": "array" },
-              "sourceRef": { "type": "object" }
+              "sourceRef": {
+                "description": "A per-entry source. Closed in full: ESO adds generator types, not fields to the reference (ADR 0017). No enum on the kinds.",
+                "type": "object",
+                "properties": {
+                  "storeRef": {
+                    "type": "object",
+                    "properties": {
+                      "name": { "type": "string" },
+                      "kind": { "type": "string" }
+                    },
+                    "additionalProperties": false
+                  },
+                  "generatorRef": {
+                    "type": "object",
+                    "properties": {
+                      "apiVersion": { "type": "string" },
+                      "kind": { "type": "string" },
+                      "name": { "type": "string" }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "additionalProperties": false
+              }
             },
             "additionalProperties": false
           }

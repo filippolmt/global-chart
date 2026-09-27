@@ -1,0 +1,11 @@
+# covers: probe/properties/httpGet/properties/httpHeaders/items
+# An unknown key in an httpGet header (typo of value): the header goes out empty.
+deployments:
+  app:
+    image: nginx:1.25
+    readinessProbe:
+      httpGet:
+        port: 8080
+        httpHeaders:
+          - name: Host
+            valeu: example.com

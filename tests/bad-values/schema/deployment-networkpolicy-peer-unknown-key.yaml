@@ -1,0 +1,15 @@
+# covers: networkPolicyPeer
+# An unknown key in a NetworkPolicy peer (typo of podSelector). Dropped, the
+# peer is empty and the API server rejects it — or, beside a valid selector,
+# widens it in silence.
+deployments:
+  app:
+    image: nginx:1.25
+    networkPolicy:
+      enabled: true
+      ingress:
+        - from:
+            - namespaceSelector: {}
+              podSelectr:
+                matchLabels:
+                  app: web

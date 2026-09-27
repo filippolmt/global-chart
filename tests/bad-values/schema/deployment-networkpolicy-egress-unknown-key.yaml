@@ -1,0 +1,12 @@
+# covers: networkPolicy/properties/egress/items
+# An unknown key in an egress rule (typo of to). Dropped, the rule allows
+# egress to everywhere on its ports.
+deployments:
+  app:
+    image: nginx:1.25
+    networkPolicy:
+      enabled: true
+      policyTypes: [Egress]
+      egress:
+        - too:
+            - podSelector: {}

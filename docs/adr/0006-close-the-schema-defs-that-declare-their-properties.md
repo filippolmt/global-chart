@@ -63,7 +63,12 @@ its `env` is held, to `$defs/envVar`, so a numeric value fails at lint while
 every other Container field still passes through); the
 `kedaTriggerAuthentication` provider blocks; and the `filters[]` entries of an
 `httpRouteRule` and of its `backendRefs`, which declare `type` as a constraint
-but carry the Gateway API filter payload underneath.
+but carry the Gateway API filter payload underneath. *Amended by issue #180
+(ADR 0017):* the criterion for these surfaces is now explicit. A shape that is
+small and fixed closes in full, and one that is large or growing stays open and
+declares only what a template reads. `networkPolicy.ingress`/`egress`, `probe`
+and `dataFrom[].sourceRef` close under it; `volumes` stays open and declares
+`name`; `volumeMounts`, missing from this register, joins it as open.
 
 `kedaScaledObject` has an `if`/`then` pair whose `if` declares `enabled`. That is
 a conditional, not an object definition: closing it would stop it ever matching.
@@ -184,7 +189,7 @@ Closing an object does not close what hangs off it. `networkPolicy` is closed
 and its `ingress`/`egress` arrays still take anything; the same holds for
 `volumes` under the deployment and the four job definitions, and for
 `dataFrom[].sourceRef`. Those four surfaces plus `probe` are one open question,
-recorded here so it reads as a decision rather than the oversight it was.
+recorded here so it reads as a decision rather than the oversight it was. *Answered by ADR 0017* (issue #180).
 
 Adding a field to a closed definition now means declaring it in the schema, or
 the render stops. That was already the rule in `CLAUDE.md` ("every field a

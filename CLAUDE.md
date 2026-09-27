@@ -163,9 +163,12 @@ is the source of truth, this table is only the routing.
 10. **Schema**: `values.schema.json` validates during install/upgrade/lint. It
     does NOT use `required` on `mountedConfigFiles` items (templates handle that
     at runtime, so `failedTemplate` tests stay possible). A `$defs` that declares
-    its properties is **closed**; one that passes a Kubernetes surface through
-    stays open until we decide how much to admit — see
-    `docs/adr/0006-close-the-schema-defs-that-declare-their-properties.md`. The
+    its properties is **closed** (ADR 0006). A *passthrough surface* (a
+    Kubernetes or operator shape handed to a manifest verbatim) whose shape is
+    small and fixed is closed in full — probes, NetworkPolicy rules,
+    `sourceRef`; one that is large or growing (`volumes`, `volumeMounts`,
+    `container`) stays open and declares only the fields a template reads — see
+    `docs/adr/0017-close-the-passthrough-surfaces-whose-shape-is-small-and-fixed.md`. The
     job composites close with `unevaluatedProperties: false` (Helm >= 3.18.6;
     below it, ignored in silence), the flat ones with
     `additionalProperties: false`. The `allOf` branches (`jobCommon`,

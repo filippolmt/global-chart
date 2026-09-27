@@ -1,0 +1,8 @@
+# covers: probe/properties/tcpSocket
+# An unknown key in tcpSocket (typo of port).
+deployments:
+  app:
+    image: nginx:1.25
+    livenessProbe:
+      tcpSocket:
+        prot: 5432
