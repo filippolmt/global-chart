@@ -173,17 +173,14 @@ is the source of truth, this table is only the routing.
     **never** be closed: a branch validates the whole object alone, so closing
     one rejects every key the others contribute. **Every closed schema node carries
     its own fixture** in `tests/bad-values/schema/` — a top-level `$defs` and
-    every closure nested in one alike (a property, `items`, a `oneOf` branch) —
-    linked by a `# covers: <pointer>` line and enforced by
-    `tests/bad-values/check-closure-coverage.py`. The pointer is literal and
-    relative to `$defs`: `deployment`, `service/properties/extraPorts/items`,
-    `image/oneOf/2`; `#` is the root. One file per node, because one file with
-    many typos is rejected by the first closure that holds and the rest go back
-    to being invisible; the typo must not also break a `required`, or the file
-    is rejected with the closure gone. A closed node under `if`/`not` fails the
-    check. Name the file after the scope and kind the values use
-    (`root-cronjob-`, `deployment-hook-`), not after the schema path — the
-    `# covers:` line is what ties the two together.
+    every closure nested in one alike — linked by a `# covers: <pointer>` line
+    and enforced by `tests/bad-values/check-closure-coverage.py`, which also
+    removes each closure in turn and requires its fixture to pass without it.
+    The script's docstring is the single home of the pointer syntax and the
+    rules; read it before adding a closure. A closed `oneOf` branch goes in a
+    `$defs` of its own (`imageMap`). Name the file after the scope and kind
+    the values use (`root-cronjob-`, `deployment-hook-`), not after the schema
+    path — the `# covers:` line is what ties the two together.
     A map key that becomes part of a name (`deployments`, `cronJobs`, `hooks`
     and its types, `externalSecrets`, `kedaTriggerAuthentications`, both
     scopes) is constrained by `propertyNames` to what the tightest place it
