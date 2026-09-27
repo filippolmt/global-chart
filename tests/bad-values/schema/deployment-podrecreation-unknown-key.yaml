@@ -1,0 +1,9 @@
+# covers: deployment/properties/podRecreation
+# An unknown key under deployments.<name>.podRecreation (typo of enabled).
+# Without the closure the pods never roll on upgrade, while the values file
+# reads as if they did.
+deployments:
+  web:
+    image: nginx:1.25
+    podRecreation:
+      enable: true

@@ -1,3 +1,4 @@
+# covers: ingress/properties/tls/items
 # An unknown key inside an ingress.tls entry (typo of secretName). Without the
 # constraint the Ingress renders `secretName: ""` and the controller serves its
 # default certificate.

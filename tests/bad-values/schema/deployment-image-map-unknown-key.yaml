@@ -1,0 +1,9 @@
+# covers: image/oneOf/2
+# An unknown key in the map form of deployments.<name>.image (typo of tag).
+# Without the closure the tag is dropped in silence and the image resolves to
+# a different one than the values file names.
+deployments:
+  web:
+    image:
+      repository: nginx
+      tga: "1.25"

@@ -1,3 +1,4 @@
+# covers: ingress/properties/hosts/items/properties/service
 # An unknown key inside an ingress host's explicit service reference (typo of
 # port). Without the constraint the backend falls back to port 80 and the
 # traffic lands on the wrong port of an existing Service.

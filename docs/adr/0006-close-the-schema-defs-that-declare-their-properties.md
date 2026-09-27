@@ -122,6 +122,17 @@ either mismatch — a closure with no fixture, a marker naming nothing, a
 definition covered twice. Closing a `$defs` without writing its fixture now fails
 in `validate-bad-values` rather than at the next person's typo.
 
+*Amended by issue #177:* the check read only the top-level `$defs`, so a closure
+nested inside one — on a property, on `items`, on a `oneOf` branch, 28 of them,
+plus the schema root — could stop working with nothing failing. It now walks
+every schema node (without following `$ref`, whose target is walked as its own
+`$defs`), and the marker is the node's literal JSON pointer relative to `$defs`
+(`service/properties/extraPorts/items`, `image/oneOf/2`), `#` for the root; a
+top-level definition keeps its bare name. The exemption stays on the root of
+the five `allOf` branches only. A closed node under `if` or `not` fails the
+check outright: it decides a condition rather than what the values may carry,
+and no typo fixture can assert it.
+
 ## Considered options
 
 **Stay on Draft 7 and close the composites with `additionalProperties: false`.**

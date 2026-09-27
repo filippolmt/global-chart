@@ -1,0 +1,19 @@
+# covers: kedaTrigger/properties/authenticationRef
+# An unknown key inside a KEDA trigger's authenticationRef (typo of kind).
+# Without the closure the reference falls back to a namespaced
+# TriggerAuthentication instead of the intended cluster-scoped one.
+deployments:
+  web:
+    image: nginx:1.25
+    keda:
+      enabled: true
+      triggers:
+        - type: cron
+          authenticationRef:
+            name: shared-auth
+            knid: ClusterTriggerAuthentication
+          metadata:
+            timezone: UTC
+            start: "0 0 * * *"
+            end: "59 23 * * *"
+            desiredReplicas: "2"

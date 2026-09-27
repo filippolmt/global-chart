@@ -1,0 +1,13 @@
+# covers: httpRouteRule/properties/backendRefs/items/properties/service
+# An unknown key inside a backendRefs entry's explicit service reference (typo
+# of port). Without the closure the backend has no port and the traffic lands
+# nowhere.
+httpRoute:
+  enabled: true
+  parentRefs:
+    - name: public-gw
+  rules:
+    - backendRefs:
+        - service:
+            name: external-svc
+            prot: 8080

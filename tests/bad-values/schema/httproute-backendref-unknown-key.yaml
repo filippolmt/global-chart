@@ -1,0 +1,16 @@
+# covers: httpRouteRule/properties/backendRefs/items
+# An unknown key inside an httpRoute rule backendRefs entry (typo of weight).
+# Without the closure every backend gets the default weight and the intended
+# traffic split never happens.
+deployments:
+  api:
+    image: nginx:1.25
+
+httpRoute:
+  enabled: true
+  parentRefs:
+    - name: public-gw
+  rules:
+    - backendRefs:
+        - deployment: api
+          wieght: 10

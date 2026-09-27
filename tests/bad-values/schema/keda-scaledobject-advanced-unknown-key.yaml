@@ -1,0 +1,18 @@
+# covers: kedaScaledObject/properties/advanced
+# An unknown key under deployments.<name>.keda.advanced (typo of
+# restoreToOriginalReplicaCount). Without the closure the replicas are not
+# restored when the ScaledObject is removed.
+deployments:
+  web:
+    image: nginx:1.25
+    keda:
+      enabled: true
+      advanced:
+        restoreToOriginalReplicas: true
+      triggers:
+        - type: cron
+          metadata:
+            timezone: UTC
+            start: "0 0 * * *"
+            end: "59 23 * * *"
+            desiredReplicas: "2"

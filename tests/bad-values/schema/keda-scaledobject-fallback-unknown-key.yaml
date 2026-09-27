@@ -1,0 +1,19 @@
+# covers: kedaScaledObject/properties/fallback
+# An unknown key under deployments.<name>.keda.fallback (typo of replicas).
+# Without the closure the fallback has no replica count and KEDA rejects it
+# at apply time rather than here.
+deployments:
+  web:
+    image: nginx:1.25
+    keda:
+      enabled: true
+      fallback:
+        failureThreshold: 3
+        replica: 2
+      triggers:
+        - type: cron
+          metadata:
+            timezone: UTC
+            start: "0 0 * * *"
+            end: "59 23 * * *"
+            desiredReplicas: "2"

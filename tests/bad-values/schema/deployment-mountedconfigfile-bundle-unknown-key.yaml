@@ -1,0 +1,15 @@
+# covers: mountedConfigFiles/properties/bundles/items
+# An unknown key inside a mountedConfigFiles.bundles entry (typo of mountDir).
+# Without the closure the bundle has no mount directory and its files land
+# somewhere other than where the values file says.
+deployments:
+  web:
+    image: nginx:1.25
+    mountedConfigFiles:
+      bundles:
+        - mountdir: /etc/app
+          files:
+            - name: app-conf
+              relPath: app.conf
+              content: |
+                key = value

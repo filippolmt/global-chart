@@ -1,11 +1,16 @@
-# An unknown key inside an rbacs.roles entry (typo of rules). Without the
-# constraint the Role renders with no rules and grants nothing, while the
-# values file reads as if it granted something. `rules` items stay open on
+# covers: rbacs/properties/roles/items
+# An unknown key inside an rbacs.roles entry (typo of serviceAccount). Without
+# the constraint the RoleBinding targets a ServiceAccount named after the role
+# instead of the one intended, while the values file reads as if it bound that
+# one. The typo is not on `rules`: `rules` is required, so a missing one would
+# reject the file even with the closure gone. `rules` items stay open on
 # purpose: they are Kubernetes PolicyRules, passed through verbatim.
 rbacs:
   roles:
     - name: reader
-      rulez:
+      serviceAcount:
+        name: reader-sa
+      rules:
         - apiGroups: [""]
           resources: ["pods"]
           verbs: ["get", "list"]
