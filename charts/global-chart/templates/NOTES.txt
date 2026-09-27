@@ -127,43 +127,8 @@ does not reject unknown keys in cronJobs and hooks (both scopes): a typo such as
 {{- end }}
 
 {{- /* The legacy volumes[].type format is deprecated (issue #183) and goes in
-       4.0.0. Every volume carrying `type`, in the Deployment and in the hooks
-       and cronjobs of both scopes, listed by values path; disabled deployments
-       render nothing and are skipped. Remove this block with the format. */}}
-{{- $owners := list (dict "path" "" "hooks" .Values.hooks "cronJobs" .Values.cronJobs) }}
-{{- range $name, $deploy := .Values.deployments }}
-{{- if and $deploy (eq (include "global-chart.deploymentEnabled" $deploy) "true") }}
-{{- $owners = append $owners (dict "path" (printf "deployments.%s" $name) "volumes" $deploy.volumes "hooks" $deploy.hooks "cronJobs" $deploy.cronJobs "deployName" $name) }}
-{{- end }}
-{{- end }}
-{{- $volumeOwners := list }}
-{{- range $owners }}
-{{- $deployName := default "" .deployName }}
-{{- if .path }}
-{{- $volumeOwners = append $volumeOwners (list .path .volumes) }}
-{{- end }}
-{{- range $hookType, $jobs := (default (dict) .hooks) }}
-{{- range $jobName, $job := (default (dict) $jobs) }}
-{{- if $job }}
-{{- $volumeOwners = append $volumeOwners (list (include "global-chart.jobValuesPath" (dict "kind" "hook" "deploymentName" $deployName "hookType" $hookType "jobName" $jobName)) $job.volumes) }}
-{{- end }}
-{{- end }}
-{{- end }}
-{{- range $jobName, $job := (default (dict) .cronJobs) }}
-{{- if $job }}
-{{- $volumeOwners = append $volumeOwners (list (include "global-chart.jobValuesPath" (dict "kind" "cronjob" "deploymentName" $deployName "jobName" $jobName)) $job.volumes) }}
-{{- end }}
-{{- end }}
-{{- end }}
-{{- $legacy := list }}
-{{- range $volumeOwners }}
-{{- $path := index . 0 }}
-{{- range $i, $vol := (default (list) (index . 1)) }}
-{{- if hasKey $vol "type" }}
-{{- $legacy = append $legacy (printf "%s.volumes[%d] (%s)" $path $i $vol.name) }}
-{{- end }}
-{{- end }}
-{{- end }}
+       4.0.0. Remove this block with the format. */}}
+{{- $legacy := include "global-chart.legacyVolumePaths" . | fromJsonArray }}
 {{- if $legacy }}
 
 DEPRECATED: the legacy volumes[].type format is removed in 4.0.0. Rewrite these

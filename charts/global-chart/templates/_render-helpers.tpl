@@ -99,6 +99,51 @@ helper's fail, not a schema enum.
 {{- end }}
 
 {{/*
+The values path of every volume in the legacy format (one carrying `type`), in
+the Deployment and in the hooks and cronjobs of both scopes, as a JSON list of
+"<path>.volumes[<i>] (<name>)". Disabled deployments render nothing and are
+skipped. Read by NOTES.txt for the deprecation line (issue #183); it goes with
+the format in 4.0.0.
+Usage: {{- $legacy := include "global-chart.legacyVolumePaths" . | fromJsonArray }}
+*/}}
+{{- define "global-chart.legacyVolumePaths" -}}
+{{- $owners := list (dict "hooks" .Values.hooks "cronJobs" .Values.cronJobs "deployName" "") -}}
+{{- range $name, $deploy := .Values.deployments -}}
+  {{- if and $deploy (eq (include "global-chart.deploymentEnabled" $deploy) "true") -}}
+    {{- $owners = append $owners (dict "path" (printf "deployments.%s" $name) "volumes" $deploy.volumes "hooks" $deploy.hooks "cronJobs" $deploy.cronJobs "deployName" $name) -}}
+  {{- end -}}
+{{- end -}}
+{{- $withVolumes := list -}}
+{{- range $owner := $owners -}}
+  {{- if $owner.path -}}
+    {{- $withVolumes = append $withVolumes (dict "path" $owner.path "volumes" $owner.volumes) -}}
+  {{- end -}}
+  {{- range $hookType, $jobs := (default (dict) $owner.hooks) -}}
+    {{- range $jobName, $job := (default (dict) $jobs) -}}
+      {{- if $job -}}
+        {{- $withVolumes = append $withVolumes (dict "path" (include "global-chart.jobValuesPath" (dict "kind" "hook" "deploymentName" $owner.deployName "hookType" $hookType "jobName" $jobName)) "volumes" $job.volumes) -}}
+      {{- end -}}
+    {{- end -}}
+  {{- end -}}
+  {{- range $jobName, $job := (default (dict) $owner.cronJobs) -}}
+    {{- if $job -}}
+      {{- $withVolumes = append $withVolumes (dict "path" (include "global-chart.jobValuesPath" (dict "kind" "cronjob" "deploymentName" $owner.deployName "jobName" $jobName)) "volumes" $job.volumes) -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+{{- $out := list -}}
+{{- range $withVolumes -}}
+  {{- $path := .path -}}
+  {{- range $i, $vol := (default (list) .volumes) -}}
+    {{- if hasKey $vol "type" -}}
+      {{- $out = append $out (printf "%s.volumes[%d] (%s)" $path $i $vol.name) -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+{{- toJson $out -}}
+{{- end -}}
+
+{{/*
 Render imagePullSecrets block. Accepts a list of strings or objects with "name" key.
 Every scope holds its items to $defs/imagePullSecret in the schema (issue #158),
 so an item here is one of the two.
