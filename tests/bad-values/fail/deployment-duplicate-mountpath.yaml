@@ -1,0 +1,20 @@
+# Two mounts on one mountPath rendered fine and the API server rejected the pod
+# at apply (issue #182).
+# Expected fail substring: "deployments.main: externalSecrets 'app-conf' mounts on '/etc/app', which volumeMounts[0] already mounts"
+externalSecrets:
+  app-conf:
+    secretstore: { kind: ClusterSecretStore, name: store }
+    secretkey: KEY
+    remote: { key: app }
+deployments:
+  main:
+    image: nginx:1.25
+    externalSecrets:
+      - name: app-conf
+        mountPath: /etc/app
+    volumes:
+      - name: other
+        emptyDir: {}
+    volumeMounts:
+      - name: other
+        mountPath: /etc/app

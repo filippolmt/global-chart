@@ -12,6 +12,7 @@
 {{- /* externalSecrets: the Deployment always reads the real Secret, never the
        hook copy (ADR 0007). Resolved once, for the pod's checksum and its env/volumes */ -}}
 {{- $es := include "global-chart.resolveExternalSecretRefs" (dict "root" $root "refs" $deploy.externalSecrets "hook" false "volumes" $deploy.volumes "errCtx" (printf "deployments.%s" $name)) | fromJson }}
+{{- include "global-chart.validateMountPaths" (dict "errCtx" (printf "deployments.%s" $name) "volumeMounts" $deploy.volumeMounts "externalSecrets" $deploy.externalSecrets "mountedConfigFiles" $deploy.mountedConfigFiles) }}
 ---
 apiVersion: apps/v1
 kind: Deployment

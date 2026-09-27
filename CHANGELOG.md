@@ -52,6 +52,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   source block the render failed with a bare `nil pointer evaluating`; with the
   block but no name it rendered an empty `name` / `secretName` / `claimName`,
   which the API server rejected at apply.
+- **Two mounts on one `mountPath` fail the render** (issue #182). They
+  rendered, and the API server rejected the pod at apply (`mountPath: Invalid
+  value: "/etc/app": must be unique`) — under Argo CD a failed sync, after lint
+  and template had passed. The check covers every mount of the main container,
+  in the Deployment and in hooks and cronjobs of both scopes: `volumeMounts`,
+  mounted `externalSecrets` entries (a job's inherited ones included) and the
+  `mountedConfigFiles` `targetPath`s and `mountDir`s. Exact match only, whatever
+  the `subPath`: nested paths still pass. `volumeMounts` stays open (ADR 0017),
+  but every entry must now have a `name` and a `mountPath`.
 
 ---
 

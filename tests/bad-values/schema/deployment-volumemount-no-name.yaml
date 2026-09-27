@@ -1,0 +1,10 @@
+# A volumeMounts entry without a name. Kubernetes rejects it at apply time;
+# the schema catches it first.
+deployments:
+  app:
+    image: nginx:1.25
+    volumes:
+      - name: data
+        emptyDir: {}
+    volumeMounts:
+      - mountPath: /data

@@ -169,6 +169,18 @@
         }
       }
     },
+    "volumeMounts": {
+      "description": "Kubernetes volumeMounts of the main container. Open: a passthrough surface that grows with Kubernetes (ADR 0017). Each item declares the fields a template reads: mountPath (validateMountPaths, the duplicate mountPath check) and name, which Kubernetes requires beside it.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "mountPath"],
+        "properties": {
+          "name": { "type": "string" },
+          "mountPath": { "type": "string" }
+        }
+      }
+    },
     "probe": {
       "type": "object",
       "description": "Kubernetes probe configuration (httpGet, tcpSocket, exec, grpc). Closed in full, handler bodies included: a small, fixed shape (ADR 0017). The rule \"exactly one handler\" stays with the API server.",
@@ -767,7 +779,7 @@
         "pdb": { "$ref": "#/$defs/pdb" },
         "networkPolicy": { "$ref": "#/$defs/networkPolicy" },
         "volumes": { "$ref": "#/$defs/volumes" },
-        "volumeMounts": { "type": "array" },
+        "volumeMounts": { "$ref": "#/$defs/volumeMounts" },
         "nodeSelector": {
           "type": "object",
           "additionalProperties": { "type": "string" }
@@ -874,7 +886,7 @@
         },
         "automountServiceAccountToken": { "type": "boolean" },
         "volumes": { "$ref": "#/$defs/volumes" },
-        "volumeMounts": { "type": "array" },
+        "volumeMounts": { "$ref": "#/$defs/volumeMounts" },
         "restartPolicy": { "type": "string", "enum": ["OnFailure", "Never"] },
         "podSecurityContext": { "type": "object" },
         "securityContext": { "type": "object" }

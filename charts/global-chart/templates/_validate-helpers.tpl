@@ -500,3 +500,53 @@ Called from validate.yaml. Emits nothing on success.
   {{- end -}}
 {{- end -}}
 {{- end }}
+
+{{/*
+Validate that no two mounts of a container land on one mountPath (issue #182).
+The API server rejects the pod at apply ("must be unique"), which under Argo CD
+surfaces as a failed sync well after lint and template have passed. Exact match
+only, whatever the subPath: a nested path (/etc/app and /etc/app/a.conf) is
+legal and passes. Only the main container: extraContainers and init containers
+carry their own volumeMounts verbatim.
+The sources are every mount the chart renders on that container: the user's
+volumeMounts, the mounted externalSecrets entries (a job's inherited ones
+included) and, on a Deployment, the mountedConfigFiles targetPaths and
+mountDirs. An empty path is skipped: the required of the source reports it.
+Called from deployment.yaml and jobPodSpec. Emits nothing on success.
+Params:
+  errCtx             - values path of the container's owner (a job's from jobValuesPath)
+  volumeMounts       - the container's own volumeMounts
+  externalSecrets    - its own externalSecrets references
+  inherited          - the externalSecrets references a job inherits (optional)
+  inheritedCtx       - values path they are inherited from
+  mountedConfigFiles - the Deployment's mountedConfigFiles (optional)
+*/}}
+{{- define "global-chart.validateMountPaths" -}}
+{{- $mounts := list -}}
+{{- range $i, $m := (default (list) .volumeMounts) -}}
+  {{- $mounts = append $mounts (list $m.mountPath (printf "volumeMounts[%d]" $i)) -}}
+{{- end -}}
+{{- $mcf := default (dict) .mountedConfigFiles -}}
+{{- range $i, $f := (default (list) $mcf.files) -}}
+  {{- $mounts = append $mounts (list $f.targetPath (printf "mountedConfigFiles.files[%d] (%s)" $i $f.name)) -}}
+{{- end -}}
+{{- range $i, $b := (default (list) $mcf.bundles) -}}
+  {{- $mounts = append $mounts (list $b.mountDir (printf "mountedConfigFiles.bundles[%d]" $i)) -}}
+{{- end -}}
+{{- range (default (list) .inherited) -}}
+  {{- $mounts = append $mounts (list .mountPath (printf "externalSecrets '%s' (inherited from %s)" .name $.inheritedCtx)) -}}
+{{- end -}}
+{{- range (default (list) .externalSecrets) -}}
+  {{- $mounts = append $mounts (list .mountPath (printf "externalSecrets '%s'" .name)) -}}
+{{- end -}}
+{{- $seen := dict -}}
+{{- range $mounts -}}
+  {{- $path := index . 0 | default "" | toString -}}
+  {{- if $path -}}
+    {{- if hasKey $seen $path -}}
+      {{- fail (printf "%s: %s mounts on '%s', which %s already mounts. The API server rejects two mounts on one path in a container: give each its own mountPath." $.errCtx (index . 1) $path (get $seen $path)) -}}
+    {{- end -}}
+    {{- $_ := set $seen $path (index . 1) -}}
+  {{- end -}}
+{{- end -}}
+{{- end }}
