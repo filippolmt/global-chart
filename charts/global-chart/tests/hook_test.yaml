@@ -3976,3 +3976,30 @@ tests:
     asserts:
       - failedTemplate:
           errorPattern: "deployments.main.configMap.EMPTY: a null value reached a ConfigMap"
+
+  # ====== reloader.externalSecrets stays on the Deployment (ADR 0016) ======
+  # Every run creates fresh pods, so a Reloader annotation on a job is noise.
+  - it: should not inherit the deployment's Reloader annotation
+    set:
+      externalSecrets:
+        app-env:
+          secretstore: { kind: ClusterSecretStore, name: store }
+          secretkey: KEY
+          remote: { key: app/env }
+      deployments:
+        main:
+          image: nginx:1.25
+          externalSecrets:
+            - name: app-env
+          reloader:
+            externalSecrets: true
+          hooks:
+            pre-install:
+              migrate:
+                command: ["true"]
+    documentSelector:
+      path: kind
+      value: Job
+    asserts:
+      - notExists:
+          path: metadata.annotations["secret.reloader.stakater.com/reload"]

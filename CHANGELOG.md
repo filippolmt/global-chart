@@ -5,6 +5,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ---
 
+## [Unreleased]
+
+### Added
+
+- **`deployments.<name>.reloader.externalSecrets`** (issue #175, ADR 0016).
+  Opt-in: renders `secret.reloader.stakater.com/reload` on the Deployment with
+  the target of every referenced `externalSecrets` entry, so
+  [Stakater Reloader](https://github.com/stakater/Reloader) rolls the pods when
+  ESO rewrites the Secret — a value rotation in the external store, and the
+  race after a spec change that `checksum/external-secrets` cannot see. A reload
+  list set in `annotations`, `global.commonAnnotations` or both is merged,
+  not replaced. Enabling it with no referenced `externalSecrets` fails the render.
+  See [Rolling the pods on an ExternalSecret
+  change](README.md#rolling-the-pods-on-an-externalsecret-change).
+
+---
+
 ## [3.0.1] — 2026-09-26
 
 ### Fixed

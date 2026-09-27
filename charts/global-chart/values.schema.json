@@ -238,6 +238,17 @@
       "minimum": 0,
       "description": "0 or \"\" turns this metric off. A string holds digits only: \"80%\" is rejected, and so is a leading zero, which prints unquoted and reads as octal. With enabled: true at least one of the two targets must be positive."
     },
+    "deploymentReloader": {
+      "type": "object",
+      "description": "Opt-in integration with Stakater Reloader (ADR 0016). Inert without Reloader installed.",
+      "properties": {
+        "externalSecrets": {
+          "type": "boolean",
+          "description": "Render secret.reloader.stakater.com/reload on the Deployment with the target Secret of every externalSecrets entry it references, env and mounted, so Reloader rolls the pods when ESO rewrites one (value rotation, rollout race). Merged with a reload list set in annotations or global.commonAnnotations. Requires at least one referenced externalSecrets entry."
+        }
+      },
+      "additionalProperties": false
+    },
     "autoscaling": {
       "type": "object",
       "properties": {
@@ -604,6 +615,7 @@
         "terminationGracePeriodSeconds": { "type": "integer", "minimum": 0 },
         "autoscaling": { "$ref": "#/$defs/autoscaling" },
         "keda": { "$ref": "#/$defs/kedaScaledObject" },
+        "reloader": { "$ref": "#/$defs/deploymentReloader" },
         "strategy": { "type": "object" },
         "revisionHistoryLimit": { "type": "integer", "minimum": 0 },
         "progressDeadlineSeconds": { "type": "integer", "minimum": 0 },

@@ -1,0 +1,151 @@
+suite: deployment reloader.externalSecrets (issue #175, ADR 0016)
+templates:
+  - templates/deployment.yaml
+release:
+  name: rel
+set:
+  externalSecrets:
+    app-env:
+      secretstore: { kind: ClusterSecretStore, name: store }
+      secretkey: KEY
+      remote: { key: app/env }
+    app-conf:
+      secretstore: { kind: ClusterSecretStore, name: store }
+      secretkey: KEY
+      remote: { key: app/conf }
+      target:
+        name: app.conf
+  deployments:
+    main:
+      image: "nginx:1.25"
+      externalSecrets:
+        - name: app-env
+        - name: app-conf
+          mountPath: /etc/app
+      hooks:
+        pre-install:
+          migrate:
+            command: ["true"]
+tests:
+  - it: should not render the annotation when the field is off
+    asserts:
+      - notExists:
+          path: metadata.annotations["secret.reloader.stakater.com/reload"]
+
+  # Env and mounted targets alike, always the real target (never -hook), each
+  # quoted as a regex: Reloader anchors every entry, and a bare "." matches any
+  # character.
+  - it: should list the real target of every referenced ExternalSecret
+    set:
+      deployments.main.reloader.externalSecrets: true
+    asserts:
+      - equal:
+          path: metadata.annotations["secret.reloader.stakater.com/reload"]
+          value: rel-global-chart-app-env,app\.conf
+      - notExists:
+          path: spec.template.metadata.annotations["secret.reloader.stakater.com/reload"]
+
+  - it: should merge the user's own list, without duplicates
+    set:
+      deployments.main.reloader.externalSecrets: true
+      deployments.main.annotations:
+        secret.reloader.stakater.com/reload: "other, rel-global-chart-app-env"
+    asserts:
+      - equal:
+          path: metadata.annotations["secret.reloader.stakater.com/reload"]
+          value: other,rel-global-chart-app-env,app\.conf
+
+  - it: should merge the common annotations' list when the deployment sets none
+    set:
+      global.commonAnnotations:
+        secret.reloader.stakater.com/reload: shared
+      deployments.main.reloader.externalSecrets: true
+    asserts:
+      - equal:
+          path: metadata.annotations["secret.reloader.stakater.com/reload"]
+          value: shared,rel-global-chart-app-env,app\.conf
+
+  - it: should list a target once when it is both injected and mounted
+    set:
+      deployments.main.reloader.externalSecrets: true
+      deployments.main.externalSecrets:
+        - name: app-env
+        - name: app-env
+          mountPath: /etc/env
+    asserts:
+      - equal:
+          path: metadata.annotations["secret.reloader.stakater.com/reload"]
+          value: rel-global-chart-app-env
+
+  # Every list the user set is kept: "own wins over common" would drop a shared
+  # list in silence, the reason the targets are merged in the first place.
+  - it: should merge both the common and the deployment's list when both set it
+    set:
+      global.commonAnnotations:
+        secret.reloader.stakater.com/reload: shared
+      deployments.main.reloader.externalSecrets: true
+      deployments.main.annotations:
+        secret.reloader.stakater.com/reload: own
+    asserts:
+      - equal:
+          path: metadata.annotations["secret.reloader.stakater.com/reload"]
+          value: shared,own,rel-global-chart-app-env,app\.conf
+
+  - it: should not add a target the user already listed unquoted
+    set:
+      deployments.main.reloader.externalSecrets: true
+      deployments.main.annotations:
+        secret.reloader.stakater.com/reload: app.conf
+    asserts:
+      - equal:
+          path: metadata.annotations["secret.reloader.stakater.com/reload"]
+          value: app.conf,rel-global-chart-app-env
+
+  - it: should list the targets in reference order, env and mounted interleaved
+    set:
+      deployments.main.reloader.externalSecrets: true
+      deployments.main.externalSecrets:
+        - name: app-conf
+          mountPath: /etc/app
+        - name: app-env
+    asserts:
+      - equal:
+          path: metadata.annotations["secret.reloader.stakater.com/reload"]
+          value: app\.conf,rel-global-chart-app-env
+
+  - it: should leave the common list alone when the field is off
+    set:
+      global.commonAnnotations:
+        secret.reloader.stakater.com/reload: shared
+    asserts:
+      - equal:
+          path: metadata.annotations["secret.reloader.stakater.com/reload"]
+          value: shared
+
+  # ====== on, with nothing to watch ======
+  - it: should fail when the field is on and no externalSecrets is referenced
+    set:
+      deployments.other:
+        image: "nginx:1.25"
+        reloader:
+          externalSecrets: true
+    asserts:
+      - failedTemplate:
+          errorMessage: "deployments.other.reloader.externalSecrets is true but the deployment references no externalSecrets, so Reloader has no Secret to watch. Reference an externalSecrets entry or disable the field."
+
+  - it: should fail when the field is on and externalSecrets is empty
+    set:
+      deployments.main.reloader.externalSecrets: true
+      deployments.main.externalSecrets: []
+    asserts:
+      - failedTemplate:
+          errorPattern: "deployments.main.reloader.externalSecrets is true but the deployment references no externalSecrets"
+
+  - it: should not fail for a disabled deployment
+    set:
+      deployments.main.enabled: false
+      deployments.main.reloader.externalSecrets: true
+      deployments.main.externalSecrets: []
+    asserts:
+      - hasDocuments:
+          count: 0
