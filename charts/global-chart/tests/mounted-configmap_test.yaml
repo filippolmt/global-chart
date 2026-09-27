@@ -212,3 +212,45 @@ tests:
     asserts:
       - failedTemplate:
           errorMessage: "deployments.main.mountedConfigFiles.bundles[0].files[0] (appconfig): 'relPath' is required"
+
+  # An empty file is a file: `content: ""` used to fail as "required".
+  - it: should render an empty mounted file for content ""
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          mountedConfigFiles:
+            files:
+              - name: empty
+                filename: empty.conf
+                targetPath: /etc/app/empty.conf
+                content: ""
+            bundles:
+              - mountDir: /etc/bundle
+                files:
+                  - name: blank
+                    relPath: blank.conf
+                    content: ""
+    asserts:
+      - equal:
+          path: data["empty.conf"]
+          value: ""
+        documentIndex: 0
+      - equal:
+          path: data["blank.conf"]
+          value: ""
+        documentIndex: 1
+
+  - it: should still fail when a mounted file has no content
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          mountedConfigFiles:
+            files:
+              - name: missing
+                filename: missing.conf
+                targetPath: /etc/app/missing.conf
+    asserts:
+      - failedTemplate:
+          errorMessage: "deployments.main.mountedConfigFiles.files[0] (missing): 'content' is required"

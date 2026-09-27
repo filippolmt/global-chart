@@ -1,0 +1,24 @@
+# A deployment-level cronjob inherits the deployment's mounted externalSecrets:
+# its own volumeMounts may not land on the same path (issue #182).
+# Expected fail substring: "deployments.main.cronJobs.report: externalSecrets 'app-conf' (inherited from deployments.main) mounts on '/etc/app', which volumeMounts[0] already mounts"
+externalSecrets:
+  app-conf:
+    secretstore: { kind: ClusterSecretStore, name: store }
+    secretkey: KEY
+    remote: { key: app }
+deployments:
+  main:
+    image: nginx:1.25
+    externalSecrets:
+      - name: app-conf
+        mountPath: /etc/app
+    cronJobs:
+      report:
+        schedule: "0 0 * * *"
+        command: ["true"]
+        volumes:
+          - name: other
+            emptyDir: {}
+        volumeMounts:
+          - name: other
+            mountPath: /etc/app

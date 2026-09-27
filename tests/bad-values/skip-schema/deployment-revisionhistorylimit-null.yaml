@@ -1,0 +1,7 @@
+# A null in a values map survives the merge when the chart sets no default for
+# the key, so it reaches printScalar the way a null list item does.
+# Expected fail substring: "printScalar: a null value reached a field the chart prints"
+deployments:
+  app:
+    image: nginx:1.25
+    revisionHistoryLimit: null

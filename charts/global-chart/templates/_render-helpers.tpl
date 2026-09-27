@@ -44,7 +44,8 @@ Contract, by kind of value:
   "<nil>" (toString) or 0 (int64) — a value the user never wrote. The typed
   fields cannot carry a null (the schema rejects it); the free-form maps can,
   and renderConfigMapData checks for it first, naming the values path this
-  helper does not know. This fail is the net under every other caller.
+  helper does not know. This fail is the net under every other caller, and
+  under --skip-schema-validation (tests/bad-values/skip-schema/).
 Maps and slices are not scalars: callers render them with toYaml.
 Usage: {{ include "global-chart.printScalar" $deploy.revisionHistoryLimit }}
        {{ include "global-chart.printScalar" $value | quote }}
@@ -63,8 +64,9 @@ Usage: {{ include "global-chart.printScalar" $deploy.revisionHistoryLimit }}
 Render a single volume entry. Supports both:
 - Legacy format: { name, type, secret/configMap/persistentVolumeClaim/emptyDir }
 - Native format: { name, <any-k8s-volume-source> } (no .type field)
-$defs/volumes stays open (ADR 0017) and requires name, so the required below
-fires only under --skip-schema-validation; the legacy type vocabulary is this
+$defs/volumes stays open (ADR 0017) and requires a non-empty name, so the
+required below fires only under --skip-schema-validation, where a fixture in
+tests/bad-values/skip-schema/ holds it; the legacy type vocabulary is this
 helper's fail, not a schema enum.
 */}}
 {{- define "global-chart.renderVolume" -}}
@@ -95,6 +97,51 @@ helper's fail, not a schema enum.
   {{- toYaml $native | nindent 2 }}
 {{- end }}
 {{- end }}
+
+{{/*
+The values path of every volume in the legacy format (one carrying `type`), in
+the Deployment and in the hooks and cronjobs of both scopes, as a JSON list of
+"<path>.volumes[<i>] (<name>)". Disabled deployments render nothing and are
+skipped. Read by NOTES.txt for the deprecation line (issue #183); it goes with
+the format in 4.0.0.
+Usage: {{- $legacy := include "global-chart.legacyVolumePaths" . | fromJsonArray }}
+*/}}
+{{- define "global-chart.legacyVolumePaths" -}}
+{{- $owners := list (dict "hooks" .Values.hooks "cronJobs" .Values.cronJobs "deployName" "") -}}
+{{- range $name, $deploy := .Values.deployments -}}
+  {{- if and $deploy (eq (include "global-chart.deploymentEnabled" $deploy) "true") -}}
+    {{- $owners = append $owners (dict "path" (printf "deployments.%s" $name) "volumes" $deploy.volumes "hooks" $deploy.hooks "cronJobs" $deploy.cronJobs "deployName" $name) -}}
+  {{- end -}}
+{{- end -}}
+{{- $withVolumes := list -}}
+{{- range $owner := $owners -}}
+  {{- if $owner.path -}}
+    {{- $withVolumes = append $withVolumes (dict "path" $owner.path "volumes" $owner.volumes) -}}
+  {{- end -}}
+  {{- range $hookType, $jobs := (default (dict) $owner.hooks) -}}
+    {{- range $jobName, $job := (default (dict) $jobs) -}}
+      {{- if $job -}}
+        {{- $withVolumes = append $withVolumes (dict "path" (include "global-chart.jobValuesPath" (dict "kind" "hook" "deploymentName" $owner.deployName "hookType" $hookType "jobName" $jobName)) "volumes" $job.volumes) -}}
+      {{- end -}}
+    {{- end -}}
+  {{- end -}}
+  {{- range $jobName, $job := (default (dict) $owner.cronJobs) -}}
+    {{- if $job -}}
+      {{- $withVolumes = append $withVolumes (dict "path" (include "global-chart.jobValuesPath" (dict "kind" "cronjob" "deploymentName" $owner.deployName "jobName" $jobName)) "volumes" $job.volumes) -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+{{- $out := list -}}
+{{- range $withVolumes -}}
+  {{- $path := .path -}}
+  {{- range $i, $vol := (default (list) .volumes) -}}
+    {{- if hasKey $vol "type" -}}
+      {{- $out = append $out (printf "%s.volumes[%d] (%s)" $path $i $vol.name) -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+{{- toJson $out -}}
+{{- end -}}
 
 {{/*
 Render imagePullSecrets block. Accepts a list of strings or objects with "name" key.
@@ -387,6 +434,9 @@ Numbers come back float64: see the file header.
   {{- $depName := $ref.deployment -}}
   {{- $deploy := index $root.Values.deployments $depName -}}
   {{- if not $deploy -}}
+    {{- if hasKey (default (dict) $root.Values.deployments) $depName -}}
+      {{- fail (printf "%s '%s' references deployment '%s', which is empty: an empty deployments entry renders nothing. Fill the entry, or drop the reference." $sourceKind $ident $depName) -}}
+    {{- end -}}
     {{- fail (printf "%s '%s' references deployment '%s' which does not exist in .Values.deployments" $sourceKind $ident $depName) -}}
   {{- end -}}
   {{- if ne (include "global-chart.deploymentEnabled" $deploy) "true" -}}
@@ -585,7 +635,7 @@ dataFrom:
 data:
   - remoteRef:
       {{- include "global-chart.renderExternalSecretRemoteRef" (dict "remote" $remote "keyError" (printf "externalSecrets.%s.remote.key is mandatory" $key)) | nindent 6 }}
-    secretKey: {{ required "secretkey is mandatory" $secret.secretkey | quote }}
+    secretKey: {{ required (printf "externalSecrets.%s.secretkey is mandatory" $key) $secret.secretkey | quote }}
 {{- end }}
 refreshInterval: {{ ternary $secret.refreshInterval "1h" (hasKey $secret "refreshInterval") | quote }}
 {{- /* Emitted whenever a store is required — so an incomplete secretstore
@@ -614,7 +664,7 @@ target:
 {{/*
 Resolve a list of externalSecrets references ({name, mountPath?}) to what a pod
 consumes, split by form: `env` holds the Secret names to inject as envFrom
-sources, `mounted` the {secretName, volumeName, mountPath} of the entries that
+sources, `mounted` the {key, secretName, volumeName, mountPath} of the entries that
 carry a mountPath. `specs` holds the real ExternalSecret spec of every entry,
 in list order, rendered by renderExternalSecretSpec whatever `hook` says: the
 input of the Deployment's checksum/external-secrets (issue #174), ignored by the
@@ -622,7 +672,7 @@ jobs. `targets` holds every Secret name the pod reads, env and mounted, in list
 order, each once: the input of the Deployment's Reloader annotation (ADR 0016).
 Returns JSON {env: [...], mounted: [...], specs: [...], targets: [...]}; callers do
 `include ... | fromJson` and render `mounted` through
-renderExternalSecretVolumeMounts / renderExternalSecretVolumes.
+containerVolumeMounts / renderExternalSecretVolumes.
 A reference names a key of the root externalSecrets map, never a Secret name:
 the generated names are not a public interface (ADR 0007). Fails at render
 time, rather than at apply time far from the cause, on a key that names
@@ -645,6 +695,9 @@ Params:
 {{- range $ref := (default (list) .refs) -}}
   {{- $secret := index (default (dict) $root.Values.externalSecrets) $ref.name -}}
   {{- if not $secret -}}
+    {{- if hasKey (default (dict) $root.Values.externalSecrets) $ref.name -}}
+      {{- fail (printf "%s.externalSecrets references '%s', which is empty: an empty externalSecrets entry renders no ExternalSecret. Fill the entry, or drop the reference." $.errCtx $ref.name) -}}
+    {{- end -}}
     {{- fail (printf "%s.externalSecrets references '%s', which is not a key of externalSecrets. Name the key of the externalSecrets entry, not the Secret it produces." $.errCtx $ref.name) -}}
   {{- end -}}
   {{- $nameCtx := dict "root" $root "key" $ref.name "secret" $secret -}}
@@ -660,7 +713,7 @@ Params:
       {{- fail (printf "%s.externalSecrets: the volume '%s' generated for '%s' is already declared in this pod. Mount a key once, and do not name your own volumes after it." $.errCtx $volumeName $ref.name) -}}
     {{- end -}}
     {{- $_ := set $taken $volumeName true -}}
-    {{- $_ := set $out "mounted" (append $out.mounted (dict "secretName" $secretName "volumeName" $volumeName "mountPath" $ref.mountPath)) -}}
+    {{- $_ := set $out "mounted" (append $out.mounted (dict "key" $ref.name "secretName" $secretName "volumeName" $volumeName "mountPath" $ref.mountPath)) -}}
   {{- else -}}
     {{- $_ := set $out "env" (append $out.env $secretName) -}}
   {{- end -}}
@@ -669,20 +722,56 @@ Params:
 {{- end -}}
 
 {{/*
-The volumeMounts and the volumes of the mounted externalSecrets entries, one
-per entry of a resolveExternalSecretRefs `mounted` list, as list items at
-indent 0. Shared by deployment.yaml and jobPodSpec, so the two render the same
-read-only mount of the same Secret.
-Usage: {{- include "global-chart.renderExternalSecretVolumeMounts" $mounted | nindent 4 }}
+The volumeMounts of a pod's main container, in render order, as a JSON list of
+volumeMount maps: the user's volumeMounts, the mountedConfigFiles files and
+bundles (a Deployment's only), then the mounted externalSecrets entries, the
+inherited before the own. The single home of which mounts land on the
+container: deployment.yaml and jobPodSpec render this list, and
+validateMountPaths checks it for a repeated mountPath (issue #182), so a new
+mount source cannot reach the manifest unchecked.
+Callers do `include ... | fromJsonArray` and toYaml the result.
+Params:
+  errCtx             - values path of the container's owner (a job's from jobValuesPath)
+  volumeMounts       - the container's own volumeMounts, rendered verbatim
+  mountedConfigFiles - the Deployment's mountedConfigFiles (optional)
+  inherited          - the resolveExternalSecretRefs `mounted` list a job inherits (optional)
+  inheritedCtx       - values path it is inherited from
+  externalSecrets    - the container's own resolveExternalSecretRefs `mounted` list
 */}}
-{{- define "global-chart.renderExternalSecretVolumeMounts" -}}
-{{- $out := list -}}
-{{- range . -}}
-{{- $out = append $out (dict "name" .volumeName "mountPath" .mountPath "readOnly" true) -}}
+{{- define "global-chart.containerVolumeMounts" -}}
+{{- $mounts := list -}}
+{{- range $i, $m := (default (list) .volumeMounts) -}}
+  {{- $mounts = append $mounts (dict "mount" $m "owner" (printf "volumeMounts[%d]" $i)) -}}
 {{- end -}}
-{{- toYaml $out -}}
+{{- $mcf := default (dict) .mountedConfigFiles -}}
+{{- range $i, $f := (default (list) $mcf.files) -}}
+  {{- $path := required (printf "%s.mountedConfigFiles.files[%d] (%s): 'targetPath' is required" $.errCtx $i $f.name) $f.targetPath -}}
+  {{- $mount := dict "name" (include "global-chart.mountedFileVolumeName" (dict "fileName" $f.name)) "mountPath" $path "subPath" (default "" $f.filename) "readOnly" true -}}
+  {{- $mounts = append $mounts (dict "mount" $mount "owner" (printf "mountedConfigFiles.files[%d] (%s)" $i $f.name)) -}}
+{{- end -}}
+{{- range $i, $b := (default (list) $mcf.bundles) -}}
+  {{- $path := required (printf "%s.mountedConfigFiles.bundles[%d]: 'mountDir' is required" $.errCtx $i) $b.mountDir -}}
+  {{- $mount := dict "name" (include "global-chart.mountedBundleVolumeName" (dict "bundleIndex" $i)) "mountPath" $path "readOnly" true -}}
+  {{- $mounts = append $mounts (dict "mount" $mount "owner" (printf "mountedConfigFiles.bundles[%d]" $i)) -}}
+{{- end -}}
+{{- range (default (list) .inherited) -}}
+  {{- $mounts = append $mounts (dict "mount" (dict "name" .volumeName "mountPath" .mountPath "readOnly" true) "owner" (printf "externalSecrets '%s' (inherited from %s)" .key $.inheritedCtx)) -}}
+{{- end -}}
+{{- range (default (list) .externalSecrets) -}}
+  {{- $mounts = append $mounts (dict "mount" (dict "name" .volumeName "mountPath" .mountPath "readOnly" true) "owner" (printf "externalSecrets '%s'" .key)) -}}
+{{- end -}}
+{{- include "global-chart.validateMountPaths" (dict "errCtx" .errCtx "mounts" $mounts) -}}
+{{- $out := list -}}
+{{- range $mounts -}}{{- $out = append $out .mount -}}{{- end -}}
+{{- toJson $out -}}
 {{- end -}}
 
+{{/*
+The volumes of the mounted externalSecrets entries, one per entry of a
+resolveExternalSecretRefs `mounted` list, as list items at indent 0. Shared by
+deployment.yaml and jobPodSpec, so the two render the same Secret volume.
+Usage: {{- include "global-chart.renderExternalSecretVolumes" $mounted | nindent 2 }}
+*/}}
 {{- define "global-chart.renderExternalSecretVolumes" -}}
 {{- $out := list -}}
 {{- range . -}}

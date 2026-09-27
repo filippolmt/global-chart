@@ -37,13 +37,17 @@ The Makefile carries the rest. Three rules about when to run what:
 - `charts/global-chart/values.schema.json` — JSON Schema
 - `charts/global-chart/tests/` — helm-unittest suites, one `*_test.yaml` per
   template
-- `tests/` — lint scenario values + `bad-values/` for rejection tests, split into
-  `schema/` (rejected by `values.schema.json`) and `fail/` (rejected by a
-  template `fail`). The directory *is* the declaration and `validate-bad-values`
-  asserts it, so a schema hole covered by a `fail` cannot pass as coverage.
-  Every `fail/` fixture carries one or more `# Expected fail substring: "…"`
+- `tests/` — lint scenario values + `bad-values/` for rejection tests, in three
+  classes: `schema/` (rejected by `values.schema.json`), `fail/` (rejected by a
+  template `fail`) and `skip-schema/` (rejected by the schema, *and* by a
+  template `fail` under `--skip-schema-validation`: a guard the schema shadows,
+  the only protection left on the escape hatch ADR 0017 recommends). The
+  directory *is* the declaration and `validate-bad-values` asserts it, so a
+  schema hole covered by a `fail` cannot pass as coverage. Every `fail/` and
+  `skip-schema/` fixture carries one or more `# Expected fail substring: "…"`
   lines, and each must appear in the error: a fixture rejected by the wrong
-  `fail` does not pass
+  `fail` does not pass. helm-unittest cannot skip the schema, so a shadowed
+  guard is tested in `skip-schema/`, never in a suite
 
 ### Helper Files
 
@@ -58,9 +62,9 @@ is the source of truth, this table is only the routing.
 | `_job-helpers.tpl` | One implementation of the pod spec, image resolution (`jobImageSource`, read for the image and its pull policy), the CronJob spec fields (`cronJobSpecFields`) and the Job spec fields table (`jobSpecVerbatimFields`) for **every** hook and cronjob, both scopes — root-level callers simply pass no `deploy`. `jobValuesPath` is the single home of the name a job carries in error messages |
 | `_serviceaccount-helpers.tpl` | Every ServiceAccount the chart renders or binds, resolved to `{create, name, automount, annotations}`: deployment, rbac and job resolvers, with the deployment and rbac defaults in `resolveServiceAccount`; the job resolver keeps its own chain, and rejects a job naming its SA twice with different names itself — every job render path goes through it, so the check cannot be skipped. Also the SA side of the hook copies (ADR 0010, 0011): every SA the release creates (`releaseServiceAccounts`), whether it creates one (`releaseCreatesServiceAccount`), the SA a copy binds (`serviceAccountCopyName`), the match of a hook to the SA copy (`hookReadsServiceAccountCopy`) and to the `rbacs.roles` copies (`hookRbacCopy`, over `rbacServiceAccounts`), and the SA a hook's pod runs as (`hookServiceAccountName`). Templates never read `serviceAccount.*` from values |
 | `_hook-helpers.tpl` | The three `helm.sh/hook*` annotations, weights and delete policies, driven by a role table; the phase cut `hookReadsPrereqCopy`, the one enumeration of the hooks it admits (`prereqCopyHooks`) and the consumer scans of the ExternalSecret, `rbacs.roles` and ServiceAccount hook copies |
-| `_render-helpers.tpl` | `printScalar`, the single home of how a number from values is printed, in integer and string fields alike; shared render blocks, `renderAnnotations`, the ConfigMap/Secret `data:` bodies with `rejectNullDataValue`, the single home of their null check, and the Role `rules:` block shared with the hook-prerequisite copies, `deploymentOwnAnnotations` (the single home of `reloader.externalSecrets`: the reload list, its union with the user's, its fail — ADR 0016), and the port helpers (`containerPorts`, `servicePrimaryPort`, `extraPortProtocol`, `serviceType`) |
+| `_render-helpers.tpl` | `printScalar`, the single home of how a number from values is printed, in integer and string fields alike; shared render blocks, `renderAnnotations`, the ConfigMap/Secret `data:` bodies with `rejectNullDataValue`, the single home of their null check, and the Role `rules:` block shared with the hook-prerequisite copies, `deploymentOwnAnnotations` (the single home of `reloader.externalSecrets`: the reload list, its union with the user's, its fail — ADR 0016), `legacyVolumePaths` (the legacy `volumes[].type` entries NOTES.txt lists, gone in 4.0.0), `containerVolumeMounts` (the single home of the mounts a main container receives, Deployment and jobs alike, checked by `validateMountPaths`), and the port helpers (`containerPorts`, `servicePrimaryPort`, `extraPortProtocol`, `serviceType`) |
 | `_keda-helpers.tpl` | KEDA names, trigger and `authenticationRef` resolution, the CRD guard |
-| `_validate-helpers.tpl` | The fullname against the labels it leads, name collisions, routing and autoscaling conflicts, named-`targetPort` resolution (`validateServiceTargetPorts`), the Service-side port constraints (`validateServicePorts`: duplicate port names and port+protocol pairs, `nodePort` only on NodePort/LoadBalancer). Also `hpaActiveTargets`, the single home of "an HPA target is active", read by the autoscaling validator and by `hpa.yaml` |
+| `_validate-helpers.tpl` | The fullname against the labels it leads, name collisions, routing and autoscaling conflicts, named-`targetPort` resolution (`validateServiceTargetPorts`), the Service-side port constraints (`validateServicePorts`: duplicate port names and port+protocol pairs, `nodePort` only on NodePort/LoadBalancer), a duplicate `mountPath` in a container (`validateMountPaths`, called by `containerVolumeMounts`). Also `hpaActiveTargets`, the single home of "an HPA target is active", read by the autoscaling validator and by `hpa.yaml` |
 
 ### Key Design Patterns
 

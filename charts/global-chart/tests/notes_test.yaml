@@ -79,3 +79,77 @@ tests:
     asserts:
       - notMatchRegexRaw:
           pattern: "3\\.18\\.6"
+
+  # ====== Legacy volumes[].type deprecation (issue #183) ======
+  - it: should list every legacy volume of every scope in a deprecation line
+    set:
+      deployments:
+        web:
+          image: nginx:1.25
+          volumes:
+            - name: native
+              emptyDir: {}
+            - name: data
+              type: emptyDir
+          hooks:
+            pre-install:
+              migrate:
+                command: ["true"]
+                volumes:
+                  - name: creds
+                    type: secret
+                    secret: { name: creds }
+          cronJobs:
+            report:
+              schedule: "0 0 * * *"
+              command: ["true"]
+              volumes:
+                - name: cache
+                  type: persistentVolumeClaim
+                  persistentVolumeClaim: { name: cache }
+      hooks:
+        post-install:
+          seed:
+            image: myapp:v1
+            command: ["true"]
+            volumes:
+              - name: conf
+                type: configMap
+                configMap: { name: conf }
+      cronJobs:
+        cleanup:
+          image: myapp:v1
+          schedule: "0 0 * * *"
+          command: ["true"]
+          volumes:
+            - name: tmp
+              type: emptyDir
+    asserts:
+      - matchRegexRaw:
+          pattern: "DEPRECATED: the legacy volumes\\[\\]\\.type format"
+      - matchRegexRaw:
+          pattern: "- deployments\\.web\\.volumes\\[1\\] \\(data\\)"
+      - matchRegexRaw:
+          pattern: "- deployments\\.web\\.hooks\\.pre-install\\.migrate\\.volumes\\[0\\] \\(creds\\)"
+      - matchRegexRaw:
+          pattern: "- deployments\\.web\\.cronJobs\\.report\\.volumes\\[0\\] \\(cache\\)"
+      - matchRegexRaw:
+          pattern: "- hooks\\.post-install\\.seed\\.volumes\\[0\\] \\(conf\\)"
+      - matchRegexRaw:
+          pattern: "- cronJobs\\.cleanup\\.volumes\\[0\\] \\(tmp\\)"
+      - notMatchRegexRaw:
+          pattern: "\\(native\\)"
+      - matchRegexRaw:
+          pattern: "https://github\\.com/filippolmt/global-chart#deprecated-the-legacy-volumestype-format"
+
+  - it: should not print the deprecation line when every volume is native
+    set:
+      deployments:
+        web:
+          image: nginx:1.25
+          volumes:
+            - name: native
+              emptyDir: {}
+    asserts:
+      - notMatchRegexRaw:
+          pattern: "DEPRECATED"

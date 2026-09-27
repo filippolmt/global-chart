@@ -389,3 +389,23 @@ tests:
       - equal:
           path: spec.initialCooldownPeriod
           value: 10000000
+
+  # An empty entry renders no TriggerAuthentication: the rewritten ref would
+  # dangle, and KEDA would fail at runtime.
+  - it: should fail when authenticationRef names an empty kedaTriggerAuthentications entry
+    set:
+      kedaTriggerAuthentications:
+        sqs-auth: {}
+      deployments:
+        worker:
+          image: nginx:1.25
+          keda:
+            enabled: true
+            triggers:
+              - type: aws-sqs-queue
+                metadata: { queueURL: https://example, queueLength: "10", awsRegion: eu-west-1 }
+                authenticationRef:
+                  name: sqs-auth
+    asserts:
+      - failedTemplate:
+          errorPattern: "authenticationRef names kedaTriggerAuthentications 'sqs-auth', which is empty"

@@ -24,7 +24,8 @@ Values carry the *key* of .Values.kedaTriggerAuthentications, not the rendered
 name — the rendered name embeds the release name, which the user cannot know
 when writing values. If the key exists in the map, this returns the name the
 chart actually renders; otherwise the value is passed through verbatim so a
-TriggerAuthentication managed outside the chart can still be referenced.
+TriggerAuthentication managed outside the chart can still be referenced. A key
+whose entry is empty fails: it renders nothing, so the ref would dangle.
 
 Only namespaced references are rewritten: the map renders TriggerAuthentication,
 never ClusterTriggerAuthentication, so a ref that names a cluster-scoped object
@@ -35,6 +36,9 @@ Usage: {{ include "global-chart.kedaAuthRefName" (dict "root" . "name" $refName 
 {{- $auths := default (dict) .root.Values.kedaTriggerAuthentications -}}
 {{- $namespaced := or (not .kind) (eq .kind "TriggerAuthentication") -}}
 {{- if and $namespaced (hasKey $auths .name) -}}
+{{- if not (index $auths .name) -}}
+{{- fail (printf "a keda trigger's authenticationRef names kedaTriggerAuthentications '%s', which is empty: an empty entry renders no TriggerAuthentication, and the ScaledObject would reference nothing. Fill the entry, or drop the reference." .name) -}}
+{{- end -}}
 {{- include "global-chart.kedaTriggerAuthName" (dict "root" .root "name" .name) -}}
 {{- else -}}
 {{- .name -}}

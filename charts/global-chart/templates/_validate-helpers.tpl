@@ -500,3 +500,31 @@ Called from validate.yaml. Emits nothing on success.
   {{- end -}}
 {{- end -}}
 {{- end }}
+
+{{/*
+Validate that no two mounts of a container land on one mountPath (issue #182).
+The API server rejects the pod at apply ("must be unique"), which under Argo CD
+surfaces as a failed sync well after lint and template have passed. It compares
+the mountPath strings as written, and so does this check: /etc/app and
+/etc/app/ are two paths to both, a nested path (/etc/app and /etc/app/a.conf)
+is legal, and the subPath plays no part. Only the main container:
+extraContainers and init containers carry their own volumeMounts verbatim.
+An empty path is skipped: the schema, or the source's required, reports it.
+Called from containerVolumeMounts, the single home of the list. Emits nothing
+on success.
+Params:
+  errCtx - values path of the container's owner
+  mounts - list of {mount (a volumeMount map), owner (its values path, relative to errCtx)}
+*/}}
+{{- define "global-chart.validateMountPaths" -}}
+{{- $seen := dict -}}
+{{- range .mounts -}}
+  {{- $path := .mount.mountPath | default "" | toString -}}
+  {{- if $path -}}
+    {{- if hasKey $seen $path -}}
+      {{- fail (printf "%s: %s mounts on '%s', which %s already mounts. The API server rejects two mounts on one path in a container: give each its own mountPath." $.errCtx .owner $path (get $seen $path)) -}}
+    {{- end -}}
+    {{- $_ := set $seen $path .owner -}}
+  {{- end -}}
+{{- end -}}
+{{- end }}

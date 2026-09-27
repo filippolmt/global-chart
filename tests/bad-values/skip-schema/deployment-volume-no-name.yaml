@@ -1,0 +1,9 @@
+# A volume without a name (issue #185). The schema rejects it first; under
+# --skip-schema-validation, the escape hatch ADR 0017 recommends, the required
+# in renderVolume is the only protection left.
+# Expected fail substring: "renderVolume: every volume entry must have a 'name' field"
+deployments:
+  app:
+    image: nginx:1.25
+    volumes:
+      - emptyDir: {}

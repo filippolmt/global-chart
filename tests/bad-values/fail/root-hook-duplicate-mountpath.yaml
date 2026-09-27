@@ -1,0 +1,16 @@
+# Two volumeMounts of a root-level hook on one mountPath (issue #182).
+# Expected fail substring: "hooks.pre-install.migrate: volumeMounts[1] mounts on '/data', which volumeMounts[0] already mounts"
+hooks:
+  pre-install:
+    migrate:
+      image: myapp:v1
+      command: ["true"]
+      volumes:
+        - name: data
+          emptyDir: {}
+      volumeMounts:
+        - name: data
+          mountPath: /data
+        - name: data
+          mountPath: /data
+          subPath: sub

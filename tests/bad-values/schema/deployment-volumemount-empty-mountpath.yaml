@@ -1,0 +1,11 @@
+# A volumeMounts entry with an empty mountPath. The API server rejects it at
+# apply; validateMountPaths skips an empty path, so the schema must catch it.
+deployments:
+  app:
+    image: nginx:1.25
+    volumes:
+      - name: data
+        emptyDir: {}
+    volumeMounts:
+      - name: data
+        mountPath: ""

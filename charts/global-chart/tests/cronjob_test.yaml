@@ -2126,3 +2126,47 @@ tests:
     asserts:
       - notExists:
           path: metadata.annotations["secret.reloader.stakater.com/reload"]
+
+  # Duplicate mountPath (issue #182): a job's own externalSecrets count too.
+  - it: should fail when a cronjob's own externalSecrets entry repeats a volumeMounts mountPath
+    set:
+      externalSecrets:
+        app-conf:
+          secretstore: { kind: ClusterSecretStore, name: store }
+          secretkey: KEY
+          remote: { key: app }
+      cronJobs:
+        report:
+          image: myapp:v1
+          schedule: "0 0 * * *"
+          command: ["true"]
+          externalSecrets:
+            - name: app-conf
+              mountPath: /etc/app
+          volumes:
+            - name: other
+              emptyDir: {}
+          volumeMounts:
+            - name: other
+              mountPath: /etc/app
+    asserts:
+      - failedTemplate:
+          errorPattern: "cronJobs.report: externalSecrets 'app-conf' mounts on '/etc/app', which volumeMounts\\[0\\] already mounts"
+
+  - it: should accept a cronjob whose mounts nest
+    set:
+      cronJobs:
+        report:
+          image: myapp:v1
+          schedule: "0 0 * * *"
+          command: ["true"]
+          volumes:
+            - name: conf
+              emptyDir: {}
+          volumeMounts:
+            - name: conf
+              mountPath: /data
+            - name: conf
+              mountPath: /data/sub
+    asserts:
+      - notFailedTemplate: {}

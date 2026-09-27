@@ -140,7 +140,7 @@ unit-test: ## Run helm-unittest via Docker
 	@docker run --rm -u $$(id -u):$$(id -g) -v $(CURDIR)/$(CHART_DIR)/$(GLOBAL_CHART_NAME):/apps -w /apps $(HELM_UNITTEST_IMAGE) .
 	@echo "==> All unit tests passed!"
 
-validate-bad-values: ## Verify bad-values are rejected: schema/ by values.schema.json, fail/ by the template fail each names
+validate-bad-values: ## Verify bad-values are rejected: schema/ by values.schema.json, fail/ by the template fail each names, skip-schema/ by both (the fail under --skip-schema-validation)
 	@echo "==> Validating bad-values are correctly rejected..."
 	@set -e; for f in tests/bad-values/schema/*.yaml; do \
 		[ -e "$$f" ] || { echo "    FAIL: tests/bad-values/schema/ holds no fixture; green here would be vacuous"; exit 1; }; \
@@ -167,6 +167,23 @@ validate-bad-values: ## Verify bad-values are rejected: schema/ by values.schema
 				printf '%s' "$$out" | grep -qF -- "$$sub" || { echo "    FAIL: $$f was rejected, but not by the fail it expects: missing \"$$sub\""; echo "          got: $$out"; exit 1; }; \
 			done; \
 			echo "    OK: $$f rejected by the expected template fail"; \
+		fi; \
+	done
+	@set -e; for f in tests/bad-values/skip-schema/*.yaml; do \
+		[ -e "$$f" ] || { echo "    FAIL: tests/bad-values/skip-schema/ holds no fixture; green here would be vacuous"; exit 1; }; \
+		subs=$$(sed -n 's/^# Expected fail substring: "\(.*\)"$$/\1/p' "$$f"); \
+		[ -n "$$subs" ] || { echo "    FAIL: $$f declares no '# Expected fail substring: \"...\"' line; without one, any fail passes it"; exit 1; }; \
+		if ! helm lint $(STRICT) -f "$$f" ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) 2>&1 | grep -qF "$(SCHEMA_REJECTION)"; then \
+			echo "    FAIL: $$f is not rejected by values.schema.json; the guard is not shadowed, it belongs in tests/bad-values/fail/"; \
+			exit 1; \
+		elif out=$$(helm template global-chart-bad-values ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) --skip-schema-validation $(HELM_API_VERSIONS) -f "$$f" 2>&1); then \
+			echo "    FAIL: $$f should have been rejected under --skip-schema-validation but was accepted"; \
+			exit 1; \
+		else \
+			echo "$$subs" | while IFS= read -r sub; do \
+				printf '%s' "$$out" | grep -qF -- "$$sub" || { echo "    FAIL: $$f was rejected, but not by the fail it expects: missing \"$$sub\""; echo "          got: $$out"; exit 1; }; \
+			done; \
+			echo "    OK: $$f rejected by the schema, and by the expected template fail without it"; \
 		fi; \
 	done
 	@python3 tests/bad-values/check-closure-coverage.py "$(SCHEMA_REJECTION)" $(STRICT)

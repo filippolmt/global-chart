@@ -1781,3 +1781,132 @@ tests:
     asserts:
       - notExists:
           path: spec.template.spec.priorityClassName
+
+  # Two mounts on one mountPath render fine and are rejected by the API server
+  # at apply, far from the cause (issue #182). Exact match only: a nested path
+  # is legal.
+  - it: should fail when a mounted externalSecrets entry repeats a volumeMounts mountPath
+    set:
+      externalSecrets:
+        app-conf:
+          secretstore: { kind: ClusterSecretStore, name: store }
+          secretkey: KEY
+          remote: { key: app }
+      deployments:
+        main:
+          image: nginx:1.25
+          externalSecrets:
+            - name: app-conf
+              mountPath: /etc/app
+          volumes:
+            - name: other
+              emptyDir: {}
+          volumeMounts:
+            - name: other
+              mountPath: /etc/app
+    asserts:
+      - failedTemplate:
+          errorMessage: "deployments.main: externalSecrets 'app-conf' mounts on '/etc/app', which volumeMounts[0] already mounts. The API server rejects two mounts on one path in a container: give each its own mountPath."
+
+  - it: should fail when two volumeMounts share a mountPath, whatever their subPath
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          volumes:
+            - name: conf
+              emptyDir: {}
+          volumeMounts:
+            - name: conf
+              mountPath: /etc/app/a.conf
+              subPath: a.conf
+            - name: conf
+              mountPath: /etc/app/a.conf
+              subPath: b.conf
+    asserts:
+      - failedTemplate:
+          errorPattern: "deployments.main: volumeMounts\\[1\\] mounts on '/etc/app/a.conf', which volumeMounts\\[0\\] already mounts"
+
+  - it: should fail when a mountedConfigFiles file repeats a volumeMounts mountPath
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          volumes:
+            - name: conf
+              emptyDir: {}
+          volumeMounts:
+            - name: conf
+              mountPath: /etc/app/config.yaml
+          mountedConfigFiles:
+            files:
+              - name: myconfig
+                filename: config.yaml
+                targetPath: /etc/app/config.yaml
+                content: "a: b"
+    asserts:
+      - failedTemplate:
+          errorPattern: "deployments.main: mountedConfigFiles.files\\[0\\] \\(myconfig\\) mounts on '/etc/app/config.yaml', which volumeMounts\\[0\\] already mounts"
+
+  - it: should fail when a mountedConfigFiles bundle repeats a file targetPath
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          mountedConfigFiles:
+            files:
+              - name: myconfig
+                filename: config.yaml
+                targetPath: /etc/app
+                content: "a: b"
+            bundles:
+              - mountDir: /etc/app
+                files:
+                  - name: other
+                    relPath: other.yaml
+                    content: "a: b"
+    asserts:
+      - failedTemplate:
+          errorPattern: "deployments.main: mountedConfigFiles.bundles\\[0\\] mounts on '/etc/app', which mountedConfigFiles.files\\[0\\] \\(myconfig\\) already mounts"
+
+  - it: should accept nested mountPaths across sources
+    set:
+      externalSecrets:
+        app-conf:
+          secretstore: { kind: ClusterSecretStore, name: store }
+          secretkey: KEY
+          remote: { key: app }
+      deployments:
+        main:
+          image: nginx:1.25
+          externalSecrets:
+            - name: app-conf
+              mountPath: /etc/app/secret
+          volumes:
+            - name: conf
+              emptyDir: {}
+          volumeMounts:
+            - name: conf
+              mountPath: /etc/app
+          mountedConfigFiles:
+            files:
+              - name: myconfig
+                filename: config.yaml
+                targetPath: /etc/app/config.yaml
+                content: "a: b"
+    asserts:
+      - notFailedTemplate: {}
+
+  # An empty entry renders nothing: say so, rather than "not a key".
+  - it: should fail naming an empty externalSecrets entry as empty, not unknown
+    set:
+      externalSecrets:
+        app-conf: {}
+      deployments:
+        main:
+          image: nginx:1.25
+          externalSecrets:
+            - name: app-conf
+    asserts:
+      - failedTemplate:
+          errorPattern: "deployments.main.externalSecrets references 'app-conf', which is empty: an empty externalSecrets entry renders no ExternalSecret"

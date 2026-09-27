@@ -6,7 +6,11 @@
 {{- if $keda.enabled }}
 {{- /* `triggers` is required by values.schema.json whenever keda.enabled is
        true, and minItems keeps it non-empty — a ScaledObject with no trigger is
-       rejected by KEDA. No template-side check: the schema runs first. */ -}}
+       rejected by KEDA. The fail is the net under --skip-schema-validation
+       (tests/bad-values/skip-schema/). */ -}}
+{{- if not $keda.triggers }}
+{{- fail (printf "deployments.%s.keda.enabled is true but keda.triggers is empty: KEDA rejects a ScaledObject with no trigger. Add a trigger, or disable keda." $name) }}
+{{- end }}
 {{- include "global-chart.requireKedaCrd" (dict "root" $root "source" (printf "deployments.%s.keda" $name)) }}
 {{- $depFullname := include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $name) }}
 {{- $labelCtx := dict "root" $root "deploymentName" $name }}

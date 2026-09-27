@@ -298,6 +298,44 @@ one that adds the entry.
 
 See [ADR 0010](docs/adr/0010-hook-prerequisite-rbac-copy.md).
 
+## Deprecated: the legacy `volumes[].type` format
+
+`volumes[]` accepts any Kubernetes volume source verbatim (the native form). It
+also accepts a legacy form, `type: emptyDir|configMap|secret|persistentVolumeClaim`,
+that the chart translates. The legacy form is **deprecated** and is removed in
+4.0.0 (issue #183): the schema cannot check it, so a typo in `type` or in an
+alias fails only at render, and `helm lint` passes it. `helm install` and
+`helm upgrade` list every legacy volume of the release in `NOTES.txt`.
+
+Drop `type` and write the source as Kubernetes does:
+
+| Legacy | Native |
+|--------|--------|
+| `type: emptyDir` | `emptyDir: {}` |
+| `type: configMap` + `configMap.name` | `configMap.name` |
+| `type: secret` + `secret.secretName` | `secret.secretName` |
+| `type: secret` + `secret.name` | `secret.secretName` |
+| `type: persistentVolumeClaim` + `persistentVolumeClaim.claimName` | `persistentVolumeClaim.claimName` |
+| `type: persistentVolumeClaim` + `persistentVolumeClaim.name` | `persistentVolumeClaim.claimName` |
+
+```yaml
+# Legacy (deprecated)
+volumes:
+  - name: creds
+    type: secret
+    secret:
+      name: app-creds
+# Native
+volumes:
+  - name: creds
+    secret:
+      secretName: app-creds
+```
+
+The legacy form renders only the source's name: any other key under it
+(`items`, `defaultMode`, `readOnly`, …) was dropped. The native form renders
+every key, so check them when you migrate.
+
 ## Local development
 
 ```bash

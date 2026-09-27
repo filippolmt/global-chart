@@ -189,30 +189,9 @@ spec:
           env:
             {{- toYaml $deploy.additionalEnvs | nindent 12 }}
           {{- end }}
-          {{- $mountedConfigFiles := $deploy.mountedConfigFiles }}
-          {{- if or $deploy.volumeMounts (and $mountedConfigFiles (or $mountedConfigFiles.files $mountedConfigFiles.bundles)) $esMounted }}
+          {{- with (include "global-chart.containerVolumeMounts" (dict "errCtx" (printf "deployments.%s" $name) "volumeMounts" $deploy.volumeMounts "mountedConfigFiles" $deploy.mountedConfigFiles "externalSecrets" $esMounted) | fromJsonArray) }}
           volumeMounts:
-            {{- with $deploy.volumeMounts }}
             {{- toYaml . | nindent 12 }}
-            {{- end }}
-            {{- if and $mountedConfigFiles $mountedConfigFiles.files }}
-            {{- range $i, $f := $mountedConfigFiles.files }}
-            - name: {{ include "global-chart.mountedFileVolumeName" (dict "fileName" $f.name) }}
-              mountPath: {{ required (printf "deployments.%s.mountedConfigFiles.files[%d] (%s): 'targetPath' is required" $name $i $f.name) $f.targetPath | quote }}
-              subPath: {{ $f.filename | quote }}
-              readOnly: true
-            {{- end }}
-            {{- end }}
-            {{- if and $mountedConfigFiles $mountedConfigFiles.bundles }}
-            {{- range $bi, $b := $mountedConfigFiles.bundles }}
-            - name: {{ include "global-chart.mountedBundleVolumeName" (dict "bundleIndex" $bi) }}
-              mountPath: {{ required (printf "deployments.%s.mountedConfigFiles.bundles[%d]: 'mountDir' is required" $name $bi) $b.mountDir | quote }}
-              readOnly: true
-            {{- end }}
-            {{- end }}
-            {{- with $esMounted }}
-            {{- include "global-chart.renderExternalSecretVolumeMounts" . | nindent 12 }}
-            {{- end }}
           {{- end }}
       {{- with $deploy.extraContainers }}
         {{- toYaml . | nindent 8 }}

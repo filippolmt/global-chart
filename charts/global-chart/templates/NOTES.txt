@@ -125,3 +125,16 @@ WARNING: Helm {{ .Capabilities.HelmVersion.Version }} is below 3.18.6. On this v
 does not reject unknown keys in cronJobs and hooks (both scopes): a typo such as
 `deletePolicie` renders without an error. Upgrade Helm to 3.18.6 or later.
 {{- end }}
+
+{{- /* The legacy volumes[].type format is deprecated (issue #183) and goes in
+       4.0.0. Remove this block with the format. */}}
+{{- $legacy := include "global-chart.legacyVolumePaths" . | fromJsonArray }}
+{{- if $legacy }}
+
+DEPRECATED: the legacy volumes[].type format is removed in 4.0.0. Rewrite these
+volumes in the native Kubernetes form:
+{{- range $legacy }}
+  - {{ . }}
+{{- end }}
+Migration table: {{ .Chart.Home }}#deprecated-the-legacy-volumestype-format
+{{- end }}

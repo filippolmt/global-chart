@@ -1,0 +1,11 @@
+# A null extraPorts port (issue #185). The schema rejects it first; under
+# --skip-schema-validation, printScalar's nil fail keeps "<nil>" out of the
+# manifest. A null inside a list survives the values merge in Helm 3 and 4.
+# Expected fail substring: "printScalar: a null value reached a field the chart prints"
+deployments:
+  app:
+    image: nginx:1.25
+    service:
+      extraPorts:
+        - name: metrics
+          port: null

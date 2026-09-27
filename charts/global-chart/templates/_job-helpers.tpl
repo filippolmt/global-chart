@@ -143,7 +143,8 @@ containers:
   {{- /* Only one of the two lists is ever non-empty (a job's own replaces the
          inherited one), so checking each against the job's volumes alone is
          enough to catch every volume-name collision */ -}}
-  {{- $esInherited := include "global-chart.resolveExternalSecretRefs" (dict "root" $root "refs" $esRefs.inherited "hook" $esReadsCopy "volumes" $job.volumes "errCtx" (printf "deployments.%s" (toString .deployName))) | fromJson -}}
+  {{- $inheritedCtx := printf "deployments.%s" (toString .deployName) -}}
+  {{- $esInherited := include "global-chart.resolveExternalSecretRefs" (dict "root" $root "refs" $esRefs.inherited "hook" $esReadsCopy "volumes" $job.volumes "errCtx" $inheritedCtx) | fromJson -}}
   {{- $esOwn := include "global-chart.resolveExternalSecretRefs" (dict "root" $root "refs" $esRefs.own "hook" $esReadsCopy "volumes" $job.volumes "errCtx" .errCtx) | fromJson -}}
   {{- $esEnvInherited := $esInherited.env -}}
   {{- $esEnvOwn := $esOwn.env -}}
@@ -207,14 +208,9 @@ containers:
   {{- with (include "global-chart.renderResources" (dict "resources" $job.resources "hasResources" (hasKey $job "resources") "defaults" $root.Values.defaults)) }}
   {{- . | nindent 2 }}
   {{- end }}
-  {{- if or $job.volumeMounts $esMounted }}
+  {{- with (include "global-chart.containerVolumeMounts" (dict "errCtx" .errCtx "volumeMounts" $job.volumeMounts "inherited" $esInherited.mounted "inheritedCtx" $inheritedCtx "externalSecrets" $esOwn.mounted) | fromJsonArray) }}
   volumeMounts:
-    {{- with $job.volumeMounts }}
     {{- toYaml . | nindent 4 }}
-    {{- end }}
-    {{- with $esMounted }}
-    {{- include "global-chart.renderExternalSecretVolumeMounts" . | nindent 4 }}
-    {{- end }}
   {{- end }}
 {{- if or $job.volumes $esMounted }}
 volumes:
@@ -337,6 +333,9 @@ Resolution order:
 {{- else if $job.fromDeployment -}}
   {{- $dep := index .root.Values.deployments $job.fromDeployment -}}
   {{- if not $dep -}}
+    {{- if hasKey (default (dict) .root.Values.deployments) $job.fromDeployment -}}
+      {{- fail (printf "%s.fromDeployment references deployment '%s', which is empty: an empty deployments entry renders nothing. Fill the entry, or drop the reference." $errCtx $job.fromDeployment) -}}
+    {{- end -}}
     {{- fail (printf "%s.fromDeployment references deployment '%s' which does not exist in .Values.deployments" $errCtx $job.fromDeployment) -}}
   {{- end -}}
   {{- $image = dict "image" $dep.image -}}

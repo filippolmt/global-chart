@@ -5,7 +5,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ---
 
-## [Unreleased]
+## [3.1.0] — 2026-09-27
 
 ### Added
 
@@ -45,6 +45,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   to one of these shapes before a chart release lists it, install with
   `--skip-schema-validation` (Helm 4, and Helm 3 from 3.16) meanwhile.
 
+- **A volume `name` may not be empty** (issue #185). `name: ""` passed the
+  schema and failed in `renderVolume`; the schema now rejects it.
+
+### Deprecated
+
+- **The legacy `volumes[].type` format** (issue #183), removed in 4.0.0:
+  `type: emptyDir|configMap|secret|persistentVolumeClaim` and the aliases
+  `secret.name` and `persistentVolumeClaim.name`. The schema cannot check it,
+  so a typo fails only at render. `NOTES.txt` lists every legacy volume of the
+  release by values path. **Action:** drop `type` and write the native
+  Kubernetes source; see the [migration
+  table](README.md#deprecated-the-legacy-volumestype-format).
+
 ### Fixed
 
 - **A legacy volume (`type: configMap|secret|persistentVolumeClaim`) with no
@@ -52,6 +65,47 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   source block the render failed with a bare `nil pointer evaluating`; with the
   block but no name it rendered an empty `name` / `secretName` / `claimName`,
   which the API server rejected at apply.
+- **Two mounts on one `mountPath` fail the render** (issue #182). They
+  rendered, and the API server rejected the pod at apply (`mountPath: Invalid
+  value: "/etc/app": must be unique`) — under Argo CD a failed sync, after lint
+  and template had passed. The check covers every mount of the main container,
+  in the Deployment and in hooks and cronjobs of both scopes: `volumeMounts`,
+  mounted `externalSecrets` entries (a job's inherited ones included) and the
+  `mountedConfigFiles` `targetPath`s and `mountDir`s. Exact match only, whatever
+  the `subPath`: nested paths still pass. `volumeMounts` stays open (ADR 0017),
+  but every entry must now have a non-empty `name` and `mountPath`.
+  **Action:** none for a release that installs today — the API server already
+  requires both fields and rejects a duplicate path.
+- **A mounted config file may be empty.** `mountedConfigFiles` `content: ""`
+  failed as "'content' is required"; it now renders an empty file. A missing or
+  null `content` still fails.
+- **A reference to an empty entry says it is empty.** An `externalSecrets`
+  reference, a `fromDeployment` or an ingress/httpRoute `deployment` naming a
+  key whose entry is `{}` failed as "not a key" / "does not exist"; the key
+  exists, but an empty entry renders nothing, and the message now says so.
+- **A keda `authenticationRef` naming an empty `kedaTriggerAuthentications`
+  entry fails the render.** The entry rendered no TriggerAuthentication, yet
+  the ref was rewritten to its generated name, so the ScaledObject pointed at
+  nothing and KEDA failed at runtime.
+- **The single-key `externalSecrets.<key>.secretkey` error names its entry**,
+  like every other ExternalSecret message.
+- **`keda.enabled` with no `triggers` fails the render under
+  `--skip-schema-validation`** too, instead of rendering a ScaledObject KEDA
+  rejects.
+
+### Migration guide from 3.0.1
+
+- A values file the stricter schema now rejects (probes, NetworkPolicy rules,
+  `sourceRef`, `volumes` / `volumeMounts` entries) carried a key Kubernetes was
+  dropping, or one the API server rejected: fix what the error names. For a
+  field Kubernetes added before the chart lists it, install with
+  `--skip-schema-validation` meanwhile.
+- `helm install` / `helm upgrade` now list every legacy `volumes[].type` entry
+  in `NOTES.txt`. Nothing changes in the manifests; migrate them with the
+  [table](README.md#deprecated-the-legacy-volumestype-format) before 4.0.0.
+- A keda `authenticationRef` naming an empty `kedaTriggerAuthentications`
+  entry now fails the upgrade: the ScaledObject it rendered pointed at nothing.
+  Fill the entry or drop the reference.
 
 ---
 
