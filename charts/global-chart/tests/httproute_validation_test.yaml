@@ -290,3 +290,25 @@ tests:
       - hasDocuments:
           count: 0
         template: templates/ingress.yaml
+
+  - it: should fail naming an empty backendRef deployment as empty, not missing
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+        frontend: {}
+      httpRoute:
+        enabled: true
+        parentRefs:
+          - name: gw
+        rules:
+          - matches:
+              - path:
+                  type: PathPrefix
+                  value: /
+            backendRefs:
+              - deployment: frontend
+    asserts:
+      - failedTemplate:
+          errorPattern: "httpRoute 'rule\\[0\\].backendRefs\\[0\\]' references deployment 'frontend', which is empty"
+        template: templates/httproute.yaml

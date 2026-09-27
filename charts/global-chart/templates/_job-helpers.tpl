@@ -333,6 +333,9 @@ Resolution order:
 {{- else if $job.fromDeployment -}}
   {{- $dep := index .root.Values.deployments $job.fromDeployment -}}
   {{- if not $dep -}}
+    {{- if hasKey (default (dict) .root.Values.deployments) $job.fromDeployment -}}
+      {{- fail (printf "%s.fromDeployment references deployment '%s', which is empty: an empty deployments entry renders nothing. Fill the entry, or drop the reference." $errCtx $job.fromDeployment) -}}
+    {{- end -}}
     {{- fail (printf "%s.fromDeployment references deployment '%s' which does not exist in .Values.deployments" $errCtx $job.fromDeployment) -}}
   {{- end -}}
   {{- $image = dict "image" $dep.image -}}

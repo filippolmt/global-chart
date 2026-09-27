@@ -434,6 +434,9 @@ Numbers come back float64: see the file header.
   {{- $depName := $ref.deployment -}}
   {{- $deploy := index $root.Values.deployments $depName -}}
   {{- if not $deploy -}}
+    {{- if hasKey (default (dict) $root.Values.deployments) $depName -}}
+      {{- fail (printf "%s '%s' references deployment '%s', which is empty: an empty deployments entry renders nothing. Fill the entry, or drop the reference." $sourceKind $ident $depName) -}}
+    {{- end -}}
     {{- fail (printf "%s '%s' references deployment '%s' which does not exist in .Values.deployments" $sourceKind $ident $depName) -}}
   {{- end -}}
   {{- if ne (include "global-chart.deploymentEnabled" $deploy) "true" -}}
@@ -632,7 +635,7 @@ dataFrom:
 data:
   - remoteRef:
       {{- include "global-chart.renderExternalSecretRemoteRef" (dict "remote" $remote "keyError" (printf "externalSecrets.%s.remote.key is mandatory" $key)) | nindent 6 }}
-    secretKey: {{ required "secretkey is mandatory" $secret.secretkey | quote }}
+    secretKey: {{ required (printf "externalSecrets.%s.secretkey is mandatory" $key) $secret.secretkey | quote }}
 {{- end }}
 refreshInterval: {{ ternary $secret.refreshInterval "1h" (hasKey $secret "refreshInterval") | quote }}
 {{- /* Emitted whenever a store is required — so an incomplete secretstore
@@ -692,6 +695,9 @@ Params:
 {{- range $ref := (default (list) .refs) -}}
   {{- $secret := index (default (dict) $root.Values.externalSecrets) $ref.name -}}
   {{- if not $secret -}}
+    {{- if hasKey (default (dict) $root.Values.externalSecrets) $ref.name -}}
+      {{- fail (printf "%s.externalSecrets references '%s', which is empty: an empty externalSecrets entry renders no ExternalSecret. Fill the entry, or drop the reference." $.errCtx $ref.name) -}}
+    {{- end -}}
     {{- fail (printf "%s.externalSecrets references '%s', which is not a key of externalSecrets. Name the key of the externalSecrets entry, not the Secret it produces." $.errCtx $ref.name) -}}
   {{- end -}}
   {{- $nameCtx := dict "root" $root "key" $ref.name "secret" $secret -}}

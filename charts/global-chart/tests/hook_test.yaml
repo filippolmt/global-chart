@@ -4051,3 +4051,16 @@ tests:
     asserts:
       - failedTemplate:
           errorPattern: "hooks.post-install.migrate: volumeMounts\\[1\\] mounts on '/data', which volumeMounts\\[0\\] already mounts"
+
+  - it: should fail naming an empty fromDeployment target as empty, not missing
+    set:
+      deployments:
+        backend: {}
+      hooks:
+        post-install:
+          migrate:
+            fromDeployment: backend
+            command: ["true"]
+    asserts:
+      - failedTemplate:
+          errorPattern: "hooks.post-install.migrate.fromDeployment references deployment 'backend', which is empty"

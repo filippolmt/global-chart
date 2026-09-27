@@ -28,7 +28,9 @@ metadata:
   {{- end }}
 data:
   {{ required (printf "deployments.%s.mountedConfigFiles.files[%d] (%s): 'filename' is required" $name $i $f.name) $f.filename | quote }}: |2
-    {{- $content := required (printf "deployments.%s.mountedConfigFiles.files[%d] (%s): 'content' is required" $name $i $f.name) $f.content -}}
+    {{- /* "" is an empty file, not a missing one: only an absent or null content fails */ -}}
+    {{- if kindIs "invalid" $f.content }}{{ fail (printf "deployments.%s.mountedConfigFiles.files[%d] (%s): 'content' is required" $name $i $f.name) }}{{ end -}}
+    {{- $content := $f.content -}}
     {{- $content | nindent 4 -}}
 {{- end }}
 {{- end }}
@@ -49,7 +51,9 @@ metadata:
   {{- end }}
 data:
   {{ required (printf "deployments.%s.mountedConfigFiles.bundles[%d].files[%d] (%s): 'relPath' is required" $name $bi $fi $f.name) $f.relPath | base | quote }}: |2
-    {{- $content := required (printf "deployments.%s.mountedConfigFiles.bundles[%d].files[%d] (%s): 'content' is required" $name $bi $fi $f.name) $f.content -}}
+    {{- /* "" is an empty file, not a missing one: only an absent or null content fails */ -}}
+    {{- if kindIs "invalid" $f.content }}{{ fail (printf "deployments.%s.mountedConfigFiles.bundles[%d].files[%d] (%s): 'content' is required" $name $bi $fi $f.name) }}{{ end -}}
+    {{- $content := $f.content -}}
     {{- $content | nindent 4 -}}
 {{- end }}
 {{- end }}

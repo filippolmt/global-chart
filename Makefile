@@ -176,7 +176,7 @@ validate-bad-values: ## Verify bad-values are rejected: schema/ by values.schema
 		if ! helm lint $(STRICT) -f "$$f" ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) 2>&1 | grep -qF "$(SCHEMA_REJECTION)"; then \
 			echo "    FAIL: $$f is not rejected by values.schema.json; the guard is not shadowed, it belongs in tests/bad-values/fail/"; \
 			exit 1; \
-		elif out=$$(helm template global-chart-bad-values ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) --skip-schema-validation -f "$$f" 2>&1); then \
+		elif out=$$(helm template global-chart-bad-values ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) --skip-schema-validation $(HELM_API_VERSIONS) -f "$$f" 2>&1); then \
 			echo "    FAIL: $$f should have been rejected under --skip-schema-validation but was accepted"; \
 			exit 1; \
 		else \

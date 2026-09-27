@@ -76,6 +76,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   but every entry must now have a non-empty `name` and `mountPath`.
   **Action:** none for a release that installs today — the API server already
   requires both fields and rejects a duplicate path.
+- **A mounted config file may be empty.** `mountedConfigFiles` `content: ""`
+  failed as "'content' is required"; it now renders an empty file. A missing or
+  null `content` still fails.
+- **A reference to an empty entry says it is empty.** An `externalSecrets`
+  reference, a `fromDeployment` or an ingress/httpRoute `deployment` naming a
+  key whose entry is `{}` failed as "not a key" / "does not exist"; the key
+  exists, but an empty entry renders nothing, and the message now says so.
+- **The single-key `externalSecrets.<key>.secretkey` error names its entry**,
+  like every other ExternalSecret message.
+- **`keda.enabled` with no `triggers` fails the render under
+  `--skip-schema-validation`** too, instead of rendering a ScaledObject KEDA
+  rejects.
 
 ---
 
