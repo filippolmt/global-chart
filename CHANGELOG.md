@@ -83,6 +83,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   reference, a `fromDeployment` or an ingress/httpRoute `deployment` naming a
   key whose entry is `{}` failed as "not a key" / "does not exist"; the key
   exists, but an empty entry renders nothing, and the message now says so.
+- **A keda `authenticationRef` naming an empty `kedaTriggerAuthentications`
+  entry fails the render.** The entry rendered no TriggerAuthentication, yet
+  the ref was rewritten to its generated name, so the ScaledObject pointed at
+  nothing and KEDA failed at runtime.
 - **The single-key `externalSecrets.<key>.secretkey` error names its entry**,
   like every other ExternalSecret message.
 - **`keda.enabled` with no `triggers` fails the render under
