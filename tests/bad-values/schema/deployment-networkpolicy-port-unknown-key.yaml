@@ -1,0 +1,11 @@
+# covers: networkPolicyPort
+# An unknown key in a NetworkPolicy port (typo of port): the rule opens every port.
+deployments:
+  app:
+    image: nginx:1.25
+    networkPolicy:
+      enabled: true
+      ingress:
+        - ports:
+            - prot: 80
+              protocol: TCP

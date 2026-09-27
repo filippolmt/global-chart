@@ -1,0 +1,10 @@
+# covers: probe/properties/tcpSocket
+# An unknown key in tcpSocket (typo of host): the probe dials the pod IP
+# instead of the host intended.
+deployments:
+  app:
+    image: nginx:1.25
+    livenessProbe:
+      tcpSocket:
+        port: 5432
+        hots: db.local

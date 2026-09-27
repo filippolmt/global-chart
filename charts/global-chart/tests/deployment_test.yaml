@@ -1450,20 +1450,6 @@ tests:
       - failedTemplate:
           errorMessage: "deployments.main.image must define a repository with tag/digest or be a full image reference"
 
-  - it: should fail when volume has no name
-    set:
-      deployments:
-        main:
-          image: "nginx:1.25"
-          volumes:
-            - emptyDir: {}
-          volumeMounts:
-            - name: myvol
-              mountPath: /mnt
-    asserts:
-      - failedTemplate:
-          errorPattern: "renderVolume: every volume entry must have a 'name' field"
-
   - it: should fail when volume uses unknown legacy type
     set:
       deployments:
@@ -1478,6 +1464,57 @@ tests:
     asserts:
       - failedTemplate:
           errorPattern: "renderVolume: unknown legacy volume type 'nfs'"
+
+  - it: should fail when a legacy configMap volume has no name in its configMap block
+    set:
+      deployments:
+        main:
+          image: "nginx:1.25"
+          volumes:
+            - name: myvol
+              type: configMap
+              configMap: {}
+    asserts:
+      - failedTemplate:
+          errorPattern: "renderVolume: legacy volume 'myvol' of type configMap needs configMap.name"
+
+  - it: should fail when a legacy secret volume has no name in its secret block
+    set:
+      deployments:
+        main:
+          image: "nginx:1.25"
+          volumes:
+            - name: myvol
+              type: secret
+              secret: {}
+    asserts:
+      - failedTemplate:
+          errorPattern: "renderVolume: legacy volume 'myvol' of type secret needs secret.secretName"
+
+  - it: should fail when a legacy persistentVolumeClaim volume has no name in its persistentVolumeClaim block
+    set:
+      deployments:
+        main:
+          image: "nginx:1.25"
+          volumes:
+            - name: myvol
+              type: persistentVolumeClaim
+              persistentVolumeClaim: {}
+    asserts:
+      - failedTemplate:
+          errorPattern: "renderVolume: legacy volume 'myvol' of type persistentVolumeClaim needs persistentVolumeClaim.claimName"
+
+  - it: should fail when a legacy secret volume has no secret block
+    set:
+      deployments:
+        main:
+          image: "nginx:1.25"
+          volumes:
+            - name: myvol
+              type: secret
+    asserts:
+      - failedTemplate:
+          errorPattern: "renderVolume: legacy volume 'myvol' of type secret needs secret.secretName"
 
   - it: should fail when imagePullSecrets entry has no name key
     set:

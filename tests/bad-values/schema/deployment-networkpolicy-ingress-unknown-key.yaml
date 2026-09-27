@@ -1,0 +1,11 @@
+# covers: networkPolicy/properties/ingress/items
+# An unknown key in an ingress rule (typo of from). Dropped, the rule has no
+# peer and admits traffic from everywhere on its ports.
+deployments:
+  app:
+    image: nginx:1.25
+    networkPolicy:
+      enabled: true
+      ingress:
+        - form:
+            - podSelector: {}

@@ -1,0 +1,8 @@
+# A probe port outside 1-65535, or a name that is not an IANA_SVC_NAME, is
+# rejected by the API server at apply; the schema catches it at lint.
+deployments:
+  app:
+    image: nginx:1.25
+    livenessProbe:
+      httpGet:
+        port: 80800

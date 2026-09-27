@@ -1,0 +1,8 @@
+# covers: probe/properties/exec
+# An unknown key in exec (typo of command): the probe has no command to run.
+deployments:
+  app:
+    image: nginx:1.25
+    startupProbe:
+      exec:
+        comand: ["cat", "/tmp/ready"]

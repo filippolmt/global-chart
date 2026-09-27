@@ -1,0 +1,12 @@
+# covers: networkPolicyPeer/properties/ipBlock
+# An unknown key in an ipBlock (typo of except): the excluded range is admitted.
+deployments:
+  app:
+    image: nginx:1.25
+    networkPolicy:
+      enabled: true
+      ingress:
+        - from:
+            - ipBlock:
+                cidr: 10.0.0.0/8
+                excpet: [10.1.0.0/16]

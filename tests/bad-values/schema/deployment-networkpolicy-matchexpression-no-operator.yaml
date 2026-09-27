@@ -1,0 +1,13 @@
+# A matchExpressions entry without an operator is rejected by the API server
+# at apply; the schema catches it at lint.
+deployments:
+  app:
+    image: nginx:1.25
+    networkPolicy:
+      enabled: true
+      ingress:
+        - from:
+            - podSelector:
+                matchExpressions:
+                  - key: app
+                    values: [web]

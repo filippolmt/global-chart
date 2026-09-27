@@ -1,0 +1,13 @@
+# covers: labelSelector
+# An unknown key in a label selector (typo of matchLabels). Dropped, the
+# selector is empty and matches every pod.
+deployments:
+  app:
+    image: nginx:1.25
+    networkPolicy:
+      enabled: true
+      ingress:
+        - from:
+            - podSelector:
+                matchLabel:
+                  app: web

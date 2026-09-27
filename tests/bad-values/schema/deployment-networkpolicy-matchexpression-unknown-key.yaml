@@ -1,0 +1,14 @@
+# covers: labelSelector/properties/matchExpressions/items
+# An unknown key in a matchExpressions entry (typo of values).
+deployments:
+  app:
+    image: nginx:1.25
+    networkPolicy:
+      enabled: true
+      ingress:
+        - from:
+            - podSelector:
+                matchExpressions:
+                  - key: app
+                    operator: Exists
+                    vlaues: [web]

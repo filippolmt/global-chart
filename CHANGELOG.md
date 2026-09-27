@@ -20,6 +20,39 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   See [Rolling the pods on an ExternalSecret
   change](README.md#rolling-the-pods-on-an-externalsecret-change).
 
+### Changed
+
+- **Probes, NetworkPolicy rules and `dataFrom[].sourceRef` are checked by the
+  schema** (issue #180, ADR 0017). They were open objects: a typo
+  (`httpGet.prot`, `form`, `storRef`) installed, and on every client-side apply
+  path Kubernetes or ESO dropped it with a warning, so the probe checked the
+  wrong port or the rule admitted everyone. They are small, fixed shapes and now
+  close in full: `livenessProbe` / `readinessProbe` / `startupProbe` with their
+  `exec`, `httpGet` (`port` required, `scheme` HTTP/HTTPS, `httpHeaders[]`),
+  `tcpSocket` and `grpc` bodies; `networkPolicy.ingress[]` / `egress[]`, their
+  peers (`podSelector`, `namespaceSelector`, `ipBlock` with `cidr` required),
+  ports (`protocol` TCP/UDP/SCTP) and label selectors (`matchExpressions[].operator`
+  In/NotIn/Exists/DoesNotExist); and `sourceRef.storeRef` / `generatorRef`.
+  `volumes` stays open, a large and growing shape, but every entry must have a
+  `name`. Probes inside `extraContainers` stay open with the Container (issue
+  #148).
+  The fields the API server or ESO requires are required here too
+  (`tcpSocket.port`, `grpc.port`, `httpHeaders[].name`/`value`,
+  `matchExpressions[].key`/`operator`, `storeRef.name`,
+  `generatorRef.kind`/`name`), and a probe or NetworkPolicy port is 1-65535 or
+  an IANA_SVC_NAME, as a Service `targetPort` already was.
+  **Action:** fix the key or value the error names. If Kubernetes adds a field
+  to one of these shapes before a chart release lists it, install with
+  `--skip-schema-validation` (Helm 4, and Helm 3 from 3.16) meanwhile.
+
+### Fixed
+
+- **A legacy volume (`type: configMap|secret|persistentVolumeClaim`) with no
+  source name fails naming the volume and the field it needs.** Without the
+  source block the render failed with a bare `nil pointer evaluating`; with the
+  block but no name it rendered an empty `name` / `secretName` / `claimName`,
+  which the API server rejected at apply.
+
 ---
 
 ## [3.0.1] — 2026-09-26
