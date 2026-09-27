@@ -84,8 +84,12 @@ is the Container.
 
 **Fields a template reads are the chart's own.** On a surface left open, every
 field a template reads is declared anyway, as `CLAUDE.md` already requires:
-`volumes[].name`, `volumes[].type` (the legacy form `renderVolume` translates), `sourceRef.storeRef`, `sourceRef.generatorRef`. That is the
+`volumes[].name`, `volumes[].type` (the legacy form `renderVolume` translates), `sourceRef.storeRef`, `sourceRef.generatorRef`,
+`volumeMounts[].mountPath` (`validateMountPaths`, issue #182). That is the
 same shape as `container` with `env`: an open node that declares a property.
+`volumeMounts[].name` is declared and required beside `mountPath` although no
+template reads it: the API server requires the pair, and an entry missing
+one is the same typo.
 
 ## Considered options
 

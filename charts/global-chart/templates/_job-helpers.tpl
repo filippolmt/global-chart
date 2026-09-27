@@ -143,9 +143,10 @@ containers:
   {{- /* Only one of the two lists is ever non-empty (a job's own replaces the
          inherited one), so checking each against the job's volumes alone is
          enough to catch every volume-name collision */ -}}
-  {{- $esInherited := include "global-chart.resolveExternalSecretRefs" (dict "root" $root "refs" $esRefs.inherited "hook" $esReadsCopy "volumes" $job.volumes "errCtx" (printf "deployments.%s" (toString .deployName))) | fromJson -}}
+  {{- $inheritedCtx := printf "deployments.%s" (toString .deployName) -}}
+  {{- $esInherited := include "global-chart.resolveExternalSecretRefs" (dict "root" $root "refs" $esRefs.inherited "hook" $esReadsCopy "volumes" $job.volumes "errCtx" $inheritedCtx) | fromJson -}}
   {{- $esOwn := include "global-chart.resolveExternalSecretRefs" (dict "root" $root "refs" $esRefs.own "hook" $esReadsCopy "volumes" $job.volumes "errCtx" .errCtx) | fromJson -}}
-  {{- include "global-chart.validateMountPaths" (dict "errCtx" .errCtx "volumeMounts" $job.volumeMounts "externalSecrets" $esRefs.own "inherited" $esRefs.inherited "inheritedCtx" (printf "deployments.%s" (toString .deployName))) -}}
+  {{- include "global-chart.validateMountPaths" (dict "errCtx" .errCtx "volumeMounts" $job.volumeMounts "externalSecrets" $esRefs.own "inherited" $esRefs.inherited "inheritedCtx" $inheritedCtx) -}}
   {{- $esEnvInherited := $esInherited.env -}}
   {{- $esEnvOwn := $esOwn.env -}}
   {{- $esMounted := concat $esInherited.mounted $esOwn.mounted -}}

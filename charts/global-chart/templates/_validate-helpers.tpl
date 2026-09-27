@@ -524,29 +524,29 @@ Params:
 {{- define "global-chart.validateMountPaths" -}}
 {{- $mounts := list -}}
 {{- range $i, $m := (default (list) .volumeMounts) -}}
-  {{- $mounts = append $mounts (list $m.mountPath (printf "volumeMounts[%d]" $i)) -}}
+  {{- $mounts = append $mounts (dict "path" $m.mountPath "owner" (printf "volumeMounts[%d]" $i)) -}}
 {{- end -}}
 {{- $mcf := default (dict) .mountedConfigFiles -}}
 {{- range $i, $f := (default (list) $mcf.files) -}}
-  {{- $mounts = append $mounts (list $f.targetPath (printf "mountedConfigFiles.files[%d] (%s)" $i $f.name)) -}}
+  {{- $mounts = append $mounts (dict "path" $f.targetPath "owner" (printf "mountedConfigFiles.files[%d] (%s)" $i $f.name)) -}}
 {{- end -}}
 {{- range $i, $b := (default (list) $mcf.bundles) -}}
-  {{- $mounts = append $mounts (list $b.mountDir (printf "mountedConfigFiles.bundles[%d]" $i)) -}}
+  {{- $mounts = append $mounts (dict "path" $b.mountDir "owner" (printf "mountedConfigFiles.bundles[%d]" $i)) -}}
 {{- end -}}
 {{- range (default (list) .inherited) -}}
-  {{- $mounts = append $mounts (list .mountPath (printf "externalSecrets '%s' (inherited from %s)" .name $.inheritedCtx)) -}}
+  {{- $mounts = append $mounts (dict "path" .mountPath "owner" (printf "externalSecrets '%s' (inherited from %s)" .name $.inheritedCtx)) -}}
 {{- end -}}
 {{- range (default (list) .externalSecrets) -}}
-  {{- $mounts = append $mounts (list .mountPath (printf "externalSecrets '%s'" .name)) -}}
+  {{- $mounts = append $mounts (dict "path" .mountPath "owner" (printf "externalSecrets '%s'" .name)) -}}
 {{- end -}}
 {{- $seen := dict -}}
 {{- range $mounts -}}
-  {{- $path := index . 0 | default "" | toString -}}
+  {{- $path := .path | default "" | toString -}}
   {{- if $path -}}
     {{- if hasKey $seen $path -}}
-      {{- fail (printf "%s: %s mounts on '%s', which %s already mounts. The API server rejects two mounts on one path in a container: give each its own mountPath." $.errCtx (index . 1) $path (get $seen $path)) -}}
+      {{- fail (printf "%s: %s mounts on '%s', which %s already mounts. The API server rejects two mounts on one path in a container: give each its own mountPath." $.errCtx .owner $path (get $seen $path)) -}}
     {{- end -}}
-    {{- $_ := set $seen $path (index . 1) -}}
+    {{- $_ := set $seen $path .owner -}}
   {{- end -}}
 {{- end -}}
 {{- end }}

@@ -74,6 +74,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   `mountedConfigFiles` `targetPath`s and `mountDir`s. Exact match only, whatever
   the `subPath`: nested paths still pass. `volumeMounts` stays open (ADR 0017),
   but every entry must now have a `name` and a `mountPath`.
+  **Action:** none for a release that installs today — the API server already
+  requires both fields and rejects a duplicate path.
 
 ---
 
