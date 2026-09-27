@@ -616,7 +616,7 @@ target:
 {{/*
 Resolve a list of externalSecrets references ({name, mountPath?}) to what a pod
 consumes, split by form: `env` holds the Secret names to inject as envFrom
-sources, `mounted` the {secretName, volumeName, mountPath} of the entries that
+sources, `mounted` the {key, secretName, volumeName, mountPath} of the entries that
 carry a mountPath. `specs` holds the real ExternalSecret spec of every entry,
 in list order, rendered by renderExternalSecretSpec whatever `hook` says: the
 input of the Deployment's checksum/external-secrets (issue #174), ignored by the
@@ -624,7 +624,7 @@ jobs. `targets` holds every Secret name the pod reads, env and mounted, in list
 order, each once: the input of the Deployment's Reloader annotation (ADR 0016).
 Returns JSON {env: [...], mounted: [...], specs: [...], targets: [...]}; callers do
 `include ... | fromJson` and render `mounted` through
-renderExternalSecretVolumeMounts / renderExternalSecretVolumes.
+containerVolumeMounts / renderExternalSecretVolumes.
 A reference names a key of the root externalSecrets map, never a Secret name:
 the generated names are not a public interface (ADR 0007). Fails at render
 time, rather than at apply time far from the cause, on a key that names
@@ -662,7 +662,7 @@ Params:
       {{- fail (printf "%s.externalSecrets: the volume '%s' generated for '%s' is already declared in this pod. Mount a key once, and do not name your own volumes after it." $.errCtx $volumeName $ref.name) -}}
     {{- end -}}
     {{- $_ := set $taken $volumeName true -}}
-    {{- $_ := set $out "mounted" (append $out.mounted (dict "secretName" $secretName "volumeName" $volumeName "mountPath" $ref.mountPath)) -}}
+    {{- $_ := set $out "mounted" (append $out.mounted (dict "key" $ref.name "secretName" $secretName "volumeName" $volumeName "mountPath" $ref.mountPath)) -}}
   {{- else -}}
     {{- $_ := set $out "env" (append $out.env $secretName) -}}
   {{- end -}}
@@ -671,20 +671,56 @@ Params:
 {{- end -}}
 
 {{/*
-The volumeMounts and the volumes of the mounted externalSecrets entries, one
-per entry of a resolveExternalSecretRefs `mounted` list, as list items at
-indent 0. Shared by deployment.yaml and jobPodSpec, so the two render the same
-read-only mount of the same Secret.
-Usage: {{- include "global-chart.renderExternalSecretVolumeMounts" $mounted | nindent 4 }}
+The volumeMounts of a pod's main container, in render order, as a JSON list of
+volumeMount maps: the user's volumeMounts, the mountedConfigFiles files and
+bundles (a Deployment's only), then the mounted externalSecrets entries, the
+inherited before the own. The single home of which mounts land on the
+container: deployment.yaml and jobPodSpec render this list, and
+validateMountPaths checks it for a repeated mountPath (issue #182), so a new
+mount source cannot reach the manifest unchecked.
+Callers do `include ... | fromJsonArray` and toYaml the result.
+Params:
+  errCtx             - values path of the container's owner (a job's from jobValuesPath)
+  volumeMounts       - the container's own volumeMounts, rendered verbatim
+  mountedConfigFiles - the Deployment's mountedConfigFiles (optional)
+  inherited          - the resolveExternalSecretRefs `mounted` list a job inherits (optional)
+  inheritedCtx       - values path it is inherited from
+  externalSecrets    - the container's own resolveExternalSecretRefs `mounted` list
 */}}
-{{- define "global-chart.renderExternalSecretVolumeMounts" -}}
-{{- $out := list -}}
-{{- range . -}}
-{{- $out = append $out (dict "name" .volumeName "mountPath" .mountPath "readOnly" true) -}}
+{{- define "global-chart.containerVolumeMounts" -}}
+{{- $mounts := list -}}
+{{- range $i, $m := (default (list) .volumeMounts) -}}
+  {{- $mounts = append $mounts (dict "mount" $m "owner" (printf "volumeMounts[%d]" $i)) -}}
 {{- end -}}
-{{- toYaml $out -}}
+{{- $mcf := default (dict) .mountedConfigFiles -}}
+{{- range $i, $f := (default (list) $mcf.files) -}}
+  {{- $path := required (printf "%s.mountedConfigFiles.files[%d] (%s): 'targetPath' is required" $.errCtx $i $f.name) $f.targetPath -}}
+  {{- $mount := dict "name" (include "global-chart.mountedFileVolumeName" (dict "fileName" $f.name)) "mountPath" $path "subPath" (default "" $f.filename) "readOnly" true -}}
+  {{- $mounts = append $mounts (dict "mount" $mount "owner" (printf "mountedConfigFiles.files[%d] (%s)" $i $f.name)) -}}
+{{- end -}}
+{{- range $i, $b := (default (list) $mcf.bundles) -}}
+  {{- $path := required (printf "%s.mountedConfigFiles.bundles[%d]: 'mountDir' is required" $.errCtx $i) $b.mountDir -}}
+  {{- $mount := dict "name" (include "global-chart.mountedBundleVolumeName" (dict "bundleIndex" $i)) "mountPath" $path "readOnly" true -}}
+  {{- $mounts = append $mounts (dict "mount" $mount "owner" (printf "mountedConfigFiles.bundles[%d]" $i)) -}}
+{{- end -}}
+{{- range (default (list) .inherited) -}}
+  {{- $mounts = append $mounts (dict "mount" (dict "name" .volumeName "mountPath" .mountPath "readOnly" true) "owner" (printf "externalSecrets '%s' (inherited from %s)" .key $.inheritedCtx)) -}}
+{{- end -}}
+{{- range (default (list) .externalSecrets) -}}
+  {{- $mounts = append $mounts (dict "mount" (dict "name" .volumeName "mountPath" .mountPath "readOnly" true) "owner" (printf "externalSecrets '%s'" .key)) -}}
+{{- end -}}
+{{- include "global-chart.validateMountPaths" (dict "errCtx" .errCtx "mounts" $mounts) -}}
+{{- $out := list -}}
+{{- range $mounts -}}{{- $out = append $out .mount -}}{{- end -}}
+{{- toJson $out -}}
 {{- end -}}
 
+{{/*
+The volumes of the mounted externalSecrets entries, one per entry of a
+resolveExternalSecretRefs `mounted` list, as list items at indent 0. Shared by
+deployment.yaml and jobPodSpec, so the two render the same Secret volume.
+Usage: {{- include "global-chart.renderExternalSecretVolumes" $mounted | nindent 2 }}
+*/}}
 {{- define "global-chart.renderExternalSecretVolumes" -}}
 {{- $out := list -}}
 {{- range . -}}

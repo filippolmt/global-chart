@@ -146,7 +146,6 @@ containers:
   {{- $inheritedCtx := printf "deployments.%s" (toString .deployName) -}}
   {{- $esInherited := include "global-chart.resolveExternalSecretRefs" (dict "root" $root "refs" $esRefs.inherited "hook" $esReadsCopy "volumes" $job.volumes "errCtx" $inheritedCtx) | fromJson -}}
   {{- $esOwn := include "global-chart.resolveExternalSecretRefs" (dict "root" $root "refs" $esRefs.own "hook" $esReadsCopy "volumes" $job.volumes "errCtx" .errCtx) | fromJson -}}
-  {{- include "global-chart.validateMountPaths" (dict "errCtx" .errCtx "volumeMounts" $job.volumeMounts "externalSecrets" $esRefs.own "inherited" $esRefs.inherited "inheritedCtx" $inheritedCtx) -}}
   {{- $esEnvInherited := $esInherited.env -}}
   {{- $esEnvOwn := $esOwn.env -}}
   {{- $esMounted := concat $esInherited.mounted $esOwn.mounted -}}
@@ -209,14 +208,9 @@ containers:
   {{- with (include "global-chart.renderResources" (dict "resources" $job.resources "hasResources" (hasKey $job "resources") "defaults" $root.Values.defaults)) }}
   {{- . | nindent 2 }}
   {{- end }}
-  {{- if or $job.volumeMounts $esMounted }}
+  {{- with (include "global-chart.containerVolumeMounts" (dict "errCtx" .errCtx "volumeMounts" $job.volumeMounts "inherited" $esInherited.mounted "inheritedCtx" $inheritedCtx "externalSecrets" $esOwn.mounted) | fromJsonArray) }}
   volumeMounts:
-    {{- with $job.volumeMounts }}
     {{- toYaml . | nindent 4 }}
-    {{- end }}
-    {{- with $esMounted }}
-    {{- include "global-chart.renderExternalSecretVolumeMounts" . | nindent 4 }}
-    {{- end }}
   {{- end }}
 {{- if or $job.volumes $esMounted }}
 volumes:
