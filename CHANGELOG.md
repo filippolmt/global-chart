@@ -5,7 +5,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ---
 
-## [Unreleased]
+## [3.1.0] — 2026-09-27
 
 ### Added
 
@@ -92,6 +92,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 - **`keda.enabled` with no `triggers` fails the render under
   `--skip-schema-validation`** too, instead of rendering a ScaledObject KEDA
   rejects.
+
+### Migration guide from 3.0.1
+
+- A values file the stricter schema now rejects (probes, NetworkPolicy rules,
+  `sourceRef`, `volumes` / `volumeMounts` entries) carried a key Kubernetes was
+  dropping, or one the API server rejected: fix what the error names. For a
+  field Kubernetes added before the chart lists it, install with
+  `--skip-schema-validation` meanwhile.
+- `helm install` / `helm upgrade` now list every legacy `volumes[].type` entry
+  in `NOTES.txt`. Nothing changes in the manifests; migrate them with the
+  [table](README.md#deprecated-the-legacy-volumestype-format) before 4.0.0.
+- A keda `authenticationRef` naming an empty `kedaTriggerAuthentications`
+  entry now fails the upgrade: the ScaledObject it rendered pointed at nothing.
+  Fill the entry or drop the reference.
 
 ---
 
