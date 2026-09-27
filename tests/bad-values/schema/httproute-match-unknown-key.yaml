@@ -1,0 +1,17 @@
+# covers: httpRouteRule/properties/matches/items
+# An unknown key inside an httpRoute rule matches entry (typo of method).
+# Without the closure the match accepts every method instead of the one
+# intended.
+deployments:
+  api:
+    image: nginx:1.25
+
+httpRoute:
+  enabled: true
+  parentRefs:
+    - name: public-gw
+  rules:
+    - matches:
+        - methd: GET
+      backendRefs:
+        - deployment: api

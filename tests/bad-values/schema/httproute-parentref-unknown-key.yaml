@@ -1,0 +1,16 @@
+# covers: httpRoute/properties/parentRefs/items
+# An unknown key inside an httpRoute.parentRefs entry (typo of sectionName).
+# Without the closure the route attaches to every listener of the gateway
+# instead of the one intended.
+deployments:
+  api:
+    image: nginx:1.25
+
+httpRoute:
+  enabled: true
+  parentRefs:
+    - name: public-gw
+      section: https
+  rules:
+    - backendRefs:
+        - deployment: api

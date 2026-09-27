@@ -1,3 +1,4 @@
+# covers: service/properties/extraPorts/items
 deployments:
   main:
     image: nginx:1.25

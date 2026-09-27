@@ -1,0 +1,18 @@
+# covers: mountedConfigFiles/properties/bundles/items/properties/files/items
+# An unknown key inside a bundle's files entry: filename, borrowed from the
+# files[] form, where a bundle file takes relPath. Without the closure the
+# key reads as naming the file and is ignored. relPath stays: the template
+# requires it, so replacing it with a typo would reject the file even with the
+# closure gone.
+deployments:
+  web:
+    image: nginx:1.25
+    mountedConfigFiles:
+      bundles:
+        - mountDir: /etc/app
+          files:
+            - name: app-conf
+              relPath: app.conf
+              filename: app.conf
+              content: |
+                key = value

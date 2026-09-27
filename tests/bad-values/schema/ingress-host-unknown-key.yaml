@@ -1,3 +1,4 @@
+# covers: ingress/properties/hosts/items
 # An unknown key inside an ingress.hosts entry (typo of deployment). Without
 # the constraint the host resolves against no deployment and the render fails
 # far from this line.

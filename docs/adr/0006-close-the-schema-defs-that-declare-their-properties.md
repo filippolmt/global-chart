@@ -122,6 +122,23 @@ either mismatch — a closure with no fixture, a marker naming nothing, a
 definition covered twice. Closing a `$defs` without writing its fixture now fails
 in `validate-bad-values` rather than at the next person's typo.
 
+*Amended by issue #177:* the check read only the top-level `$defs`, so a closure
+nested inside one — on a property, on `items`, 26 of them, plus the schema root
+— could stop working with nothing failing. It now walks every schema node, and
+the marker is the node's literal JSON pointer relative to `$defs`
+(`service/properties/extraPorts/items`), `#` for the root; a top-level
+definition keeps its bare name. The two closed `oneOf` branches moved into
+`$defs` of their own (`imageMap`, `imagePullSecretMap`), so no marker hangs on
+the order of a `oneOf`. A closed node under `if` or `not` fails the check
+outright: it decides a condition rather than what the values may carry, and no
+typo fixture can assert it.
+
+*Amended by issue #179:* a marker did not prove that its fixture's typo hit that
+node — a fixture rejected by another closure, or by a `required` its typo broke,
+passed and left the node untested; two did. The script now removes each covered
+closure from a copy of the chart and requires the fixture to stop being rejected
+by the schema. The rules live in the script's docstring.
+
 ## Considered options
 
 **Stay on Draft 7 and close the composites with `additionalProperties: false`.**
