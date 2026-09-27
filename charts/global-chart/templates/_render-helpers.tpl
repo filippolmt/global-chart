@@ -191,6 +191,49 @@ chart never emits it, so there is nothing to collide with.
 {{- end }}
 
 {{/*
+A deployment's own annotations, as JSON, for renderAnnotations' `own`: its
+`annotations` unchanged, plus — when reloader.externalSecrets is on (issue #175,
+ADR 0016) — secret.reloader.stakater.com/reload listing the targets of its
+referenced externalSecrets. Single home of "the field is on" and of its one
+failure: on, with nothing referenced, is a silent no-op the chart can see, so it
+fails the render, as ADR 0012 rules for autoscaling.
+The targets come from the resolveExternalSecretRefs `targets`, never from
+values: the generated names are not a public interface (ADR 0007). Reloader
+reads each entry as an anchored regex, so each goes through regexQuoteMeta.
+A reload list the user set — in `annotations` and in the common annotations
+alike — is kept, entry by entry, and the targets are appended: "the user wins"
+would drop the targets in silence, "own wins over common" a shared list. A
+target the user already listed, quoted or bare, is not listed twice.
+Params:
+  root   - chart context
+  deploy - the deployment's values
+  name   - the deployment's key, for the fail message
+  es     - its resolveExternalSecretRefs result
+Usage: {{- $own := include "global-chart.deploymentOwnAnnotations" (dict "root" $root "deploy" $deploy "name" $name "es" $es) | fromJson }}
+*/}}
+{{- define "global-chart.deploymentOwnAnnotations" -}}
+{{- $own := deepCopy (default (dict) .deploy.annotations) -}}
+{{- if (default (dict) .deploy.reloader).externalSecrets -}}
+  {{- if not .es.targets -}}
+    {{- fail (printf "deployments.%s.reloader.externalSecrets is true but the deployment references no externalSecrets, so Reloader has no Secret to watch. Reference an externalSecrets entry or disable the field." .name) -}}
+  {{- end -}}
+  {{- $key := "secret.reloader.stakater.com/reload" -}}
+  {{- $common := default (dict) (default (dict) .root.Values.global).commonAnnotations -}}
+  {{- $names := list -}}
+  {{- range (concat (splitList "," (default "" (index $common $key))) (splitList "," (default "" (index $own $key)))) -}}
+    {{- with trim . -}}{{- $names = append $names . -}}{{- end -}}
+  {{- end -}}
+  {{- range .es.targets -}}
+    {{- if not (or (has . $names) (has (regexQuoteMeta .) $names)) -}}
+      {{- $names = append $names (regexQuoteMeta .) -}}
+    {{- end -}}
+  {{- end -}}
+  {{- $_ := set $own $key (join "," (uniq $names)) -}}
+{{- end -}}
+{{- toJson $own -}}
+{{- end }}
+
+{{/*
 Fail on a null value of a ConfigMap or Secret data map, naming <path>.<key>.
 Single home of the null check shared by renderConfigMapData and renderSecretData
 (issue #166): both data maps hold strings only, and a null is a value nobody
@@ -569,7 +612,9 @@ sources, `mounted` the {secretName, volumeName, mountPath} of the entries that
 carry a mountPath. `specs` holds the real ExternalSecret spec of every entry,
 in list order, rendered by renderExternalSecretSpec whatever `hook` says: the
 input of the Deployment's checksum/external-secrets (issue #174), ignored by the
-jobs. Returns JSON {env: [...], mounted: [...], specs: [...]}; callers do
+jobs. `targets` holds every Secret name the pod reads, env and mounted, in list
+order, each once: the input of the Deployment's Reloader annotation (ADR 0016).
+Returns JSON {env: [...], mounted: [...], specs: [...], targets: [...]}; callers do
 `include ... | fromJson` and render `mounted` through
 renderExternalSecretVolumeMounts / renderExternalSecretVolumes.
 A reference names a key of the root externalSecrets map, never a Secret name:
@@ -590,7 +635,7 @@ Params:
 {{- $readsCopy := and (hasKey . "hook") .hook -}}
 {{- $taken := dict -}}
 {{- range (default (list) .volumes) -}}{{- $_ := set $taken (toString .name) true -}}{{- end -}}
-{{- $out := dict "env" (list) "mounted" (list) "specs" (list) -}}
+{{- $out := dict "env" (list) "mounted" (list) "specs" (list) "targets" (list) -}}
 {{- range $ref := (default (list) .refs) -}}
   {{- $secret := index (default (dict) $root.Values.externalSecrets) $ref.name -}}
   {{- if not $secret -}}
@@ -599,6 +644,7 @@ Params:
   {{- $nameCtx := dict "root" $root "key" $ref.name "secret" $secret -}}
   {{- $_ := set $out "specs" (append $out.specs (include "global-chart.renderExternalSecretSpec" $nameCtx)) -}}
   {{- $secretName := include (ternary "global-chart.externalSecretHookTargetName" "global-chart.externalSecretTargetName" $readsCopy) $nameCtx -}}
+  {{- $_ := set $out "targets" (append $out.targets $secretName | uniq) -}}
   {{- if $ref.mountPath -}}
     {{- $volumeName := include "global-chart.externalSecretVolumeName" (dict "key" $ref.name) -}}
     {{- if or (gt (len $volumeName) 63) (not (regexMatch "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$" $volumeName)) -}}

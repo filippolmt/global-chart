@@ -210,11 +210,42 @@ A deployment that references `externalSecrets` carries a
 the entries it references, in list order. A change to `target.template`, to
 `remote.key`/`property` or to the list rolls its pods, as `checksum/secret` does
 for `secret`. It hashes the spec, not the values, so it does **not** cover a new
-version of the value in the external store (that needs something like
-Reloader, see issue #175), nor the window in which the new pods may start before ESO has
-rewritten the Secret, nor a `target.immutable: true` Secret, which ESO cannot
-update in place. `podAnnotations` overrides it like the other checksums; hooks
-and cronjobs get none, since their pods are created on every run.
+version of the value in the external store, nor the window in which the new
+pods may start before ESO has rewritten the Secret, nor a `target.immutable:
+true` Secret, which ESO cannot update in place. `podAnnotations` overrides it
+like the other checksums; hooks and cronjobs get none, since their pods are
+created on every run.
+
+The first two need a controller that watches the Secret itself. With
+[Stakater Reloader](https://github.com/stakater/Reloader) installed, opt in per
+deployment:
+
+```yaml
+deployments:
+  app:
+    image: myapp:v1
+    externalSecrets:
+      - name: app-env
+    reloader:
+      externalSecrets: true
+```
+
+The Deployment's metadata gets `secret.reloader.stakater.com/reload` with the
+target of every referenced entry, env and mounted alike, read from the same
+resolver as the pod wiring — never hardcode a generated name. A reload list you
+set yourself, in `annotations`, `global.commonAnnotations` or both, is merged
+with it entry by entry, duplicates removed. The field fails the render when the deployment references
+no `externalSecrets`, and does nothing without Reloader. Hooks and cronjobs are
+not covered (ADR 0016).
+
+- After a spec change the pods roll twice, on purpose: the checksum rolls them,
+  then Reloader rolls them again once ESO has rewritten the Secret. The second
+  rollout closes the race.
+- Under Argo CD or Flux, run Reloader with `--reload-strategy=annotations`: the
+  default `env-vars` strategy edits the pod template, which the GitOps
+  controller then reports as drift and reverts.
+- A `target.immutable` or `refreshPolicy: CreatedOnce` target stays in the list,
+  but ESO never rewrites it, so Reloader never fires for it.
 
 ## Running a hook as an `rbacs.roles` ServiceAccount
 

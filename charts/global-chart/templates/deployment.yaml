@@ -19,7 +19,10 @@ metadata:
   name: {{ $depFullname }}
   labels:
     {{- include "global-chart.deploymentLabels" $labelCtx | nindent 4 }}
-  {{- with (include "global-chart.renderAnnotations" (dict "root" $root "own" $deploy.annotations)) }}
+  {{- /* reloader.externalSecrets (ADR 0016): on the Deployment's metadata, where
+         Reloader reads it, not on the pod template */ -}}
+  {{- $ownAnnotations := include "global-chart.deploymentOwnAnnotations" (dict "root" $root "deploy" $deploy "name" $name "es" $es) | fromJson }}
+  {{- with (include "global-chart.renderAnnotations" (dict "root" $root "own" $ownAnnotations)) }}
   annotations:
     {{- . | nindent 4 }}
   {{- end }}
