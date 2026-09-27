@@ -164,7 +164,7 @@
         "type": "object",
         "required": ["name"],
         "properties": {
-          "name": { "type": "string" },
+          "name": { "type": "string", "minLength": 1 },
           "type": { "type": "string" }
         }
       }

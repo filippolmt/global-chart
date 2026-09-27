@@ -44,7 +44,8 @@ Contract, by kind of value:
   "<nil>" (toString) or 0 (int64) — a value the user never wrote. The typed
   fields cannot carry a null (the schema rejects it); the free-form maps can,
   and renderConfigMapData checks for it first, naming the values path this
-  helper does not know. This fail is the net under every other caller.
+  helper does not know. This fail is the net under every other caller, and
+  under --skip-schema-validation (tests/bad-values/skip-schema/).
 Maps and slices are not scalars: callers render them with toYaml.
 Usage: {{ include "global-chart.printScalar" $deploy.revisionHistoryLimit }}
        {{ include "global-chart.printScalar" $value | quote }}
@@ -63,8 +64,9 @@ Usage: {{ include "global-chart.printScalar" $deploy.revisionHistoryLimit }}
 Render a single volume entry. Supports both:
 - Legacy format: { name, type, secret/configMap/persistentVolumeClaim/emptyDir }
 - Native format: { name, <any-k8s-volume-source> } (no .type field)
-$defs/volumes stays open (ADR 0017) and requires name, so the required below
-fires only under --skip-schema-validation; the legacy type vocabulary is this
+$defs/volumes stays open (ADR 0017) and requires a non-empty name, so the
+required below fires only under --skip-schema-validation, where a fixture in
+tests/bad-values/skip-schema/ holds it; the legacy type vocabulary is this
 helper's fail, not a schema enum.
 */}}
 {{- define "global-chart.renderVolume" -}}

@@ -45,6 +45,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   to one of these shapes before a chart release lists it, install with
   `--skip-schema-validation` (Helm 4, and Helm 3 from 3.16) meanwhile.
 
+- **A volume `name` may not be empty** (issue #185). `name: ""` passed the
+  schema and failed in `renderVolume`; the schema now rejects it.
+
 ### Fixed
 
 - **A legacy volume (`type: configMap|secret|persistentVolumeClaim`) with no
