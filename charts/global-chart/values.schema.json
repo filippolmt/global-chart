@@ -158,13 +158,14 @@
       "additionalProperties": false
     },
     "volumes": {
-      "description": "Kubernetes volumes. Open: about thirty volume sources, and the list grows (ADR 0017). Each item declares name, which the externalSecrets volume collision check reads.",
+      "description": "Kubernetes volumes. Open: about thirty volume sources, and the list grows (ADR 0017). Each item declares the fields a template reads: name (renderVolume and the externalSecrets volume collision check) and the legacy type (renderVolume, whose fail owns its vocabulary).",
       "type": "array",
       "items": {
         "type": "object",
         "required": ["name"],
         "properties": {
-          "name": { "type": "string" }
+          "name": { "type": "string" },
+          "type": { "type": "string" }
         }
       }
     },

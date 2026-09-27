@@ -63,6 +63,9 @@ Usage: {{ include "global-chart.printScalar" $deploy.revisionHistoryLimit }}
 Render a single volume entry. Supports both:
 - Legacy format: { name, type, secret/configMap/persistentVolumeClaim/emptyDir }
 - Native format: { name, <any-k8s-volume-source> } (no .type field)
+$defs/volumes stays open (ADR 0017) and requires name, so the required below
+fires only under --skip-schema-validation; the legacy type vocabulary is this
+helper's fail, not a schema enum.
 */}}
 {{- define "global-chart.renderVolume" -}}
 {{- $vol := . -}}

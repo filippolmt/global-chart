@@ -65,8 +65,8 @@ surface (issue option 2) misses the typo that motivated the issue:
   shape, not the vocabulary. The chart already reads both keys to decide whether
   `secretstore` is required.
 - **`volumes`: open.** About thirty volume sources, and the list grows (`image`
-  arrived in 1.31). Each item declares `name`, required, because the
-  externalSecrets volume collision check reads it.
+  arrived in 1.31). Each item declares `name`, required, because `renderVolume` and
+  the externalSecrets volume collision check read it.
 - **`volumeMounts`: open, now in the register.** ADR 0006's register left it
   out. It is small but not fixed: `recursiveReadOnly` arrived in 1.30. Small
   alone is not enough.
@@ -78,7 +78,7 @@ is the Container.
 
 **Fields a template reads are the chart's own.** On a surface left open, every
 field a template reads is declared anyway, as `CLAUDE.md` already requires:
-`volumes[].name`, `sourceRef.storeRef`, `sourceRef.generatorRef`. That is the
+`volumes[].name`, `volumes[].type` (the legacy form `renderVolume` translates), `sourceRef.storeRef`, `sourceRef.generatorRef`. That is the
 same shape as `container` with `env`: an open node that declares a property.
 
 ## Considered options
