@@ -292,6 +292,31 @@ tests:
           path: spec.template.spec.containers[0].image
           value: "nginx@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 
+  # ====== image tag with a digest suffix (issue #187, ADR 0018) ======
+  - it: should render a tag carrying a digest as written
+    set:
+      deployments:
+        main:
+          image:
+            repository: nginx
+            tag: "main@sha256:e0646c006c037b0bde03dd897029ab5cde600437969802848a63c474903cb2c8"
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: "nginx:main@sha256:e0646c006c037b0bde03dd897029ab5cde600437969802848a63c474903cb2c8"
+
+  - it: should still render a plain tag without a digest
+    set:
+      deployments:
+        main:
+          image:
+            repository: nginx
+            tag: "1.25"
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: "nginx:1.25"
+
   # ====== resources ======
   - it: should render resources
     set:

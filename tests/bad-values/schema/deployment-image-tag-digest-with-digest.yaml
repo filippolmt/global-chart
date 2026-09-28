@@ -1,0 +1,8 @@
+# A tag carrying @<digest> together with image.digest (ADR 0018). digest would
+# win and drop the tag's pin in silence; the pair is rejected even when equal.
+deployments:
+  web:
+    image:
+      repository: nginx
+      tag: "main@sha256:e0646c006c037b0bde03dd897029ab5cde600437969802848a63c474903cb2c8"
+      digest: "sha256:e0646c006c037b0bde03dd897029ab5cde600437969802848a63c474903cb2c8"

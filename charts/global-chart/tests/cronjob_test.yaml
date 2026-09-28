@@ -68,6 +68,23 @@ tests:
           path: spec.jobTemplate.spec.template.spec.containers[0].image
           value: "myapp/api:v2.0"
 
+  - it: should render a job tag carrying a digest as written (issue #187)
+    documentSelector:
+      path: kind
+      value: CronJob
+    set:
+      cronJobs:
+        cleanup:
+          schedule: "0 4 * * *"
+          image:
+            repository: myapp/backup
+            tag: "main@sha256:e0646c006c037b0bde03dd897029ab5cde600437969802848a63c474903cb2c8"
+          command: ["./cleanup.sh"]
+    asserts:
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.containers[0].image
+          value: "myapp/backup:main@sha256:e0646c006c037b0bde03dd897029ab5cde600437969802848a63c474903cb2c8"
+
   # ====== Deployment enabled flag ======
   - it: should not render deployment-level cronjob when deployment enabled is false
     set:

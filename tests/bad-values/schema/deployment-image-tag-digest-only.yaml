@@ -1,0 +1,7 @@
+# A tag made only of @<digest> (ADR 0018). It would render repo:@sha256:…, the
+# InvalidImageName #173 removed; a digest on its own belongs in image.digest.
+deployments:
+  web:
+    image:
+      repository: nginx
+      tag: "@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"

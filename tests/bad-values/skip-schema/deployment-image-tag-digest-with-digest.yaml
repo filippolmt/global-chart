@@ -1,0 +1,9 @@
+# A tag carrying @<digest> together with image.digest (ADR 0018). The schema's
+# if/then rejects it first; under --skip-schema-validation imageString fails.
+# Expected fail substring: "sets a digest in tag"
+deployments:
+  web:
+    image:
+      repository: nginx
+      tag: "main@sha256:e0646c006c037b0bde03dd897029ab5cde600437969802848a63c474903cb2c8"
+      digest: "sha256:e0646c006c037b0bde03dd897029ab5cde600437969802848a63c474903cb2c8"

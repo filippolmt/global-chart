@@ -5,6 +5,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ---
 
+## [3.1.1] — 2026-09-28
+
+### Fixed
+
+- **`image.tag` accepts a `@<digest>` suffix again** (issue #187, ADR
+  [0018](docs/adr/0018-image-tag-accepts-a-digest-suffix.md)), a regression of
+  3.0.0 (issue #173). Argo CD Image Updater, with the `digest` strategy and Helm
+  write-back, writes `<tag>@<digest>` into the tag key, since its Helm target
+  has no digest key; the schema rejected it and the Application stayed in
+  `ComparisonError`. The suffix is optional and follows the grammar of
+  `image.digest`; the value renders as written, `repo:<tag>@<digest>`. A tag
+  must precede the `@`. A tag carrying a digest together with a non-empty
+  `image.digest` fails, even when the two are equal, both in the schema and in
+  the template (for `--skip-schema-validation`). A plain `tag` with `digest`
+  still lets the digest win.
+
+---
+
 ## [3.1.0] — 2026-09-27
 
 ### Added

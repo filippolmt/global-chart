@@ -14,6 +14,10 @@ The registry test is the one values.schema.json's host alternative mirrors (issu
 a first segment is a host only with a ".", a ":" or as "localhost", so the schema never
 accepts as a host what this helper would prefix. Values are used as written, not
 trimmed: the schema patterns reject surrounding whitespace.
+A tag may carry its own @<digest> (ADR 0018, the form Argo CD Image Updater writes) and
+renders as written, repo:<tag>@<digest>. Such a tag with a non-empty digest fails, even
+when the two are equal: digest would win and drop the tag's pin in silence. The schema
+rejects the pair first; this fail is the backstop under --skip-schema-validation.
 */}}
 {{- define "global-chart.imageString" -}}
 {{- $img := . -}}
@@ -30,6 +34,9 @@ trimmed: the schema patterns reject surrounding whitespace.
   {{- $name = $img -}}
 {{- else if and (kindIs "map" $img) $img.repository -}}
   {{- $name = $img.repository -}}
+  {{- if and $img.digest (kindIs "string" $img.tag) (contains "@" $img.tag) -}}
+    {{- fail (printf "image %s sets a digest in tag (%s) and in digest (%s): two sources for one pin, keep one (ADR 0018)" $img.repository $img.tag $img.digest) -}}
+  {{- end -}}
   {{- if $img.digest -}}
     {{- $suffix = printf "@%s" $img.digest -}}
   {{- else if $img.tag -}}
