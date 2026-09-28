@@ -354,7 +354,7 @@ printf. Takes the same dict as jobImageSource.
 {{- $source := include "global-chart.jobImageSource" . | fromJson -}}
 {{- $img := "" -}}
 {{- if hasKey $source "image" -}}
-  {{- $img = include "global-chart.imageString" (dict "image" $source.image "global" .root.Values.global) -}}
+  {{- $img = include "global-chart.imageString" (dict "image" $source.image "global" .root.Values.global "errCtx" $errCtx) -}}
 {{- end -}}
 {{- if not $img -}}
   {{- if .deploy -}}

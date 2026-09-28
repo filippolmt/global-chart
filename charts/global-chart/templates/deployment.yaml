@@ -117,7 +117,7 @@ spec:
           {{- if and (kindIs "map" $deploy.image) $deploy.image.repository (not (or $deploy.image.tag $deploy.image.digest)) }}
           {{- fail (printf "deployments.%s.image requires either a tag or digest when repository is provided" $name) }}
           {{- end }}
-          {{- $depImageRef := include "global-chart.imageString" (dict "image" $deploy.image "global" $root.Values.global) }}
+          {{- $depImageRef := include "global-chart.imageString" (dict "image" $deploy.image "global" $root.Values.global "errCtx" (printf "deployments.%s" $name)) }}
           image: {{ required (printf "deployments.%s.image must define a repository with tag/digest or be a full image reference" $name) $depImageRef | quote }}
           imagePullPolicy: {{ include "global-chart.imagePullPolicy" (dict "image" $deploy.image) }}
           {{- if $deploy.command }}

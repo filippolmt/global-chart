@@ -119,6 +119,18 @@ tests:
           path: spec.jobTemplate.spec.template.spec.containers[0].image
           value: "myapp/backend:main@sha256:e0646c006c037b0bde03dd897029ab5cde600437969802848a63c474903cb2c8"
 
+  - it: should name the cronjob when its image sets a digest without a repository (issue #188)
+    set:
+      cronJobs:
+        cleanup:
+          schedule: "0 4 * * *"
+          image:
+            digest: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          command: ["./cleanup.sh"]
+    asserts:
+      - failedTemplate:
+          errorMessage: "cronJobs.cleanup: image definitions that set a digest must also provide a repository (expected repository@digest)"
+
   # ====== Deployment-level CronJob inheritance ======
   - it: should inherit image from parent deployment
     set:

@@ -20,6 +20,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   `image.digest` fails, even when the two are equal, both in the schema and in
   the template (for `--skip-schema-validation`). A plain `tag` with `digest`
   still lets the digest win.
+- **The image `fail` messages name the values entry** (issue #188). Both
+  `imageString` guards, a digest without a repository and the tag/digest pair
+  above, now lead with `deployments.<name>` or the job's path
+  (`hooks.<type>.<name>`, `cronJobs.<name>`, and their deployment-level forms).
+  Before, they named only the repository, which left the user searching when
+  several entries shared it.
 
 ---
 
