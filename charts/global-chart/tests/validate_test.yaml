@@ -508,7 +508,7 @@ tests:
                 targetPort: gevent
     asserts:
       - failedTemplate:
-          errorPattern: "deployments\\.web\\.service\\.extraPorts\\[0\\] \\(ws\\)\\.targetPort: names the port 'gevent', which no container port declares \\(declared: http\\)"
+          errorPattern: "deployments\\.web\\.service\\.extraPorts\\[0\\]\\.targetPort: names the port 'gevent', which no container port declares \\(declared: http\\)"
 
   - it: should not fail when a named targetPort resolves to an extraPorts declaration
     set:
@@ -567,7 +567,7 @@ tests:
                 nodePort: 30090
     asserts:
       - failedTemplate:
-          errorPattern: "deployments\\.web\\.service\\.extraPorts\\[0\\] \\(metrics\\): sets nodePort, which the API server accepts only on a NodePort or LoadBalancer Service \\(type: ClusterIP\\)"
+          errorPattern: "deployments\\.web\\.service\\.extraPorts\\[0\\]\\.nodePort: set on a ClusterIP Service, which the API server rejects: only a NodePort or LoadBalancer Service takes a nodePort"
 
   - it: should not fail when an extraPorts nodePort sits on a LoadBalancer Service
     set:
@@ -597,7 +597,7 @@ tests:
                 targetPort: 8080
     asserts:
       - failedTemplate:
-          errorPattern: "deployments\\.web\\.service\\.extraPorts\\[0\\] \\(alt\\): repeats port 80/TCP of service\\.port"
+          errorPattern: "deployments\\.web\\.service\\.extraPorts\\[0\\]\\.port: 80/TCP repeats the port and protocol of service\\.port"
 
   - it: should fail when two extraPorts entries share a name
     set:
@@ -614,7 +614,7 @@ tests:
                 targetPort: 8082
     asserts:
       - failedTemplate:
-          errorPattern: "deployments\\.web\\.service\\.extraPorts\\[1\\] \\(alt\\): repeats the port name 'alt' of extraPorts\\[0\\] \\(alt\\)"
+          errorPattern: "deployments\\.web\\.service\\.extraPorts\\[1\\]\\.name: 'alt' repeats the port name of extraPorts\\[0\\]"
 
   - it: should fail when an extraPorts entry takes the primary port's name
     set:
@@ -628,7 +628,7 @@ tests:
                 targetPort: 8081
     asserts:
       - failedTemplate:
-          errorPattern: "deployments\\.web\\.service\\.extraPorts\\[0\\] \\(http\\): repeats the port name 'http' of service\\.portName"
+          errorPattern: "deployments\\.web\\.service\\.extraPorts\\[0\\]\\.name: 'http' repeats the port name of service\\.portName"
 
   - it: should not fail when an extraPorts entry shares the primary port under another protocol
     set:

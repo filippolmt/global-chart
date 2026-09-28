@@ -457,7 +457,8 @@ Called from validate.yaml. Emits nothing on success.
     {{- $svc := default (dict) $deploy.service -}}
     {{- if eq (include "global-chart.serviceEnabled" $svc) "true" -}}
       {{- $declared := dict -}}
-      {{- $svcCtx := dict "service" $svc "errCtx" (printf "%s.service" (include "global-chart.deploymentValuesPath" $name)) -}}
+      {{- $errCtx := include "global-chart.deploymentValuesPath" $name -}}
+      {{- $svcCtx := dict "service" $svc "errCtx" (printf "%s.service" $errCtx) -}}
       {{- range (include "global-chart.containerPorts" $svcCtx | fromJsonArray) -}}
         {{- $_ := set $declared .name true -}}
       {{- end -}}
@@ -468,7 +469,7 @@ Called from validate.yaml. Emits nothing on success.
       {{- end -}}
       {{- range $i, $port := (default (list) $svc.extraPorts) -}}
         {{- if and (kindIs "string" $port.targetPort) (not (hasKey $declared $port.targetPort)) -}}
-          {{- fail (printf "%s.service.extraPorts[%d] (%s).targetPort: names the port '%s', which no container port declares (declared: %s). A Service port whose targetPort names nothing gets no endpoints. Give it the port number instead, and it will be declared on the container under this name." (include "global-chart.deploymentValuesPath" $name) $i $port.name $port.targetPort $known) -}}
+          {{- fail (printf "%s.service.extraPorts[%d].targetPort: names the port '%s', which no container port declares (declared: %s). A Service port whose targetPort names nothing gets no endpoints. Give it the port number instead, and it will be declared on the container under this name." $errCtx $i $port.targetPort $known) -}}
         {{- end -}}
       {{- end -}}
     {{- end -}}
@@ -502,16 +503,16 @@ Called from validate.yaml. Emits nothing on success.
       {{- $portNames := dict $primary.name "service.portName" -}}
       {{- $portNumbers := dict (printf "%s/%s" (include "global-chart.printScalar" $primary.port) $primary.protocol) "service.port" -}}
       {{- range $i, $_ := (default (list) $svc.extraPorts) -}}
-        {{- $owner := printf "extraPorts[%d] (%s)" $i .name -}}
+        {{- $owner := printf "extraPorts[%d]" $i -}}
         {{- $number := printf "%s/%s" (include "global-chart.printScalar" .port) (include "global-chart.extraPortProtocol" .) -}}
         {{- if and (hasKey . "nodePort") (not (has $type (list "NodePort" "LoadBalancer"))) -}}
-          {{- fail (printf "%s.service.%s: sets nodePort, which the API server accepts only on a NodePort or LoadBalancer Service (type: %s). Drop nodePort, or set service.type." $errCtx $owner $type) -}}
+          {{- fail (printf "%s.service.%s.nodePort: set on a %s Service, which the API server rejects: only a NodePort or LoadBalancer Service takes a nodePort. Drop nodePort, or set service.type." $errCtx $owner $type) -}}
         {{- end -}}
         {{- if hasKey $portNames .name -}}
-          {{- fail (printf "%s.service.%s: repeats the port name '%s' of %s. The API server rejects two Service ports with one name." $errCtx $owner .name (get $portNames .name)) -}}
+          {{- fail (printf "%s.service.%s.name: '%s' repeats the port name of %s. The API server rejects two Service ports with one name." $errCtx $owner .name (get $portNames .name)) -}}
         {{- end -}}
         {{- if hasKey $portNumbers $number -}}
-          {{- fail (printf "%s.service.%s: repeats port %s of %s. The API server rejects two Service ports with one port and protocol." $errCtx $owner $number (get $portNumbers $number)) -}}
+          {{- fail (printf "%s.service.%s.port: %s repeats the port and protocol of %s. The API server rejects two Service ports with one port and protocol." $errCtx $owner $number (get $portNumbers $number)) -}}
         {{- end -}}
         {{- $_ := set $portNames .name $owner -}}
         {{- $_ := set $portNumbers $number $owner -}}

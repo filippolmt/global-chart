@@ -1476,7 +1476,7 @@ tests:
               mountPath: /mnt
     asserts:
       - failedTemplate:
-          errorPattern: "deployments\\.main\\.volumes\\[0\\] \\(myvol\\): unknown legacy volume type 'nfs'"
+          errorPattern: "deployments\\.main\\.volumes\\[0\\]\\.type: unknown legacy volume type 'nfs'"
 
   - it: should fail when a legacy configMap volume has no name in its configMap block
     set:
@@ -1489,7 +1489,7 @@ tests:
               configMap: {}
     asserts:
       - failedTemplate:
-          errorPattern: "deployments\\.main\\.volumes\\[0\\] \\(myvol\\): the legacy type configMap needs configMap\\.name"
+          errorPattern: "deployments\\.main\\.volumes\\[0\\]\\.configMap\\.name: required by the legacy type configMap"
 
   - it: should fail when a legacy secret volume has no name in its secret block
     set:
@@ -1502,7 +1502,7 @@ tests:
               secret: {}
     asserts:
       - failedTemplate:
-          errorPattern: "deployments\\.main\\.volumes\\[0\\] \\(myvol\\): the legacy type secret needs secret\\.secretName \\(or secret\\.name\\)"
+          errorPattern: "deployments\\.main\\.volumes\\[0\\]\\.secret\\.secretName: required by the legacy type secret \\(or secret\\.name\\)"
 
   - it: should fail when a legacy persistentVolumeClaim volume has no name in its persistentVolumeClaim block
     set:
@@ -1515,7 +1515,7 @@ tests:
               persistentVolumeClaim: {}
     asserts:
       - failedTemplate:
-          errorPattern: "deployments\\.main\\.volumes\\[0\\] \\(myvol\\): the legacy type persistentVolumeClaim needs persistentVolumeClaim\\.claimName \\(or persistentVolumeClaim\\.name\\)"
+          errorPattern: "deployments\\.main\\.volumes\\[0\\]\\.persistentVolumeClaim\\.claimName: required by the legacy type persistentVolumeClaim \\(or persistentVolumeClaim\\.name\\)"
 
   - it: should fail when a legacy secret volume has no secret block
     set:
@@ -1527,7 +1527,7 @@ tests:
               type: secret
     asserts:
       - failedTemplate:
-          errorPattern: "deployments\\.main\\.volumes\\[0\\] \\(myvol\\): the legacy type secret needs secret\\.secretName \\(or secret\\.name\\)"
+          errorPattern: "deployments\\.main\\.volumes\\[0\\]\\.secret\\.secretName: required by the legacy type secret \\(or secret\\.name\\)"
 
   - it: should fail when imagePullSecrets entry has no name key
     set:
@@ -1704,7 +1704,7 @@ tests:
                 content: "a: b"
     asserts:
       - failedTemplate:
-          errorMessage: "deployments.main.mountedConfigFiles.files[0] (myconfig): 'targetPath' is required"
+          errorMessage: "deployments.main.mountedConfigFiles.files[0].targetPath: required"
 
   # imagePullSecrets items share global.imagePullSecrets' shape: a number
   # used to pass the schema and crash the render (issue #158).
@@ -1772,7 +1772,7 @@ tests:
                     content: "b"
     asserts:
       - failedTemplate:
-          errorMessage: "deployments.main.mountedConfigFiles.bundles[0]: 'mountDir' is required"
+          errorMessage: "deployments.main.mountedConfigFiles.bundles[0].mountDir: required"
 
   # ====== priorityClassName (issue #168) ======
   - it: should render priorityClassName when set

@@ -1,6 +1,6 @@
 # A mountedConfigFiles bundle with no mountDir rendered `mountPath:` as null,
 # rejected at apply (issue #157).
-# Expected fail substring: "deployments.web.mountedConfigFiles.bundles[0]: 'mountDir' is required"
+# Expected fail substring: "deployments.web.mountedConfigFiles.bundles[0].mountDir: required"
 deployments:
   web:
     image: nginx:1.25

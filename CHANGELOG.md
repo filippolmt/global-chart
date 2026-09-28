@@ -35,8 +35,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   (issue #190). The path is the key holding the wrong value, as precise as the
   chart knows it: `deployments.web.pdb: …`, `ingress.hosts[0].deployment: …`,
   `httpRoute.rules[0].backendRefs[1].deployment: …`,
-  `deployments.web.volumes[2] (data): …`,
-  `deployments.web.service.extraPorts[1] (metrics): …`,
+  `deployments.web.volumes[2].type: …`,
+  `deployments.web.service.extraPorts[1].nodePort: …`,
   `externalSecrets.app.data[0].remote: mandatory`. Before, the same kind of problem was
   named in four shapes (`PDB for deployment 'web': …`, `image is required for
   <job>`, `ingress host 'x' references …`, `renderVolume: …`). Two kinds keep
@@ -51,7 +51,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   `cronJobs.cleanup.successfulJobsHistoryLimit: null, …`: every number read
   from values reaches `printScalar` with its path, and the Service ports and an
   ingress/httpRoute explicit `service.port` are checked where they are
-  resolved, before any template prints one.
+  resolved, before any template prints one. A null hook `weight`, which counted
+  as 0 instead of the default 10 and reordered the hook in silence, fails too:
+  `hooks.pre-install.migrate.weight: null, …`.
 
 ### Migration guide from 3.1.0
 

@@ -28,9 +28,9 @@ metadata:
     {{- . | nindent 4 }}
   {{- end }}
 data:
-  {{ required (printf "%s.mountedConfigFiles.files[%d] (%s): 'filename' is required" $errCtx $i $f.name) $f.filename | quote }}: |2
+  {{ required (printf "%s.mountedConfigFiles.files[%d].filename: required" $errCtx $i) $f.filename | quote }}: |2
     {{- /* "" is an empty file, not a missing one: only an absent or null content fails */ -}}
-    {{- if kindIs "invalid" $f.content }}{{ fail (printf "%s.mountedConfigFiles.files[%d] (%s): 'content' is required" $errCtx $i $f.name) }}{{ end -}}
+    {{- if kindIs "invalid" $f.content }}{{ fail (printf "%s.mountedConfigFiles.files[%d].content: required" $errCtx $i) }}{{ end -}}
     {{- $content := $f.content -}}
     {{- $content | nindent 4 -}}
 {{- end }}
@@ -51,9 +51,9 @@ metadata:
     {{- . | nindent 4 }}
   {{- end }}
 data:
-  {{ required (printf "%s.mountedConfigFiles.bundles[%d].files[%d] (%s): 'relPath' is required" $errCtx $bi $fi $f.name) $f.relPath | base | quote }}: |2
+  {{ required (printf "%s.mountedConfigFiles.bundles[%d].files[%d].relPath: required" $errCtx $bi $fi) $f.relPath | base | quote }}: |2
     {{- /* "" is an empty file, not a missing one: only an absent or null content fails */ -}}
-    {{- if kindIs "invalid" $f.content }}{{ fail (printf "%s.mountedConfigFiles.bundles[%d].files[%d] (%s): 'content' is required" $errCtx $bi $fi $f.name) }}{{ end -}}
+    {{- if kindIs "invalid" $f.content }}{{ fail (printf "%s.mountedConfigFiles.bundles[%d].files[%d].content: required" $errCtx $bi $fi) }}{{ end -}}
     {{- $content := $f.content -}}
     {{- $content | nindent 4 -}}
 {{- end }}

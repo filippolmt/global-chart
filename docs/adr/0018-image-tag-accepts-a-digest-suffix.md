@@ -19,7 +19,9 @@ OCI reference.
 
 **A non-empty tag before the `@`.** A tag made only of `@sha256:…` would render
 `repo:@sha256:…`, the `InvalidImageName` that #173 removed. A digest on its own
-already has its field. Image Updater always writes a tag before the digest.
+already has its field. Image Updater always writes a tag before the digest. The
+schema's tag pattern rejects it, and `imageString` does too, as the backstop
+under `--skip-schema-validation` (ADR 0017), like the pair below.
 
 **A digest in `tag` together with `image.digest` fails, even when the two are
 equal.** The rule "`digest` wins over `tag`" would render `repo@<image.digest>`

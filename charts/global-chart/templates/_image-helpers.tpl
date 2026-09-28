@@ -4,7 +4,7 @@ Image helpers for global-chart.
 
 {{/*
 Render an image reference from either a plain string or a map with repository/tag/digest.
-  {{ include "global-chart.imageString" (dict "image" $deploy.image "global" $root.Values.global "errCtx" "deployments.web") }}
+  {{ include "global-chart.imageString" (dict "image" $deploy.image "global" $root.Values.global "errCtx" "deployments.web.image") }}
 errCtx (required) is the values path of the image and leads every fail message, in the
 shape "<values path>: <problem>" (issues #188, #190): deployments.<name>.image, a job's
 <jobValuesPath>.image, or, for an inherited image, "deployments.<name>.image (inherited

@@ -1,6 +1,6 @@
 # A bundle file with no relPath rendered its ConfigMap key as "." and its
 # projected path as null (issue #157).
-# Expected fail substring: "deployments.web.mountedConfigFiles.bundles[0].files[0] (app-conf): 'relPath' is required"
+# Expected fail substring: "deployments.web.mountedConfigFiles.bundles[0].files[0].relPath: required"
 deployments:
   web:
     image: nginx:1.25

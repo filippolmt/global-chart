@@ -102,7 +102,7 @@ tests:
                 targetPath: /etc/config/config.yaml
     asserts:
       - failedTemplate:
-          errorPattern: "content.*is required"
+          errorPattern: "deployments\\.main\\.mountedConfigFiles\\.files\\[0\\]\\.content: required"
 
   - it: should fail when bundle file entry has no content
     set:
@@ -117,7 +117,7 @@ tests:
                     relPath: sub/app.yaml
     asserts:
       - failedTemplate:
-          errorPattern: "content.*is required"
+          errorPattern: "deployments\\.main\\.mountedConfigFiles\\.bundles\\[0\\]\\.files\\[0\\]\\.content: required"
 
   # ====== Content and keys that broke the YAML (issue #157) ======
   # A bare `|` takes its indentation from the first line: a first line more
@@ -168,7 +168,7 @@ tests:
                 content: "a: b"
     asserts:
       - failedTemplate:
-          errorMessage: "deployments.main.mountedConfigFiles.files[0] (myconfig): 'filename' is required"
+          errorMessage: "deployments.main.mountedConfigFiles.files[0].filename: required"
 
   - it: should quote a filename YAML 1.1 would rewrite
     set:
@@ -211,7 +211,7 @@ tests:
                     content: "b"
     asserts:
       - failedTemplate:
-          errorMessage: "deployments.main.mountedConfigFiles.bundles[0].files[0] (appconfig): 'relPath' is required"
+          errorMessage: "deployments.main.mountedConfigFiles.bundles[0].files[0].relPath: required"
 
   # An empty file is a file: `content: ""` used to fail as "required".
   - it: should render an empty mounted file for content ""
@@ -253,4 +253,4 @@ tests:
                 targetPath: /etc/app/missing.conf
     asserts:
       - failedTemplate:
-          errorMessage: "deployments.main.mountedConfigFiles.files[0] (missing): 'content' is required"
+          errorMessage: "deployments.main.mountedConfigFiles.files[0].content: required"

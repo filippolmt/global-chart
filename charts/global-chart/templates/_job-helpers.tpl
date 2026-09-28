@@ -2,8 +2,8 @@
 Shared helper for the hook and cronjob pod spec, in both scopes: the single
 implementation behind all four call sites.
 
-Root-level jobs pass no `deploy`. That scope simply *is* the "nothing to inherit
-from" case: with `deploy` empty every inheritance test fails and each field
+Root-level jobs pass no `deploy` (and no `deployName`). That scope simply *is*
+the "nothing to inherit from" case: with `deploy` empty every inheritance test fails and each field
 resolves to the job's own value — and, for `imagePullSecrets` only, to
 `global.imagePullSecrets` after that. No field gains a global fallback it did
 not already have. Same widening as `jobServiceAccount`, in
@@ -31,8 +31,9 @@ Accepts a dict with:
                    (ADR 0007)
   deployName     - the deployment key, for the image it inherits and the fail message of an inherited
                    externalSecrets entry; root-level callers omit it
-  errCtx         - values path of the job, for the fail message of its own
-                   externalSecrets entries
+  errCtx         - values path of the job, from jobValuesPath: leads the fail
+                   messages of its own externalSecrets entries, volumes and
+                   mounts, and names the job in jobImageSource's
 
 The pod-level `automountServiceAccountToken` follows the usual chain: the job's
 own value, then the deployment's pod-level value, else omitted and the
@@ -143,7 +144,9 @@ containers:
   {{- /* Only one of the two lists is ever non-empty (a job's own replaces the
          inherited one), so checking each against the job's volumes alone is
          enough to catch every volume-name collision */ -}}
-  {{- $inheritedCtx := include "global-chart.deploymentValuesPath" (toString .deployName) -}}
+  {{- /* Only a deployment-level job inherits: at root level the path is never read */ -}}
+  {{- $inheritedCtx := "" -}}
+  {{- with .deployName -}}{{- $inheritedCtx = include "global-chart.deploymentValuesPath" . -}}{{- end -}}
   {{- $esInherited := include "global-chart.resolveExternalSecretRefs" (dict "root" $root "refs" $esRefs.inherited "hook" $esReadsCopy "volumes" $job.volumes "errCtx" $inheritedCtx) | fromJson -}}
   {{- $esOwn := include "global-chart.resolveExternalSecretRefs" (dict "root" $root "refs" $esRefs.own "hook" $esReadsCopy "volumes" $job.volumes "errCtx" .errCtx) | fromJson -}}
   {{- $esEnvInherited := $esInherited.env -}}
@@ -386,7 +389,7 @@ not at all:
 Nothing falls back to the deployment or global: they describe this schedule.
 Every value goes through global-chart.printScalar (issue #132), unquoted:
 concurrencyPolicy is a schema enum (Allow/Forbid/Replace), a plain YAML string.
-Params: the job map.
+Params: job (the job map) · errCtx (the job's jobValuesPath).
 Returns "field: value" lines at indent 0; concurrencyPolicy and the two limits
 always render, so it is never empty.
 Usage: {{- include "global-chart.cronJobSpecFields" (dict "job" $job "errCtx" $errCtx) | nindent 2 }}
