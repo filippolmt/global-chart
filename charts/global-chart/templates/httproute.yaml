@@ -54,11 +54,12 @@ spec:
       {{- end }}
       backendRefs:
         {{- range $brIdx, $br := $rule.backendRefs }}
-        {{- $b := include "global-chart.resolveBackend" (dict "root" $root "ref" $br "errCtx" (printf "httpRoute.rules[%d].backendRefs[%d]" $ruleIdx $brIdx)) | fromJson }}
+        {{- $brCtx := printf "httpRoute.rules[%d].backendRefs[%d]" $ruleIdx $brIdx }}
+        {{- $b := include "global-chart.resolveBackend" (dict "root" $root "ref" $br "errCtx" $brCtx) | fromJson }}
         - name: {{ $b.name | quote }}
           port: {{ include "global-chart.printScalar" $b.port }}
           {{- if hasKey $br "weight" }}
-          weight: {{ include "global-chart.printScalar" $br.weight }}
+          weight: {{ include "global-chart.printScalar" (dict "value" $br.weight "errCtx" (printf "%s.weight" $brCtx)) }}
           {{- end }}
           {{- with $br.filters }}
           filters:

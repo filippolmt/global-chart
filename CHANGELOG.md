@@ -41,10 +41,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   named in four shapes (`PDB for deployment 'web': …`, `image is required for
   <job>`, `ingress host 'x' references …`, `renderVolume: …`). Two kinds keep
   their own: a helper's internal invariant, and a conflict between entries
-  (name collisions, the fullname, `ingress` with `httpRoute`), and
-  `printScalar`'s null guard, which is handed a value and not its key (#191).
-  A deployment's path has one home, `deploymentValuesPath`, beside
-  `jobValuesPath`.
+  (name collisions, the fullname, `ingress` with `httpRoute`). A deployment's
+  path has one home, `deploymentValuesPath`, beside `jobValuesPath`.
+- **A null in values names its key** (issue #191). Under
+  `--skip-schema-validation` a null in a key the chart gives no default reached
+  `printScalar: a null value reached a field the chart prints`, with no hint of
+  which one. Now it reads `deployments.web.revisionHistoryLimit: null, …`,
+  `deployments.web.service.extraPorts[0].port: null, …`,
+  `cronJobs.cleanup.successfulJobsHistoryLimit: null, …`: every number read
+  from values reaches `printScalar` with its path, and the Service ports and an
+  ingress/httpRoute explicit `service.port` are checked where they are
+  resolved, before any template prints one.
 
 ### Migration guide from 3.1.0
 

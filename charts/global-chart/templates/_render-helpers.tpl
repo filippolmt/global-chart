@@ -41,22 +41,45 @@ Contract, by kind of value:
   number that large has already lost its low digits to float64 anyway.
 - bool: toString, true/false as before.
 - nil: fails. A null that reaches a printed field would otherwise render as
-  "<nil>" (toString) or 0 (int64) — a value the user never wrote. The typed
-  fields cannot carry a null (the schema rejects it); the free-form maps can,
-  and renderConfigMapData checks for it first, naming the values path this
-  helper does not know. This fail is the net under every other caller, and
-  under --skip-schema-validation (tests/bad-values/skip-schema/).
+  "<nil>" (toString) or 0 (int64) — a value the user never wrote. The schema
+  rejects it; under --skip-schema-validation (tests/bad-values/skip-schema/) a
+  null in a key the chart gives no default survives the values merge.
+Two forms. A value read straight from values is passed with its path,
+(dict "value" $v "errCtx" "<values path>"), and a null fails through
+rejectNull naming it (issue #191). A value the chart computed is passed bare:
+its helper rejects a null at the source with the path (servicePrimaryPort,
+resolveBackend, rejectNullDataValue), so a null reaching the bare form is a
+chart bug, and says so. The dict form is unambiguous: a scalar is never a map.
 Maps and slices are not scalars: callers render them with toYaml.
-Usage: {{ include "global-chart.printScalar" $deploy.revisionHistoryLimit }}
-       {{ include "global-chart.printScalar" $value | quote }}
+Usage: {{ include "global-chart.printScalar" (dict "value" $deploy.revisionHistoryLimit "errCtx" (printf "%s.revisionHistoryLimit" $errCtx)) }}
+       {{ include "global-chart.printScalar" $primary.port }}
 */}}
 {{- define "global-chart.printScalar" -}}
-{{- if kindIs "invalid" . -}}
-{{- fail "printScalar: a null value reached a field the chart prints. Set a value — \"\" for an empty string — or remove the key." -}}
-{{- else if and (kindIs "float64" .) (eq (floor .) .) (lt . 9.2e18) (gt . -9.2e18) -}}
-{{- printf "%d" (int64 .) -}}
+{{- $v := . -}}
+{{- if kindIs "map" . -}}
+  {{- $v = .value -}}
+  {{- include "global-chart.rejectNull" (dict "value" $v "errCtx" (required "printScalar: errCtx is required with the dict form" .errCtx)) -}}
+{{- end -}}
+{{- if kindIs "invalid" $v -}}
+{{- fail "printScalar: a null reached a computed field with no values path, a chart bug: the helper that computed it must reject the null, naming the key." -}}
+{{- else if and (kindIs "float64" $v) (eq (floor $v) $v) (lt $v 9.2e18) (gt $v -9.2e18) -}}
+{{- printf "%d" (int64 $v) -}}
 {{- else -}}
-{{- toString . -}}
+{{- toString $v -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+Fail on a null read from values, naming its path: the single home of the
+message, read by printScalar's dict form, servicePrimaryPort and
+resolveBackend. A null is a value nobody wrote: printed, it becomes "<nil>" or
+0. rejectNullDataValue keeps its own wording for the ConfigMap/Secret maps,
+which hold strings only. Renders nothing when the value is set.
+Usage: {{- include "global-chart.rejectNull" (dict "value" $v "errCtx" "deployments.web.revisionHistoryLimit") -}}
+*/}}
+{{- define "global-chart.rejectNull" -}}
+{{- if kindIs "invalid" .value -}}
+{{- fail (printf "%s: null, a value nobody wrote. Set a value — \"\" for an empty string — or remove the key." .errCtx) -}}
 {{- end -}}
 {{- end }}
 
@@ -413,6 +436,9 @@ Numbers come back float64: see the file header.
        Service's. */ -}}
 {{- if and (hasKey $ref "service") $ref.service $ref.service.name -}}
   {{- $svcName = $ref.service.name -}}
+  {{- if hasKey $ref.service "port" -}}
+    {{- include "global-chart.rejectNull" (dict "value" $ref.service.port "errCtx" (printf "%s.service.port" $path)) -}}
+  {{- end -}}
   {{- $svcPort = ternary $ref.service.port 80 (hasKey $ref.service "port") -}}
 {{- /* Priority 2: Deployment reference */ -}}
 {{- else if $ref.deployment -}}
@@ -432,7 +458,7 @@ Numbers come back float64: see the file header.
     {{- fail (printf "%s.deployment: references deployment '%s', which has service.enabled: false. Enable the service or remove the reference." $path $depName) -}}
   {{- end -}}
   {{- $svcName = include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $depName) -}}
-  {{- $svcPort = (include "global-chart.servicePrimaryPort" $depSvc | fromJson).port -}}
+  {{- $svcPort = (include "global-chart.servicePrimaryPort" (dict "service" $depSvc "errCtx" (printf "%s.service" (include "global-chart.deploymentValuesPath" $depName))) | fromJson).port -}}
 {{- /* Priority 3: Error - must specify deployment or service */ -}}
 {{- else -}}
   {{- fail (printf "%s: must specify either 'deployment' (name of a deployment) or 'service.name' (explicit service name)" $path) -}}
@@ -465,7 +491,7 @@ metadataPolicy: {{ ternary $remote.metadataPolicy "None" (hasKey $remote "metada
 property: {{ $remote.property | quote }}
 {{- end }}
 {{- if hasKey $remote "version" }}
-version: {{ include "global-chart.printScalar" $remote.version | quote }}
+version: {{ include "global-chart.printScalar" (dict "value" $remote.version "errCtx" (printf "%s.version" .errCtx)) | quote }}
 {{- end }}
 {{- end }}
 
@@ -486,12 +512,12 @@ reaches a pod port whether or not the container declares it, so re-declaring an
 already-declared port would buy nothing and risk a duplicate name, which the API
 server rejects. The protocol is part of the key because the same number under
 two protocols is a distinct port — TCP and UDP on 53 is the ordinary DNS shape.
-Usage: {{ include "global-chart.containerPorts" $svc | fromJsonArray }}
+Usage: {{ include "global-chart.containerPorts" (dict "service" $svc "errCtx" (printf "%s.service" $errCtx)) | fromJsonArray }}
 Numbers come back float64: see the file header.
 */}}
 {{- define "global-chart.containerPorts" -}}
-{{- $svc := . -}}
-{{- $primary := include "global-chart.servicePrimaryPort" $svc | fromJson -}}
+{{- $svc := .service -}}
+{{- $primary := include "global-chart.servicePrimaryPort" . | fromJson -}}
 {{- $portName := $primary.name -}}
 {{- $targetPort := $primary.targetPort -}}
 {{- $containerPort := kindIs "string" $targetPort | ternary $primary.port $targetPort -}}
@@ -527,13 +553,29 @@ custom portName and no targetPort, "http" would name a port nothing declares.
 Only the primary port is here. extraPorts entries have name/port/targetPort all
 required by the schema; their one default, the protocol, lives in
 extraPortProtocol.
-Usage: {{ $primary := include "global-chart.servicePrimaryPort" $svc | fromJson }}
-Input: the deployment's service map, already defaulted to (dict) by the caller.
+It is also the single home of the null check on the Service ports: every
+consumer of a deployment's ports reaches this helper before it prints one, so
+a null port, targetPort, portName or protocol, of the primary port or of an
+extraPorts entry, fails here naming its key (issue #191).
+Usage: {{ $primary := include "global-chart.servicePrimaryPort" (dict "service" $svc "errCtx" (printf "%s.service" $errCtx)) | fromJson }}
+Input: the deployment's service map, already defaulted to (dict) by the caller,
+and errCtx, its values path.
 Output: JSON of the form {"port":80,"name":"http","protocol":"TCP","targetPort":"http"}
 Numbers come back float64: see the file header.
 */}}
 {{- define "global-chart.servicePrimaryPort" -}}
-{{- $svc := . -}}
+{{- $svc := .service -}}
+{{- $errCtx := required "servicePrimaryPort: errCtx is required (the values path of the service)" .errCtx -}}
+{{- range $key := list "port" "targetPort" "portName" "protocol" -}}
+  {{- if hasKey $svc $key -}}
+    {{- include "global-chart.rejectNull" (dict "value" (index $svc $key) "errCtx" (printf "%s.%s" $errCtx $key)) -}}
+  {{- end -}}
+{{- end -}}
+{{- range $i, $port := (default (list) $svc.extraPorts) -}}
+  {{- range $key, $value := $port -}}
+    {{- include "global-chart.rejectNull" (dict "value" $value "errCtx" (printf "%s.extraPorts[%d].%s" $errCtx $i $key)) -}}
+  {{- end -}}
+{{- end -}}
 {{- $name := ternary $svc.portName "http" (hasKey $svc "portName") -}}
 {{- dict
       "port" (ternary $svc.port 80 (hasKey $svc "port"))

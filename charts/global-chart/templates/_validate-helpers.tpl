@@ -5,11 +5,11 @@ Every fail message a user can cause has one shape: "<values path>: <problem>",
 the path being the key that holds the wrong value, as precise as the caller
 knows it (issue #190). A job's path comes from jobValuesPath, a deployment's
 from deploymentValuesPath below: never printf either inline, and pass it to a
-helper as errCtx. Three kinds of message keep another shape, each because it
+helper as errCtx. Two kinds of message keep another shape, each because it
 has no path to lead with: a helper's own invariant ("<helper>: …", a chart
-bug, not a values one); a conflict between entries (name collisions, the
-fullname, ingress with httpRoute); and printScalar's null, the last net under
-every printed field, which is handed a value and not its key (issue #191).
+bug, not a values one), and a conflict between entries (name collisions, the
+fullname, ingress with httpRoute). A null read from values fails through
+rejectNull (_render-helpers.tpl), naming its key (issue #191).
 */}}
 
 {{/*
@@ -457,11 +457,12 @@ Called from validate.yaml. Emits nothing on success.
     {{- $svc := default (dict) $deploy.service -}}
     {{- if eq (include "global-chart.serviceEnabled" $svc) "true" -}}
       {{- $declared := dict -}}
-      {{- range (include "global-chart.containerPorts" $svc | fromJsonArray) -}}
+      {{- $svcCtx := dict "service" $svc "errCtx" (printf "%s.service" (include "global-chart.deploymentValuesPath" $name)) -}}
+      {{- range (include "global-chart.containerPorts" $svcCtx | fromJsonArray) -}}
         {{- $_ := set $declared .name true -}}
       {{- end -}}
       {{- $known := keys $declared | sortAlpha | join ", " -}}
-      {{- $targetPort := (include "global-chart.servicePrimaryPort" $svc | fromJson).targetPort -}}
+      {{- $targetPort := (include "global-chart.servicePrimaryPort" $svcCtx | fromJson).targetPort -}}
       {{- if and (hasKey $svc "targetPort") (kindIs "string" $svc.targetPort) (not (hasKey $declared $targetPort)) -}}
         {{- fail (printf "%s.service.targetPort: names the port '%s', which no container port declares (declared: %s). A Service port whose targetPort names nothing gets no endpoints. Use the port number, or a name one of the declared ports carries." (include "global-chart.deploymentValuesPath" $name) $targetPort $known) -}}
       {{- end -}}
@@ -496,7 +497,7 @@ Called from validate.yaml. Emits nothing on success.
     {{- $svc := default (dict) $deploy.service -}}
     {{- if eq (include "global-chart.serviceEnabled" $svc) "true" -}}
       {{- $errCtx := include "global-chart.deploymentValuesPath" $name -}}
-      {{- $primary := include "global-chart.servicePrimaryPort" $svc | fromJson -}}
+      {{- $primary := include "global-chart.servicePrimaryPort" (dict "service" $svc "errCtx" (printf "%s.service" $errCtx)) | fromJson -}}
       {{- $type := include "global-chart.serviceType" $svc -}}
       {{- $portNames := dict $primary.name "service.portName" -}}
       {{- $portNumbers := dict (printf "%s/%s" (include "global-chart.printScalar" $primary.port) $primary.protocol) "service.port" -}}

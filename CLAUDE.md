@@ -302,11 +302,12 @@ imagePullSecrets:
 ```
 A job's path comes from `jobValuesPath`, a deployment's from
 `deploymentValuesPath`; never printf either inline, and a helper receives it as
-`errCtx`. Three exceptions keep another shape, none having a path to lead with:
-a helper's own invariant (`<helper>: …`, a chart bug), a conflict between
-entries (name collisions, the fullname, ingress with httpRoute), and
-`printScalar`'s null. The rule and its exceptions live in the
-`_validate-helpers.tpl` header (issue #190)
+`errCtx`. Two exceptions keep another shape, neither having a path to lead
+with: a helper's own invariant (`<helper>: …`, a chart bug) and a conflict
+between entries (name collisions, the fullname, ingress with httpRoute). A
+number read straight from values goes to `printScalar` with its path,
+`(dict "value" $v "errCtx" "<path>")`, so a null fails naming its key (#191).
+The rule and its exceptions live in the `_validate-helpers.tpl` header (issue #190)
 
 **Adding a new helper:** place it in the appropriate domain file, not
 `_helpers.tpl`, and give it a header comment carrying its rules — that header is

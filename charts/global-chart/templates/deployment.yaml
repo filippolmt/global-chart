@@ -33,17 +33,17 @@ spec:
          it — and with KEDA minReplicaCount: 0 it wakes a workload that was
          deliberately scaled to zero. */}}
   {{- if not (or $autoscaling.enabled $keda.enabled) }}
-  replicas: {{ include "global-chart.printScalar" (ternary $deploy.replicaCount 2 (hasKey $deploy "replicaCount")) }}
+  replicas: {{ include "global-chart.printScalar" (dict "value" (ternary $deploy.replicaCount 2 (hasKey $deploy "replicaCount")) "errCtx" (printf "%s.replicaCount" $errCtx)) }}
   {{- end }}
   {{- with $deploy.strategy }}
   strategy:
     {{- toYaml . | nindent 4 }}
   {{- end }}
   {{- if hasKey $deploy "revisionHistoryLimit" }}
-  revisionHistoryLimit: {{ include "global-chart.printScalar" $deploy.revisionHistoryLimit }}
+  revisionHistoryLimit: {{ include "global-chart.printScalar" (dict "value" $deploy.revisionHistoryLimit "errCtx" (printf "%s.revisionHistoryLimit" $errCtx)) }}
   {{- end }}
   {{- if hasKey $deploy "progressDeadlineSeconds" }}
-  progressDeadlineSeconds: {{ include "global-chart.printScalar" $deploy.progressDeadlineSeconds }}
+  progressDeadlineSeconds: {{ include "global-chart.printScalar" (dict "value" $deploy.progressDeadlineSeconds "errCtx" (printf "%s.progressDeadlineSeconds" $errCtx)) }}
   {{- end }}
   selector:
     matchLabels:
@@ -103,7 +103,7 @@ spec:
       automountServiceAccountToken: {{ $deploy.automountServiceAccountToken }}
       {{- end }}
       {{- if hasKey $deploy "terminationGracePeriodSeconds" }}
-      terminationGracePeriodSeconds: {{ include "global-chart.printScalar" $deploy.terminationGracePeriodSeconds }}
+      terminationGracePeriodSeconds: {{ include "global-chart.printScalar" (dict "value" $deploy.terminationGracePeriodSeconds "errCtx" (printf "%s.terminationGracePeriodSeconds" $errCtx)) }}
       {{- end }}
       {{- if $deploy.podSecurityContext }}
       securityContext:
@@ -134,7 +134,7 @@ spec:
             {{- toYaml . | nindent 12 }}
           {{- end }}
           ports:
-            {{- range (include "global-chart.containerPorts" $svc | fromJsonArray) }}
+            {{- range (include "global-chart.containerPorts" (dict "service" $svc "errCtx" (printf "%s.service" $errCtx)) | fromJsonArray) }}
             - name: {{ .name }}
               containerPort: {{ include "global-chart.printScalar" .containerPort }}
               protocol: {{ .protocol }}

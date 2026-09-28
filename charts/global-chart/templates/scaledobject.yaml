@@ -32,22 +32,22 @@ spec:
     kind: Deployment
     name: {{ $depFullname }}
   {{- if hasKey $keda "minReplicaCount" }}
-  minReplicaCount: {{ include "global-chart.printScalar" $keda.minReplicaCount }}
+  minReplicaCount: {{ include "global-chart.printScalar" (dict "value" $keda.minReplicaCount "errCtx" (printf "%s.keda.minReplicaCount" $errCtx)) }}
   {{- end }}
   {{- if hasKey $keda "maxReplicaCount" }}
-  maxReplicaCount: {{ include "global-chart.printScalar" $keda.maxReplicaCount }}
+  maxReplicaCount: {{ include "global-chart.printScalar" (dict "value" $keda.maxReplicaCount "errCtx" (printf "%s.keda.maxReplicaCount" $errCtx)) }}
   {{- end }}
   {{- if hasKey $keda "idleReplicaCount" }}
-  idleReplicaCount: {{ include "global-chart.printScalar" $keda.idleReplicaCount }}
+  idleReplicaCount: {{ include "global-chart.printScalar" (dict "value" $keda.idleReplicaCount "errCtx" (printf "%s.keda.idleReplicaCount" $errCtx)) }}
   {{- end }}
   {{- if hasKey $keda "pollingInterval" }}
-  pollingInterval: {{ include "global-chart.printScalar" $keda.pollingInterval }}
+  pollingInterval: {{ include "global-chart.printScalar" (dict "value" $keda.pollingInterval "errCtx" (printf "%s.keda.pollingInterval" $errCtx)) }}
   {{- end }}
   {{- if hasKey $keda "cooldownPeriod" }}
-  cooldownPeriod: {{ include "global-chart.printScalar" $keda.cooldownPeriod }}
+  cooldownPeriod: {{ include "global-chart.printScalar" (dict "value" $keda.cooldownPeriod "errCtx" (printf "%s.keda.cooldownPeriod" $errCtx)) }}
   {{- end }}
   {{- if hasKey $keda "initialCooldownPeriod" }}
-  initialCooldownPeriod: {{ include "global-chart.printScalar" $keda.initialCooldownPeriod }}
+  initialCooldownPeriod: {{ include "global-chart.printScalar" (dict "value" $keda.initialCooldownPeriod "errCtx" (printf "%s.keda.initialCooldownPeriod" $errCtx)) }}
   {{- end }}
   {{- with $keda.fallback }}
   fallback:

@@ -1,0 +1,17 @@
+# A null port on an ingress host's explicit service (issue #191). The schema
+# rejects it first; under --skip-schema-validation resolveBackend fails naming
+# the key instead of printing "<nil>".
+# Expected fail substring: "ingress.hosts[0].service.port: null"
+deployments:
+  web:
+    image: nginx:1.25
+ingress:
+  enabled: true
+  hosts:
+    - host: app.example.com
+      service:
+        name: external
+        port: null
+      paths:
+        - path: /
+          pathType: Prefix

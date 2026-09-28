@@ -8,7 +8,7 @@
 {{- $svc := default (dict) $deploy.service }}
 {{- if eq (include "global-chart.serviceEnabled" $svc) "true" }}
 {{- $firstSvc = include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $name) }}
-{{- $firstPort = (include "global-chart.servicePrimaryPort" $svc | fromJson).port }}
+{{- $firstPort = (include "global-chart.servicePrimaryPort" (dict "service" $svc "errCtx" (printf "%s.service" (include "global-chart.deploymentValuesPath" $name))) | fromJson).port }}
 {{- end }}
 {{- end }}
 {{- end }}

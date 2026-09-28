@@ -26,10 +26,10 @@ spec:
   {{- fail (printf "%s.pdb: one of minAvailable or maxUnavailable is required when pdb.enabled is true." $errCtx) }}
   {{- end }}
   {{- if hasKey $pdb "minAvailable" }}
-  minAvailable: {{ include "global-chart.printScalar" $pdb.minAvailable }}
+  minAvailable: {{ include "global-chart.printScalar" (dict "value" $pdb.minAvailable "errCtx" (printf "%s.pdb.minAvailable" $errCtx)) }}
   {{- end }}
   {{- if hasKey $pdb "maxUnavailable" }}
-  maxUnavailable: {{ include "global-chart.printScalar" $pdb.maxUnavailable }}
+  maxUnavailable: {{ include "global-chart.printScalar" (dict "value" $pdb.maxUnavailable "errCtx" (printf "%s.pdb.maxUnavailable" $errCtx)) }}
   {{- end }}
   selector:
     matchLabels:

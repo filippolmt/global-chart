@@ -30,11 +30,11 @@ spec:
   {{- if not (hasKey $hpa "minReplicas") }}
   {{- fail (printf "%s.autoscaling.minReplicas: required when HPA is enabled" $errCtx) }}
   {{- end }}
-  minReplicas: {{ include "global-chart.printScalar" $hpa.minReplicas }}
+  minReplicas: {{ include "global-chart.printScalar" (dict "value" $hpa.minReplicas "errCtx" (printf "%s.autoscaling.minReplicas" $errCtx)) }}
   {{- if not (hasKey $hpa "maxReplicas") }}
   {{- fail (printf "%s.autoscaling.maxReplicas: required when HPA is enabled" $errCtx) }}
   {{- end }}
-  maxReplicas: {{ include "global-chart.printScalar" $hpa.maxReplicas }}
+  maxReplicas: {{ include "global-chart.printScalar" (dict "value" $hpa.maxReplicas "errCtx" (printf "%s.autoscaling.maxReplicas" $errCtx)) }}
   metrics:
     {{- range $res, $target := $targets }}
     - type: Resource

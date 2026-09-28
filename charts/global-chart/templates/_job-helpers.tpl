@@ -29,7 +29,7 @@ Accepts a dict with:
                    post-delete) reads the hook-prerequisite copy of every
                    externalSecrets entry, any other job the real Secret
                    (ADR 0007)
-  deployName     - the deployment key, for the fail message of an inherited
+  deployName     - the deployment key, for the image it inherits and the fail message of an inherited
                    externalSecrets entry; root-level callers omit it
   errCtx         - values path of the job, for the fail message of its own
                    externalSecrets entries
@@ -105,7 +105,7 @@ containers:
   {{- /* The pullPolicy follows the image to wherever it came from: a
          root-level fromDeployment copies the deployment's pullPolicy with its
          image (issue #160) */ -}}
-  {{- $imageSource := include "global-chart.jobImageSource" (dict "root" $root "job" $job "deploy" $deploy "deployName" .deployName "errCtx" .errCtx) | fromJson }}
+  {{- $imageSource := include "global-chart.jobImageSource" (dict "root" $root "job" $job "deployName" .deployName "errCtx" .errCtx) | fromJson }}
   imagePullPolicy: {{ include "global-chart.imagePullPolicy" (dict "override" $job.imagePullPolicy "image" $imageSource.image) | quote }}
   {{- if $job.command }}
   command:
@@ -307,20 +307,19 @@ the one home of the resolution order, read by jobImageString for the image and
 by jobPodSpec for the pullPolicy, so the two follow one source (issue #160).
 Returns JSON {"image": <value or null>, "from": <entry>}: "from" is the values
 path of the deployment the image was taken from ("deployments.<name>"), empty
-when it is the job's own; fails on a fromDeployment naming no deployment, and on
-a deploy passed without its deployName.
+when it is the job's own; fails only on a fromDeployment naming no deployment.
 
 Accepts a dict with:
   root    - top-level chart context
   job     - the cronjob/hook command map
-  deploy  - the parent deployment map (omit/nil/empty for root-level jobs)
+  deployName - the parent deployment's key (omit for root-level jobs): the
+               helper reads the deployment from it, and names it in "from"
   errCtx  - values path of the job, from jobValuesPath (required): names the job
             in the failure messages
-  deployName - the parent deployment key; required with deploy, for "from"
 
 Resolution order:
   1. explicit job.image
-  2. deploy.image            (deployment-level: inherit parent; takes precedence
+  2. deployments[deployName].image (deployment-level: inherit parent; takes precedence
                               so a deployment-level job's fromDeployment is ignored,
                               matching prior behavior)
   3. job.fromDeployment      (root-level only: lookup + fail if missing)
@@ -331,8 +330,8 @@ Resolution order:
 {{- $image := dict -}}
 {{- if hasKey $job "image" -}}
   {{- $image = dict "image" $job.image "from" "" -}}
-{{- else if .deploy -}}
-  {{- $image = dict "image" .deploy.image "from" (include "global-chart.deploymentValuesPath" (required (printf "jobImageSource: deployName is required with deploy (%s)" $errCtx) .deployName)) -}}
+{{- else if .deployName -}}
+  {{- $image = dict "image" (index .root.Values.deployments .deployName).image "from" (include "global-chart.deploymentValuesPath" .deployName) -}}
 {{- else if $job.fromDeployment -}}
   {{- $dep := index .root.Values.deployments $job.fromDeployment -}}
   {{- if not $dep -}}
@@ -364,7 +363,7 @@ by <job>)" (issues #188, #190).
   {{- $img = include "global-chart.imageString" (dict "image" $source.image "global" .root.Values.global "errCtx" $imgCtx) -}}
 {{- end -}}
 {{- if not $img -}}
-  {{- if .deploy -}}
+  {{- if .deployName -}}
     {{- fail (printf "%s: image is required" $errCtx) -}}
   {{- else -}}
     {{- fail (printf "%s: image is required (set %s.image or %s.fromDeployment)" $errCtx $errCtx $errCtx) -}}
@@ -390,16 +389,18 @@ concurrencyPolicy is a schema enum (Allow/Forbid/Replace), a plain YAML string.
 Params: the job map.
 Returns "field: value" lines at indent 0; concurrencyPolicy and the two limits
 always render, so it is never empty.
-Usage: {{- include "global-chart.cronJobSpecFields" $job | nindent 2 }}
+Usage: {{- include "global-chart.cronJobSpecFields" (dict "job" $job "errCtx" $errCtx) | nindent 2 }}
+errCtx is the job's jobValuesPath: a null the job sets fails naming its key.
 */}}
 {{- define "global-chart.cronJobSpecFields" -}}
-{{- $job := . -}}
+{{- $job := .job -}}
+{{- $errCtx := required "cronJobSpecFields: errCtx is required (build it with jobValuesPath)" .errCtx -}}
 {{- $defaults := dict "concurrencyPolicy" "Forbid" "successfulJobsHistoryLimit" 2 "failedJobsHistoryLimit" 2 -}}
 {{- $lines := list -}}
 {{- range (list "startingDeadlineSeconds" "suspend" "concurrencyPolicy" "successfulJobsHistoryLimit" "failedJobsHistoryLimit") -}}
   {{- if or (hasKey $job .) (hasKey $defaults .) -}}
     {{- $value := ternary (index $job .) (index $defaults .) (hasKey $job .) -}}
-    {{- $lines = append $lines (printf "%s: %s" . (include "global-chart.printScalar" $value)) -}}
+    {{- $lines = append $lines (printf "%s: %s" . (include "global-chart.printScalar" (dict "value" $value "errCtx" (printf "%s.%s" $errCtx .)))) -}}
   {{- end -}}
 {{- end -}}
 {{- join "\n" $lines -}}
@@ -424,19 +425,21 @@ a field a kind does not admit:
   and a TTL controller deleting it races before-hook-creation — deletePolicy
   hook-succeeded already covers cleanup. Not parallelism/completions: a hook is
   one run.
-Params: job (the job map) · kind ("hook" | "cronjob").
+Params: job (the job map) · kind ("hook" | "cronjob") · errCtx (the job's
+jobValuesPath: a null fails naming its key).
 Returns "field: value" lines at indent 0, or "" when none is set.
-Usage: {{- with (include "global-chart.jobSpecVerbatimFields" (dict "job" $job "kind" "hook")) }}
+Usage: {{- with (include "global-chart.jobSpecVerbatimFields" (dict "job" $job "kind" "hook" "errCtx" $errCtx)) }}
 */}}
 {{- define "global-chart.jobSpecVerbatimFields" -}}
 {{- $fields := dict
     "cronjob" (list "backoffLimit" "ttlSecondsAfterFinished" "activeDeadlineSeconds" "parallelism" "completions")
     "hook" (list "activeDeadlineSeconds" "backoffLimit") -}}
 {{- $job := .job -}}
+{{- $errCtx := required "jobSpecVerbatimFields: errCtx is required (build it with jobValuesPath)" .errCtx -}}
 {{- $lines := list -}}
 {{- range (required (printf "jobSpecVerbatimFields: unknown kind %q" (toString .kind)) (get $fields (toString .kind))) -}}
   {{- if hasKey $job . -}}
-    {{- $lines = append $lines (printf "%s: %s" . (include "global-chart.printScalar" (index $job .))) -}}
+    {{- $lines = append $lines (printf "%s: %s" . (include "global-chart.printScalar" (dict "value" (index $job .) "errCtx" (printf "%s.%s" $errCtx .)))) -}}
   {{- end -}}
 {{- end -}}
 {{- join "\n" $lines -}}
