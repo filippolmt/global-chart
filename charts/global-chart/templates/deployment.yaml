@@ -3,6 +3,7 @@
 {{- if $deploy }}
 {{- if eq (include "global-chart.deploymentEnabled" $deploy) "true" }}
 {{- $depFullname := include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $name) }}
+{{- $errCtx := printf "deployments.%s" $name }}
 {{- $labelCtx := dict "root" $root "deploymentName" $name }}
 {{- $autoscaling := default (dict) $deploy.autoscaling }}
 {{- $keda := default (dict) $deploy.keda }}
@@ -11,7 +12,7 @@
 {{- $svc := default (dict) $deploy.service }}
 {{- /* externalSecrets: the Deployment always reads the real Secret, never the
        hook copy (ADR 0007). Resolved once, for the pod's checksum and its env/volumes */ -}}
-{{- $es := include "global-chart.resolveExternalSecretRefs" (dict "root" $root "refs" $deploy.externalSecrets "hook" false "volumes" $deploy.volumes "errCtx" (printf "deployments.%s" $name)) | fromJson }}
+{{- $es := include "global-chart.resolveExternalSecretRefs" (dict "root" $root "refs" $deploy.externalSecrets "hook" false "volumes" $deploy.volumes "errCtx" $errCtx) | fromJson }}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -115,10 +116,10 @@ spec:
       containers:
         - name: {{ $depFullname }}
           {{- if and (kindIs "map" $deploy.image) $deploy.image.repository (not (or $deploy.image.tag $deploy.image.digest)) }}
-          {{- fail (printf "deployments.%s.image requires either a tag or digest when repository is provided" $name) }}
+          {{- fail (printf "%s.image requires either a tag or digest when repository is provided" $errCtx) }}
           {{- end }}
-          {{- $depImageRef := include "global-chart.imageString" (dict "image" $deploy.image "global" $root.Values.global "errCtx" (printf "deployments.%s" $name)) }}
-          image: {{ required (printf "deployments.%s.image must define a repository with tag/digest or be a full image reference" $name) $depImageRef | quote }}
+          {{- $depImageRef := include "global-chart.imageString" (dict "image" $deploy.image "global" $root.Values.global "errCtx" $errCtx) }}
+          image: {{ required (printf "%s.image must define a repository with tag/digest or be a full image reference" $errCtx) $depImageRef | quote }}
           imagePullPolicy: {{ include "global-chart.imagePullPolicy" (dict "image" $deploy.image) }}
           {{- if $deploy.command }}
           command:
@@ -189,7 +190,7 @@ spec:
           env:
             {{- toYaml $deploy.additionalEnvs | nindent 12 }}
           {{- end }}
-          {{- with (include "global-chart.containerVolumeMounts" (dict "errCtx" (printf "deployments.%s" $name) "volumeMounts" $deploy.volumeMounts "mountedConfigFiles" $deploy.mountedConfigFiles "externalSecrets" $esMounted) | fromJsonArray) }}
+          {{- with (include "global-chart.containerVolumeMounts" (dict "errCtx" $errCtx "volumeMounts" $deploy.volumeMounts "mountedConfigFiles" $deploy.mountedConfigFiles "externalSecrets" $esMounted) | fromJsonArray) }}
           volumeMounts:
             {{- toYaml . | nindent 12 }}
           {{- end }}

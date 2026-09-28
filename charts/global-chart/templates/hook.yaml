@@ -192,7 +192,7 @@ data:
 {{- $errCtx := $hook.errCtx }}
 
 {{- /* Resolve image: explicit in hook > inherited from deployment (see jobImageString helper) */ -}}
-{{- $imageRef := include "global-chart.jobImageString" (dict "root" $root "job" $command "deploy" $deploy "errCtx" $errCtx) }}
+{{- $imageRef := include "global-chart.jobImageString" (dict "root" $root "job" $command "deploy" $deploy "deployName" $deployName "errCtx" $errCtx) }}
 
 {{- /* ServiceAccount: explicit in hook > inherited from deployment > create new for hook (see jobServiceAccount helper) */ -}}
 {{- $sa := $hook.sa -}}

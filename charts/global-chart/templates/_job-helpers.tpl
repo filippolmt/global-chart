@@ -105,7 +105,7 @@ containers:
   {{- /* The pullPolicy follows the image to wherever it came from: a
          root-level fromDeployment copies the deployment's pullPolicy with its
          image (issue #160) */ -}}
-  {{- $imageSource := include "global-chart.jobImageSource" (dict "root" $root "job" $job "deploy" $deploy "errCtx" .errCtx) | fromJson }}
+  {{- $imageSource := include "global-chart.jobImageSource" (dict "root" $root "job" $job "deploy" $deploy "deployName" .deployName "errCtx" .errCtx) | fromJson }}
   imagePullPolicy: {{ include "global-chart.imagePullPolicy" (dict "override" $job.imagePullPolicy "image" $imageSource.image) | quote }}
   {{- if $job.command }}
   command:
@@ -305,8 +305,10 @@ same job.
 Choose the image value (a string or a repository/tag map) a cronjob/hook runs:
 the one home of the resolution order, read by jobImageString for the image and
 by jobPodSpec for the pullPolicy, so the two follow one source (issue #160).
-Returns JSON {"image": <value or null>}; fails only on a fromDeployment naming
-no deployment.
+Returns JSON {"image": <value or null>, "from": <entry>}: "from" is the values
+path of the deployment the image was taken from ("deployments.<name>"), empty
+when it is the job's own; fails on a fromDeployment naming no deployment, and on
+a deploy passed without its deployName.
 
 Accepts a dict with:
   root    - top-level chart context
@@ -314,6 +316,7 @@ Accepts a dict with:
   deploy  - the parent deployment map (omit/nil/empty for root-level jobs)
   errCtx  - values path of the job, from jobValuesPath (required): names the job
             in the failure messages
+  deployName - the parent deployment key; required with deploy, for "from"
 
 Resolution order:
   1. explicit job.image
@@ -327,9 +330,9 @@ Resolution order:
 {{- $errCtx := required "jobImageSource: errCtx is required (build it with jobValuesPath)" .errCtx -}}
 {{- $image := dict -}}
 {{- if hasKey $job "image" -}}
-  {{- $image = dict "image" $job.image -}}
+  {{- $image = dict "image" $job.image "from" "" -}}
 {{- else if .deploy -}}
-  {{- $image = dict "image" .deploy.image -}}
+  {{- $image = dict "image" .deploy.image "from" (printf "deployments.%s" (required (printf "jobImageSource: deployName is required with deploy (%s)" $errCtx) .deployName)) -}}
 {{- else if $job.fromDeployment -}}
   {{- $dep := index .root.Values.deployments $job.fromDeployment -}}
   {{- if not $dep -}}
@@ -338,7 +341,7 @@ Resolution order:
     {{- end -}}
     {{- fail (printf "%s.fromDeployment references deployment '%s' which does not exist in .Values.deployments" $errCtx $job.fromDeployment) -}}
   {{- end -}}
-  {{- $image = dict "image" $dep.image -}}
+  {{- $image = dict "image" $dep.image "from" (printf "deployments.%s" $job.fromDeployment) -}}
 {{- end -}}
 {{- $image | toJson -}}
 {{- end -}}
@@ -347,14 +350,18 @@ Resolution order:
 Resolve the image string for a cronjob/hook command, from jobImageSource.
 Returns the image string, and fails when none resolves: the one home of the
 "image is required" message, which callers used to spell out each with its own
-printf. Takes the same dict as jobImageSource.
+printf. Takes the same dict as jobImageSource. An imageString fail names the
+job, and the deployment an inherited image comes from, where the bad value
+sits (issue #188).
 */}}
 {{- define "global-chart.jobImageString" -}}
 {{- $errCtx := required "jobImageString: errCtx is required (build it with jobValuesPath)" .errCtx -}}
 {{- $source := include "global-chart.jobImageSource" . | fromJson -}}
 {{- $img := "" -}}
 {{- if hasKey $source "image" -}}
-  {{- $img = include "global-chart.imageString" (dict "image" $source.image "global" .root.Values.global "errCtx" $errCtx) -}}
+  {{- $imgCtx := $errCtx -}}
+  {{- with $source.from -}}{{- $imgCtx = printf "%s (image inherited from %s.image)" $errCtx . -}}{{- end -}}
+  {{- $img = include "global-chart.imageString" (dict "image" $source.image "global" .root.Values.global "errCtx" $imgCtx) -}}
 {{- end -}}
 {{- if not $img -}}
   {{- if .deploy -}}

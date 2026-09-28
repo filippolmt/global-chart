@@ -24,6 +24,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   `imageString` guards, a digest without a repository and the tag/digest pair
   above, now lead with `deployments.<name>` or the job's path
   (`hooks.<type>.<name>`, `cronJobs.<name>`, and their deployment-level forms).
+  A job whose image is inherited, from its deployment or through
+  `fromDeployment`, also names where the value sits:
+  `hooks.pre-install.migrate (image inherited from deployments.api.image): …`.
   Before, they named only the repository, which left the user searching when
   several entries shared it.
 

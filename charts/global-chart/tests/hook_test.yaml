@@ -694,6 +694,50 @@ tests:
           value: "myapp:main@sha256:e0646c006c037b0bde03dd897029ab5cde600437969802848a63c474903cb2c8"
         documentIndex: 0
 
+  - it: should name a deployment-level hook when its own image sets a digest without a repository (issue #188)
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          hooks:
+            pre-install:
+              migrate:
+                image:
+                  digest: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                command: ["./migrate.sh"]
+    asserts:
+      - failedTemplate:
+          errorMessage: "deployments.backend.hooks.pre-install.migrate: image definitions that set a digest must also provide a repository (expected repository@digest)"
+
+  - it: should name the deployment an inherited image comes from (issue #188)
+    set:
+      deployments:
+        backend:
+          image:
+            digest: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          hooks:
+            pre-install:
+              migrate:
+                command: ["./migrate.sh"]
+    asserts:
+      - failedTemplate:
+          errorMessage: "deployments.backend.hooks.pre-install.migrate (image inherited from deployments.backend.image): image definitions that set a digest must also provide a repository (expected repository@digest)"
+
+  - it: should name the deployment a root-level hook takes its image from with fromDeployment (issue #188)
+    set:
+      deployments:
+        api:
+          image:
+            digest: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      hooks:
+        pre-install:
+          migrate:
+            fromDeployment: api
+            command: ["./migrate.sh"]
+    asserts:
+      - failedTemplate:
+          errorMessage: "hooks.pre-install.migrate (image inherited from deployments.api.image): image definitions that set a digest must also provide a repository (expected repository@digest)"
+
   - it: should name deployment-level hook with deployment name included
     set:
       deployments:

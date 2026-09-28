@@ -131,6 +131,21 @@ tests:
       - failedTemplate:
           errorMessage: "cronJobs.cleanup: image definitions that set a digest must also provide a repository (expected repository@digest)"
 
+  - it: should name a deployment-level cronjob when its own image sets a digest without a repository (issue #188)
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          cronJobs:
+            db-backup:
+              schedule: "0 2 * * *"
+              image:
+                digest: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              command: ["./backup.sh"]
+    asserts:
+      - failedTemplate:
+          errorMessage: "deployments.backend.cronJobs.db-backup: image definitions that set a digest must also provide a repository (expected repository@digest)"
+
   # ====== Deployment-level CronJob inheritance ======
   - it: should inherit image from parent deployment
     set:

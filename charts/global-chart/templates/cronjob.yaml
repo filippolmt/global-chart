@@ -90,7 +90,7 @@ spec:
 {{- $errCtx := include "global-chart.jobValuesPath" (dict "kind" "cronjob" "deploymentName" $deployName "jobName" $name) }}
 
 {{- /* Resolve image: explicit in cronjob > inherited from deployment (see jobImageString helper) */ -}}
-{{- $imageRef := include "global-chart.jobImageString" (dict "root" $root "job" $job "deploy" $deploy "errCtx" $errCtx) }}
+{{- $imageRef := include "global-chart.jobImageString" (dict "root" $root "job" $job "deploy" $deploy "deployName" $deployName "errCtx" $errCtx) }}
 
 {{- /* ServiceAccount: explicit > inherited from deployment > default (see jobServiceAccount helper) */ -}}
 {{- $sa := include "global-chart.jobServiceAccount" (dict "root" $root "job" $job "deploy" $deploy "deployName" $deployName "jobFullname" $jobFullname "errCtx" $errCtx) | fromJson -}}

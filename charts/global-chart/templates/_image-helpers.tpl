@@ -4,13 +4,11 @@ Image helpers for global-chart.
 
 {{/*
 Render an image reference from either a plain string or a map with repository/tag/digest.
-Supports two calling conventions:
-  Legacy: {{ include "global-chart.imageString" $deploy.image }}
-  New:    {{ include "global-chart.imageString" (dict "image" $deploy.image "global" $root.Values.global "errCtx" "deployments.web") }}
-errCtx (new format, optional) is the values path of the entry that renders the image
-(deployments.<name>, or a job's jobValuesPath) and leads every fail message, so the user
-can tell which entry is wrong when several share a repository (issue #188). It names the
-entry, not the image key: a job may inherit its image from a deployment.
+  {{ include "global-chart.imageString" (dict "image" $deploy.image "global" $root.Values.global "errCtx" "deployments.web") }}
+errCtx (required) names the values entry that renders the image and leads every fail
+message, so the user can tell which entry is wrong when several share a repository
+(issue #188): deployments.<name>, or a job's jobValuesPath, which jobImageString extends
+with the entry the image is inherited from.
 When global.imageRegistry is set, the registry is prepended to both string and map images
 unless the first path segment already looks like a registry (contains "." or ":" or equals "localhost").
 Examples: "nginx" → "registry/nginx", "myorg/myapp" → "registry/myorg/myapp", "ghcr.io/org/app" → unchanged.
@@ -24,16 +22,9 @@ when the two are equal: digest would win and drop the tag's pin in silence. The 
 rejects the pair first; this fail is the backstop under --skip-schema-validation.
 */}}
 {{- define "global-chart.imageString" -}}
-{{- $img := . -}}
-{{- $globalRegistry := "" -}}
-{{- $errPrefix := "" -}}
-{{- if and (kindIs "map" .) (hasKey . "image") -}}
-  {{- /* New dict format */ -}}
-  {{- $img = .image -}}
-  {{- $global := default (dict) .global -}}
-  {{- $globalRegistry = default "" $global.imageRegistry -}}
-  {{- with .errCtx -}}{{- $errPrefix = printf "%s: " . -}}{{- end -}}
-{{- end -}}
+{{- $errPrefix := printf "%s: " (required "imageString: errCtx is required (the values path of the entry that renders the image)" .errCtx) -}}
+{{- $img := .image -}}
+{{- $globalRegistry := default "" (default (dict) .global).imageRegistry -}}
 {{- $name := "" -}}
 {{- $suffix := "" -}}
 {{- if kindIs "string" $img -}}
