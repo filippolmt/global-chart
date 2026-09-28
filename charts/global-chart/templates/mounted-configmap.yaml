@@ -11,6 +11,7 @@
 {{- $mountedConfigFiles := $deploy.mountedConfigFiles -}}
 {{- if $mountedConfigFiles }}
 {{- $depFullname := include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $name) }}
+{{- $errCtx := include "global-chart.deploymentValuesPath" $name }}
 {{- $labelCtx := dict "root" $root "deploymentName" $name }}
 
 {{- if $mountedConfigFiles.files }}
@@ -27,9 +28,9 @@ metadata:
     {{- . | nindent 4 }}
   {{- end }}
 data:
-  {{ required (printf "%s.mountedConfigFiles.files[%d] (%s): 'filename' is required" (include "global-chart.deploymentValuesPath" $name) $i $f.name) $f.filename | quote }}: |2
+  {{ required (printf "%s.mountedConfigFiles.files[%d] (%s): 'filename' is required" $errCtx $i $f.name) $f.filename | quote }}: |2
     {{- /* "" is an empty file, not a missing one: only an absent or null content fails */ -}}
-    {{- if kindIs "invalid" $f.content }}{{ fail (printf "%s.mountedConfigFiles.files[%d] (%s): 'content' is required" (include "global-chart.deploymentValuesPath" $name) $i $f.name) }}{{ end -}}
+    {{- if kindIs "invalid" $f.content }}{{ fail (printf "%s.mountedConfigFiles.files[%d] (%s): 'content' is required" $errCtx $i $f.name) }}{{ end -}}
     {{- $content := $f.content -}}
     {{- $content | nindent 4 -}}
 {{- end }}
@@ -50,9 +51,9 @@ metadata:
     {{- . | nindent 4 }}
   {{- end }}
 data:
-  {{ required (printf "%s.mountedConfigFiles.bundles[%d].files[%d] (%s): 'relPath' is required" (include "global-chart.deploymentValuesPath" $name) $bi $fi $f.name) $f.relPath | base | quote }}: |2
+  {{ required (printf "%s.mountedConfigFiles.bundles[%d].files[%d] (%s): 'relPath' is required" $errCtx $bi $fi $f.name) $f.relPath | base | quote }}: |2
     {{- /* "" is an empty file, not a missing one: only an absent or null content fails */ -}}
-    {{- if kindIs "invalid" $f.content }}{{ fail (printf "%s.mountedConfigFiles.bundles[%d].files[%d] (%s): 'content' is required" (include "global-chart.deploymentValuesPath" $name) $bi $fi $f.name) }}{{ end -}}
+    {{- if kindIs "invalid" $f.content }}{{ fail (printf "%s.mountedConfigFiles.bundles[%d].files[%d] (%s): 'content' is required" $errCtx $bi $fi $f.name) }}{{ end -}}
     {{- $content := $f.content -}}
     {{- $content | nindent 4 -}}
 {{- end }}

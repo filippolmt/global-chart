@@ -3,15 +3,16 @@
 {{- if $deploy }}
 {{- if eq (include "global-chart.deploymentEnabled" $deploy) "true" }}
 {{- $keda := default (dict) $deploy.keda }}
+{{- $errCtx := include "global-chart.deploymentValuesPath" $name }}
 {{- if $keda.enabled }}
 {{- /* `triggers` is required by values.schema.json whenever keda.enabled is
        true, and minItems keeps it non-empty — a ScaledObject with no trigger is
        rejected by KEDA. The fail is the net under --skip-schema-validation
        (tests/bad-values/skip-schema/). */ -}}
 {{- if not $keda.triggers }}
-{{- fail (printf "%s.keda.triggers: empty while keda.enabled is true. KEDA rejects a ScaledObject with no trigger: add a trigger, or disable keda." (include "global-chart.deploymentValuesPath" $name)) }}
+{{- fail (printf "%s.keda.triggers: empty while keda.enabled is true. KEDA rejects a ScaledObject with no trigger: add a trigger, or disable keda." $errCtx) }}
 {{- end }}
-{{- include "global-chart.requireKedaCrd" (dict "root" $root "source" (printf "%s.keda" (include "global-chart.deploymentValuesPath" $name))) }}
+{{- include "global-chart.requireKedaCrd" (dict "root" $root "errCtx" (printf "%s.keda" $errCtx)) }}
 {{- $depFullname := include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $name) }}
 {{- $labelCtx := dict "root" $root "deploymentName" $name }}
 ---

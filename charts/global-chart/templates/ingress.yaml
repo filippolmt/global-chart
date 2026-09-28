@@ -30,7 +30,7 @@ spec:
   rules:
     {{- range $hostIdx, $hostEntry := $ing.hosts }}
       {{- /* Resolve service name and port via shared helper */ -}}
-      {{- $b := include "global-chart.resolveBackend" (dict "root" $root "ref" $hostEntry "path" (printf "ingress.hosts[%d]" $hostIdx)) | fromJson -}}
+      {{- $b := include "global-chart.resolveBackend" (dict "root" $root "ref" $hostEntry "errCtx" (printf "ingress.hosts[%d]" $hostIdx)) | fromJson -}}
       {{- $svcName := $b.name -}}
       {{- $svcPort := $b.port }}
 

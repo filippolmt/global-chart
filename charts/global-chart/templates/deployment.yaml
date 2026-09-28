@@ -205,7 +205,7 @@ spec:
       {{- if or $hasUserVolumes $hasMcfFiles $hasMcfBundles $esMounted }}
       volumes:
         {{- range $i, $v := $userVolumes }}
-        {{- include "global-chart.renderVolume" (dict "volume" $v "path" (printf "%s.volumes[%d]" $errCtx $i)) | nindent 8 }}
+        {{- include "global-chart.renderVolume" (dict "volume" $v "errCtx" (printf "%s.volumes[%d]" $errCtx $i)) | nindent 8 }}
         {{- end }}
         {{- if $hasMcfFiles }}
         {{- range $i, $f := $mountedConfigFiles.files }}

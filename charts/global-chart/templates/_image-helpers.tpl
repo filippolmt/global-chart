@@ -19,7 +19,9 @@ trimmed: the schema patterns reject surrounding whitespace.
 A tag may carry its own @<digest> (ADR 0018, the form Argo CD Image Updater writes) and
 renders as written, repo:<tag>@<digest>. Such a tag with a non-empty digest fails, even
 when the two are equal: digest would win and drop the tag's pin in silence. The schema
-rejects the pair first; this fail is the backstop under --skip-schema-validation.
+rejects the pair first; this fail is the backstop under --skip-schema-validation. A tag
+that starts with @ fails too: it would render repo:@<digest>, and the schema's non-empty
+tag before the @ has the same backstop.
 */}}
 {{- define "global-chart.imageString" -}}
 {{- $errCtx := required "imageString: errCtx is required (the values path of the image)" .errCtx -}}
@@ -31,6 +33,9 @@ rejects the pair first; this fail is the backstop under --skip-schema-validation
   {{- $name = $img -}}
 {{- else if and (kindIs "map" $img) $img.repository -}}
   {{- $name = $img.repository -}}
+  {{- if and (kindIs "string" $img.tag) (hasPrefix "@" $img.tag) -}}
+    {{- fail (printf "%s.tag: %q has no tag before the @<digest>: it would render %s:%s, which the kubelet rejects as InvalidImageName. Set the tag before the @, or move the digest to digest (ADR 0018)" $errCtx $img.tag $img.repository $img.tag) -}}
+  {{- end -}}
   {{- if and $img.digest (kindIs "string" $img.tag) (contains "@" $img.tag) -}}
     {{- fail (printf "%s: sets a digest in tag (%s) and in digest (%s): two sources for one pin, keep one (ADR 0018)" $errCtx $img.tag $img.digest) -}}
   {{- end -}}

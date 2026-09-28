@@ -215,7 +215,7 @@ containers:
 {{- if or $job.volumes $esMounted }}
 volumes:
   {{- range $i, $v := $job.volumes }}
-  {{- include "global-chart.renderVolume" (dict "volume" $v "path" (printf "%s.volumes[%d]" $.errCtx $i)) | nindent 2 }}
+  {{- include "global-chart.renderVolume" (dict "volume" $v "errCtx" (printf "%s.volumes[%d]" $.errCtx $i)) | nindent 2 }}
   {{- end }}
   {{- with $esMounted }}
   {{- include "global-chart.renderExternalSecretVolumes" . | nindent 2 }}

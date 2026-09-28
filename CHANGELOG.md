@@ -18,8 +18,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   `image.digest`; the value renders as written, `repo:<tag>@<digest>`. A tag
   must precede the `@`. A tag carrying a digest together with a non-empty
   `image.digest` fails, even when the two are equal, both in the schema and in
-  the template (for `--skip-schema-validation`). A plain `tag` with `digest`
-  still lets the digest win.
+  the template (for `--skip-schema-validation`), and so does a tag made only
+  of `@<digest>`. A plain `tag` with `digest` still lets the digest win.
 - **The image `fail` messages name the image by its values path** (issue
   #188). Both `imageString` guards, a digest without a repository and the
   tag/digest pair above, lead with `deployments.<name>.image` or the job's
@@ -35,12 +35,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   (issue #190). The path is the key holding the wrong value, as precise as the
   chart knows it: `deployments.web.pdb: …`, `ingress.hosts[0].deployment: …`,
   `httpRoute.rules[0].backendRefs[1].deployment: …`,
-  `deployments.web.volumes[2] (data): …`. Before, the same kind of problem was
+  `deployments.web.volumes[2] (data): …`,
+  `deployments.web.service.extraPorts[1] (metrics): …`,
+  `externalSecrets.app.data[0].remote: mandatory`. Before, the same kind of problem was
   named in four shapes (`PDB for deployment 'web': …`, `image is required for
   <job>`, `ingress host 'x' references …`, `renderVolume: …`). Two kinds keep
   their own: a helper's internal invariant, and a conflict between entries
-  (name collisions, the fullname, `ingress` with `httpRoute`). A deployment's
-  path has one home, `deploymentValuesPath`, beside `jobValuesPath`.
+  (name collisions, the fullname, `ingress` with `httpRoute`), and
+  `printScalar`'s null guard, which is handed a value and not its key (#191).
+  A deployment's path has one home, `deploymentValuesPath`, beside
+  `jobValuesPath`.
 
 ### Migration guide from 3.1.0
 

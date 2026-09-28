@@ -4,10 +4,12 @@ Validation helpers for global-chart.
 Every fail message a user can cause has one shape: "<values path>: <problem>",
 the path being the key that holds the wrong value, as precise as the caller
 knows it (issue #190). A job's path comes from jobValuesPath, a deployment's
-from deploymentValuesPath below: never printf either inline. Two kinds of
-message keep another shape: a helper's own invariant ("<helper>: …", a chart
-bug, not a values one), and a conflict between entries (name collisions, the
-fullname, ingress with httpRoute), which has no single path to lead with.
+from deploymentValuesPath below: never printf either inline, and pass it to a
+helper as errCtx. Three kinds of message keep another shape, each because it
+has no path to lead with: a helper's own invariant ("<helper>: …", a chart
+bug, not a values one); a conflict between entries (name collisions, the
+fullname, ingress with httpRoute); and printScalar's null, the last net under
+every printed field, which is handed a value and not its key (issue #191).
 */}}
 
 {{/*
@@ -51,7 +53,7 @@ Called from validate.yaml.
   {{- if $deploy -}}
   {{- if eq (include "global-chart.deploymentEnabled" $deploy) "true" -}}
     {{- $depFullname := include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $name) -}}
-    {{- include "global-chart.registerName" (dict "names" $deployNames "kind" "Deployment" "name" $depFullname "owner" (printf "%s" (include "global-chart.deploymentValuesPath" $name))) -}}
+    {{- include "global-chart.registerName" (dict "names" $deployNames "kind" "Deployment" "name" $depFullname "owner" (include "global-chart.deploymentValuesPath" $name)) -}}
 
     {{- /* The deployment's own ConfigMap and Secret both carry $depFullname. They
            cannot clash with each other or with another deployment's — the name
@@ -69,7 +71,7 @@ Called from validate.yaml.
     {{- /* Chart-created deployment ServiceAccount: a root-level job that creates its
            own SA can land on this very name (both are <release>-<chart>-<key>) */ -}}
     {{- $deploySA := include "global-chart.deploymentServiceAccount" (dict "root" $root "deploymentName" $name "deployment" $deploy) | fromJson -}}
-    {{- include "global-chart.registerSAName" (dict "names" $saNames "sa" $deploySA "owner" (printf "%s" (include "global-chart.deploymentValuesPath" $name))) -}}
+    {{- include "global-chart.registerSAName" (dict "names" $saNames "sa" $deploySA "owner" (include "global-chart.deploymentValuesPath" $name)) -}}
 
     {{- /* 1a. Deployment-level CronJob names (trunc 52) — via deploymentCronJobName helper */ -}}
     {{- range $jobName, $job := $deploy.cronJobs -}}
@@ -427,7 +429,7 @@ Called from validate.yaml. Emits nothing on success.
     {{- $hpa := default (dict) $deploy.autoscaling -}}
     {{- $keda := default (dict) $deploy.keda -}}
     {{- if and $hpa.enabled $keda.enabled -}}
-      {{- fail (printf "%s: autoscaling.enabled and keda.enabled are mutually exclusive. KEDA creates and owns its own HorizontalPodAutoscaler for the ScaledObject; a chart-rendered HPA on the same Deployment would fight it. Disable one of the two." (include "global-chart.deploymentValuesPath" $name)) -}}
+      {{- fail (printf "%s.autoscaling.enabled: true together with keda.enabled, and the two are mutually exclusive. KEDA creates and owns its own HorizontalPodAutoscaler for the ScaledObject; a chart-rendered HPA on the same Deployment would fight it. Disable one of the two." (include "global-chart.deploymentValuesPath" $name)) -}}
     {{- end -}}
     {{- if and $hpa.enabled (not (include "global-chart.hpaActiveTargets" $hpa | fromJson)) -}}
       {{- fail (printf "%s.autoscaling: enabled, but neither targetCPUUtilizationPercentage nor targetMemoryUtilizationPercentage is a positive number; without one no HPA renders and the Deployment runs a single replica. Set a target or disable autoscaling." (include "global-chart.deploymentValuesPath" $name)) -}}
@@ -463,9 +465,9 @@ Called from validate.yaml. Emits nothing on success.
       {{- if and (hasKey $svc "targetPort") (kindIs "string" $svc.targetPort) (not (hasKey $declared $targetPort)) -}}
         {{- fail (printf "%s.service.targetPort: names the port '%s', which no container port declares (declared: %s). A Service port whose targetPort names nothing gets no endpoints. Use the port number, or a name one of the declared ports carries." (include "global-chart.deploymentValuesPath" $name) $targetPort $known) -}}
       {{- end -}}
-      {{- range (default (list) $svc.extraPorts) -}}
-        {{- if and (kindIs "string" .targetPort) (not (hasKey $declared .targetPort)) -}}
-          {{- fail (printf "%s.service.extraPorts '%s': has targetPort '%s', which no container port declares (declared: %s). A Service port whose targetPort names nothing gets no endpoints. Give it the port number instead, and it will be declared on the container under this name." (include "global-chart.deploymentValuesPath" $name) .name .targetPort $known) -}}
+      {{- range $i, $port := (default (list) $svc.extraPorts) -}}
+        {{- if and (kindIs "string" $port.targetPort) (not (hasKey $declared $port.targetPort)) -}}
+          {{- fail (printf "%s.service.extraPorts[%d] (%s).targetPort: names the port '%s', which no container port declares (declared: %s). A Service port whose targetPort names nothing gets no endpoints. Give it the port number instead, and it will be declared on the container under this name." (include "global-chart.deploymentValuesPath" $name) $i $port.name $port.targetPort $known) -}}
         {{- end -}}
       {{- end -}}
     {{- end -}}
@@ -493,21 +495,22 @@ Called from validate.yaml. Emits nothing on success.
   {{- if eq (include "global-chart.deploymentEnabled" $deploy) "true" -}}
     {{- $svc := default (dict) $deploy.service -}}
     {{- if eq (include "global-chart.serviceEnabled" $svc) "true" -}}
+      {{- $errCtx := include "global-chart.deploymentValuesPath" $name -}}
       {{- $primary := include "global-chart.servicePrimaryPort" $svc | fromJson -}}
       {{- $type := include "global-chart.serviceType" $svc -}}
       {{- $portNames := dict $primary.name "service.portName" -}}
       {{- $portNumbers := dict (printf "%s/%s" (include "global-chart.printScalar" $primary.port) $primary.protocol) "service.port" -}}
-      {{- range (default (list) $svc.extraPorts) -}}
-        {{- $owner := printf "extraPorts '%s'" .name -}}
+      {{- range $i, $_ := (default (list) $svc.extraPorts) -}}
+        {{- $owner := printf "extraPorts[%d] (%s)" $i .name -}}
         {{- $number := printf "%s/%s" (include "global-chart.printScalar" .port) (include "global-chart.extraPortProtocol" .) -}}
         {{- if and (hasKey . "nodePort") (not (has $type (list "NodePort" "LoadBalancer"))) -}}
-          {{- fail (printf "%s.service.%s: sets nodePort, which the API server accepts only on a NodePort or LoadBalancer Service (type: %s). Drop nodePort, or set service.type." (include "global-chart.deploymentValuesPath" $name) $owner $type) -}}
+          {{- fail (printf "%s.service.%s: sets nodePort, which the API server accepts only on a NodePort or LoadBalancer Service (type: %s). Drop nodePort, or set service.type." $errCtx $owner $type) -}}
         {{- end -}}
         {{- if hasKey $portNames .name -}}
-          {{- fail (printf "%s.service.%s: repeats the port name '%s' of %s. The API server rejects two Service ports with one name." (include "global-chart.deploymentValuesPath" $name) $owner .name (get $portNames .name)) -}}
+          {{- fail (printf "%s.service.%s: repeats the port name '%s' of %s. The API server rejects two Service ports with one name." $errCtx $owner .name (get $portNames .name)) -}}
         {{- end -}}
         {{- if hasKey $portNumbers $number -}}
-          {{- fail (printf "%s.service.%s: repeats port %s of %s. The API server rejects two Service ports with one port and protocol." (include "global-chart.deploymentValuesPath" $name) $owner $number (get $portNumbers $number)) -}}
+          {{- fail (printf "%s.service.%s: repeats port %s of %s. The API server rejects two Service ports with one port and protocol." $errCtx $owner $number (get $portNumbers $number)) -}}
         {{- end -}}
         {{- $_ := set $portNames .name $owner -}}
         {{- $_ := set $portNumbers $number $owner -}}
