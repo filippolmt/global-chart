@@ -41,22 +41,46 @@ Contract, by kind of value:
   number that large has already lost its low digits to float64 anyway.
 - bool: toString, true/false as before.
 - nil: fails. A null that reaches a printed field would otherwise render as
-  "<nil>" (toString) or 0 (int64) — a value the user never wrote. The typed
-  fields cannot carry a null (the schema rejects it); the free-form maps can,
-  and renderConfigMapData checks for it first, naming the values path this
-  helper does not know. This fail is the net under every other caller, and
-  under --skip-schema-validation (tests/bad-values/skip-schema/).
+  "<nil>" (toString) or 0 (int64) — a value the user never wrote. The schema
+  rejects it; under --skip-schema-validation (tests/bad-values/skip-schema/) a
+  null in a key the chart gives no default survives the values merge.
+Two forms. A value read straight from values is passed with its path,
+(dict "value" $v "errCtx" "<values path>"), and a null fails through
+rejectNull naming it (issue #191). A value the chart computed is passed bare:
+its helper rejects a null at the source with the path (rejectNullServicePorts,
+resolveBackend, rejectNullDataValue), so a null reaching the bare form is a
+chart bug, and says so. A value read from values that such a helper has
+already checked prints bare too: the Service ports, extraPorts included. The dict form is unambiguous: a scalar is never a map.
 Maps and slices are not scalars: callers render them with toYaml.
-Usage: {{ include "global-chart.printScalar" $deploy.revisionHistoryLimit }}
-       {{ include "global-chart.printScalar" $value | quote }}
+Usage: {{ include "global-chart.printScalar" (dict "value" $deploy.revisionHistoryLimit "errCtx" (printf "%s.revisionHistoryLimit" $errCtx)) }}
+       {{ include "global-chart.printScalar" $primary.port }}
 */}}
 {{- define "global-chart.printScalar" -}}
-{{- if kindIs "invalid" . -}}
-{{- fail "printScalar: a null value reached a field the chart prints. Set a value — \"\" for an empty string — or remove the key." -}}
-{{- else if and (kindIs "float64" .) (eq (floor .) .) (lt . 9.2e18) (gt . -9.2e18) -}}
-{{- printf "%d" (int64 .) -}}
+{{- $v := . -}}
+{{- if kindIs "map" . -}}
+  {{- $v = .value -}}
+  {{- include "global-chart.rejectNull" (dict "value" $v "errCtx" (required "printScalar: errCtx is required with the dict form" .errCtx)) -}}
+{{- end -}}
+{{- if kindIs "invalid" $v -}}
+{{- fail "printScalar: a null reached a computed field with no values path, a chart bug: the helper that computed it must reject the null, naming the key." -}}
+{{- else if and (kindIs "float64" $v) (eq (floor $v) $v) (lt $v 9.2e18) (gt $v -9.2e18) -}}
+{{- printf "%d" (int64 $v) -}}
 {{- else -}}
-{{- toString . -}}
+{{- toString $v -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+Fail on a null read from values, naming its path: the single home of the
+message, read by printScalar's dict form, servicePrimaryPort and
+resolveBackend, rejectNullServicePorts and hook.yaml's weight. A null is a value nobody wrote: printed, it becomes "<nil>" or
+0. rejectNullDataValue keeps its own wording for the ConfigMap/Secret maps,
+which hold strings only. Renders nothing when the value is set.
+Usage: {{- include "global-chart.rejectNull" (dict "value" $v "errCtx" "deployments.web.revisionHistoryLimit") -}}
+*/}}
+{{- define "global-chart.rejectNull" -}}
+{{- if kindIs "invalid" .value -}}
+{{- fail (printf "%s: null, a value nobody wrote. Set a value — \"\" for an empty string — or remove the key." .errCtx) -}}
 {{- end -}}
 {{- end }}
 
@@ -67,11 +91,14 @@ Render a single volume entry. Supports both:
 $defs/volumes stays open (ADR 0017) and requires a non-empty name, so the
 required below fires only under --skip-schema-validation, where a fixture in
 tests/bad-values/skip-schema/ holds it; the legacy type vocabulary is this
-helper's fail, not a schema enum.
+helper's fail, not a schema enum. errCtx is the values path of the entry,
+<owner>.volumes[<i>], which leads every fail message (issue #190).
+Usage: {{ include "global-chart.renderVolume" (dict "volume" $v "errCtx" (printf "%s.volumes[%d]" $errCtx $i)) }}
 */}}
 {{- define "global-chart.renderVolume" -}}
-{{- $vol := . -}}
-- name: {{ required "renderVolume: every volume entry must have a 'name' field" $vol.name }}
+{{- $vol := .volume -}}
+{{- $path := required "renderVolume: errCtx is required (the values path of the volume)" .errCtx -}}
+- name: {{ required (printf "%s: a volume needs a 'name'" $path) $vol.name }}
 {{- if hasKey $vol "type" }}
   {{- /* Legacy format: translate .type to native */ -}}
   {{- if eq $vol.type "emptyDir" }}
@@ -79,17 +106,17 @@ helper's fail, not a schema enum.
   {{- else if eq $vol.type "configMap" }}
   {{- $src := default (dict) $vol.configMap }}
   configMap:
-    name: {{ required (printf "renderVolume: legacy volume '%s' of type configMap needs configMap.name" $vol.name) $src.name | quote }}
+    name: {{ required (printf "%s.configMap.name: required by the legacy type configMap" $path) $src.name | quote }}
   {{- else if eq $vol.type "secret" }}
   {{- $src := default (dict) $vol.secret }}
   secret:
-    secretName: {{ required (printf "renderVolume: legacy volume '%s' of type secret needs secret.secretName (or secret.name)" $vol.name) (default $src.name $src.secretName) | quote }}
+    secretName: {{ required (printf "%s.secret.secretName: required by the legacy type secret (or secret.name)" $path) (default $src.name $src.secretName) | quote }}
   {{- else if eq $vol.type "persistentVolumeClaim" }}
   {{- $src := default (dict) $vol.persistentVolumeClaim }}
   persistentVolumeClaim:
-    claimName: {{ required (printf "renderVolume: legacy volume '%s' of type persistentVolumeClaim needs persistentVolumeClaim.claimName (or persistentVolumeClaim.name)" $vol.name) (default $src.name $src.claimName) | quote }}
+    claimName: {{ required (printf "%s.persistentVolumeClaim.claimName: required by the legacy type persistentVolumeClaim (or persistentVolumeClaim.name)" $path) (default $src.name $src.claimName) | quote }}
   {{- else }}
-  {{- fail (printf "renderVolume: unknown legacy volume type '%s' for volume '%s'. Supported types: emptyDir, configMap, secret, persistentVolumeClaim. For other volume types, use native Kubernetes volume spec (omit .type)." $vol.type $vol.name) }}
+  {{- fail (printf "%s.type: unknown legacy volume type '%s'. Supported types: emptyDir, configMap, secret, persistentVolumeClaim. For other volume types, use native Kubernetes volume spec (omit .type)." $path $vol.type) }}
   {{- end }}
 {{- else }}
   {{- /* Native format: render everything except name deterministically */ -}}
@@ -110,7 +137,7 @@ Usage: {{- $legacy := include "global-chart.legacyVolumePaths" . | fromJsonArray
 {{- $owners := list (dict "hooks" .Values.hooks "cronJobs" .Values.cronJobs "deployName" "") -}}
 {{- range $name, $deploy := .Values.deployments -}}
   {{- if and $deploy (eq (include "global-chart.deploymentEnabled" $deploy) "true") -}}
-    {{- $owners = append $owners (dict "path" (printf "deployments.%s" $name) "volumes" $deploy.volumes "hooks" $deploy.hooks "cronJobs" $deploy.cronJobs "deployName" $name) -}}
+    {{- $owners = append $owners (dict "path" (include "global-chart.deploymentValuesPath" $name) "volumes" $deploy.volumes "hooks" $deploy.hooks "cronJobs" $deploy.cronJobs "deployName" $name) -}}
   {{- end -}}
 {{- end -}}
 {{- $withVolumes := list -}}
@@ -268,7 +295,7 @@ Usage: {{- $own := include "global-chart.deploymentOwnAnnotations" (dict "root" 
 {{- $own := deepCopy (default (dict) .deploy.annotations) -}}
 {{- if (default (dict) .deploy.reloader).externalSecrets -}}
   {{- if not .es.targets -}}
-    {{- fail (printf "deployments.%s.reloader.externalSecrets is true but the deployment references no externalSecrets, so Reloader has no Secret to watch. Reference an externalSecrets entry or disable the field." .name) -}}
+    {{- fail (printf "%s.reloader.externalSecrets: true, but the deployment references no externalSecrets, so Reloader has no Secret to watch. Reference an externalSecrets entry or disable the field." (include "global-chart.deploymentValuesPath" .name)) -}}
   {{- end -}}
   {{- $key := "secret.reloader.stakater.com/reload" -}}
   {{- $common := default (dict) (default (dict) .root.Values.global).commonAnnotations -}}
@@ -292,11 +319,11 @@ Single home of the null check shared by renderConfigMapData and renderSecretData
 (issue #166): both data maps hold strings only, and a null is a value nobody
 wrote — "<nil>" in a ConfigMap, the base64 of "null" in a Secret. Renders
 nothing when the value is set.
-Usage: {{- include "global-chart.rejectNullDataValue" (dict "value" $value "path" $path "key" $key "kind" "Secret") -}}
+Usage: {{- include "global-chart.rejectNullDataValue" (dict "value" $value "errCtx" $errCtx "key" $key "kind" "Secret") -}}
 */}}
 {{- define "global-chart.rejectNullDataValue" -}}
 {{- if kindIs "invalid" .value -}}
-{{- fail (printf "%s.%s: a null value reached a %s, which holds strings only. Set a value — \"\" for an empty string — or remove the key." .path .key .kind) -}}
+{{- fail (printf "%s.%s: a null value reached a %s, which holds strings only. Set a value — \"\" for an empty string — or remove the key." .errCtx .key .kind) -}}
 {{- end -}}
 {{- end }}
 
@@ -321,10 +348,10 @@ body-only helper written as a literal range emits a leading newline, which the
 caller's nindent turns into a line of bare spaces.
 */}}
 {{- define "global-chart.renderConfigMapData" -}}
-{{- $path := printf "deployments.%s.configMap" .deploymentName -}}
+{{- $errCtx := printf "%s.configMap" (include "global-chart.deploymentValuesPath" .deploymentName) -}}
 {{- $lines := list -}}
 {{- range $key, $value := .data -}}
-{{- include "global-chart.rejectNullDataValue" (dict "value" $value "path" $path "key" $key "kind" "ConfigMap") -}}
+{{- include "global-chart.rejectNullDataValue" (dict "value" $value "errCtx" $errCtx "key" $key "kind" "ConfigMap") -}}
 {{- if or (kindIs "map" $value) (kindIs "slice" $value) -}}
 {{- $lines = append $lines (printf "%s: |-\n%s" ($key | quote) (toYaml $value | indent 2)) -}}
 {{- else -}}
@@ -345,10 +372,10 @@ string "null", and the app would read those four characters as its secret
 Returns empty string on an empty map; callers guard on the map being non-empty.
 */}}
 {{- define "global-chart.renderSecretData" -}}
-{{- $path := printf "deployments.%s.secret" .deploymentName -}}
+{{- $errCtx := printf "%s.secret" (include "global-chart.deploymentValuesPath" .deploymentName) -}}
 {{- $lines := list -}}
 {{- range $key, $value := .data -}}
-{{- include "global-chart.rejectNullDataValue" (dict "value" $value "path" $path "key" $key "kind" "Secret") -}}
+{{- include "global-chart.rejectNullDataValue" (dict "value" $value "errCtx" $errCtx "key" $key "kind" "Secret") -}}
 {{- if kindIs "string" $value -}}
 {{- $lines = append $lines (printf "%s: %s" ($key | quote) ($value | b64enc | quote)) -}}
 {{- else -}}
@@ -376,20 +403,15 @@ rules:
 {{/*
 Resolve a backend reference to a {name, port} dict, emitted as JSON for the caller to parse via fromJson.
 Usage:
-  {{- $b := include "global-chart.resolveBackend" (dict "root" $root "ref" $hostEntry "sourceKind" "ingress host") | fromJson -}}
+  {{- $b := include "global-chart.resolveBackend" (dict "root" $root "ref" $hostEntry "errCtx" (printf "ingress.hosts[%d]" $hostIdx)) | fromJson -}}
   {{- $svcName := $b.name -}}
   {{- $svcPort := $b.port -}}
 
 Inputs (dict):
   - root        (required) — Helm root context (the chart "." passed in)
   - ref         (required) — host entry (ingress) or backendRef (httpRoute) map; supports .service.name/.port and .deployment
-  - sourceKind  (required) — caller-supplied noun phrase used to prefix fail messages
-                             (e.g. "ingress host", "httpRoute rule"). Capitalize per existing wording —
-                             this string flows verbatim into "%s '%s' references deployment ..." messages.
-  - identifier  (optional) — human-readable identifier for fail messages.
-                             Falls back to ref.host (ingress entries have one), else "<unknown>".
-  - ruleNoun    (optional) — noun used in the "remove the X" suffix of the service.enabled:false message.
-                             Defaults to "rule". Ingress passes "ingress rule" to preserve historical wording.
+  - errCtx      (required) — values path of ref (ingress.hosts[<i>], httpRoute.rules[<i>].backendRefs[<j>]);
+                             leads every fail message, "<values path>: <problem>" (issue #190).
 
 Resolution priority (mirrors the historical inline ingress logic):
   1. Explicit service override: ref.service.name set      → {name=ref.service.name, port=ref.service.port|80}
@@ -403,20 +425,7 @@ Numbers come back float64: see the file header.
 {{- define "global-chart.resolveBackend" -}}
 {{- $root := .root -}}
 {{- $ref := .ref -}}
-{{- $sourceKind := .sourceKind -}}
-{{- /* sourceKindCapital: same noun phrase with its first word capitalized.
-       Used only in the "service.enabled: false" message to preserve the
-       historical "Ingress host '...'" sentence-start wording. Defaults to
-       $sourceKind if not provided. */ -}}
-{{- $sourceKindCapital := default $sourceKind .sourceKindCapital -}}
-{{- /* ruleNoun: noun used in the "remove the X" suffix. Defaults to "rule".
-       Ingress passes "ingress rule" to preserve historical wording. */ -}}
-{{- $ruleNoun := default "rule" .ruleNoun -}}
-{{- /* Identifier: prefer explicit .identifier, else ref.host (ingress), else "<unknown>" */ -}}
-{{- $ident := "<unknown>" -}}
-{{- if .identifier -}}{{- $ident = .identifier -}}
-{{- else if and (kindIs "map" $ref) (hasKey $ref "host") $ref.host -}}{{- $ident = $ref.host -}}
-{{- end -}}
+{{- $path := required "resolveBackend: errCtx is required (the values path of ref)" .errCtx -}}
 {{- $svcName := "" -}}
 {{- $svcPort := 80 -}}
 
@@ -428,6 +437,9 @@ Numbers come back float64: see the file header.
        Service's. */ -}}
 {{- if and (hasKey $ref "service") $ref.service $ref.service.name -}}
   {{- $svcName = $ref.service.name -}}
+  {{- if hasKey $ref.service "port" -}}
+    {{- include "global-chart.rejectNull" (dict "value" $ref.service.port "errCtx" (printf "%s.service.port" $path)) -}}
+  {{- end -}}
   {{- $svcPort = ternary $ref.service.port 80 (hasKey $ref.service "port") -}}
 {{- /* Priority 2: Deployment reference */ -}}
 {{- else if $ref.deployment -}}
@@ -435,22 +447,23 @@ Numbers come back float64: see the file header.
   {{- $deploy := index $root.Values.deployments $depName -}}
   {{- if not $deploy -}}
     {{- if hasKey (default (dict) $root.Values.deployments) $depName -}}
-      {{- fail (printf "%s '%s' references deployment '%s', which is empty: an empty deployments entry renders nothing. Fill the entry, or drop the reference." $sourceKind $ident $depName) -}}
+      {{- fail (printf "%s.deployment: references deployment '%s', which is empty: an empty deployments entry renders nothing. Fill the entry, or drop the reference." $path $depName) -}}
     {{- end -}}
-    {{- fail (printf "%s '%s' references deployment '%s' which does not exist in .Values.deployments" $sourceKind $ident $depName) -}}
+    {{- fail (printf "%s.deployment: references deployment '%s', which does not exist in .Values.deployments" $path $depName) -}}
   {{- end -}}
   {{- if ne (include "global-chart.deploymentEnabled" $deploy) "true" -}}
-    {{- fail (printf "%s '%s' references deployment '%s' which has enabled: false (its Service will not be created)" $sourceKind $ident $depName) -}}
+    {{- fail (printf "%s.deployment: references deployment '%s', which has enabled: false (its Service will not be created)" $path $depName) -}}
   {{- end -}}
   {{- $depSvc := default (dict) $deploy.service -}}
   {{- if ne (include "global-chart.serviceEnabled" $depSvc) "true" -}}
-    {{- fail (printf "%s '%s' references deployment '%s' which has service.enabled: false. Enable the service or remove the %s." $sourceKindCapital $ident $depName $ruleNoun) -}}
+    {{- fail (printf "%s.deployment: references deployment '%s', which has service.enabled: false. Enable the service or remove the reference." $path $depName) -}}
   {{- end -}}
   {{- $svcName = include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $depName) -}}
-  {{- $svcPort = (include "global-chart.servicePrimaryPort" $depSvc | fromJson).port -}}
+  {{- $depSvcCtx := printf "%s.service" (include "global-chart.deploymentValuesPath" $depName) -}}
+  {{- $svcPort = (include "global-chart.servicePrimaryPort" (dict "service" $depSvc "errCtx" $depSvcCtx) | fromJson).port -}}
 {{- /* Priority 3: Error - must specify deployment or service */ -}}
 {{- else -}}
-  {{- fail (printf "%s '%s' must specify either 'deployment' (name of a deployment) or 'service.name' (explicit service name)" $sourceKind $ident) -}}
+  {{- fail (printf "%s: must specify either 'deployment' (name of a deployment) or 'service.name' (explicit service name)" $path) -}}
 {{- end -}}
 
 {{- dict "name" $svcName "port" $svcPort | toJson -}}
@@ -465,22 +478,22 @@ rather than truthiness: an explicit empty string is the user's input and is
 passed through, not silently dropped. `version` goes through `quote` because the
 schema accepts a number for it (`version: 3`) while the CRD wants a string;
 printScalar first, so a large number does not become "1e+07".
-Usage: {{- include "global-chart.renderExternalSecretRemoteRef" (dict "remote" $remote "keyError" (printf "externalSecrets.%s.remote.key is mandatory" $name)) | nindent 8 }}
+Usage: {{- include "global-chart.renderExternalSecretRemoteRef" (dict "remote" $remote "errCtx" (printf "externalSecrets.%s.remote" $name)) | nindent 8 }}
 Inputs (dict):
   - remote    (required) — the remote map (key + optional conversion/decoding/metadata strategies, property, version)
-  - keyError  (required) — fail message when remote.key is missing (caller supplies the exact path)
+  - errCtx    (required) — values path of the remote map; leads the message when remote.key is missing
 */}}
 {{- define "global-chart.renderExternalSecretRemoteRef" -}}
 {{- $remote := .remote -}}
 conversionStrategy: {{ ternary $remote.conversionStrategy "Default" (hasKey $remote "conversionStrategy") | quote }}
 decodingStrategy: {{ ternary $remote.decodingStrategy "None" (hasKey $remote "decodingStrategy") | quote }}
-key: {{ required .keyError $remote.key | quote }}
+key: {{ required (printf "%s.key: mandatory" (required "renderExternalSecretRemoteRef: errCtx is required (the values path of the remote)" .errCtx)) $remote.key | quote }}
 metadataPolicy: {{ ternary $remote.metadataPolicy "None" (hasKey $remote "metadataPolicy") | quote }}
 {{- if hasKey $remote "property" }}
 property: {{ $remote.property | quote }}
 {{- end }}
 {{- if hasKey $remote "version" }}
-version: {{ include "global-chart.printScalar" $remote.version | quote }}
+version: {{ include "global-chart.printScalar" (dict "value" $remote.version "errCtx" (printf "%s.version" .errCtx)) | quote }}
 {{- end }}
 {{- end }}
 
@@ -501,12 +514,12 @@ reaches a pod port whether or not the container declares it, so re-declaring an
 already-declared port would buy nothing and risk a duplicate name, which the API
 server rejects. The protocol is part of the key because the same number under
 two protocols is a distinct port — TCP and UDP on 53 is the ordinary DNS shape.
-Usage: {{ include "global-chart.containerPorts" $svc | fromJsonArray }}
+Usage: {{ include "global-chart.containerPorts" (dict "service" $svc "errCtx" (printf "%s.service" $errCtx)) | fromJsonArray }}
 Numbers come back float64: see the file header.
 */}}
 {{- define "global-chart.containerPorts" -}}
-{{- $svc := . -}}
-{{- $primary := include "global-chart.servicePrimaryPort" $svc | fromJson -}}
+{{- $svc := .service -}}
+{{- $primary := include "global-chart.servicePrimaryPort" . | fromJson -}}
 {{- $portName := $primary.name -}}
 {{- $targetPort := $primary.targetPort -}}
 {{- $containerPort := kindIs "string" $targetPort | ternary $primary.port $targetPort -}}
@@ -542,13 +555,17 @@ custom portName and no targetPort, "http" would name a port nothing declares.
 Only the primary port is here. extraPorts entries have name/port/targetPort all
 required by the schema; their one default, the protocol, lives in
 extraPortProtocol.
-Usage: {{ $primary := include "global-chart.servicePrimaryPort" $svc | fromJson }}
-Input: the deployment's service map, already defaulted to (dict) by the caller.
+Every consumer of a deployment's ports reaches this helper before it prints
+one, so it runs rejectNullServicePorts first: the one call that covers them all.
+Usage: {{ $primary := include "global-chart.servicePrimaryPort" (dict "service" $svc "errCtx" (printf "%s.service" $errCtx)) | fromJson }}
+Input: the deployment's service map, already defaulted to (dict) by the caller,
+and errCtx, its values path.
 Output: JSON of the form {"port":80,"name":"http","protocol":"TCP","targetPort":"http"}
 Numbers come back float64: see the file header.
 */}}
 {{- define "global-chart.servicePrimaryPort" -}}
-{{- $svc := . -}}
+{{- $svc := .service -}}
+{{- include "global-chart.rejectNullServicePorts" (dict "service" $svc "errCtx" (required "servicePrimaryPort: errCtx is required (the values path of the service)" .errCtx)) -}}
 {{- $name := ternary $svc.portName "http" (hasKey $svc "portName") -}}
 {{- dict
       "port" (ternary $svc.port 80 (hasKey $svc "port"))
@@ -556,6 +573,30 @@ Numbers come back float64: see the file header.
       "protocol" (ternary $svc.protocol "TCP" (hasKey $svc "protocol") | upper)
       "targetPort" (ternary $svc.targetPort $name (hasKey $svc "targetPort"))
     | toJson -}}
+{{- end }}
+
+{{/*
+Fail on a null in a deployment's Service ports, naming its key (issue #191): a
+port, targetPort, portName or protocol of the primary port, and any key of an
+extraPorts entry. The single home of that check. servicePrimaryPort runs it,
+because every consumer of the ports (service.yaml, containerPorts, the
+validators, resolveBackend, the connection test) reaches servicePrimaryPort
+before it prints one; so they print the ports bare, already checked.
+Usage: {{- include "global-chart.rejectNullServicePorts" (dict "service" $svc "errCtx" "deployments.web.service") -}}
+*/}}
+{{- define "global-chart.rejectNullServicePorts" -}}
+{{- $svc := .service -}}
+{{- $errCtx := .errCtx -}}
+{{- range $key := list "port" "targetPort" "portName" "protocol" -}}
+  {{- if hasKey $svc $key -}}
+    {{- include "global-chart.rejectNull" (dict "value" (index $svc $key) "errCtx" (printf "%s.%s" $errCtx $key)) -}}
+  {{- end -}}
+{{- end -}}
+{{- range $i, $port := (default (list) $svc.extraPorts) -}}
+  {{- range $key, $value := $port -}}
+    {{- include "global-chart.rejectNull" (dict "value" $value "errCtx" (printf "%s.extraPorts[%d].%s" $errCtx $i $key)) -}}
+  {{- end -}}
+{{- end -}}
 {{- end }}
 
 {{/*
@@ -614,16 +655,16 @@ Params:
 {{- end -}}
 {{- $secretStore := $secret.secretstore -}}
 {{- if not $selfContainedDataFrom -}}
-{{- $secretStore = required (printf "externalSecrets.%s.secretstore is mandatory unless every dataFrom entry carries its own sourceRef (generatorRef or storeRef)" $key) $secret.secretstore -}}
+{{- $secretStore = required (printf "externalSecrets.%s.secretstore: mandatory unless every dataFrom entry carries its own sourceRef (generatorRef or storeRef)" $key) $secret.secretstore -}}
 {{- end -}}
 {{- if or $hasData $hasDataFrom }}
 {{- if $hasData }}
 data:
-  {{- range $item := $secret.data }}
-  {{- $itemRemote := required (printf "externalSecrets.%s.data[].remote is mandatory" $key) $item.remote }}
+  {{- range $i, $item := $secret.data }}
+  {{- $itemRemote := required (printf "externalSecrets.%s.data[%d].remote: mandatory" $key $i) $item.remote }}
   - remoteRef:
-      {{- include "global-chart.renderExternalSecretRemoteRef" (dict "remote" $itemRemote "keyError" (printf "externalSecrets.%s.data[].remote.key is mandatory" $key)) | nindent 6 }}
-    secretKey: {{ required (printf "externalSecrets.%s.data[].secretkey is mandatory" $key) $item.secretkey | quote }}
+      {{- include "global-chart.renderExternalSecretRemoteRef" (dict "remote" $itemRemote "errCtx" (printf "externalSecrets.%s.data[%d].remote" $key $i)) | nindent 6 }}
+    secretKey: {{ required (printf "externalSecrets.%s.data[%d].secretkey: mandatory" $key $i) $item.secretkey | quote }}
   {{- end }}
 {{- end }}
 {{- if $hasDataFrom }}
@@ -631,11 +672,11 @@ dataFrom:
   {{- toYaml $secret.dataFrom | nindent 2 }}
 {{- end }}
 {{- else }}
-{{- $remote := required (printf "externalSecrets.%s.remote is mandatory" $key) $secret.remote }}
+{{- $remote := required (printf "externalSecrets.%s.remote: mandatory" $key) $secret.remote }}
 data:
   - remoteRef:
-      {{- include "global-chart.renderExternalSecretRemoteRef" (dict "remote" $remote "keyError" (printf "externalSecrets.%s.remote.key is mandatory" $key)) | nindent 6 }}
-    secretKey: {{ required (printf "externalSecrets.%s.secretkey is mandatory" $key) $secret.secretkey | quote }}
+      {{- include "global-chart.renderExternalSecretRemoteRef" (dict "remote" $remote "errCtx" (printf "externalSecrets.%s.remote" $key)) | nindent 6 }}
+    secretKey: {{ required (printf "externalSecrets.%s.secretkey: mandatory" $key) $secret.secretkey | quote }}
 {{- end }}
 refreshInterval: {{ ternary $secret.refreshInterval "1h" (hasKey $secret "refreshInterval") | quote }}
 {{- /* Emitted whenever a store is required — so an incomplete secretstore
@@ -645,8 +686,8 @@ refreshInterval: {{ ternary $secret.refreshInterval "1h" (hasKey $secret "refres
        is the one case that renders neither: nothing to emit, nothing needed. */}}
 {{- if or (not $selfContainedDataFrom) $secretStore }}
 secretStoreRef:
-  kind: {{ required (printf "externalSecrets.%s.secretstore.kind is mandatory" $key) $secretStore.kind | quote }}
-  name: {{ required (printf "externalSecrets.%s.secretstore.name is mandatory" $key) $secretStore.name | quote }}
+  kind: {{ required (printf "externalSecrets.%s.secretstore.kind: mandatory" $key) $secretStore.kind | quote }}
+  name: {{ required (printf "externalSecrets.%s.secretstore.name: mandatory" $key) $secretStore.name | quote }}
 {{- end }}
 target:
   creationPolicy: {{ default (include "global-chart.externalSecretCreationPolicy" $secret) .creationPolicy | quote }}
@@ -696,9 +737,9 @@ Params:
   {{- $secret := index (default (dict) $root.Values.externalSecrets) $ref.name -}}
   {{- if not $secret -}}
     {{- if hasKey (default (dict) $root.Values.externalSecrets) $ref.name -}}
-      {{- fail (printf "%s.externalSecrets references '%s', which is empty: an empty externalSecrets entry renders no ExternalSecret. Fill the entry, or drop the reference." $.errCtx $ref.name) -}}
+      {{- fail (printf "%s.externalSecrets: references '%s', which is empty: an empty externalSecrets entry renders no ExternalSecret. Fill the entry, or drop the reference." $.errCtx $ref.name) -}}
     {{- end -}}
-    {{- fail (printf "%s.externalSecrets references '%s', which is not a key of externalSecrets. Name the key of the externalSecrets entry, not the Secret it produces." $.errCtx $ref.name) -}}
+    {{- fail (printf "%s.externalSecrets: references '%s', which is not a key of externalSecrets. Name the key of the externalSecrets entry, not the Secret it produces." $.errCtx $ref.name) -}}
   {{- end -}}
   {{- $nameCtx := dict "root" $root "key" $ref.name "secret" $secret -}}
   {{- $_ := set $out "specs" (append $out.specs (include "global-chart.renderExternalSecretSpec" $nameCtx)) -}}
@@ -707,7 +748,7 @@ Params:
   {{- if $ref.mountPath -}}
     {{- $volumeName := include "global-chart.externalSecretVolumeName" (dict "key" $ref.name) -}}
     {{- if or (gt (len $volumeName) 63) (not (regexMatch "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$" $volumeName)) -}}
-      {{- fail (printf "externalSecrets key '%s' cannot be mounted: its volume name '%s' is not a DNS-1123 label of at most 63 characters. Rename the key, or inject it without a mountPath." $ref.name $volumeName) -}}
+      {{- fail (printf "externalSecrets.%s: cannot be mounted, its volume name '%s' is not a DNS-1123 label of at most 63 characters. Rename the key, or inject it without a mountPath." $ref.name $volumeName) -}}
     {{- end -}}
     {{- if hasKey $taken $volumeName -}}
       {{- fail (printf "%s.externalSecrets: the volume '%s' generated for '%s' is already declared in this pod. Mount a key once, and do not name your own volumes after it." $.errCtx $volumeName $ref.name) -}}
@@ -745,12 +786,12 @@ Params:
 {{- end -}}
 {{- $mcf := default (dict) .mountedConfigFiles -}}
 {{- range $i, $f := (default (list) $mcf.files) -}}
-  {{- $path := required (printf "%s.mountedConfigFiles.files[%d] (%s): 'targetPath' is required" $.errCtx $i $f.name) $f.targetPath -}}
+  {{- $path := required (printf "%s.mountedConfigFiles.files[%d].targetPath: required" $.errCtx $i) $f.targetPath -}}
   {{- $mount := dict "name" (include "global-chart.mountedFileVolumeName" (dict "fileName" $f.name)) "mountPath" $path "subPath" (default "" $f.filename) "readOnly" true -}}
   {{- $mounts = append $mounts (dict "mount" $mount "owner" (printf "mountedConfigFiles.files[%d] (%s)" $i $f.name)) -}}
 {{- end -}}
 {{- range $i, $b := (default (list) $mcf.bundles) -}}
-  {{- $path := required (printf "%s.mountedConfigFiles.bundles[%d]: 'mountDir' is required" $.errCtx $i) $b.mountDir -}}
+  {{- $path := required (printf "%s.mountedConfigFiles.bundles[%d].mountDir: required" $.errCtx $i) $b.mountDir -}}
   {{- $mount := dict "name" (include "global-chart.mountedBundleVolumeName" (dict "bundleIndex" $i)) "mountPath" $path "readOnly" true -}}
   {{- $mounts = append $mounts (dict "mount" $mount "owner" (printf "mountedConfigFiles.bundles[%d]" $i)) -}}
 {{- end -}}

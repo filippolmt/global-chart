@@ -5,6 +5,7 @@
 {{- $np := default (dict) $deploy.networkPolicy }}
 {{- if $np.enabled }}
 {{- $depFullname := include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $name) }}
+{{- $errCtx := include "global-chart.deploymentValuesPath" $name }}
 {{- $labelCtx := dict "root" $root "deploymentName" $name }}
 ---
 apiVersion: networking.k8s.io/v1
@@ -33,7 +34,7 @@ spec:
     - Egress
     {{- end }}
   {{- else }}
-  {{- fail (printf "NetworkPolicy for deployment '%s': at least one of policyTypes, ingress, or egress must be set when networkPolicy.enabled is true." $name) }}
+  {{- fail (printf "%s.networkPolicy: at least one of policyTypes, ingress, or egress must be set when networkPolicy.enabled is true." $errCtx) }}
   {{- end }}
   {{- with $np.ingress }}
   ingress:

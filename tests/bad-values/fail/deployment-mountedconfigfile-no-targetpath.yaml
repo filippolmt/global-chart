@@ -1,6 +1,6 @@
 # A mountedConfigFiles entry with no targetPath rendered `mountPath:` as null,
 # rejected at apply (issue #157).
-# Expected fail substring: "deployments.web.mountedConfigFiles.files[0] (app-conf): 'targetPath' is required"
+# Expected fail substring: "deployments.web.mountedConfigFiles.files[0].targetPath: required"
 deployments:
   web:
     image: nginx:1.25

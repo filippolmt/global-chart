@@ -5,6 +5,7 @@
 {{- $pdb := default (dict) $deploy.pdb }}
 {{- if $pdb.enabled }}
 {{- $depFullname := include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $name) }}
+{{- $errCtx := include "global-chart.deploymentValuesPath" $name }}
 {{- $labelCtx := dict "root" $root "deploymentName" $name }}
 ---
 apiVersion: policy/v1
@@ -19,16 +20,16 @@ metadata:
   {{- end }}
 spec:
   {{- if and (hasKey $pdb "minAvailable") (hasKey $pdb "maxUnavailable") }}
-  {{- fail (printf "PDB for deployment '%s': minAvailable and maxUnavailable are mutually exclusive — set only one." $name) }}
+  {{- fail (printf "%s.pdb: minAvailable and maxUnavailable are mutually exclusive — set only one." $errCtx) }}
   {{- end }}
   {{- if not (or (hasKey $pdb "minAvailable") (hasKey $pdb "maxUnavailable")) }}
-  {{- fail (printf "PDB for deployment '%s': one of minAvailable or maxUnavailable is required when pdb.enabled is true." $name) }}
+  {{- fail (printf "%s.pdb: one of minAvailable or maxUnavailable is required when pdb.enabled is true." $errCtx) }}
   {{- end }}
   {{- if hasKey $pdb "minAvailable" }}
-  minAvailable: {{ include "global-chart.printScalar" $pdb.minAvailable }}
+  minAvailable: {{ include "global-chart.printScalar" (dict "value" $pdb.minAvailable "errCtx" (printf "%s.pdb.minAvailable" $errCtx)) }}
   {{- end }}
   {{- if hasKey $pdb "maxUnavailable" }}
-  maxUnavailable: {{ include "global-chart.printScalar" $pdb.maxUnavailable }}
+  maxUnavailable: {{ include "global-chart.printScalar" (dict "value" $pdb.maxUnavailable "errCtx" (printf "%s.pdb.maxUnavailable" $errCtx)) }}
   {{- end }}
   selector:
     matchLabels:

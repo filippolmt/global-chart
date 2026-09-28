@@ -104,7 +104,7 @@ tests:
             maxUnavailable: 1
     asserts:
       - failedTemplate:
-          errorMessage: "PDB for deployment 'main': minAvailable and maxUnavailable are mutually exclusive — set only one."
+          errorMessage: "deployments.main.pdb: minAvailable and maxUnavailable are mutually exclusive — set only one."
 
   - it: should fail when neither minAvailable nor maxUnavailable is set
     set:
@@ -115,7 +115,7 @@ tests:
             enabled: true
     asserts:
       - failedTemplate:
-          errorMessage: "PDB for deployment 'main': one of minAvailable or maxUnavailable is required when pdb.enabled is true."
+          errorMessage: "deployments.main.pdb: one of minAvailable or maxUnavailable is required when pdb.enabled is true."
 
   - it: should render PDB with minAvailable 0
     set:

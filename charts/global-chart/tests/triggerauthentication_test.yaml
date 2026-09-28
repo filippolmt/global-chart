@@ -119,7 +119,7 @@ tests:
           secretTargetRef: []
     asserts:
       - failedTemplate:
-          errorPattern: "kedaTriggerAuthentications.broken declares no credential source"
+          errorPattern: "kedaTriggerAuthentications\\.broken: declares no credential source \\(one of: secretTargetRef, env, podIdentity, hashiCorpVault, azureKeyVault, awsSecretManager, gcpSecretManager\\)"
 
   - it: should skip an entry that is entirely empty
     set:

@@ -1,0 +1,10 @@
+# A null successfulJobsHistoryLimit on a root-level cronjob (issue #191). The
+# schema rejects it first; under --skip-schema-validation cronJobSpecFields
+# fails naming the key.
+# Expected fail substring: "cronJobs.cleanup.successfulJobsHistoryLimit: null"
+cronJobs:
+  cleanup:
+    schedule: "0 4 * * *"
+    image: busybox:1.36
+    command: ["true"]
+    successfulJobsHistoryLimit: null

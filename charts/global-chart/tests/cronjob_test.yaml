@@ -68,6 +68,23 @@ tests:
           path: spec.jobTemplate.spec.template.spec.containers[0].image
           value: "myapp/api:v2.0"
 
+  - it: should render a job tag carrying a digest as written (issue #187)
+    documentSelector:
+      path: kind
+      value: CronJob
+    set:
+      cronJobs:
+        cleanup:
+          schedule: "0 4 * * *"
+          image:
+            repository: myapp/backup
+            tag: "main@sha256:e0646c006c037b0bde03dd897029ab5cde600437969802848a63c474903cb2c8"
+          command: ["./cleanup.sh"]
+    asserts:
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.containers[0].image
+          value: "myapp/backup:main@sha256:e0646c006c037b0bde03dd897029ab5cde600437969802848a63c474903cb2c8"
+
   # ====== Deployment enabled flag ======
   - it: should not render deployment-level cronjob when deployment enabled is false
     set:
@@ -82,6 +99,52 @@ tests:
     asserts:
       - hasDocuments:
           count: 0
+
+  - it: should inherit a deployment tag carrying a digest as written (issue #187)
+    documentSelector:
+      path: kind
+      value: CronJob
+    set:
+      deployments:
+        backend:
+          image:
+            repository: myapp/backend
+            tag: "main@sha256:e0646c006c037b0bde03dd897029ab5cde600437969802848a63c474903cb2c8"
+          cronJobs:
+            db-backup:
+              schedule: "0 2 * * *"
+              command: ["./backup.sh"]
+    asserts:
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.containers[0].image
+          value: "myapp/backend:main@sha256:e0646c006c037b0bde03dd897029ab5cde600437969802848a63c474903cb2c8"
+
+  - it: should name the cronjob image by its values path when it sets a digest without a repository (issue #188)
+    set:
+      cronJobs:
+        cleanup:
+          schedule: "0 4 * * *"
+          image:
+            digest: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          command: ["./cleanup.sh"]
+    asserts:
+      - failedTemplate:
+          errorMessage: "cronJobs.cleanup.image: sets a digest without a repository (expected repository@digest)"
+
+  - it: should name a deployment-level cronjob image by its values path (issue #188)
+    set:
+      deployments:
+        backend:
+          image: myapp:v2
+          cronJobs:
+            db-backup:
+              schedule: "0 2 * * *"
+              image:
+                digest: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              command: ["./backup.sh"]
+    asserts:
+      - failedTemplate:
+          errorMessage: "deployments.backend.cronJobs.db-backup.image: sets a digest without a repository (expected repository@digest)"
 
   # ====== Deployment-level CronJob inheritance ======
   - it: should inherit image from parent deployment
@@ -885,7 +948,7 @@ tests:
           command: ["./run.sh"]
     asserts:
       - failedTemplate:
-          errorPattern: "cronJobs.cleanup.fromDeployment references deployment 'ghost'"
+          errorPattern: "cronJobs\\.cleanup\\.fromDeployment: references deployment 'ghost', which does not exist in \\.Values\\.deployments"
 
   - it: should fail when root-level cronJob has no image and no fromDeployment
     set:
@@ -895,7 +958,7 @@ tests:
           command: ["./run.sh"]
     asserts:
       - failedTemplate:
-          errorPattern: "image is required for cronJobs.cleanup"
+          errorPattern: "cronJobs\\.cleanup: image is required \\(set cronJobs\\.cleanup\\.image or cronJobs\\.cleanup\\.fromDeployment\\)"
 
   # ====== global.commonLabels ======
   - it: should render global.commonLabels on cronjob metadata
@@ -1533,7 +1596,7 @@ tests:
             create: true
     asserts:
       - failedTemplate:
-          errorMessage: "cronJobs.cleanup names its ServiceAccount twice, with different names: serviceAccountName \"runner\" and serviceAccount.name \"migrator\". Keep only one of the two fields (or set the same name in both)."
+          errorMessage: "cronJobs.cleanup: names its ServiceAccount twice, with different names: serviceAccountName \"runner\" and serviceAccount.name \"migrator\". Keep only one of the two fields (or set the same name in both)."
 
   - it: should fail when a deployment-level cronjob names its ServiceAccount twice with different names
     set:
@@ -1549,7 +1612,7 @@ tests:
                 name: migrator
     asserts:
       - failedTemplate:
-          errorMessage: "deployments.backend.cronJobs.backup names its ServiceAccount twice, with different names: serviceAccountName \"runner\" and serviceAccount.name \"migrator\". Keep only one of the two fields (or set the same name in both)."
+          errorMessage: "deployments.backend.cronJobs.backup: names its ServiceAccount twice, with different names: serviceAccountName \"runner\" and serviceAccount.name \"migrator\". Keep only one of the two fields (or set the same name in both)."
 
   - it: should accept a deployment-level cronjob naming the same ServiceAccount in both fields
     set:
@@ -1775,7 +1838,7 @@ tests:
                 - name: missing
     asserts:
       - failedTemplate:
-          errorPattern: "deployments.app.cronJobs.nightly.externalSecrets references 'missing', which is not a key of externalSecrets"
+          errorPattern: "deployments\\.app\\.cronJobs\\.nightly\\.externalSecrets: references 'missing', which is not a key of externalSecrets"
 
   # ====== Truncation never leaves a trailing dot (issue #120) ======
   # 51 a's + ".b-x" cut at 52 ends on the dot; trimSuffix "-" used to keep it.

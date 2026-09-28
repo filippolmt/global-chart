@@ -58,13 +58,13 @@ is the source of truth, this table is only the routing.
 | File | Domain |
 |------|--------|
 | `_helpers.tpl` | Naming and labels. `truncName` is the single home of the truncation trim; `mergeLabels` is the single home of the label precedence; the Job-family, mounted-config-file and hook-copy name helpers (`rbacs.roles` and every release-created ServiceAccount) are the single home of each generated name and its truncation constant |
-| `_image-helpers.tpl` | `imageString`, `imagePullPolicy`. The registry test in `imageString` is mirrored by the image `pattern`s in `values.schema.json`: change one, change the other |
-| `_job-helpers.tpl` | One implementation of the pod spec, image resolution (`jobImageSource`, read for the image and its pull policy), the CronJob spec fields (`cronJobSpecFields`) and the Job spec fields table (`jobSpecVerbatimFields`) for **every** hook and cronjob, both scopes — root-level callers simply pass no `deploy`. `jobValuesPath` is the single home of the name a job carries in error messages |
+| `_image-helpers.tpl` | `imageString`, `imagePullPolicy`. The registry test in `imageString` is mirrored by the image `pattern`s in `values.schema.json`, and its `fail` on a tag carrying `@<digest>` together with `digest` by the `if`/`then` in `$defs/imageMap` (ADR 0018): change one, change the other |
+| `_job-helpers.tpl` | One implementation of the pod spec, image resolution (`jobImageSource`, read for the image and its pull policy), the CronJob spec fields (`cronJobSpecFields`) and the Job spec fields table (`jobSpecVerbatimFields`) for **every** hook and cronjob, both scopes — root-level callers simply pass no `deploy` (the image helpers take `deployName` instead, and read the deployment from it). `jobValuesPath` is the single home of the name a job carries in error messages |
 | `_serviceaccount-helpers.tpl` | Every ServiceAccount the chart renders or binds, resolved to `{create, name, automount, annotations}`: deployment, rbac and job resolvers, with the deployment and rbac defaults in `resolveServiceAccount`; the job resolver keeps its own chain, and rejects a job naming its SA twice with different names itself — every job render path goes through it, so the check cannot be skipped. Also the SA side of the hook copies (ADR 0010, 0011): every SA the release creates (`releaseServiceAccounts`), whether it creates one (`releaseCreatesServiceAccount`), the SA a copy binds (`serviceAccountCopyName`), the match of a hook to the SA copy (`hookReadsServiceAccountCopy`) and to the `rbacs.roles` copies (`hookRbacCopy`, over `rbacServiceAccounts`), and the SA a hook's pod runs as (`hookServiceAccountName`). Templates never read `serviceAccount.*` from values |
 | `_hook-helpers.tpl` | The three `helm.sh/hook*` annotations, weights and delete policies, driven by a role table; the phase cut `hookReadsPrereqCopy`, the one enumeration of the hooks it admits (`prereqCopyHooks`) and the consumer scans of the ExternalSecret, `rbacs.roles` and ServiceAccount hook copies |
 | `_render-helpers.tpl` | `printScalar`, the single home of how a number from values is printed, in integer and string fields alike; shared render blocks, `renderAnnotations`, the ConfigMap/Secret `data:` bodies with `rejectNullDataValue`, the single home of their null check, and the Role `rules:` block shared with the hook-prerequisite copies, `deploymentOwnAnnotations` (the single home of `reloader.externalSecrets`: the reload list, its union with the user's, its fail — ADR 0016), `legacyVolumePaths` (the legacy `volumes[].type` entries NOTES.txt lists, gone in 4.0.0), `containerVolumeMounts` (the single home of the mounts a main container receives, Deployment and jobs alike, checked by `validateMountPaths`), and the port helpers (`containerPorts`, `servicePrimaryPort`, `extraPortProtocol`, `serviceType`) |
 | `_keda-helpers.tpl` | KEDA names, trigger and `authenticationRef` resolution, the CRD guard |
-| `_validate-helpers.tpl` | The fullname against the labels it leads, name collisions, routing and autoscaling conflicts, named-`targetPort` resolution (`validateServiceTargetPorts`), the Service-side port constraints (`validateServicePorts`: duplicate port names and port+protocol pairs, `nodePort` only on NodePort/LoadBalancer), a duplicate `mountPath` in a container (`validateMountPaths`, called by `containerVolumeMounts`). Also `hpaActiveTargets`, the single home of "an HPA target is active", read by the autoscaling validator and by `hpa.yaml` |
+| `_validate-helpers.tpl` | `deploymentValuesPath`, the single home of `deployments.<name>` in error messages (as `jobValuesPath` is a job's), and the header carrying the shape of every `fail` message. The fullname against the labels it leads, name collisions, routing and autoscaling conflicts, named-`targetPort` resolution (`validateServiceTargetPorts`), the Service-side port constraints (`validateServicePorts`: duplicate port names and port+protocol pairs, `nodePort` only on NodePort/LoadBalancer), a duplicate `mountPath` in a container (`validateMountPaths`, called by `containerVolumeMounts`). Also `hpaActiveTargets`, the single home of "an HPA target is active", read by the autoscaling validator and by `hpa.yaml` |
 
 ### Key Design Patterns
 
@@ -292,6 +292,22 @@ imagePullSecrets:
 - Every field a template accesses must be declared in the schema
 - Every schema field must be used by a template
 - Run `make lint-chart` to verify the schema doesn't reject valid test values
+
+**Error messages — `<values path>: <problem>`:**
+```yaml
+# WRONG: the entry named in prose, the path printed by hand
+{{- fail (printf "PDB for deployment '%s': set only one." $name) }}
+# CORRECT: the path of the key holding the wrong value leads, from its single home
+{{- fail (printf "%s.pdb: set only one." (include "global-chart.deploymentValuesPath" $name)) }}
+```
+A job's path comes from `jobValuesPath`, a deployment's from
+`deploymentValuesPath`; never printf either inline, and a helper receives it as
+`errCtx`. Two exceptions keep another shape, neither having a path to lead
+with: a helper's own invariant (`<helper>: …`, a chart bug) and a conflict
+between entries (name collisions, the fullname, ingress with httpRoute). A
+number read straight from values goes to `printScalar` with its path,
+`(dict "value" $v "errCtx" "<path>")`, so a null fails naming its key (#191).
+The rule and its exceptions live in the `_validate-helpers.tpl` header (issue #190)
 
 **Adding a new helper:** place it in the appropriate domain file, not
 `_helpers.tpl`, and give it a header comment carrying its rules — that header is

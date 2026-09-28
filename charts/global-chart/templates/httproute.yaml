@@ -13,10 +13,10 @@
 
 {{- /* Validate required-when-enabled fields */ -}}
 {{- if not $rt.parentRefs }}
-  {{- fail "httpRoute.enabled is true but httpRoute.parentRefs is empty. Provide at least one parentRef pointing to an existing Gateway (the chart does not create Gateways)." }}
+  {{- fail "httpRoute.parentRefs: empty while httpRoute.enabled is true. Provide at least one parentRef pointing to an existing Gateway (the chart does not create Gateways)." }}
 {{- end }}
 {{- if not $rt.rules }}
-  {{- fail "httpRoute.enabled is true but httpRoute.rules is empty. Provide at least one rule." }}
+  {{- fail "httpRoute.rules: empty while httpRoute.enabled is true. Provide at least one rule." }}
 {{- end }}
 
 apiVersion: gateway.networking.k8s.io/v1
@@ -50,16 +50,16 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       {{- if not $rule.backendRefs }}
-        {{- fail (printf "httpRoute.rules[%d].backendRefs is empty — provide at least one backendRef (deployment or service)." $ruleIdx) }}
+        {{- fail (printf "httpRoute.rules[%d].backendRefs: empty — provide at least one backendRef (deployment or service)." $ruleIdx) }}
       {{- end }}
       backendRefs:
         {{- range $brIdx, $br := $rule.backendRefs }}
-        {{- $identifier := printf "rule[%d].backendRefs[%d]" $ruleIdx $brIdx }}
-        {{- $b := include "global-chart.resolveBackend" (dict "root" $root "ref" $br "sourceKind" "httpRoute" "identifier" $identifier) | fromJson }}
+        {{- $brCtx := printf "httpRoute.rules[%d].backendRefs[%d]" $ruleIdx $brIdx }}
+        {{- $b := include "global-chart.resolveBackend" (dict "root" $root "ref" $br "errCtx" $brCtx) | fromJson }}
         - name: {{ $b.name | quote }}
           port: {{ include "global-chart.printScalar" $b.port }}
           {{- if hasKey $br "weight" }}
-          weight: {{ include "global-chart.printScalar" $br.weight }}
+          weight: {{ include "global-chart.printScalar" (dict "value" $br.weight "errCtx" (printf "%s.weight" $brCtx)) }}
           {{- end }}
           {{- with $br.filters }}
           filters:

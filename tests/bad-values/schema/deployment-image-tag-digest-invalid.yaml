@@ -1,0 +1,7 @@
+# An image tag whose @ suffix is not a digest (issue #187): the suffix is held to
+# the same grammar as image.digest.
+deployments:
+  web:
+    image:
+      repository: nginx
+      tag: "main@sha256:xyz"

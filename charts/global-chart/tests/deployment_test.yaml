@@ -292,6 +292,19 @@ tests:
           path: spec.template.spec.containers[0].image
           value: "nginx@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 
+  # ====== image tag with a digest suffix (issue #187, ADR 0018) ======
+  - it: should render a tag carrying a digest as written
+    set:
+      deployments:
+        main:
+          image:
+            repository: nginx
+            tag: "main@sha256:e0646c006c037b0bde03dd897029ab5cde600437969802848a63c474903cb2c8"
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: "nginx:main@sha256:e0646c006c037b0bde03dd897029ab5cde600437969802848a63c474903cb2c8"
+
   # ====== resources ======
   - it: should render resources
     set:
@@ -798,7 +811,7 @@ tests:
             - name: missing
     asserts:
       - failedTemplate:
-          errorPattern: "deployments.main.externalSecrets references 'missing', which is not a key of externalSecrets"
+          errorPattern: "deployments\\.main\\.externalSecrets: references 'missing', which is not a key of externalSecrets"
 
   # ====== replicas with autoscaling ======
   - it: should not set replicas when autoscaling is enabled
@@ -1439,7 +1452,7 @@ tests:
             repository: myapp/api
     asserts:
       - failedTemplate:
-          errorMessage: "deployments.main.image requires either a tag or digest when repository is provided"
+          errorMessage: "deployments.main.image: requires either a tag or a digest when repository is provided"
 
   - it: should fail when image is nil
     set:
@@ -1448,7 +1461,7 @@ tests:
           image: null
     asserts:
       - failedTemplate:
-          errorMessage: "deployments.main.image must define a repository with tag/digest or be a full image reference"
+          errorMessage: "deployments.main.image: must define a repository with a tag or a digest, or be a full image reference"
 
   - it: should fail when volume uses unknown legacy type
     set:
@@ -1463,7 +1476,7 @@ tests:
               mountPath: /mnt
     asserts:
       - failedTemplate:
-          errorPattern: "renderVolume: unknown legacy volume type 'nfs'"
+          errorPattern: "deployments\\.main\\.volumes\\[0\\]\\.type: unknown legacy volume type 'nfs'"
 
   - it: should fail when a legacy configMap volume has no name in its configMap block
     set:
@@ -1476,7 +1489,7 @@ tests:
               configMap: {}
     asserts:
       - failedTemplate:
-          errorPattern: "renderVolume: legacy volume 'myvol' of type configMap needs configMap.name"
+          errorPattern: "deployments\\.main\\.volumes\\[0\\]\\.configMap\\.name: required by the legacy type configMap"
 
   - it: should fail when a legacy secret volume has no name in its secret block
     set:
@@ -1489,7 +1502,7 @@ tests:
               secret: {}
     asserts:
       - failedTemplate:
-          errorPattern: "renderVolume: legacy volume 'myvol' of type secret needs secret.secretName"
+          errorPattern: "deployments\\.main\\.volumes\\[0\\]\\.secret\\.secretName: required by the legacy type secret \\(or secret\\.name\\)"
 
   - it: should fail when a legacy persistentVolumeClaim volume has no name in its persistentVolumeClaim block
     set:
@@ -1502,7 +1515,7 @@ tests:
               persistentVolumeClaim: {}
     asserts:
       - failedTemplate:
-          errorPattern: "renderVolume: legacy volume 'myvol' of type persistentVolumeClaim needs persistentVolumeClaim.claimName"
+          errorPattern: "deployments\\.main\\.volumes\\[0\\]\\.persistentVolumeClaim\\.claimName: required by the legacy type persistentVolumeClaim \\(or persistentVolumeClaim\\.name\\)"
 
   - it: should fail when a legacy secret volume has no secret block
     set:
@@ -1514,7 +1527,7 @@ tests:
               type: secret
     asserts:
       - failedTemplate:
-          errorPattern: "renderVolume: legacy volume 'myvol' of type secret needs secret.secretName"
+          errorPattern: "deployments\\.main\\.volumes\\[0\\]\\.secret\\.secretName: required by the legacy type secret \\(or secret\\.name\\)"
 
   - it: should fail when imagePullSecrets entry has no name key
     set:
@@ -1691,7 +1704,7 @@ tests:
                 content: "a: b"
     asserts:
       - failedTemplate:
-          errorMessage: "deployments.main.mountedConfigFiles.files[0] (myconfig): 'targetPath' is required"
+          errorMessage: "deployments.main.mountedConfigFiles.files[0].targetPath: required"
 
   # imagePullSecrets items share global.imagePullSecrets' shape: a number
   # used to pass the schema and crash the render (issue #158).
@@ -1759,7 +1772,7 @@ tests:
                     content: "b"
     asserts:
       - failedTemplate:
-          errorMessage: "deployments.main.mountedConfigFiles.bundles[0]: 'mountDir' is required"
+          errorMessage: "deployments.main.mountedConfigFiles.bundles[0].mountDir: required"
 
   # ====== priorityClassName (issue #168) ======
   - it: should render priorityClassName when set
@@ -1909,4 +1922,4 @@ tests:
             - name: app-conf
     asserts:
       - failedTemplate:
-          errorPattern: "deployments.main.externalSecrets references 'app-conf', which is empty: an empty externalSecrets entry renders no ExternalSecret"
+          errorPattern: "deployments\\.main\\.externalSecrets: references 'app-conf', which is empty: an empty externalSecrets entry renders no ExternalSecret"

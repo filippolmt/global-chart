@@ -1,0 +1,12 @@
+# A root-level hook whose image tag carries @<digest> together with image.digest
+# (ADR 0018). The schema's if/then rejects it first; under
+# --skip-schema-validation imageString fails, naming the image by its values path (issues #188, #190).
+# Expected fail substring: "hooks.pre-install.migrate.image: sets a digest in tag"
+hooks:
+  pre-install:
+    migrate:
+      image:
+        repository: myapp/migrate
+        tag: "main@sha256:e0646c006c037b0bde03dd897029ab5cde600437969802848a63c474903cb2c8"
+        digest: "sha256:e0646c006c037b0bde03dd897029ab5cde600437969802848a63c474903cb2c8"
+      command: ["./migrate.sh"]

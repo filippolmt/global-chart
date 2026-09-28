@@ -53,7 +53,7 @@ spec:
   {{- with $job.timeZone }}
   timeZone: {{ . | quote }}
   {{- end }}
-  {{- include "global-chart.cronJobSpecFields" $job | nindent 2 }}
+  {{- include "global-chart.cronJobSpecFields" (dict "job" $job "errCtx" $errCtx) | nindent 2 }}
   jobTemplate:
     {{- with (include "global-chart.renderAnnotations" (dict "root" $root)) }}
     metadata:
@@ -61,7 +61,7 @@ spec:
         {{- . | nindent 8 }}
     {{- end }}
     spec:
-      {{- with (include "global-chart.jobSpecVerbatimFields" (dict "job" $job "kind" "cronjob")) }}
+      {{- with (include "global-chart.jobSpecVerbatimFields" (dict "job" $job "kind" "cronjob" "errCtx" $errCtx)) }}
       {{- . | nindent 6 }}
       {{- end }}
       template:
@@ -90,7 +90,7 @@ spec:
 {{- $errCtx := include "global-chart.jobValuesPath" (dict "kind" "cronjob" "deploymentName" $deployName "jobName" $name) }}
 
 {{- /* Resolve image: explicit in cronjob > inherited from deployment (see jobImageString helper) */ -}}
-{{- $imageRef := include "global-chart.jobImageString" (dict "root" $root "job" $job "deploy" $deploy "errCtx" $errCtx) }}
+{{- $imageRef := include "global-chart.jobImageString" (dict "root" $root "job" $job "deployName" $deployName "errCtx" $errCtx) }}
 
 {{- /* ServiceAccount: explicit > inherited from deployment > default (see jobServiceAccount helper) */ -}}
 {{- $sa := include "global-chart.jobServiceAccount" (dict "root" $root "job" $job "deploy" $deploy "deployName" $deployName "jobFullname" $jobFullname "errCtx" $errCtx) | fromJson -}}
@@ -133,7 +133,7 @@ spec:
   {{- with $job.timeZone }}
   timeZone: {{ . | quote }}
   {{- end }}
-  {{- include "global-chart.cronJobSpecFields" $job | nindent 2 }}
+  {{- include "global-chart.cronJobSpecFields" (dict "job" $job "errCtx" $errCtx) | nindent 2 }}
   jobTemplate:
     {{- with (include "global-chart.renderAnnotations" (dict "root" $root)) }}
     metadata:
@@ -141,7 +141,7 @@ spec:
         {{- . | nindent 8 }}
     {{- end }}
     spec:
-      {{- with (include "global-chart.jobSpecVerbatimFields" (dict "job" $job "kind" "cronjob")) }}
+      {{- with (include "global-chart.jobSpecVerbatimFields" (dict "job" $job "kind" "cronjob" "errCtx" $errCtx)) }}
       {{- . | nindent 6 }}
       {{- end }}
       template:

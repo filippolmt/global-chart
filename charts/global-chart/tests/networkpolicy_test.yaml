@@ -118,7 +118,7 @@ tests:
             enabled: true
     asserts:
       - failedTemplate:
-          errorMessage: "NetworkPolicy for deployment 'main': at least one of policyTypes, ingress, or egress must be set when networkPolicy.enabled is true."
+          errorMessage: "deployments.main.networkPolicy: at least one of policyTypes, ingress, or egress must be set when networkPolicy.enabled is true."
 
   - it: should render explicit policyTypes when provided
     set:

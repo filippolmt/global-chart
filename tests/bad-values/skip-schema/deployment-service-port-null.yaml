@@ -1,0 +1,9 @@
+# A null service.port (issue #191). The schema rejects it first; under
+# --skip-schema-validation servicePrimaryPort, which every consumer of the
+# ports reaches before printing one, fails naming the key.
+# Expected fail substring: "deployments.web.service.port: null"
+deployments:
+  web:
+    image: nginx:1.25
+    service:
+      port: null

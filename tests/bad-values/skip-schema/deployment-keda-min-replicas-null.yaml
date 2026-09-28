@@ -1,0 +1,13 @@
+# A null keda.minReplicaCount (issue #191). The schema rejects it first; under
+# --skip-schema-validation the ScaledObject fails naming the key.
+# Expected fail substring: "deployments.worker.keda.minReplicaCount: null"
+deployments:
+  worker:
+    image: nginx:1.25
+    keda:
+      enabled: true
+      minReplicaCount: null
+      triggers:
+        - type: cpu
+          metadata:
+            value: "80"

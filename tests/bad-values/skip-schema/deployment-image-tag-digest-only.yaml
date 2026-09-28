@@ -1,0 +1,10 @@
+# A tag made only of @<digest> (ADR 0018). The schema's tag pattern rejects it
+# first; under --skip-schema-validation imageString fails rather than render
+# nginx:@sha256:…, an InvalidImageName at pull time.
+# Expected fail substring: "deployments.web.image.tag: "
+# Expected fail substring: "has no tag before the @<digest>"
+deployments:
+  web:
+    image:
+      repository: nginx
+      tag: "@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"

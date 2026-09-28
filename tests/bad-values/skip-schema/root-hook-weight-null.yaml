@@ -1,0 +1,11 @@
+# A null hook weight. The schema rejects it first; under
+# --skip-schema-validation it would count as 0 (int nil), not the default 10,
+# and reorder the hook against its prerequisites in silence. hook.yaml fails
+# naming the key instead.
+# Expected fail substring: "hooks.pre-install.migrate.weight: null"
+hooks:
+  pre-install:
+    migrate:
+      image: busybox:1.36
+      command: ["true"]
+      weight: null

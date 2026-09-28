@@ -1,6 +1,6 @@
 # keda.enabled with no trigger. The schema's if/then rejects it first; under
 # --skip-schema-validation the template fail stops a ScaledObject KEDA rejects.
-# Expected fail substring: "deployments.app.keda.enabled is true but keda.triggers is empty"
+# Expected fail substring: "deployments.app.keda.triggers: empty while keda.enabled is true"
 deployments:
   app:
     image: nginx:1.25

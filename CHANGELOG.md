@@ -5,6 +5,63 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ---
 
+## [3.2.0] — 2026-09-28
+
+### Fixed
+
+- **`image.tag` accepts a `@<digest>` suffix again** (issue #187, ADR
+  [0018](docs/adr/0018-image-tag-accepts-a-digest-suffix.md)), a regression of
+  3.0.0 (issue #173). Argo CD Image Updater, with the `digest` strategy and Helm
+  write-back, writes `<tag>@<digest>` into the tag key, since its Helm target
+  has no digest key; the schema rejected it and the Application stayed in
+  `ComparisonError`. The suffix is optional and follows the grammar of
+  `image.digest`; the value renders as written, `repo:<tag>@<digest>`. A tag
+  must precede the `@`. A tag carrying a digest together with a non-empty
+  `image.digest` fails, even when the two are equal, both in the schema and in
+  the template (for `--skip-schema-validation`), and so does a tag made only
+  of `@<digest>`. A plain `tag` with `digest` still lets the digest win.
+- **The image `fail` messages name the image by its values path** (issue
+  #188). Both `imageString` guards, a digest without a repository and the
+  tag/digest pair above, lead with `deployments.<name>.image` or the job's
+  `<path>.image`; an inherited image, from the deployment or through
+  `fromDeployment`, is named where it sits:
+  `deployments.api.image (inherited by hooks.pre-install.migrate): …`. Before,
+  they named only the repository, which left the user searching when several
+  entries shared it.
+
+### Changed
+
+- **Every `fail` message a user can cause reads `<values path>: <problem>`**
+  (issue #190). The path is the key holding the wrong value, as precise as the
+  chart knows it: `deployments.web.pdb: …`, `ingress.hosts[0].deployment: …`,
+  `httpRoute.rules[0].backendRefs[1].deployment: …`,
+  `deployments.web.volumes[2].type: …`,
+  `deployments.web.service.extraPorts[1].nodePort: …`,
+  `externalSecrets.app.data[0].remote: mandatory`. Before, the same kind of problem was
+  named in four shapes (`PDB for deployment 'web': …`, `image is required for
+  <job>`, `ingress host 'x' references …`, `renderVolume: …`). Two kinds keep
+  their own: a helper's internal invariant, and a conflict between entries
+  (name collisions, the fullname, `ingress` with `httpRoute`). A deployment's
+  path has one home, `deploymentValuesPath`, beside `jobValuesPath`.
+- **A null in values names its key** (issue #191). Under
+  `--skip-schema-validation` a null in a key the chart gives no default reached
+  `printScalar: a null value reached a field the chart prints`, with no hint of
+  which one. Now it reads `deployments.web.revisionHistoryLimit: null, …`,
+  `deployments.web.service.extraPorts[0].port: null, …`,
+  `cronJobs.cleanup.successfulJobsHistoryLimit: null, …`: every number read
+  from values reaches `printScalar` with its path, and the Service ports and an
+  ingress/httpRoute explicit `service.port` are checked where they are
+  resolved, before any template prints one. A null hook `weight`, which counted
+  as 0 instead of the default 10 and reordered the hook in silence, fails too:
+  `hooks.pre-install.migrate.weight: null, …`.
+
+### Migration guide from 3.1.0
+
+- Rendered manifests do not change. Only error texts do: a script or test that
+  matches a chart error message needs the new wording.
+
+---
+
 ## [3.1.0] — 2026-09-27
 
 ### Added

@@ -1,6 +1,6 @@
 # nodePort on a ClusterIP Service: the API server answers `nodePort: Forbidden`
 # (issue #155).
-# Expected fail substring: "deployments.web.service.extraPorts 'metrics' sets nodePort"
+# Expected fail substring: "deployments.web.service.extraPorts[0].nodePort: set on a ClusterIP Service, which the API server rejects: only a NodePort or LoadBalancer Service takes a nodePort"
 deployments:
   web:
     image: nginx:1.25

@@ -37,7 +37,7 @@ Usage: {{ include "global-chart.kedaAuthRefName" (dict "root" . "name" $refName 
 {{- $namespaced := or (not .kind) (eq .kind "TriggerAuthentication") -}}
 {{- if and $namespaced (hasKey $auths .name) -}}
 {{- if not (index $auths .name) -}}
-{{- fail (printf "a keda trigger's authenticationRef names kedaTriggerAuthentications '%s', which is empty: an empty entry renders no TriggerAuthentication, and the ScaledObject would reference nothing. Fill the entry, or drop the reference." .name) -}}
+{{- fail (printf "kedaTriggerAuthentications.%s: empty, but a keda trigger's authenticationRef names it. An empty entry renders no TriggerAuthentication, and the ScaledObject would reference nothing. Fill the entry, or drop the reference." .name) -}}
 {{- end -}}
 {{- include "global-chart.kedaTriggerAuthName" (dict "root" .root "name" .name) -}}
 {{- else -}}
@@ -56,11 +56,11 @@ install/upgrade; `helm template` and `helm lint` see the built-in set alone, so
 offline rendering of a KEDA scenario needs `--api-versions keda.sh/v1alpha1`
 (the Makefile passes it, and the unit-test suites declare it under
 `capabilities.apiVersions`).
-Usage: {{ include "global-chart.requireKedaCrd" (dict "root" . "source" "deployments.foo.keda") }}
+Usage: {{ include "global-chart.requireKedaCrd" (dict "root" . "errCtx" "deployments.foo.keda") }}
 */}}
 {{- define "global-chart.requireKedaCrd" -}}
 {{- if not (.root.Capabilities.APIVersions.Has "keda.sh/v1alpha1") -}}
-{{- fail (printf "%s needs the CRD keda.sh/v1alpha1, which is not registered in the cluster. Install KEDA before installing this release, or render offline with --api-versions keda.sh/v1alpha1." .source) -}}
+{{- fail (printf "%s: needs the CRD keda.sh/v1alpha1, which is not registered in the cluster. Install KEDA before installing this release, or render offline with --api-versions keda.sh/v1alpha1." (required "requireKedaCrd: errCtx is required (the values path of the KEDA resource)" .errCtx)) -}}
 {{- end -}}
 {{- end -}}
 

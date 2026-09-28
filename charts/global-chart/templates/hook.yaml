@@ -50,6 +50,8 @@ automountServiceAccountToken: {{ $sa.automount }}
 {{- if $command }}
 {{- $hookFullname := include "global-chart.hookfullname" (merge (dict "hookname" $hookType "jobname" $name) $root) }}
 {{- $errCtx := include "global-chart.jobValuesPath" (dict "kind" "hook" "hookType" $hookType "jobName" $name) }}
+{{- /* A null weight would count as 0 (int nil), not the default 10 */ -}}
+{{- if hasKey $command "weight" }}{{- include "global-chart.rejectNull" (dict "value" $command.weight "errCtx" (printf "%s.weight" $errCtx)) }}{{- end }}
 
 {{- /* Resolve image: explicit > fromDeployment > error (see jobImageString helper) */ -}}
 {{- $imageRef := include "global-chart.jobImageString" (dict "root" $root "job" $command "errCtx" $errCtx) }}
@@ -90,7 +92,7 @@ metadata:
     {{- end }}
     {{- include "global-chart.hookAnnotations" (dict "hookType" $hookType "role" "job" "command" $command) | nindent 4 }}
 spec:
-  {{- with (include "global-chart.jobSpecVerbatimFields" (dict "job" $command "kind" "hook")) }}
+  {{- with (include "global-chart.jobSpecVerbatimFields" (dict "job" $command "kind" "hook" "errCtx" $errCtx)) }}
   {{- . | nindent 2 }}
   {{- end }}
   template:
@@ -190,9 +192,10 @@ data:
 {{- $hook := index $hooks (printf "%s/%s" $hookType $name) }}
 {{- $hookFullname := $hook.fullname }}
 {{- $errCtx := $hook.errCtx }}
+{{- if hasKey $command "weight" }}{{- include "global-chart.rejectNull" (dict "value" $command.weight "errCtx" (printf "%s.weight" $errCtx)) }}{{- end }}
 
 {{- /* Resolve image: explicit in hook > inherited from deployment (see jobImageString helper) */ -}}
-{{- $imageRef := include "global-chart.jobImageString" (dict "root" $root "job" $command "deploy" $deploy "errCtx" $errCtx) }}
+{{- $imageRef := include "global-chart.jobImageString" (dict "root" $root "job" $command "deployName" $deployName "errCtx" $errCtx) }}
 
 {{- /* ServiceAccount: explicit in hook > inherited from deployment > create new for hook (see jobServiceAccount helper) */ -}}
 {{- $sa := $hook.sa -}}
@@ -233,7 +236,7 @@ metadata:
     {{- end }}
     {{- include "global-chart.hookAnnotations" (dict "hookType" $hookType "role" "job" "command" $command) | nindent 4 }}
 spec:
-  {{- with (include "global-chart.jobSpecVerbatimFields" (dict "job" $command "kind" "hook")) }}
+  {{- with (include "global-chart.jobSpecVerbatimFields" (dict "job" $command "kind" "hook" "errCtx" $errCtx)) }}
   {{- . | nindent 2 }}
   {{- end }}
   template:

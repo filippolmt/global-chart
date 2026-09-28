@@ -1,0 +1,7 @@
+# An image tag ending in "@" with no digest (issue #187). It would render
+# nginx:main@, an InvalidImageName at pull time.
+deployments:
+  web:
+    image:
+      repository: nginx
+      tag: "main@"
