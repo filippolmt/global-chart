@@ -1,7 +1,7 @@
 # A root-level hook whose image tag carries @<digest> together with image.digest
 # (ADR 0018). The schema's if/then rejects it first; under
-# --skip-schema-validation imageString fails, naming the hook (issue #188).
-# Expected fail substring: "hooks.pre-install.migrate: image myapp/migrate sets a digest in tag"
+# --skip-schema-validation imageString fails, naming the image by its values path (issues #188, #190).
+# Expected fail substring: "hooks.pre-install.migrate.image: sets a digest in tag"
 hooks:
   pre-install:
     migrate:

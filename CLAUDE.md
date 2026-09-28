@@ -64,7 +64,7 @@ is the source of truth, this table is only the routing.
 | `_hook-helpers.tpl` | The three `helm.sh/hook*` annotations, weights and delete policies, driven by a role table; the phase cut `hookReadsPrereqCopy`, the one enumeration of the hooks it admits (`prereqCopyHooks`) and the consumer scans of the ExternalSecret, `rbacs.roles` and ServiceAccount hook copies |
 | `_render-helpers.tpl` | `printScalar`, the single home of how a number from values is printed, in integer and string fields alike; shared render blocks, `renderAnnotations`, the ConfigMap/Secret `data:` bodies with `rejectNullDataValue`, the single home of their null check, and the Role `rules:` block shared with the hook-prerequisite copies, `deploymentOwnAnnotations` (the single home of `reloader.externalSecrets`: the reload list, its union with the user's, its fail — ADR 0016), `legacyVolumePaths` (the legacy `volumes[].type` entries NOTES.txt lists, gone in 4.0.0), `containerVolumeMounts` (the single home of the mounts a main container receives, Deployment and jobs alike, checked by `validateMountPaths`), and the port helpers (`containerPorts`, `servicePrimaryPort`, `extraPortProtocol`, `serviceType`) |
 | `_keda-helpers.tpl` | KEDA names, trigger and `authenticationRef` resolution, the CRD guard |
-| `_validate-helpers.tpl` | The fullname against the labels it leads, name collisions, routing and autoscaling conflicts, named-`targetPort` resolution (`validateServiceTargetPorts`), the Service-side port constraints (`validateServicePorts`: duplicate port names and port+protocol pairs, `nodePort` only on NodePort/LoadBalancer), a duplicate `mountPath` in a container (`validateMountPaths`, called by `containerVolumeMounts`). Also `hpaActiveTargets`, the single home of "an HPA target is active", read by the autoscaling validator and by `hpa.yaml` |
+| `_validate-helpers.tpl` | `deploymentValuesPath`, the single home of `deployments.<name>` in error messages (as `jobValuesPath` is a job's), and the header carrying the shape of every `fail` message. The fullname against the labels it leads, name collisions, routing and autoscaling conflicts, named-`targetPort` resolution (`validateServiceTargetPorts`), the Service-side port constraints (`validateServicePorts`: duplicate port names and port+protocol pairs, `nodePort` only on NodePort/LoadBalancer), a duplicate `mountPath` in a container (`validateMountPaths`, called by `containerVolumeMounts`). Also `hpaActiveTargets`, the single home of "an HPA target is active", read by the autoscaling validator and by `hpa.yaml` |
 
 ### Key Design Patterns
 
@@ -292,6 +292,19 @@ imagePullSecrets:
 - Every field a template accesses must be declared in the schema
 - Every schema field must be used by a template
 - Run `make lint-chart` to verify the schema doesn't reject valid test values
+
+**Error messages — `<values path>: <problem>`:**
+```yaml
+# WRONG: the entry named in prose, the path printed by hand
+{{- fail (printf "PDB for deployment '%s': set only one." $name) }}
+# CORRECT: the path of the key holding the wrong value leads, from its single home
+{{- fail (printf "%s.pdb: set only one." (include "global-chart.deploymentValuesPath" $name)) }}
+```
+A job's path comes from `jobValuesPath`, a deployment's from
+`deploymentValuesPath`; never printf either inline. Two exceptions keep another
+shape: a helper's own invariant (`<helper>: …`, a chart bug) and a conflict
+between entries (name collisions, the fullname, ingress with httpRoute). The
+rule and its exceptions live in the `_validate-helpers.tpl` header (issue #190)
 
 **Adding a new helper:** place it in the appropriate domain file, not
 `_helpers.tpl`, and give it a header comment carrying its rules — that header is

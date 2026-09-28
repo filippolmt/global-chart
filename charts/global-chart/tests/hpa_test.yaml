@@ -152,7 +152,7 @@ tests:
             targetCPUUtilizationPercentage: 80
     asserts:
       - failedTemplate:
-          errorMessage: "deployments.main.autoscaling.minReplicas is required when HPA is enabled"
+          errorMessage: "deployments.main.autoscaling.minReplicas: required when HPA is enabled"
 
   - it: should fail when autoscaling.maxReplicas is not set
     set:
@@ -165,7 +165,7 @@ tests:
             targetCPUUtilizationPercentage: 80
     asserts:
       - failedTemplate:
-          errorMessage: "deployments.main.autoscaling.maxReplicas is required when HPA is enabled"
+          errorMessage: "deployments.main.autoscaling.maxReplicas: required when HPA is enabled"
 
   # ====== Deployment annotations stay on the Deployment (issue #112) ======
   - it: should not propagate the Deployment's own annotations to its HPA

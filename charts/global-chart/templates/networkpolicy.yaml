@@ -33,7 +33,7 @@ spec:
     - Egress
     {{- end }}
   {{- else }}
-  {{- fail (printf "NetworkPolicy for deployment '%s': at least one of policyTypes, ingress, or egress must be set when networkPolicy.enabled is true." $name) }}
+  {{- fail (printf "%s.networkPolicy: at least one of policyTypes, ingress, or egress must be set when networkPolicy.enabled is true." (include "global-chart.deploymentValuesPath" $name)) }}
   {{- end }}
   {{- with $np.ingress }}
   ingress:

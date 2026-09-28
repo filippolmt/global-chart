@@ -108,7 +108,7 @@ tests:
             command: ["./migrate.sh"]
     asserts:
       - failedTemplate:
-          errorMessage: "hooks.post-install.migrate.fromDeployment references deployment 'nonexistent' which does not exist in .Values.deployments"
+          errorMessage: "hooks.post-install.migrate.fromDeployment: references deployment 'nonexistent', which does not exist in .Values.deployments"
 
   # ====== Root-level hook naming ======
   - it: should name root-level hook using hookfullname pattern
@@ -564,7 +564,7 @@ tests:
               create: true
     asserts:
       - failedTemplate:
-          errorMessage: "hooks.pre-install.migrate names its ServiceAccount twice, with different names: serviceAccountName \"runner\" and serviceAccount.name \"migrator\". Keep only one of the two fields (or set the same name in both)."
+          errorMessage: "hooks.pre-install.migrate: names its ServiceAccount twice, with different names: serviceAccountName \"runner\" and serviceAccount.name \"migrator\". Keep only one of the two fields (or set the same name in both)."
 
   - it: should accept a root-level hook naming the same ServiceAccount in both fields
     set:
@@ -694,7 +694,7 @@ tests:
           value: "myapp:main@sha256:e0646c006c037b0bde03dd897029ab5cde600437969802848a63c474903cb2c8"
         documentIndex: 0
 
-  - it: should name a deployment-level hook when its own image sets a digest without a repository (issue #188)
+  - it: should name a deployment-level hook image by its values path (issue #188)
     set:
       deployments:
         backend:
@@ -707,9 +707,9 @@ tests:
                 command: ["./migrate.sh"]
     asserts:
       - failedTemplate:
-          errorMessage: "deployments.backend.hooks.pre-install.migrate: image definitions that set a digest must also provide a repository (expected repository@digest)"
+          errorMessage: "deployments.backend.hooks.pre-install.migrate.image: sets a digest without a repository (expected repository@digest)"
 
-  - it: should name the deployment an inherited image comes from (issue #188)
+  - it: should name an inherited image where it sits, and the hook inheriting it (issue #188)
     set:
       deployments:
         backend:
@@ -721,9 +721,9 @@ tests:
                 command: ["./migrate.sh"]
     asserts:
       - failedTemplate:
-          errorMessage: "deployments.backend.hooks.pre-install.migrate (image inherited from deployments.backend.image): image definitions that set a digest must also provide a repository (expected repository@digest)"
+          errorMessage: "deployments.backend.image (inherited by deployments.backend.hooks.pre-install.migrate): sets a digest without a repository (expected repository@digest)"
 
-  - it: should name the deployment a root-level hook takes its image from with fromDeployment (issue #188)
+  - it: should name a fromDeployment image where it sits, and the hook taking it (issue #188)
     set:
       deployments:
         api:
@@ -736,7 +736,7 @@ tests:
             command: ["./migrate.sh"]
     asserts:
       - failedTemplate:
-          errorMessage: "hooks.pre-install.migrate (image inherited from deployments.api.image): image definitions that set a digest must also provide a repository (expected repository@digest)"
+          errorMessage: "deployments.api.image (inherited by hooks.pre-install.migrate): sets a digest without a repository (expected repository@digest)"
 
   - it: should name deployment-level hook with deployment name included
     set:
@@ -914,7 +914,7 @@ tests:
                   name: migrator
     asserts:
       - failedTemplate:
-          errorMessage: "deployments.backend.hooks.pre-upgrade.migrate names its ServiceAccount twice, with different names: serviceAccountName \"runner\" and serviceAccount.name \"migrator\". Keep only one of the two fields (or set the same name in both)."
+          errorMessage: "deployments.backend.hooks.pre-upgrade.migrate: names its ServiceAccount twice, with different names: serviceAccountName \"runner\" and serviceAccount.name \"migrator\". Keep only one of the two fields (or set the same name in both)."
 
   # ====== issue #71, ADR 0011: hook-prerequisite copy of the deployment SA ======
   # Helm creates normal resources after the pre-* hooks, so a hook binding a
@@ -2732,7 +2732,7 @@ tests:
             command: ["./run.sh"]
     asserts:
       - failedTemplate:
-          errorPattern: "image is required for hooks.post-install.migrate"
+          errorPattern: "hooks\\.post-install\\.migrate: image is required \\(set hooks\\.post-install\\.migrate\\.image or hooks\\.post-install\\.migrate\\.fromDeployment\\)"
 
   # ====== Root-level SA parity with root-level cronJobs (see cronjob_test.yaml) ======
   - it: should create the ServiceAccount the pod references when root hook sets none
@@ -3376,7 +3376,7 @@ tests:
               - name: missing
     asserts:
       - failedTemplate:
-          errorPattern: "hooks.pre-install.migrate.externalSecrets references 'missing', which is not a key of externalSecrets"
+          errorPattern: "hooks\\.pre-install\\.migrate\\.externalSecrets: references 'missing', which is not a key of externalSecrets"
 
   # A post-delete hook runs after the real ExternalSecret — and, through its
   # ownerReference, its Secret — is gone: it reads the copy, like a pre-* hook.
@@ -3458,7 +3458,7 @@ tests:
                 mountPath: /etc/app
     asserts:
       - failedTemplate:
-          errorPattern: "externalSecrets key 'app.conf' cannot be mounted"
+          errorPattern: "externalSecrets\\.app\\.conf: cannot be mounted, its volume name 'es-app\\.conf' is not a DNS-1123 label of at most 63 characters"
 
   # ====== activeDeadlineSeconds on hook Jobs ======
   # The one bound on a hook pod that waits for a Secret: it never reaches
@@ -4126,4 +4126,4 @@ tests:
             command: ["true"]
     asserts:
       - failedTemplate:
-          errorPattern: "hooks.post-install.migrate.fromDeployment references deployment 'backend', which is empty"
+          errorPattern: "hooks\\.post-install\\.migrate\\.fromDeployment: references deployment 'backend', which is empty: an empty deployments entry renders nothing"

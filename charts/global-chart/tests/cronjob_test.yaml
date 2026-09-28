@@ -119,7 +119,7 @@ tests:
           path: spec.jobTemplate.spec.template.spec.containers[0].image
           value: "myapp/backend:main@sha256:e0646c006c037b0bde03dd897029ab5cde600437969802848a63c474903cb2c8"
 
-  - it: should name the cronjob when its image sets a digest without a repository (issue #188)
+  - it: should name the cronjob image by its values path when it sets a digest without a repository (issue #188)
     set:
       cronJobs:
         cleanup:
@@ -129,9 +129,9 @@ tests:
           command: ["./cleanup.sh"]
     asserts:
       - failedTemplate:
-          errorMessage: "cronJobs.cleanup: image definitions that set a digest must also provide a repository (expected repository@digest)"
+          errorMessage: "cronJobs.cleanup.image: sets a digest without a repository (expected repository@digest)"
 
-  - it: should name a deployment-level cronjob when its own image sets a digest without a repository (issue #188)
+  - it: should name a deployment-level cronjob image by its values path (issue #188)
     set:
       deployments:
         backend:
@@ -144,7 +144,7 @@ tests:
               command: ["./backup.sh"]
     asserts:
       - failedTemplate:
-          errorMessage: "deployments.backend.cronJobs.db-backup: image definitions that set a digest must also provide a repository (expected repository@digest)"
+          errorMessage: "deployments.backend.cronJobs.db-backup.image: sets a digest without a repository (expected repository@digest)"
 
   # ====== Deployment-level CronJob inheritance ======
   - it: should inherit image from parent deployment
@@ -948,7 +948,7 @@ tests:
           command: ["./run.sh"]
     asserts:
       - failedTemplate:
-          errorPattern: "cronJobs.cleanup.fromDeployment references deployment 'ghost'"
+          errorPattern: "cronJobs\\.cleanup\\.fromDeployment: references deployment 'ghost', which does not exist in \\.Values\\.deployments"
 
   - it: should fail when root-level cronJob has no image and no fromDeployment
     set:
@@ -958,7 +958,7 @@ tests:
           command: ["./run.sh"]
     asserts:
       - failedTemplate:
-          errorPattern: "image is required for cronJobs.cleanup"
+          errorPattern: "cronJobs\\.cleanup: image is required \\(set cronJobs\\.cleanup\\.image or cronJobs\\.cleanup\\.fromDeployment\\)"
 
   # ====== global.commonLabels ======
   - it: should render global.commonLabels on cronjob metadata
@@ -1596,7 +1596,7 @@ tests:
             create: true
     asserts:
       - failedTemplate:
-          errorMessage: "cronJobs.cleanup names its ServiceAccount twice, with different names: serviceAccountName \"runner\" and serviceAccount.name \"migrator\". Keep only one of the two fields (or set the same name in both)."
+          errorMessage: "cronJobs.cleanup: names its ServiceAccount twice, with different names: serviceAccountName \"runner\" and serviceAccount.name \"migrator\". Keep only one of the two fields (or set the same name in both)."
 
   - it: should fail when a deployment-level cronjob names its ServiceAccount twice with different names
     set:
@@ -1612,7 +1612,7 @@ tests:
                 name: migrator
     asserts:
       - failedTemplate:
-          errorMessage: "deployments.backend.cronJobs.backup names its ServiceAccount twice, with different names: serviceAccountName \"runner\" and serviceAccount.name \"migrator\". Keep only one of the two fields (or set the same name in both)."
+          errorMessage: "deployments.backend.cronJobs.backup: names its ServiceAccount twice, with different names: serviceAccountName \"runner\" and serviceAccount.name \"migrator\". Keep only one of the two fields (or set the same name in both)."
 
   - it: should accept a deployment-level cronjob naming the same ServiceAccount in both fields
     set:
@@ -1838,7 +1838,7 @@ tests:
                 - name: missing
     asserts:
       - failedTemplate:
-          errorPattern: "deployments.app.cronJobs.nightly.externalSecrets references 'missing', which is not a key of externalSecrets"
+          errorPattern: "deployments\\.app\\.cronJobs\\.nightly\\.externalSecrets: references 'missing', which is not a key of externalSecrets"
 
   # ====== Truncation never leaves a trailing dot (issue #120) ======
   # 51 a's + ".b-x" cut at 52 ends on the dot; trimSuffix "-" used to keep it.

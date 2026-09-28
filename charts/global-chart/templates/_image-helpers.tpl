@@ -5,10 +5,10 @@ Image helpers for global-chart.
 {{/*
 Render an image reference from either a plain string or a map with repository/tag/digest.
   {{ include "global-chart.imageString" (dict "image" $deploy.image "global" $root.Values.global "errCtx" "deployments.web") }}
-errCtx (required) names the values entry that renders the image and leads every fail
-message, so the user can tell which entry is wrong when several share a repository
-(issue #188): deployments.<name>, or a job's jobValuesPath, which jobImageString extends
-with the entry the image is inherited from.
+errCtx (required) is the values path of the image and leads every fail message, in the
+shape "<values path>: <problem>" (issues #188, #190): deployments.<name>.image, a job's
+<jobValuesPath>.image, or, for an inherited image, "deployments.<name>.image (inherited
+by <jobValuesPath>)", which jobImageString builds.
 When global.imageRegistry is set, the registry is prepended to both string and map images
 unless the first path segment already looks like a registry (contains "." or ":" or equals "localhost").
 Examples: "nginx" → "registry/nginx", "myorg/myapp" → "registry/myorg/myapp", "ghcr.io/org/app" → unchanged.
@@ -22,7 +22,7 @@ when the two are equal: digest would win and drop the tag's pin in silence. The 
 rejects the pair first; this fail is the backstop under --skip-schema-validation.
 */}}
 {{- define "global-chart.imageString" -}}
-{{- $errPrefix := printf "%s: " (required "imageString: errCtx is required (the values path of the entry that renders the image)" .errCtx) -}}
+{{- $errCtx := required "imageString: errCtx is required (the values path of the image)" .errCtx -}}
 {{- $img := .image -}}
 {{- $globalRegistry := default "" (default (dict) .global).imageRegistry -}}
 {{- $name := "" -}}
@@ -32,7 +32,7 @@ rejects the pair first; this fail is the backstop under --skip-schema-validation
 {{- else if and (kindIs "map" $img) $img.repository -}}
   {{- $name = $img.repository -}}
   {{- if and $img.digest (kindIs "string" $img.tag) (contains "@" $img.tag) -}}
-    {{- fail (printf "%simage %s sets a digest in tag (%s) and in digest (%s): two sources for one pin, keep one (ADR 0018)" $errPrefix $img.repository $img.tag $img.digest) -}}
+    {{- fail (printf "%s: sets a digest in tag (%s) and in digest (%s): two sources for one pin, keep one (ADR 0018)" $errCtx $img.tag $img.digest) -}}
   {{- end -}}
   {{- if $img.digest -}}
     {{- $suffix = printf "@%s" $img.digest -}}
@@ -40,7 +40,7 @@ rejects the pair first; this fail is the backstop under --skip-schema-validation
     {{- $suffix = printf ":%s" $img.tag -}}
   {{- end -}}
 {{- else if and (kindIs "map" $img) $img.digest -}}
-  {{- fail (printf "%simage definitions that set a digest must also provide a repository (expected repository@digest)" $errPrefix) -}}
+  {{- fail (printf "%s: sets a digest without a repository (expected repository@digest)" $errCtx) -}}
 {{- end -}}
 {{- if $name -}}
   {{- $firstSegment := index (splitList "/" $name) 0 -}}

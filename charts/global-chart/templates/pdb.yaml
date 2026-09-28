@@ -19,10 +19,10 @@ metadata:
   {{- end }}
 spec:
   {{- if and (hasKey $pdb "minAvailable") (hasKey $pdb "maxUnavailable") }}
-  {{- fail (printf "PDB for deployment '%s': minAvailable and maxUnavailable are mutually exclusive — set only one." $name) }}
+  {{- fail (printf "%s.pdb: minAvailable and maxUnavailable are mutually exclusive — set only one." (include "global-chart.deploymentValuesPath" $name)) }}
   {{- end }}
   {{- if not (or (hasKey $pdb "minAvailable") (hasKey $pdb "maxUnavailable")) }}
-  {{- fail (printf "PDB for deployment '%s': one of minAvailable or maxUnavailable is required when pdb.enabled is true." $name) }}
+  {{- fail (printf "%s.pdb: one of minAvailable or maxUnavailable is required when pdb.enabled is true." (include "global-chart.deploymentValuesPath" $name)) }}
   {{- end }}
   {{- if hasKey $pdb "minAvailable" }}
   minAvailable: {{ include "global-chart.printScalar" $pdb.minAvailable }}

@@ -37,7 +37,7 @@ Usage: {{ include "global-chart.kedaAuthRefName" (dict "root" . "name" $refName 
 {{- $namespaced := or (not .kind) (eq .kind "TriggerAuthentication") -}}
 {{- if and $namespaced (hasKey $auths .name) -}}
 {{- if not (index $auths .name) -}}
-{{- fail (printf "a keda trigger's authenticationRef names kedaTriggerAuthentications '%s', which is empty: an empty entry renders no TriggerAuthentication, and the ScaledObject would reference nothing. Fill the entry, or drop the reference." .name) -}}
+{{- fail (printf "kedaTriggerAuthentications.%s: empty, but a keda trigger's authenticationRef names it. An empty entry renders no TriggerAuthentication, and the ScaledObject would reference nothing. Fill the entry, or drop the reference." .name) -}}
 {{- end -}}
 {{- include "global-chart.kedaTriggerAuthName" (dict "root" .root "name" .name) -}}
 {{- else -}}
@@ -60,7 +60,7 @@ Usage: {{ include "global-chart.requireKedaCrd" (dict "root" . "source" "deploym
 */}}
 {{- define "global-chart.requireKedaCrd" -}}
 {{- if not (.root.Capabilities.APIVersions.Has "keda.sh/v1alpha1") -}}
-{{- fail (printf "%s needs the CRD keda.sh/v1alpha1, which is not registered in the cluster. Install KEDA before installing this release, or render offline with --api-versions keda.sh/v1alpha1." .source) -}}
+{{- fail (printf "%s: needs the CRD keda.sh/v1alpha1, which is not registered in the cluster. Install KEDA before installing this release, or render offline with --api-versions keda.sh/v1alpha1." .source) -}}
 {{- end -}}
 {{- end -}}
 

@@ -48,7 +48,7 @@ tests:
             digest: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
     asserts:
       - failedTemplate:
-          errorMessage: "deployments.main: image definitions that set a digest must also provide a repository (expected repository@digest)"
+          errorMessage: "deployments.main.image: sets a digest without a repository (expected repository@digest)"
 
   # ====== fullname ======
   - it: should generate correct fullname

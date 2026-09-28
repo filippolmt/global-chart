@@ -20,7 +20,7 @@ tests:
                 metadata: { timezone: UTC, start: "0 0 * * *", end: "59 23 * * *", desiredReplicas: "3" }
     asserts:
       - failedTemplate:
-          errorPattern: "deployments.worker.keda needs the CRD keda.sh/v1alpha1"
+          errorPattern: "deployments\\.worker\\.keda: needs the CRD keda\\.sh/v1alpha1, which is not registered in the cluster"
 
   - it: should point at the --api-versions escape for offline rendering
     template: templates/scaledobject.yaml
@@ -46,7 +46,7 @@ tests:
             provider: aws
     asserts:
       - failedTemplate:
-          errorPattern: "kedaTriggerAuthentications.sqs-auth needs the CRD keda.sh/v1alpha1"
+          errorPattern: "kedaTriggerAuthentications\\.sqs-auth: needs the CRD keda\\.sh/v1alpha1, which is not registered in the cluster"
 
   - it: should not check the CRD when KEDA is not used
     set:

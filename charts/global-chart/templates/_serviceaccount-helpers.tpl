@@ -117,7 +117,7 @@ Resolution:
 {{- $errCtx := required "jobServiceAccount: errCtx is required (build it with jobValuesPath)" .errCtx -}}
 {{- $jobSAMap := (and (hasKey $job "serviceAccount") (kindIs "map" $job.serviceAccount)) | ternary $job.serviceAccount (dict) -}}
 {{- if and $job.serviceAccountName $jobSAMap.name (ne (toString $job.serviceAccountName) (toString $jobSAMap.name)) -}}
-  {{- fail (printf "%s names its ServiceAccount twice, with different names: serviceAccountName %q and serviceAccount.name %q. Keep only one of the two fields (or set the same name in both)." $errCtx (toString $job.serviceAccountName) (toString $jobSAMap.name)) -}}
+  {{- fail (printf "%s: names its ServiceAccount twice, with different names: serviceAccountName %q and serviceAccount.name %q. Keep only one of the two fields (or set the same name in both)." $errCtx (toString $job.serviceAccountName) (toString $jobSAMap.name)) -}}
 {{- end -}}
 {{- $jobSAExplicitName := coalesce $job.serviceAccountName $jobSAMap.name -}}
 {{- /* The deployment's SA name, created or referenced-existing; "" when it
@@ -203,7 +203,7 @@ Usage: {{ $releaseSAs := include "global-chart.releaseServiceAccounts" $root | f
   {{- if and $deploy (eq (include "global-chart.deploymentEnabled" $deploy) "true") -}}
     {{- $sa := include "global-chart.deploymentServiceAccount" (dict "root" $root "deploymentName" $deployName "deployment" $deploy) | fromJson -}}
     {{- if $sa.create -}}
-      {{- $_ := set $out $sa.name (dict "automount" $sa.automount "annotations" $sa.annotations "owner" (printf "deployments.%s" $deployName) "deploymentName" $deployName) -}}
+      {{- $_ := set $out $sa.name (dict "automount" $sa.automount "annotations" $sa.annotations "owner" (include "global-chart.deploymentValuesPath" $deployName) "deploymentName" $deployName) -}}
     {{- end -}}
     {{- range $jobName, $job := $deploy.cronJobs -}}
       {{- if $job -}}

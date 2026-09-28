@@ -811,7 +811,7 @@ tests:
             - name: missing
     asserts:
       - failedTemplate:
-          errorPattern: "deployments.main.externalSecrets references 'missing', which is not a key of externalSecrets"
+          errorPattern: "deployments\\.main\\.externalSecrets: references 'missing', which is not a key of externalSecrets"
 
   # ====== replicas with autoscaling ======
   - it: should not set replicas when autoscaling is enabled
@@ -1452,7 +1452,7 @@ tests:
             repository: myapp/api
     asserts:
       - failedTemplate:
-          errorMessage: "deployments.main.image requires either a tag or digest when repository is provided"
+          errorMessage: "deployments.main.image: requires either a tag or a digest when repository is provided"
 
   - it: should fail when image is nil
     set:
@@ -1461,7 +1461,7 @@ tests:
           image: null
     asserts:
       - failedTemplate:
-          errorMessage: "deployments.main.image must define a repository with tag/digest or be a full image reference"
+          errorMessage: "deployments.main.image: must define a repository with a tag or a digest, or be a full image reference"
 
   - it: should fail when volume uses unknown legacy type
     set:
@@ -1476,7 +1476,7 @@ tests:
               mountPath: /mnt
     asserts:
       - failedTemplate:
-          errorPattern: "renderVolume: unknown legacy volume type 'nfs'"
+          errorPattern: "deployments\\.main\\.volumes\\[0\\] \\(myvol\\): unknown legacy volume type 'nfs'"
 
   - it: should fail when a legacy configMap volume has no name in its configMap block
     set:
@@ -1489,7 +1489,7 @@ tests:
               configMap: {}
     asserts:
       - failedTemplate:
-          errorPattern: "renderVolume: legacy volume 'myvol' of type configMap needs configMap.name"
+          errorPattern: "deployments\\.main\\.volumes\\[0\\] \\(myvol\\): the legacy type configMap needs configMap\\.name"
 
   - it: should fail when a legacy secret volume has no name in its secret block
     set:
@@ -1502,7 +1502,7 @@ tests:
               secret: {}
     asserts:
       - failedTemplate:
-          errorPattern: "renderVolume: legacy volume 'myvol' of type secret needs secret.secretName"
+          errorPattern: "deployments\\.main\\.volumes\\[0\\] \\(myvol\\): the legacy type secret needs secret\\.secretName \\(or secret\\.name\\)"
 
   - it: should fail when a legacy persistentVolumeClaim volume has no name in its persistentVolumeClaim block
     set:
@@ -1515,7 +1515,7 @@ tests:
               persistentVolumeClaim: {}
     asserts:
       - failedTemplate:
-          errorPattern: "renderVolume: legacy volume 'myvol' of type persistentVolumeClaim needs persistentVolumeClaim.claimName"
+          errorPattern: "deployments\\.main\\.volumes\\[0\\] \\(myvol\\): the legacy type persistentVolumeClaim needs persistentVolumeClaim\\.claimName \\(or persistentVolumeClaim\\.name\\)"
 
   - it: should fail when a legacy secret volume has no secret block
     set:
@@ -1527,7 +1527,7 @@ tests:
               type: secret
     asserts:
       - failedTemplate:
-          errorPattern: "renderVolume: legacy volume 'myvol' of type secret needs secret.secretName"
+          errorPattern: "deployments\\.main\\.volumes\\[0\\] \\(myvol\\): the legacy type secret needs secret\\.secretName \\(or secret\\.name\\)"
 
   - it: should fail when imagePullSecrets entry has no name key
     set:
@@ -1922,4 +1922,4 @@ tests:
             - name: app-conf
     asserts:
       - failedTemplate:
-          errorPattern: "deployments.main.externalSecrets references 'app-conf', which is empty: an empty externalSecrets entry renders no ExternalSecret"
+          errorPattern: "deployments\\.main\\.externalSecrets: references 'app-conf', which is empty: an empty externalSecrets entry renders no ExternalSecret"

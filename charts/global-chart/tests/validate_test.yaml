@@ -338,7 +338,7 @@ tests:
             maxReplicas: 10
     asserts:
       - failedTemplate:
-          errorMessage: "deployments.main.autoscaling.enabled is true but neither targetCPUUtilizationPercentage nor targetMemoryUtilizationPercentage is a positive number; without one no HPA renders and the Deployment runs a single replica. Set a target or disable autoscaling."
+          errorMessage: "deployments.main.autoscaling: enabled, but neither targetCPUUtilizationPercentage nor targetMemoryUtilizationPercentage is a positive number; without one no HPA renders and the Deployment runs a single replica. Set a target or disable autoscaling."
 
   - it: should fail when autoscaling is enabled with every target off
     set:
@@ -353,7 +353,7 @@ tests:
             targetMemoryUtilizationPercentage: 0
     asserts:
       - failedTemplate:
-          errorPattern: "deployments.main.autoscaling.enabled is true but neither"
+          errorPattern: "deployments\\.main\\.autoscaling: enabled, but neither targetCPUUtilizationPercentage nor targetMemoryUtilizationPercentage is a positive number; without one no HPA renders and the Deployment runs a single replica"
 
   - it: should not fail when one target is on and the other is 0
     set:
@@ -493,7 +493,7 @@ tests:
             targetPort: http
     asserts:
       - failedTemplate:
-          errorPattern: "deployments.web.service.targetPort names the port 'http', which no container port declares \\(declared: api\\)"
+          errorPattern: "deployments\\.web\\.service\\.targetPort: names the port 'http', which no container port declares \\(declared: api\\)"
 
   - it: should fail when an extraPorts targetPort names a port nothing declares
     set:
@@ -508,7 +508,7 @@ tests:
                 targetPort: gevent
     asserts:
       - failedTemplate:
-          errorPattern: "deployments.web.service.extraPorts 'ws' has targetPort 'gevent', which no container port declares"
+          errorPattern: "deployments\\.web\\.service\\.extraPorts 'ws': has targetPort 'gevent', which no container port declares \\(declared: http\\)"
 
   - it: should not fail when a named targetPort resolves to an extraPorts declaration
     set:
@@ -567,7 +567,7 @@ tests:
                 nodePort: 30090
     asserts:
       - failedTemplate:
-          errorPattern: "deployments.web.service.extraPorts 'metrics' sets nodePort, which the API server accepts only on a NodePort or LoadBalancer Service \\(type: ClusterIP\\)"
+          errorPattern: "deployments\\.web\\.service\\.extraPorts 'metrics': sets nodePort, which the API server accepts only on a NodePort or LoadBalancer Service \\(type: ClusterIP\\)"
 
   - it: should not fail when an extraPorts nodePort sits on a LoadBalancer Service
     set:
@@ -597,7 +597,7 @@ tests:
                 targetPort: 8080
     asserts:
       - failedTemplate:
-          errorPattern: "deployments.web.service.extraPorts 'alt' repeats port 80/TCP of service.port"
+          errorPattern: "deployments\\.web\\.service\\.extraPorts 'alt': repeats port 80/TCP of service\\.port"
 
   - it: should fail when two extraPorts entries share a name
     set:
@@ -614,7 +614,7 @@ tests:
                 targetPort: 8082
     asserts:
       - failedTemplate:
-          errorPattern: "deployments.web.service.extraPorts 'alt' repeats the port name 'alt' of extraPorts 'alt'"
+          errorPattern: "deployments\\.web\\.service\\.extraPorts 'alt': repeats the port name 'alt' of extraPorts 'alt'"
 
   - it: should fail when an extraPorts entry takes the primary port's name
     set:
@@ -628,7 +628,7 @@ tests:
                 targetPort: 8081
     asserts:
       - failedTemplate:
-          errorPattern: "deployments.web.service.extraPorts 'http' repeats the port name 'http' of service.portName"
+          errorPattern: "deployments\\.web\\.service\\.extraPorts 'http': repeats the port name 'http' of service\\.portName"
 
   - it: should not fail when an extraPorts entry shares the primary port under another protocol
     set:

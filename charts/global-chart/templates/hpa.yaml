@@ -27,11 +27,11 @@ spec:
     kind: Deployment
     name: {{ $depFullname }}
   {{- if not (hasKey $hpa "minReplicas") }}
-  {{- fail (printf "deployments.%s.autoscaling.minReplicas is required when HPA is enabled" $name) }}
+  {{- fail (printf "%s.autoscaling.minReplicas: required when HPA is enabled" (include "global-chart.deploymentValuesPath" $name)) }}
   {{- end }}
   minReplicas: {{ include "global-chart.printScalar" $hpa.minReplicas }}
   {{- if not (hasKey $hpa "maxReplicas") }}
-  {{- fail (printf "deployments.%s.autoscaling.maxReplicas is required when HPA is enabled" $name) }}
+  {{- fail (printf "%s.autoscaling.maxReplicas: required when HPA is enabled" (include "global-chart.deploymentValuesPath" $name)) }}
   {{- end }}
   maxReplicas: {{ include "global-chart.printScalar" $hpa.maxReplicas }}
   metrics:

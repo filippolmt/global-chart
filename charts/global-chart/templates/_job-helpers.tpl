@@ -143,7 +143,7 @@ containers:
   {{- /* Only one of the two lists is ever non-empty (a job's own replaces the
          inherited one), so checking each against the job's volumes alone is
          enough to catch every volume-name collision */ -}}
-  {{- $inheritedCtx := printf "deployments.%s" (toString .deployName) -}}
+  {{- $inheritedCtx := include "global-chart.deploymentValuesPath" (toString .deployName) -}}
   {{- $esInherited := include "global-chart.resolveExternalSecretRefs" (dict "root" $root "refs" $esRefs.inherited "hook" $esReadsCopy "volumes" $job.volumes "errCtx" $inheritedCtx) | fromJson -}}
   {{- $esOwn := include "global-chart.resolveExternalSecretRefs" (dict "root" $root "refs" $esRefs.own "hook" $esReadsCopy "volumes" $job.volumes "errCtx" .errCtx) | fromJson -}}
   {{- $esEnvInherited := $esInherited.env -}}
@@ -214,8 +214,8 @@ containers:
   {{- end }}
 {{- if or $job.volumes $esMounted }}
 volumes:
-  {{- range $job.volumes }}
-  {{- include "global-chart.renderVolume" . | nindent 2 }}
+  {{- range $i, $v := $job.volumes }}
+  {{- include "global-chart.renderVolume" (dict "volume" $v "path" (printf "%s.volumes[%d]" $.errCtx $i)) | nindent 2 }}
   {{- end }}
   {{- with $esMounted }}
   {{- include "global-chart.renderExternalSecretVolumes" . | nindent 2 }}
@@ -298,7 +298,7 @@ same job.
 {{- else -}}
   {{- fail (printf "jobValuesPath: unknown kind %q for %s (expected \"hook\" or \"cronjob\")" (toString .kind) (toString .jobName)) -}}
 {{- end -}}
-{{- if .deploymentName -}}deployments.{{ .deploymentName }}.{{- end -}}{{- $own -}}
+{{- if .deploymentName -}}{{ include "global-chart.deploymentValuesPath" .deploymentName }}.{{- end -}}{{- $own -}}
 {{- end -}}
 
 {{/*
@@ -332,16 +332,16 @@ Resolution order:
 {{- if hasKey $job "image" -}}
   {{- $image = dict "image" $job.image "from" "" -}}
 {{- else if .deploy -}}
-  {{- $image = dict "image" .deploy.image "from" (printf "deployments.%s" (required (printf "jobImageSource: deployName is required with deploy (%s)" $errCtx) .deployName)) -}}
+  {{- $image = dict "image" .deploy.image "from" (include "global-chart.deploymentValuesPath" (required (printf "jobImageSource: deployName is required with deploy (%s)" $errCtx) .deployName)) -}}
 {{- else if $job.fromDeployment -}}
   {{- $dep := index .root.Values.deployments $job.fromDeployment -}}
   {{- if not $dep -}}
     {{- if hasKey (default (dict) .root.Values.deployments) $job.fromDeployment -}}
-      {{- fail (printf "%s.fromDeployment references deployment '%s', which is empty: an empty deployments entry renders nothing. Fill the entry, or drop the reference." $errCtx $job.fromDeployment) -}}
+      {{- fail (printf "%s.fromDeployment: references deployment '%s', which is empty: an empty deployments entry renders nothing. Fill the entry, or drop the reference." $errCtx $job.fromDeployment) -}}
     {{- end -}}
-    {{- fail (printf "%s.fromDeployment references deployment '%s' which does not exist in .Values.deployments" $errCtx $job.fromDeployment) -}}
+    {{- fail (printf "%s.fromDeployment: references deployment '%s', which does not exist in .Values.deployments" $errCtx $job.fromDeployment) -}}
   {{- end -}}
-  {{- $image = dict "image" $dep.image "from" (printf "deployments.%s" $job.fromDeployment) -}}
+  {{- $image = dict "image" $dep.image "from" (include "global-chart.deploymentValuesPath" $job.fromDeployment) -}}
 {{- end -}}
 {{- $image | toJson -}}
 {{- end -}}
@@ -350,24 +350,24 @@ Resolution order:
 Resolve the image string for a cronjob/hook command, from jobImageSource.
 Returns the image string, and fails when none resolves: the one home of the
 "image is required" message, which callers used to spell out each with its own
-printf. Takes the same dict as jobImageSource. An imageString fail names the
-job, and the deployment an inherited image comes from, where the bad value
-sits (issue #188).
+printf. Takes the same dict as jobImageSource. An imageString fail leads with
+the path of the image: the job's own, or the deployment's it inherits, "(inherited
+by <job>)" (issues #188, #190).
 */}}
 {{- define "global-chart.jobImageString" -}}
 {{- $errCtx := required "jobImageString: errCtx is required (build it with jobValuesPath)" .errCtx -}}
 {{- $source := include "global-chart.jobImageSource" . | fromJson -}}
 {{- $img := "" -}}
 {{- if hasKey $source "image" -}}
-  {{- $imgCtx := $errCtx -}}
-  {{- with $source.from -}}{{- $imgCtx = printf "%s (image inherited from %s.image)" $errCtx . -}}{{- end -}}
+  {{- $imgCtx := printf "%s.image" $errCtx -}}
+  {{- with $source.from -}}{{- $imgCtx = printf "%s.image (inherited by %s)" . $errCtx -}}{{- end -}}
   {{- $img = include "global-chart.imageString" (dict "image" $source.image "global" .root.Values.global "errCtx" $imgCtx) -}}
 {{- end -}}
 {{- if not $img -}}
   {{- if .deploy -}}
-    {{- fail (printf "image is required for %s" $errCtx) -}}
+    {{- fail (printf "%s: image is required" $errCtx) -}}
   {{- else -}}
-    {{- fail (printf "image is required for %s (set %s.image or %s.fromDeployment)" $errCtx $errCtx $errCtx) -}}
+    {{- fail (printf "%s: image is required (set %s.image or %s.fromDeployment)" $errCtx $errCtx $errCtx) -}}
   {{- end -}}
 {{- end -}}
 {{- $img -}}

@@ -408,4 +408,4 @@ tests:
                   name: sqs-auth
     asserts:
       - failedTemplate:
-          errorPattern: "authenticationRef names kedaTriggerAuthentications 'sqs-auth', which is empty"
+          errorPattern: "kedaTriggerAuthentications\\.sqs-auth: empty, but a keda trigger's authenticationRef names it"

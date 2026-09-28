@@ -1,7 +1,7 @@
 # A volume with an empty name. The schema's minLength rejects it first; under
 # --skip-schema-validation renderVolume's required rejects "" as it does a
 # missing name.
-# Expected fail substring: "renderVolume: every volume entry must have a 'name' field"
+# Expected fail substring: "deployments.app.volumes[0]: a volume needs a 'name'"
 deployments:
   app:
     image: nginx:1.25

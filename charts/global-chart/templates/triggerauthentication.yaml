@@ -8,7 +8,7 @@
 {{- $declared := false }}
 {{- range $field := $sources }}{{- if index $auth $field }}{{- $declared = true }}{{- end }}{{- end }}
 {{- if not $declared }}
-{{- fail (printf "kedaTriggerAuthentications.%s declares no credential source (one of: %s)" $name (join ", " $sources)) }}
+{{- fail (printf "kedaTriggerAuthentications.%s: declares no credential source (one of: %s)" $name (join ", " $sources)) }}
 {{- end }}
 ---
 apiVersion: keda.sh/v1alpha1

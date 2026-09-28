@@ -178,7 +178,7 @@ tests:
                 pathType: Prefix
     asserts:
       - failedTemplate:
-          errorMessage: "ingress host 'example.com' references deployment 'frontend' which has enabled: false (its Service will not be created)"
+          errorMessage: "ingress.hosts[0].deployment: references deployment 'frontend', which has enabled: false (its Service will not be created)"
 
   # ====== Ingress always uses networking.k8s.io/v1 ======
   - it: should always use networking.k8s.io/v1 apiVersion
@@ -237,7 +237,7 @@ tests:
               - path: /
     asserts:
       - failedTemplate:
-          errorMessage: "Ingress host 'api.example.com' references deployment 'backend' which has service.enabled: false. Enable the service or remove the ingress rule."
+          errorMessage: "ingress.hosts[0].deployment: references deployment 'backend', which has service.enabled: false. Enable the service or remove the reference."
 
   - it: should render ingress when deployment has service.enabled true
     set:
@@ -293,7 +293,7 @@ tests:
               - path: /
     asserts:
       - failedTemplate:
-          errorPattern: "ingress host.*references deployment.*which does not exist"
+          errorPattern: "ingress\\.hosts\\[0\\]\\.deployment: references deployment 'frontend', which does not exist in \\.Values\\.deployments"
 
   - it: should fail when ingress host has neither deployment nor service.name
     set:

@@ -3,7 +3,7 @@
 {{- if $deploy }}
 {{- if eq (include "global-chart.deploymentEnabled" $deploy) "true" }}
 {{- $depFullname := include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $name) }}
-{{- $errCtx := printf "deployments.%s" $name }}
+{{- $errCtx := include "global-chart.deploymentValuesPath" $name }}
 {{- $labelCtx := dict "root" $root "deploymentName" $name }}
 {{- $autoscaling := default (dict) $deploy.autoscaling }}
 {{- $keda := default (dict) $deploy.keda }}
@@ -116,10 +116,10 @@ spec:
       containers:
         - name: {{ $depFullname }}
           {{- if and (kindIs "map" $deploy.image) $deploy.image.repository (not (or $deploy.image.tag $deploy.image.digest)) }}
-          {{- fail (printf "%s.image requires either a tag or digest when repository is provided" $errCtx) }}
+          {{- fail (printf "%s.image: requires either a tag or a digest when repository is provided" $errCtx) }}
           {{- end }}
-          {{- $depImageRef := include "global-chart.imageString" (dict "image" $deploy.image "global" $root.Values.global "errCtx" $errCtx) }}
-          image: {{ required (printf "%s.image must define a repository with tag/digest or be a full image reference" $errCtx) $depImageRef | quote }}
+          {{- $depImageRef := include "global-chart.imageString" (dict "image" $deploy.image "global" $root.Values.global "errCtx" (printf "%s.image" $errCtx)) }}
+          image: {{ required (printf "%s.image: must define a repository with a tag or a digest, or be a full image reference" $errCtx) $depImageRef | quote }}
           imagePullPolicy: {{ include "global-chart.imagePullPolicy" (dict "image" $deploy.image) }}
           {{- if $deploy.command }}
           command:
@@ -204,8 +204,8 @@ spec:
       {{- $hasMcfBundles := and $mountedConfigFiles (gt (len (default (list) $mountedConfigFiles.bundles)) 0) }}
       {{- if or $hasUserVolumes $hasMcfFiles $hasMcfBundles $esMounted }}
       volumes:
-        {{- range $userVolumes }}
-        {{- include "global-chart.renderVolume" . | nindent 8 }}
+        {{- range $i, $v := $userVolumes }}
+        {{- include "global-chart.renderVolume" (dict "volume" $v "path" (printf "%s.volumes[%d]" $errCtx $i)) | nindent 8 }}
         {{- end }}
         {{- if $hasMcfFiles }}
         {{- range $i, $f := $mountedConfigFiles.files }}

@@ -131,7 +131,7 @@ tests:
           externalSecrets: true
     asserts:
       - failedTemplate:
-          errorMessage: "deployments.other.reloader.externalSecrets is true but the deployment references no externalSecrets, so Reloader has no Secret to watch. Reference an externalSecrets entry or disable the field."
+          errorMessage: "deployments.other.reloader.externalSecrets: true, but the deployment references no externalSecrets, so Reloader has no Secret to watch. Reference an externalSecrets entry or disable the field."
 
   - it: should fail when the field is on and externalSecrets is empty
     set:
@@ -139,7 +139,7 @@ tests:
       deployments.main.externalSecrets: []
     asserts:
       - failedTemplate:
-          errorPattern: "deployments.main.reloader.externalSecrets is true but the deployment references no externalSecrets"
+          errorPattern: "deployments\\.main\\.reloader\\.externalSecrets: true, but the deployment references no externalSecrets, so Reloader has no Secret to watch"
 
   - it: should not fail for a disabled deployment
     set:

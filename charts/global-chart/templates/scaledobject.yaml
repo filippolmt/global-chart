@@ -9,9 +9,9 @@
        rejected by KEDA. The fail is the net under --skip-schema-validation
        (tests/bad-values/skip-schema/). */ -}}
 {{- if not $keda.triggers }}
-{{- fail (printf "deployments.%s.keda.enabled is true but keda.triggers is empty: KEDA rejects a ScaledObject with no trigger. Add a trigger, or disable keda." $name) }}
+{{- fail (printf "%s.keda.triggers: empty while keda.enabled is true. KEDA rejects a ScaledObject with no trigger: add a trigger, or disable keda." (include "global-chart.deploymentValuesPath" $name)) }}
 {{- end }}
-{{- include "global-chart.requireKedaCrd" (dict "root" $root "source" (printf "deployments.%s.keda" $name)) }}
+{{- include "global-chart.requireKedaCrd" (dict "root" $root "source" (printf "%s.keda" (include "global-chart.deploymentValuesPath" $name))) }}
 {{- $depFullname := include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $name) }}
 {{- $labelCtx := dict "root" $root "deploymentName" $name }}
 ---
