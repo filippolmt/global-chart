@@ -675,6 +675,25 @@ tests:
           value: "myapp:v2"
         documentIndex: 0
 
+  - it: should inherit a deployment tag carrying a digest as written (issue #187)
+    set:
+      deployments:
+        backend:
+          image:
+            repository: myapp
+            tag: "main@sha256:e0646c006c037b0bde03dd897029ab5cde600437969802848a63c474903cb2c8"
+          serviceAccount:
+            create: true
+          hooks:
+            post-upgrade:
+              migrate:
+                command: ["./migrate.sh"]
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: "myapp:main@sha256:e0646c006c037b0bde03dd897029ab5cde600437969802848a63c474903cb2c8"
+        documentIndex: 0
+
   - it: should name deployment-level hook with deployment name included
     set:
       deployments:

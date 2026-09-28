@@ -100,6 +100,25 @@ tests:
       - hasDocuments:
           count: 0
 
+  - it: should inherit a deployment tag carrying a digest as written (issue #187)
+    documentSelector:
+      path: kind
+      value: CronJob
+    set:
+      deployments:
+        backend:
+          image:
+            repository: myapp/backend
+            tag: "main@sha256:e0646c006c037b0bde03dd897029ab5cde600437969802848a63c474903cb2c8"
+          cronJobs:
+            db-backup:
+              schedule: "0 2 * * *"
+              command: ["./backup.sh"]
+    asserts:
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.containers[0].image
+          value: "myapp/backend:main@sha256:e0646c006c037b0bde03dd897029ab5cde600437969802848a63c474903cb2c8"
+
   # ====== Deployment-level CronJob inheritance ======
   - it: should inherit image from parent deployment
     set:
