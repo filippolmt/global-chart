@@ -2,6 +2,40 @@ apiVersion: v1
 entries:
   global-chart:
   - apiVersion: v2
+    created: "2026-10-08T18:04:40.634642602Z"
+    description: Reusable Helm chart for multi-deployment Kubernetes applications—Deployments,
+      Services, Ingress, CronJobs, Hooks, ExternalSecrets, RBAC, HPA, PDB, NetworkPolicy,
+      and more.
+    digest: 58126734345ee5e19de4d5d5e445b6224e01ed34b1bf6e44cffcdf69a7c24a2d
+    home: https://github.com/filippolmt/global-chart
+    icon: https://helm.sh/img/helm.svg
+    keywords:
+    - deployment
+    - service
+    - ingress
+    - cronjob
+    - hooks
+    - kubernetes
+    - multi-deployment
+    - pdb
+    - network-policy
+    - hpa
+    - autoscaling
+    - keda
+    - gateway-api
+    - external-secrets
+    kubeVersion: '>=1.23.0-0'
+    maintainers:
+    - name: Filippo Merante Caparrotta
+      url: https://github.com/filippolmt
+    name: global-chart
+    sources:
+    - https://github.com/filippolmt/global-chart
+    type: application
+    urls:
+    - https://github.com/filippolmt/global-chart/releases/download/global-chart-3.3.0/global-chart-3.3.0.tgz
+    version: 3.3.0
+  - apiVersion: v2
     created: "2026-09-28T12:01:59.290307259Z"
     description: Reusable Helm chart for multi-deployment Kubernetes applications—Deployments,
       Services, Ingress, CronJobs, Hooks, ExternalSecrets, RBAC, HPA, PDB, NetworkPolicy,
@@ -1082,4 +1116,4 @@ entries:
     urls:
     - https://github.com/filippolmt/global-chart/releases/download/raw-0.1.0/raw-0.1.0.tgz
     version: 0.1.0
-generated: "2026-09-28T12:01:59.290670815Z"
+generated: "2026-10-08T18:04:40.635170348Z"
