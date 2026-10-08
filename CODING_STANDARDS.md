@@ -80,14 +80,9 @@ imagePullSecrets:
 # CORRECT: the path of the key holding the wrong value leads, from its single home
 {{- fail (printf "%s.pdb: set only one." (include "global-chart.deploymentValuesPath" $name)) }}
 ```
-A job's path comes from `jobValuesPath`, a deployment's from
-`deploymentValuesPath`; never printf either inline, and a helper receives it as
-`errCtx`. Two exceptions keep another shape, neither having a path to lead
-with: a helper's own invariant (`<helper>: …`, a chart bug) and a conflict
-between entries (name collisions, the fullname, ingress with httpRoute). A
-number read straight from values goes to `printScalar` with its path,
-`(dict "value" $v "errCtx" "<path>")`, so a null fails naming its key (#191).
-The rule and its exceptions live in the `_validate-helpers.tpl` header (issue #190)
+The rule, where each path comes from, its two exceptions and the form a null
+takes live in the `_validate-helpers.tpl` header (issues #190, #191): read it
+before writing a `fail`. `make lint-templates` checks the shape.
 
 **Adding a new helper:** place it in the appropriate domain file, not
 `_helpers.tpl`, and give it a header comment carrying its rules — that header is
@@ -129,6 +124,7 @@ not swept, so a new map or list gets a scenario that sets it.
 **A rule the API server enforces is checked against the API server.** A CEL
 rule of a CRD (Gateway API's `RequestRedirect` without `backendRefs`) is
 invisible to helm-unittest and kubeconform. When the chart renders a new route
-kind, or a new combination of route fields, add a scenario to
-`E2E_ROUTE_VALUES`; when the chart can tell the combination is invalid at
+kind, or a new combination of route fields, a `TEST_CASES` scenario renders it
+(`make e2e-routes` sends every scenario carrying a route) and a new kind joins
+`GATEWAY_ROUTE_KINDS`; when the chart can tell the combination is invalid at
 render time, it fails there too, naming the key.
