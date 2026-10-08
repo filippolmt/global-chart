@@ -28,6 +28,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   the ones it has) and on `portName` next to a `service:` that carries a
   name or a port.
 
+### Fixed
+
+- **An `httpRoute` rule with a `RequestRedirect` filter renders without
+  `backendRefs`.** Gateway API rejects the two together (a CEL rule of the CRD),
+  and the chart required `backendRefs` on every rule, so a redirect could not be
+  expressed at all. Now a redirect rule carries none, and one that sets them
+  fails the render naming the rule. Found by the new `make e2e` route check,
+  which validates every rendered route against the real Gateway API CRDs.
+
 ### Changed
 
 - **A deployment backend must carry the protocol its route forwards** (issue

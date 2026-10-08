@@ -359,12 +359,12 @@ tests:
                     type: ReplacePrefixMatch
                     replacePrefixMatch: /new
                   statusCode: 301
-            backendRefs:
-              - deployment: api
     asserts:
       - equal:
           path: spec.rules[0].filters[0].type
           value: RequestRedirect
+      - notExists:
+          path: spec.rules[0].backendRefs
       - equal:
           path: spec.rules[0].filters[0].requestRedirect.statusCode
           value: 301
@@ -870,3 +870,22 @@ tests:
     asserts:
       - failedTemplate:
           errorMessage: "httpRoute.rules[0].backendRefs[0].portName: 'web' names no port of the Service of deployment 'api' (ports: http). Use the name of service.portName or of a service.extraPorts entry."
+
+  # ====== RequestRedirect excludes backendRefs (Gateway API CEL rule) ======
+  - it: should fail a RequestRedirect rule that also carries backendRefs
+    set:
+      deployments:
+        api:
+          image: nginx:1.25
+      httpRoute:
+        enabled: true
+        parentRefs: [{ name: gw }]
+        rules:
+          - filters:
+              - type: RequestRedirect
+                requestRedirect: { statusCode: 301, scheme: https }
+            backendRefs:
+              - deployment: api
+    asserts:
+      - failedTemplate:
+          errorMessage: "httpRoute.rules[0].backendRefs: set on a rule with a RequestRedirect filter, which the API server rejects: a redirect answers the request itself. Drop backendRefs from the rule."
