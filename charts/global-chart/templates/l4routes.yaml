@@ -25,6 +25,8 @@
 {{- range $spec := (include "global-chart.l4RouteKinds" $root | fromJsonArray) }}
 {{- $kind := $spec.kind }}
 {{- range $key, $route := (index $root.Values $spec.field) }}
+{{- /* A null entry is unset, like a null deployments entry: no route */ -}}
+{{- if not (kindIs "invalid" $route) }}
 {{- $route = default (dict) $route }}
 {{- $ctx := printf "%s.%s" $spec.field $key }}
 {{- include "global-chart.requireGatewayApiCrd" (dict "root" $root "kind" $kind "errCtx" $ctx) }}
@@ -70,5 +72,6 @@ spec:
           {{- end }}
         {{- end }}
     {{- end }}
+{{- end }}
 {{- end }}
 {{- end }}

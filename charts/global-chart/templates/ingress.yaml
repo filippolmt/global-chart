@@ -44,7 +44,7 @@ spec:
         paths:
           {{- range $path := $hostEntry.paths }}
           - path: {{ $path.path }}
-            pathType: {{ ternary $path.pathType "ImplementationSpecific" (hasKey $path "pathType") }}
+            pathType: {{ ternary $path.pathType "ImplementationSpecific" (eq (include "global-chart.isSet" (list $path "pathType")) "true") }}
             backend:
               service:
                 name: {{ $svcName }}

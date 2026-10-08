@@ -12,10 +12,16 @@ The sweep. Each lint scenario is read back as JSON through a scratch chart
 PyYAML. Then every node under it — each map value and each list item — is set to
 null in turn, and the chart is rendered with --skip-schema-validation plus the
 CRD API versions. A render that succeeds passes (a null the chart tolerates),
-unless its output carries `<nil>`. A render that fails passes only when Helm
-reports a template `fail` or `required` (`execution error at (…): <message>`)
-whose message does not itself carry a raw template error. Anything else is a
-finding: the template path and the error are printed.
+unless its output carries more null-looking lines — `<nil>`, a `- null` list
+item, an empty `name:` — than the scenario's own render: a null that reached
+the manifest. A `key: null` is not one: a null map value is unset, for the
+chart as for the API server. A render that fails passes only when Helm reports a
+template `fail` or `required` (`execution error at (…): <message>`) whose
+message names the nulled node — its key, or `<list>[<i>]` for a list item — or
+the node holding it (a null filters list leaves its rule without backendRefs,
+and the rule is what the message names), and carries no raw template error: a fail about another key is the null reaching a
+check it was never meant for. Anything else is a finding: the template path and
+the error are printed.
 
 When it arrived the sweep found 166 such nulls (issue #198), all fixed; a
 finding now fails CI. The rule it holds is in CODING_STANDARDS.md (fallback
@@ -35,6 +41,7 @@ import tempfile
 RAW = re.compile(r"nil pointer|error calling|wrong type for value|can't evaluate|"
                  r"executing \"|invalid value; expected|incompatible types|error converting YAML")
 FAIL = re.compile(r"execution error at \([^)]*\): ")
+NULLISH = re.compile(r"<nil>|^\s*-\s+null\s*$|^\s*-?\s*name:\s*(\"\")?\s*$", re.M)
 
 
 def to_json(values, scratch):
@@ -70,13 +77,36 @@ def render(chart, flags, values, tmp):
     return out
 
 
-def verdict(out):
+def dotted(path):
+    """A values path as the chart's messages print it: a.b[0].c."""
+    out = ""
+    for k in path:
+        out += f"[{k}]" if isinstance(k, int) else (f".{k}" if out else str(k))
+    return out
+
+
+def needle(path):
+    """What a message must contain to name the node at path."""
+    last = path[-1]
+    if isinstance(last, int):
+        parent = next((k for k in reversed(path[:-1]) if not isinstance(k, int)), "")
+        return f"{parent}[{last}]" if not isinstance(path[-2], int) else f"[{last}]"
+    return str(last)
+
+
+def verdict(out, base, path):
     if out.returncode == 0:
-        return "renders <nil>" if "<nil>" in out.stdout else None
+        if len(NULLISH.findall(out.stdout)) > len(NULLISH.findall(base)):
+            new = [l.strip() for l in out.stdout.splitlines() if NULLISH.search(l) and l not in base.splitlines()]
+            return f"renders a null: {new[0] if new else '(a null-looking line)'}"
+        return None
     err = " ".join(out.stderr.split())
     m = FAIL.search(err)
     if m and not RAW.search(err[m.end():]):
-        return None
+        message = err[m.end():]
+        if needle(path) in message or (len(path) > 1 and dotted(path[:-1]) in message):
+            return None
+        return f"fails without naming {needle(path)}: " + err[m.end():][:200]
     return err.replace("Use --debug flag to render out invalid YAML", "").strip()[:240]
 
 
@@ -90,12 +120,13 @@ def main(argv):
         (scratch / "templates").mkdir(parents=True)
         (scratch / "Chart.yaml").write_text("apiVersion: v2\nname: values-to-json\nversion: 0.0.0\n")
         (scratch / "templates" / "values.json").write_text("{{ .Values | toJson }}\n")
-        jobs = []
+        jobs, bases = [], {}
         for f in files:
             values = to_json(f, scratch)
+            bases[f] = render(chart, flags, values, tmp).stdout
             jobs += [(f, p, nulled(values, p)) for p in paths(values)]
         with concurrent.futures.ThreadPoolExecutor(max_workers=os.cpu_count() or 4) as pool:
-            results = pool.map(lambda j: (j[0], j[1], verdict(render(chart, flags, j[2], tmp))), jobs)
+            results = pool.map(lambda j: (j[0], j[1], verdict(render(chart, flags, j[2], tmp), bases[j[0]], j[1])), jobs)
             for f, p, v in results:
                 if v:
                     findings.append(f"{f}: {'.'.join(map(str, p))} = null → {v}")

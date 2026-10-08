@@ -85,7 +85,7 @@ Usage:
 {{- /* An explicit deletePolicy belongs to the hook, so it reaches only the roles
        a hook owns — the guard above is what keeps that true. The prereq copies are
        shared by every hook that reads them, so none of them owns the policy. */ -}}
-{{- $policy := ternary $command.deletePolicy $row.policy (hasKey $command "deletePolicy") -}}
+{{- $policy := ternary $command.deletePolicy $row.policy (eq (include "global-chart.isSet" (list $command "deletePolicy")) "true") -}}
 {{- /* Derived weights are never floored at 0: Helm allows negative hook weights,
        and clamping a prereq to 0 would sort it AFTER a Job with a negative
        weight — the exact ordering failure this invariant exists to prevent. */ -}}
@@ -192,7 +192,7 @@ Usage: {{ $consumers := include "global-chart.externalSecretHookConsumers" $root
   {{- $refs := include "global-chart.jobExternalSecretRefs" (dict "job" $hook.command "deploy" $hook.deploy) | fromJson -}}
   {{- range $ref := concat $refs.inherited $refs.own -}}
     {{- /* A null ref, or a null name, is validateNullItems' to report */ -}}
-    {{- if and (kindIs "map" $ref) (kindIs "string" $ref.name) -}}
+    {{- if include "global-chart.isNamedEntry" $ref -}}
     {{- include "global-chart.addPrereqConsumer" (dict "out" $out "key" $ref.name "hookType" $hook.hookType "id" $id "command" $hook.command) -}}
     {{- end -}}
   {{- end -}}

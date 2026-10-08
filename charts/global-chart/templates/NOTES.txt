@@ -59,9 +59,11 @@ Reminder: the chart does not create the Gateway resource — it must be managed 
 
 {{- range $spec := (include "global-chart.l4RouteKinds" $ | fromJsonArray) }}
 {{- range $key, $route := (index $.Values $spec.field) }}
+{{- if not (kindIs "invalid" $route) }}
 
 {{ $spec.kind }} {{ include "global-chart.gatewayRouteName" (dict "root" $ "key" $key) }} is bound to Gateway(s):
 {{- include "global-chart.parentRefNotes" (default (dict) $route).parentRefs }}
+{{- end }}
 {{- end }}
 {{- end }}
 

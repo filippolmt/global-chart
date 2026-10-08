@@ -13,3 +13,5 @@ CONTEXT.md
 docs/agents/
 docs/plans/
 docs/superpowers/
+__pycache__/
+*.pyc

@@ -1,0 +1,13 @@
+# A KEDA trigger whose authenticationRef name is null. kedaTriggers names it,
+# rather than die on a string conversion (issue #198).
+# Expected fail substring: "deployments.web.keda.triggers[0].authenticationRef.name: null, a value nobody wrote"
+deployments:
+  web:
+    image: nginx:1.25
+    keda:
+      enabled: true
+      triggers:
+        - type: cron
+          metadata: { timezone: UTC, start: "0 0 * * *", end: "59 23 * * *", desiredReplicas: "3" }
+          authenticationRef:
+            name: null

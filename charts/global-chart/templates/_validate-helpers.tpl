@@ -24,61 +24,65 @@ deployments.{{ . }}
 {{- end }}
 
 {{/*
-Validate that no list of a deployment or a job carries a null item, nor a null
-in an item's required field (issue #198): the single home of that check for
-the lists the pod-spec helpers read — imagePullSecrets, volumes,
-volumeMounts, externalSecrets, dnsConfig.options, and a deployment's
-service.extraPorts and mountedConfigFiles — in every scope, and for
-global.imagePullSecrets. Those helpers skip a null item instead of reading a
-field off it, so this is the one error a null reaches, whatever order Helm
-renders the templates in. Runs first in validate.yaml, before the validators
-that read the same lists. A root-level list a template reads itself (ingress,
-rbacs.roles, externalSecrets data, keda triggers) is checked by that template,
-which has the path at hand.
+Fail on a null item in any list under a values node, at any depth, naming its
+path (issue #198): the single home of "a null list item fails", passthrough
+surfaces included — a list the chart hands to a manifest verbatim (tolerations,
+extraContainers, a container's args) is no more valid with a null in it. A null
+map value is left alone: it is unset, for the chart as for the API server.
+Recursive: a map recurses into each value, a list into each item.
+Usage: {{- include "global-chart.rejectNullInLists" (dict "value" .Values.deployments "errCtx" "deployments") -}}
+*/}}
+{{- define "global-chart.rejectNullInLists" -}}
+{{- $errCtx := .errCtx -}}
+{{- if kindIs "slice" .value -}}
+  {{- range $i, $item := .value -}}
+    {{- $itemCtx := printf "%s[%d]" $errCtx $i -}}
+    {{- include "global-chart.rejectNull" (dict "value" $item "errCtx" $itemCtx) -}}
+    {{- include "global-chart.rejectNullInLists" (dict "value" $item "errCtx" $itemCtx) -}}
+  {{- end -}}
+{{- else if kindIs "map" .value -}}
+  {{- range $key, $item := .value -}}
+    {{- include "global-chart.rejectNullInLists" (dict "value" $item "errCtx" (ternary $key (printf "%s.%s" $errCtx $key) (eq $errCtx ""))) -}}
+  {{- end -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+Validate that no list in values carries a null item, and that no item of a list
+the chart reads carries a null in a field it needs (issue #198). Two parts:
+- rejectNullInLists over the whole of .Values: a null item fails anywhere,
+  passthrough lists included, naming its path;
+- the required fields of the items the pod-spec helpers read —
+  imagePullSecrets, volumes, volumeMounts, externalSecrets, dnsConfig.options,
+  a deployment's service.extraPorts and mountedConfigFiles — for every owner
+  podSpecOwners lists, plus global.imagePullSecrets and rbacs.roles.
+Those helpers skip a null item or field instead of reading through it, so this
+is the one error such a null reaches, whatever order Helm renders the templates
+in (isNamedEntry is their skip). Runs first in validate.yaml. A root-level list
+only one template reads (ingress, externalSecrets data, keda triggers, route
+rules) gets its required fields checked by that template, which has the path at
+hand.
 Called from validate.yaml. Emits nothing on success.
 */}}
 {{- define "global-chart.validateNullItems" -}}
-{{- $root := . -}}
-{{- include "global-chart.rejectNullItems" (dict "list" (default (dict) .Values.global).imagePullSecrets "errCtx" "global.imagePullSecrets") -}}
-{{- $owners := list -}}
-{{- range $name, $deploy := (default (dict) .Values.deployments) -}}
-  {{- if kindIs "map" $deploy -}}
-    {{- $path := include "global-chart.deploymentValuesPath" $name -}}
-    {{- $owners = append $owners (dict "path" $path "spec" $deploy) -}}
-    {{- $svc := default (dict) $deploy.service -}}
-    {{- include "global-chart.rejectNullItems" (dict "list" $svc.extraPorts "errCtx" (printf "%s.service.extraPorts" $path) "required" (list "name" "port" "targetPort")) -}}
-    {{- $mcf := default (dict) $deploy.mountedConfigFiles -}}
+{{- include "global-chart.rejectNullInLists" (dict "value" .Values "errCtx" "") -}}
+{{- include "global-chart.rejectNullItems" (dict "list" (default (dict) .Values.global).imagePullSecrets "errCtx" "global.imagePullSecrets" "required" (list "name")) -}}
+{{- include "global-chart.rejectNullItems" (dict "list" (default (dict) .Values.rbacs).roles "errCtx" "rbacs.roles" "required" (list "name")) -}}
+{{- range $owner := (include "global-chart.podSpecOwners" . | fromJsonArray) -}}
+  {{- $spec := $owner.spec -}}
+  {{- $path := $owner.path -}}
+  {{- range $field, $required := dict "imagePullSecrets" (list "name") "volumes" (list "name") "volumeMounts" (list "name" "mountPath") "externalSecrets" (list "name") -}}
+    {{- include "global-chart.rejectNullItems" (dict "list" (index $spec $field) "errCtx" (printf "%s.%s" $path $field) "required" $required) -}}
+  {{- end -}}
+  {{- include "global-chart.rejectNullItems" (dict "list" (default (dict) $spec.dnsConfig).options "errCtx" (printf "%s.dnsConfig.options" $path) "required" (list "name")) -}}
+  {{- if eq $owner.kind "deployment" -}}
+    {{- include "global-chart.rejectNullItems" (dict "list" (default (dict) $spec.service).extraPorts "errCtx" (printf "%s.service.extraPorts" $path) "required" (list "name" "port" "targetPort")) -}}
+    {{- $mcf := default (dict) $spec.mountedConfigFiles -}}
     {{- include "global-chart.rejectNullItems" (dict "list" $mcf.files "errCtx" (printf "%s.mountedConfigFiles.files" $path) "required" (list "name")) -}}
     {{- include "global-chart.rejectNullItems" (dict "list" $mcf.bundles "errCtx" (printf "%s.mountedConfigFiles.bundles" $path) "required" (list "name")) -}}
     {{- range $bi, $b := (default (list) $mcf.bundles) -}}
       {{- include "global-chart.rejectNullItems" (dict "list" (default (dict) $b).files "errCtx" (printf "%s.mountedConfigFiles.bundles[%d].files" $path $bi) "required" (list "name")) -}}
     {{- end -}}
-    {{- range $jobName, $job := (default (dict) $deploy.cronJobs) -}}
-      {{- $owners = append $owners (dict "path" (include "global-chart.jobValuesPath" (dict "kind" "cronjob" "deploymentName" $name "jobName" $jobName)) "spec" $job) -}}
-    {{- end -}}
-    {{- range $hookType, $jobs := (default (dict) $deploy.hooks) -}}
-      {{- range $jobName, $job := (default (dict) $jobs) -}}
-        {{- $owners = append $owners (dict "path" (include "global-chart.jobValuesPath" (dict "kind" "hook" "deploymentName" $name "hookType" $hookType "jobName" $jobName)) "spec" $job) -}}
-      {{- end -}}
-    {{- end -}}
-  {{- end -}}
-{{- end -}}
-{{- range $jobName, $job := (default (dict) .Values.cronJobs) -}}
-  {{- $owners = append $owners (dict "path" (include "global-chart.jobValuesPath" (dict "kind" "cronjob" "jobName" $jobName)) "spec" $job) -}}
-{{- end -}}
-{{- range $hookType, $jobs := (default (dict) .Values.hooks) -}}
-  {{- range $jobName, $job := (default (dict) $jobs) -}}
-    {{- $owners = append $owners (dict "path" (include "global-chart.jobValuesPath" (dict "kind" "hook" "hookType" $hookType "jobName" $jobName)) "spec" $job) -}}
-  {{- end -}}
-{{- end -}}
-{{- range $owner := $owners -}}
-  {{- if kindIs "map" $owner.spec -}}
-    {{- $spec := $owner.spec -}}
-    {{- include "global-chart.rejectNullItems" (dict "list" $spec.imagePullSecrets "errCtx" (printf "%s.imagePullSecrets" $owner.path)) -}}
-    {{- include "global-chart.rejectNullItems" (dict "list" $spec.volumes "errCtx" (printf "%s.volumes" $owner.path) "required" (list "name")) -}}
-    {{- include "global-chart.rejectNullItems" (dict "list" $spec.volumeMounts "errCtx" (printf "%s.volumeMounts" $owner.path) "required" (list "name" "mountPath")) -}}
-    {{- include "global-chart.rejectNullItems" (dict "list" $spec.externalSecrets "errCtx" (printf "%s.externalSecrets" $owner.path) "required" (list "name")) -}}
-    {{- include "global-chart.rejectNullItems" (dict "list" (default (dict) $spec.dnsConfig).options "errCtx" (printf "%s.dnsConfig.options" $owner.path) "required" (list "name")) -}}
   {{- end -}}
 {{- end -}}
 {{- end }}
@@ -186,14 +190,14 @@ Called from validate.yaml.
     {{- $mcHint := ". Give one of the two entries a different 'name'." -}}
     {{- /* A null file or bundle, or a null name, is validateNullItems' to report */ -}}
     {{- range $i, $f := (default (list) $mcf.files) -}}
-      {{- if and (kindIs "map" $f) (kindIs "string" $f.name) -}}
+      {{- if include "global-chart.isNamedEntry" $f -}}
       {{- $owner := printf "%s.mountedConfigFiles.files[%d] ('%s')" (include "global-chart.deploymentValuesPath" $name) $i $f.name -}}
       {{- include "global-chart.registerName" (dict "names" $cmNames "kind" "ConfigMap" "name" (include "global-chart.mountedConfigMapName" (dict "deploymentFullname" $depFullname "fileName" $f.name)) "owner" $owner "hint" $mcHint) -}}
       {{- end -}}
     {{- end -}}
     {{- range $bi, $b := (default (list) $mcf.bundles) -}}
       {{- range $fi, $f := (default (list) (default (dict) $b).files) -}}
-        {{- if and (kindIs "map" $f) (kindIs "string" $f.name) -}}
+        {{- if include "global-chart.isNamedEntry" $f -}}
         {{- $owner := printf "%s.mountedConfigFiles.bundles[%d].files[%d] ('%s')" (include "global-chart.deploymentValuesPath" $name) $bi $fi $f.name -}}
         {{- include "global-chart.registerName" (dict "names" $cmNames "kind" "ConfigMap" "name" (include "global-chart.mountedConfigMapName" (dict "deploymentFullname" $depFullname "fileName" $f.name)) "owner" $owner "hint" $mcHint) -}}
         {{- end -}}
@@ -303,8 +307,10 @@ Called from validate.yaml.
   {{- $routeNames := dict -}}
   {{- $kind := .kind -}}
   {{- $field := .field -}}
-  {{- range $key, $_ := (index $root.Values $field) -}}
+  {{- range $key, $route := (index $root.Values $field) -}}
+    {{- if not (kindIs "invalid" $route) -}}
     {{- include "global-chart.registerName" (dict "names" $routeNames "kind" $kind "name" (include "global-chart.gatewayRouteName" (dict "root" $root "key" $key)) "owner" (printf "%s.%s" $field $key)) -}}
+    {{- end -}}
   {{- end -}}
 {{- end -}}
 
@@ -314,8 +320,9 @@ Called from validate.yaml.
        chart-created one. */ -}}
 {{- $roleNames := dict -}}
 {{- $bindingNames := dict -}}
-{{- include "global-chart.rejectNullItems" (dict "list" (default (dict) .Values.rbacs).roles "errCtx" "rbacs.roles" "required" (list "name")) -}}
 {{- range $i, $role := (default (dict) .Values.rbacs).roles -}}
+  {{- /* A null role or name is rbac.yaml's and validateNullItems' to report */ -}}
+  {{- if include "global-chart.isNamedEntry" $role -}}
   {{- $owner := printf "rbacs.roles[%d] ('%s')" $i $role.name -}}
   {{- include "global-chart.registerName" (dict "names" $roleNames "kind" "Role" "name" $role.name "owner" $owner) -}}
   {{- /* SA before RoleBinding: the binding keeps fewer characters of the role
@@ -325,6 +332,7 @@ Called from validate.yaml.
   {{- include "global-chart.registerSAName" (dict "names" $saNames "sa" $sa "owner" $owner) -}}
   {{- if $sa.name -}}
     {{- include "global-chart.registerName" (dict "names" $bindingNames "kind" "RoleBinding" "name" (include "global-chart.rbacRoleBindingName" $role.name) "owner" $owner) -}}
+  {{- end -}}
   {{- end -}}
 {{- end -}}
 {{- /* 7. The hook-prerequisite copies of rbacs.roles (ADR 0010), after every
@@ -337,7 +345,7 @@ Called from validate.yaml.
        nor create: false is a way out: the name has to change */ -}}
 {{- $copyHint := ". A hook-prerequisite copy is named after its real resource plus '-hook', truncated to the same limit (ADR 0010): shorten the name so the copy fits, or rename the entry it lands on." -}}
 {{- range $i, $role := (default (dict) .Values.rbacs).roles -}}
-  {{- if hasKey $rbacConsumers $role.name -}}
+  {{- if and (include "global-chart.isNamedEntry" $role) (hasKey $rbacConsumers $role.name) -}}
     {{- $owner := printf "rbacs.roles[%d] ('%s') (hook prerequisite copy)" $i $role.name -}}
     {{- include "global-chart.registerName" (dict "names" $roleNames "kind" "Role" "name" (include "global-chart.rbacRoleHookName" $role.name) "owner" $owner "hint" $copyHint) -}}
     {{- include "global-chart.registerName" (dict "names" $bindingNames "kind" "RoleBinding" "name" (include "global-chart.rbacRoleBindingHookName" $role.name) "owner" $owner "hint" $copyHint) -}}

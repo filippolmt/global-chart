@@ -66,9 +66,9 @@ is the source of truth, this table is only the routing.
 | `_job-helpers.tpl` | The one pod spec of every hook and cronjob, both scopes: image resolution, CronJob and Job spec fields, `jobValuesPath` |
 | `_serviceaccount-helpers.tpl` | Every ServiceAccount rendered or bound (`resolveServiceAccount`, the job resolver) and the SA side of the hook copies (ADR 0010, 0011) |
 | `_hook-helpers.tpl` | The `helm.sh/hook*` annotations from the role table, the phase cut `hookReadsPrereqCopy`, the hook-copy consumer scans |
-| `_render-helpers.tpl` | `printScalar`, `rejectNull(Items)`, render blocks, mounts, ports (`servicePrimaryPort`, `servicePorts`, `containerPorts`), `resolveBackend`, route lists (`httpRouteEntries`, `l4RouteKinds`) |
+| `_render-helpers.tpl` | `printScalar`, `isSet`, null checks (`rejectNull`, `rejectNullItems`, `isNamedEntry`), render blocks, ports, `resolveBackend`, `podSpecOwners`, route lists |
 | `_keda-helpers.tpl` | KEDA names, trigger and `authenticationRef` resolution |
-| `_validate-helpers.tpl` | Values paths, the `fail` message shape, cross-resource validators, `validateNullItems`, `hpaActiveTargets`, `requireCrd` / `requireGatewayApiCrd` |
+| `_validate-helpers.tpl` | Values paths, the `fail` shape, cross-resource validators, `validateNullItems` / `rejectNullInLists`, `hpaActiveTargets`, `requireCrd` / `requireGatewayApiCrd` |
 
 ### Key Design Patterns
 

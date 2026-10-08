@@ -3,8 +3,9 @@
        are absent (ADR 0010); a role absent from it gets no copy */ -}}
 {{- $consumers := include "global-chart.rbacHookConsumers" $root | fromJson }}
 {{- $roles := (default (dict) $root.Values.rbacs).roles }}
-{{- include "global-chart.rejectNullItems" (dict "list" $roles "errCtx" "rbacs.roles" "required" (list "name")) }}
 {{- range $role := $roles }}
+{{- /* A null role, or a null name, is validateNullItems' to report */ -}}
+{{- if include "global-chart.isNamedEntry" $role }}
 {{- $resolved := include "global-chart.rbacServiceAccount" $role | fromJson }}
 {{- if $resolved.create }}
 apiVersion: v1
@@ -108,5 +109,6 @@ subjects:
     name: {{ $copySA }}
     namespace: {{ $root.Release.Namespace | quote }}
 ---
+{{- end }}
 {{- end }}
 {{- end }}

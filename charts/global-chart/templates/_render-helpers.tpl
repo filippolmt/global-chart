@@ -71,6 +71,23 @@ Usage: {{ include "global-chart.printScalar" (dict "value" $deploy.revisionHisto
 {{- end }}
 
 {{/*
+Whether a values key is set: present and not null (issue #198). The single
+home of "set", for every default the chart applies to a key (`enabled`, the
+inherit* toggles, a job's inherited fields, the string enums with a default):
+a null is unset, as Helm itself reads a null in values, so the default
+applies. hasKey alone takes a null as a value and hands it on, where it reads
+as false or "". Numbers keep their own rule: printScalar fails a null naming
+its key (issue #191).
+Returns "true" or "".
+Usage: {{ ternary $deploy.enabled true (eq (include "global-chart.isSet" (list $deploy "enabled")) "true") }}
+*/}}
+{{- define "global-chart.isSet" -}}
+{{- $map := index . 0 -}}
+{{- $key := index . 1 -}}
+{{- if and (kindIs "map" $map) (hasKey $map $key) (not (kindIs "invalid" (index $map $key))) -}}true{{- end -}}
+{{- end }}
+
+{{/*
 Fail on a null read from values, naming its path: the single home of the
 message, read by printScalar's dict form, servicePrimaryPort and
 resolveBackend, rejectNullServicePorts and hook.yaml's weight. A null is a value nobody wrote: printed, it becomes "<nil>" or
@@ -82,6 +99,18 @@ Usage: {{- include "global-chart.rejectNull" (dict "value" $v "errCtx" "deployme
 {{- if kindIs "invalid" .value -}}
 {{- fail (printf "%s: null, a value nobody wrote. Set a value — \"\" for an empty string — or remove the key." .errCtx) -}}
 {{- end -}}
+{{- end }}
+
+{{/*
+Whether a list item is an entry the chart can read by name: a map whose name
+is a string (issue #198). The single home of the skip the readers of a named
+list apply — externalSecrets refs, mountedConfigFiles, rbacs.roles — so a null
+item, or a null name, reaches only validateNullItems, which reports it with
+its path. Returns "true" or "".
+Usage: {{- if include "global-chart.isNamedEntry" $ref }}
+*/}}
+{{- define "global-chart.isNamedEntry" -}}
+{{- if and (kindIs "map" .) (kindIs "string" .name) -}}true{{- end -}}
 {{- end }}
 
 {{/*
@@ -152,6 +181,42 @@ Usage: {{ include "global-chart.renderVolume" (dict "volume" $v "errCtx" (printf
 {{- end }}
 
 {{/*
+Every owner of a pod spec the release renders, in both scopes, as a JSON list
+of {path, kind, spec}: each enabled deployment (kind "deployment"), then every
+non-empty hook and cronjob — root-level, and those of each enabled deployment —
+with their values path from deploymentValuesPath / jobValuesPath. The single
+home of that enumeration, read by legacyVolumePaths and validateNullItems: a
+disabled deployment and an empty job render nothing, so neither reads them.
+The specs come back through JSON: numbers are float64 (see the file header).
+Usage: {{- range (include "global-chart.podSpecOwners" . | fromJsonArray) }}
+*/}}
+{{- define "global-chart.podSpecOwners" -}}
+{{- $scopes := list (dict "hooks" .Values.hooks "cronJobs" .Values.cronJobs "deployName" "") -}}
+{{- $out := list -}}
+{{- range $name, $deploy := (default (dict) .Values.deployments) -}}
+  {{- if and (kindIs "map" $deploy) $deploy (eq (include "global-chart.deploymentEnabled" $deploy) "true") -}}
+    {{- $out = append $out (dict "path" (include "global-chart.deploymentValuesPath" $name) "kind" "deployment" "spec" $deploy) -}}
+    {{- $scopes = append $scopes (dict "hooks" $deploy.hooks "cronJobs" $deploy.cronJobs "deployName" $name) -}}
+  {{- end -}}
+{{- end -}}
+{{- range $scope := $scopes -}}
+  {{- range $hookType, $jobs := (default (dict) $scope.hooks) -}}
+    {{- range $jobName, $job := (default (dict) $jobs) -}}
+      {{- if and (kindIs "map" $job) $job -}}
+        {{- $out = append $out (dict "path" (include "global-chart.jobValuesPath" (dict "kind" "hook" "deploymentName" $scope.deployName "hookType" $hookType "jobName" $jobName)) "kind" "hook" "spec" $job) -}}
+      {{- end -}}
+    {{- end -}}
+  {{- end -}}
+  {{- range $jobName, $job := (default (dict) $scope.cronJobs) -}}
+    {{- if and (kindIs "map" $job) $job -}}
+      {{- $out = append $out (dict "path" (include "global-chart.jobValuesPath" (dict "kind" "cronjob" "deploymentName" $scope.deployName "jobName" $jobName)) "kind" "cronjob" "spec" $job) -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+{{- $out | toJson -}}
+{{- end }}
+
+{{/*
 The values path of every volume in the legacy format (one carrying `type`), in
 the Deployment and in the hooks and cronjobs of both scopes, as a JSON list of
 "<path>.volumes[<i>] (<name>)". Disabled deployments render nothing and are
@@ -160,34 +225,11 @@ the format in 4.0.0.
 Usage: {{- $legacy := include "global-chart.legacyVolumePaths" . | fromJsonArray }}
 */}}
 {{- define "global-chart.legacyVolumePaths" -}}
-{{- $owners := list (dict "hooks" .Values.hooks "cronJobs" .Values.cronJobs "deployName" "") -}}
-{{- range $name, $deploy := .Values.deployments -}}
-  {{- if and $deploy (eq (include "global-chart.deploymentEnabled" $deploy) "true") -}}
-    {{- $owners = append $owners (dict "path" (include "global-chart.deploymentValuesPath" $name) "volumes" $deploy.volumes "hooks" $deploy.hooks "cronJobs" $deploy.cronJobs "deployName" $name) -}}
-  {{- end -}}
-{{- end -}}
-{{- $withVolumes := list -}}
-{{- range $owner := $owners -}}
-  {{- if $owner.path -}}
-    {{- $withVolumes = append $withVolumes (dict "path" $owner.path "volumes" $owner.volumes) -}}
-  {{- end -}}
-  {{- range $hookType, $jobs := (default (dict) $owner.hooks) -}}
-    {{- range $jobName, $job := (default (dict) $jobs) -}}
-      {{- if $job -}}
-        {{- $withVolumes = append $withVolumes (dict "path" (include "global-chart.jobValuesPath" (dict "kind" "hook" "deploymentName" $owner.deployName "hookType" $hookType "jobName" $jobName)) "volumes" $job.volumes) -}}
-      {{- end -}}
-    {{- end -}}
-  {{- end -}}
-  {{- range $jobName, $job := (default (dict) $owner.cronJobs) -}}
-    {{- if $job -}}
-      {{- $withVolumes = append $withVolumes (dict "path" (include "global-chart.jobValuesPath" (dict "kind" "cronjob" "deploymentName" $owner.deployName "jobName" $jobName)) "volumes" $job.volumes) -}}
-    {{- end -}}
-  {{- end -}}
-{{- end -}}
+{{- $withVolumes := include "global-chart.podSpecOwners" . | fromJsonArray -}}
 {{- $out := list -}}
 {{- range $withVolumes -}}
   {{- $path := .path -}}
-  {{- range $i, $vol := (default (list) .volumes) -}}
+  {{- range $i, $vol := (default (list) .spec.volumes) -}}
     {{- if hasKey $vol "type" -}}
       {{- $out = append $out (printf "%s.volumes[%d] (%s)" $path $i $vol.name) -}}
     {{- end -}}
@@ -241,7 +283,8 @@ dnsConfig:
   {{- if $dnsConfig.options }}
   options:
     {{- range $dnsConfig.options }}
-    {{- if kindIs "map" . }}{{/* a null item is validateNullItems' to report */}}
+    {{- /* A null item is validateNullItems' to report */}}
+    {{- if kindIs "map" . }}
     - name: {{ .name }}
       {{- /* Set means present and not null: 0 and "" are values */}}
       {{- if not (kindIs "invalid" .value) }}
@@ -462,7 +505,10 @@ header.
   {{- $entries = append $entries (dict "errCtx" "httpRoute" "name" (include "global-chart.gatewayRouteName" (dict "root" .)) "route" $single "single" true) -}}
 {{- end -}}
 {{- range $key, $route := (default (dict) .Values.httpRoutes) -}}
+  {{- /* A null entry is unset, like a null deployments entry: no route */ -}}
+  {{- if not (kindIs "invalid" $route) -}}
   {{- $entries = append $entries (dict "errCtx" (printf "httpRoutes.%s" $key) "name" (include "global-chart.gatewayRouteName" (dict "root" $ "key" $key)) "route" (default (dict) $route) "single" false) -}}
+  {{- end -}}
 {{- end -}}
 {{- $entries | toJson -}}
 {{- end }}
@@ -607,10 +653,10 @@ Inputs (dict):
 */}}
 {{- define "global-chart.renderExternalSecretRemoteRef" -}}
 {{- $remote := .remote -}}
-conversionStrategy: {{ ternary $remote.conversionStrategy "Default" (hasKey $remote "conversionStrategy") | quote }}
-decodingStrategy: {{ ternary $remote.decodingStrategy "None" (hasKey $remote "decodingStrategy") | quote }}
+conversionStrategy: {{ ternary $remote.conversionStrategy "Default" (eq (include "global-chart.isSet" (list $remote "conversionStrategy")) "true") | quote }}
+decodingStrategy: {{ ternary $remote.decodingStrategy "None" (eq (include "global-chart.isSet" (list $remote "decodingStrategy")) "true") | quote }}
 key: {{ required (printf "%s.key: mandatory" (required "renderExternalSecretRemoteRef: errCtx is required (the values path of the remote)" .errCtx)) $remote.key | quote }}
-metadataPolicy: {{ ternary $remote.metadataPolicy "None" (hasKey $remote "metadataPolicy") | quote }}
+metadataPolicy: {{ ternary $remote.metadataPolicy "None" (eq (include "global-chart.isSet" (list $remote "metadataPolicy")) "true") | quote }}
 {{- if hasKey $remote "property" }}
 property: {{ $remote.property | quote }}
 {{- end }}
@@ -713,7 +759,8 @@ the file header.
 {{- $primary := include "global-chart.servicePrimaryPort" . | fromJson -}}
 {{- $ports := list (dict "name" $primary.name "port" $primary.port "protocol" $primary.protocol "index" -1) -}}
 {{- range $i, $port := (default (list) .service.extraPorts) -}}
-  {{- if kindIs "map" $port -}}{{/* a null item is validateNullItems' to report */}}
+  {{- /* A null item is validateNullItems' to report */ -}}
+  {{- if kindIs "map" $port -}}
   {{- $ports = append $ports (dict "name" $port.name "port" $port.port "protocol" (include "global-chart.extraPortProtocol" $port) "index" $i) -}}
   {{- end -}}
 {{- end -}}
@@ -761,7 +808,7 @@ Usage: {{ include "global-chart.serviceType" $svc }}
 Input: the deployment's service map, already defaulted to (dict) by the caller.
 */}}
 {{- define "global-chart.serviceType" -}}
-{{- ternary .type "ClusterIP" (hasKey . "type") -}}
+{{- ternary .type "ClusterIP" (eq (include "global-chart.isSet" (list . "type")) "true") -}}
 {{- end }}
 
 {{/*
@@ -825,7 +872,7 @@ data:
       {{- include "global-chart.renderExternalSecretRemoteRef" (dict "remote" $remote "errCtx" (printf "externalSecrets.%s.remote" $key)) | nindent 6 }}
     secretKey: {{ required (printf "externalSecrets.%s.secretkey: mandatory" $key) $secret.secretkey | quote }}
 {{- end }}
-refreshInterval: {{ ternary $secret.refreshInterval "1h" (hasKey $secret "refreshInterval") | quote }}
+refreshInterval: {{ ternary $secret.refreshInterval "1h" (eq (include "global-chart.isSet" (list $secret "refreshInterval")) "true") | quote }}
 {{- /* Emitted whenever a store is required — so an incomplete secretstore
        still fails on the store-backed path — and also when a self-contained
        dataFrom supplies one anyway: ESO lets a per-item sourceRef override a
@@ -838,7 +885,7 @@ secretStoreRef:
 {{- end }}
 target:
   creationPolicy: {{ default (include "global-chart.externalSecretCreationPolicy" $secret) .creationPolicy | quote }}
-  deletionPolicy: {{ ternary $target.deletionPolicy "Retain" (hasKey $target "deletionPolicy") | quote }}
+  deletionPolicy: {{ ternary $target.deletionPolicy "Retain" (eq (include "global-chart.isSet" (list $target "deletionPolicy")) "true") | quote }}
   name: {{ default (include "global-chart.externalSecretTargetName" .) .targetName | quote }}
   {{- if hasKey $target "immutable" }}
   immutable: {{ $target.immutable }}
@@ -882,7 +929,7 @@ Params:
 {{- $out := dict "env" (list) "mounted" (list) "specs" (list) "targets" (list) -}}
 {{- range $ref := (default (list) .refs) -}}
   {{- /* A null ref, or a null name, is validateNullItems' to report */ -}}
-  {{- if and (kindIs "map" $ref) (kindIs "string" $ref.name) -}}
+  {{- if include "global-chart.isNamedEntry" $ref -}}
   {{- $secret := index (default (dict) $root.Values.externalSecrets) $ref.name -}}
   {{- if not $secret -}}
     {{- if hasKey (default (dict) $root.Values.externalSecrets) $ref.name -}}
@@ -979,7 +1026,7 @@ Usage: {{ include "global-chart.externalSecretCreationPolicy" $secret }}
 */}}
 {{- define "global-chart.externalSecretCreationPolicy" -}}
 {{- $target := default (dict) .target -}}
-{{- ternary $target.creationPolicy "Owner" (hasKey $target "creationPolicy") -}}
+{{- ternary $target.creationPolicy "Owner" (eq (include "global-chart.isSet" (list $target "creationPolicy")) "true") -}}
 {{- end -}}
 
 {{/*
