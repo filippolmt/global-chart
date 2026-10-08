@@ -9,7 +9,9 @@ helper as errCtx. Two kinds of message keep another shape, each because it
 has no path to lead with: a helper's own invariant ("<helper>: …", a chart
 bug, not a values one), and a conflict between entries (name collisions, the
 fullname, ingress with httpRoute). A null read from values fails through
-rejectNull (_render-helpers.tpl), naming its key (issue #191).
+rejectNull (_render-helpers.tpl), naming its key (issue #191). The shape and
+its exceptions are mirrored by FAIL_SHAPE in tests/lint-templates.py, which
+checks every fail against them: change both.
 */}}
 
 {{/*

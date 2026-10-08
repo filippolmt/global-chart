@@ -67,7 +67,7 @@ spec:
       {{- else if and (not $redirects) (not $rule.backendRefs) }}
         {{- fail (printf "httpRoute.rules[%d].backendRefs: empty — provide at least one backendRef (deployment or service)." $ruleIdx) }}
       {{- end }}
-      {{- with $rule.backendRefs }}
+      {{- if $rule.backendRefs }}
       backendRefs:
         {{- range $brIdx, $br := $rule.backendRefs }}
         {{- $brCtx := printf "httpRoute.rules[%d].backendRefs[%d]" $ruleIdx $brIdx }}
