@@ -62,7 +62,7 @@ is the source of truth, this table is only the routing.
 | `_job-helpers.tpl` | The one pod spec of every hook and cronjob, both scopes: image resolution, CronJob and Job spec fields, `jobValuesPath` |
 | `_serviceaccount-helpers.tpl` | Every ServiceAccount rendered or bound (`resolveServiceAccount`, the job resolver) and the SA side of the hook copies (ADR 0010, 0011) |
 | `_hook-helpers.tpl` | The `helm.sh/hook*` annotations from the role table, the phase cut `hookReadsPrereqCopy`, the hook-copy consumer scans |
-| `_render-helpers.tpl` | `printScalar`, shared render blocks and data bodies, mounts (`containerVolumeMounts`), ports (`servicePrimaryPort`, `servicePorts`, `containerPorts`), backends (`resolveBackend`, `l4RouteKinds`) |
+| `_render-helpers.tpl` | `printScalar`, shared render blocks and data bodies, mounts (`containerVolumeMounts`), ports (`servicePrimaryPort`, `servicePorts`, `containerPorts`), backends and routes (`resolveBackend`, `httpRouteEntries`, `l4RouteKinds`) |
 | `_keda-helpers.tpl` | KEDA names, trigger and `authenticationRef` resolution |
 | `_validate-helpers.tpl` | Values paths (`deploymentValuesPath`), the `fail` message shape, cross-resource validators, `hpaActiveTargets`, `requireCrd` |
 
@@ -222,9 +222,9 @@ is the source of truth, this table is only the routing.
     Kubernetes and simply has no endpoints, so the failure appears at request
     time, far from its cause. Three separate bugs came from `deployment.yaml` and
     `service.yaml` each deriving ports on their own (issue #82)
-14. **One HTTP routing layer, any number of L4 routes**: `ingress` and
-    `httpRoute` exclude each other; `tcpRoutes` / `udpRoutes` coexist with
-    either. The rules (protocol per consumer, `v1` only from Gateway API
+14. **One HTTP routing layer, any number of L4 routes**: `ingress` and the
+    HTTPRoutes (`httpRoute`, `httpRoutes`, listed by `httpRouteEntries`)
+    exclude each other; `tcpRoutes` / `udpRoutes` coexist with either. The rules (protocol per consumer, `v1` only from Gateway API
     v1.6.0) live in the headers of `l4routes.yaml` and `resolveBackend`
 
 ### Resource Naming Limits

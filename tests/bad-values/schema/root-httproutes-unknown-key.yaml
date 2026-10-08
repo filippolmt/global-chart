@@ -1,0 +1,15 @@
+# covers: httpRouteEntry
+# An unknown key in an httpRoutes entry (typo of hostnames, next to the real
+# one). Without the closure the misspelled list is dropped, and the route
+# answers every hostname of the listener.
+httpRoutes:
+  web:
+    hostname:
+      - other.example.com
+    hostnames:
+      - app.example.com
+    parentRefs:
+      - name: gw
+    rules:
+      - backendRefs:
+          - service: { name: web, port: 80 }

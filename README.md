@@ -13,7 +13,7 @@ The chart supports **multiple deployments** in a single release, each with indep
   Image can be a string (`nginx:1.25`) or a map (`repository/tag/digest`), held by the schema to the reference grammar the kubelet parses; `tag` is a string, so quote a numeric-looking one (`"1.20"`). Probes, resources, autoscaling (HPA), scheduling constraints, extra containers/init containers, pod recreation bumps, and ConfigMap/Secret `envFrom` are all configurable. `command`/`args` override the image entrypoint per deployment, so one image can back several workloads (web, worker, …); they are never inherited by the deployment's hooks/cronJobs.
 - **Networking**
   First-class Service configuration (with per-service annotations) plus optional Ingress with TLS, class annotations, and routes to specific deployments. DNS options and host aliases can be defined per-deployment.
-  HTTP reaches the deployments through one routing layer, Ingress or a Gateway API HTTPRoute (`httpRoute`), never both. Ports that are not HTTP go through TCPRoutes and UDPRoutes (`tcpRoutes`, `udpRoutes`), alongside either (see [Exposing a TCP or UDP port](#exposing-a-tcp-or-udp-port-through-a-gateway)). A `deployment:` backend picks a port of its Service by name with `portName`.
+  HTTP reaches the deployments through one routing layer, Ingress or Gateway API HTTPRoutes (`httpRoute` for one, `httpRoutes` for one per entry), never both. Ports that are not HTTP go through TCPRoutes and UDPRoutes (`tcpRoutes`, `udpRoutes`), alongside either (see [Exposing a TCP or UDP port](#exposing-a-tcp-or-udp-port-through-a-gateway)). A `deployment:` backend picks a port of its Service by name with `portName`.
 - **Configuration distribution**
   Inline ConfigMap/Secret data, mounted config files (single file) or bundles (projected lists of files), and volume templates (configMap/secret/emptyDir/PVC or native K8s spec) are supported.
 - **Lifecycle and batch**
@@ -299,6 +299,31 @@ one that adds the entry.
 
 See [ADR 0010](docs/adr/0010-hook-prerequisite-rbac-copy.md).
 
+## Several HTTPRoutes in one release
+
+A rule of an HTTPRoute cannot match on hostname, so two hostnames that must
+reach different deployments, or attach to different Gateways, need two routes.
+`httpRoutes` is a map: one HTTPRoute per entry, named `<fullname>-<key>`, with
+the fields of `httpRoute` minus `enabled` (an entry present is a route
+rendered). `httpRoute` stays the shorthand for one route and coexists with the
+map; together they are the HTTP routing layer, so neither goes with `ingress`.
+
+```yaml
+httpRoute:
+  enabled: true
+  parentRefs: [{ name: shared-gateway, namespace: envoy-gateway-system }]
+  hostnames: [app.example.com]
+  rules:
+    - backendRefs: [{ deployment: nginx }]
+
+httpRoutes:
+  traccar-web:
+    parentRefs: [{ name: shared-gateway, namespace: envoy-gateway-system }]
+    hostnames: [traccar.example.com]
+    rules:
+      - backendRefs: [{ deployment: traccar }]
+```
+
 ## Exposing a TCP or UDP port through a Gateway
 
 `tcpRoutes` and `udpRoutes` are maps: one TCPRoute (or UDPRoute) per entry,
@@ -464,6 +489,7 @@ The `tests/` directory is the list — `TEST_CASES` in the `Makefile` is what
 | `httproute-basic.yaml`           | Gateway API HTTPRoute, plain backend                                                      |
 | `httproute-canary.yaml`          | HTTPRoute with weighted backends                                                          |
 | `httproute-filters.yaml`         | HTTPRoute rule filters                                                                    |
+| `httproutes.yaml`                | `httpRoutes` entries next to `httpRoute`, a redirect-only route                           |
 | `l4routes.yaml`                  | TCPRoute and UDPRoute to named extra ports, alongside an HTTPRoute                        |
 | `keda.yaml`                      | KEDA ScaledObject and TriggerAuthentication                                               |
 | `rbac.yaml`                      | RBAC with roles and service accounts                                                      |

@@ -1,0 +1,9 @@
+# An httpRoutes entry with an empty rules list. The schema requires one rule;
+# under --skip-schema-validation the template fails rather than render a route
+# that forwards nothing.
+# Expected fail substring: "httpRoutes.web.rules: empty. Provide"
+httpRoutes:
+  web:
+    parentRefs:
+      - name: gw
+    rules: []

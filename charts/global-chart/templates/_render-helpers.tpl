@@ -401,6 +401,30 @@ rules:
 {{- end }}
 
 {{/*
+The HTTPRoutes the release renders (issues #195, #196), as a JSON list of
+{ctx, name, route, whenEnabled}: the single httpRoute when enabled, named
+{fullname}, then one per httpRoutes entry, named by gatewayRouteName. ctx is
+the values path of the route, and whenEnabled the clause the single one's
+required-field messages carry. The single home of that list, read by
+httproute.yaml, validateNameCollisions, validateRoutingConflict and NOTES.txt:
+together they are the HTTP routing layer.
+Usage: {{- range (include "global-chart.httpRouteEntries" . | fromJsonArray) }}
+Routes come back through JSON, so their numbers are float64: see the file
+header.
+*/}}
+{{- define "global-chart.httpRouteEntries" -}}
+{{- $entries := list -}}
+{{- $single := default (dict) .Values.httpRoute -}}
+{{- if $single.enabled -}}
+  {{- $entries = append $entries (dict "ctx" "httpRoute" "name" (include "global-chart.fullname" .) "route" $single "whenEnabled" " while httpRoute.enabled is true") -}}
+{{- end -}}
+{{- range $key, $route := (default (dict) .Values.httpRoutes) -}}
+  {{- $entries = append $entries (dict "ctx" (printf "httpRoutes.%s" $key) "name" (include "global-chart.gatewayRouteName" (dict "root" $ "key" $key)) "route" (default (dict) $route) "whenEnabled" "") -}}
+{{- end -}}
+{{- $entries | toJson -}}
+{{- end }}
+
+{{/*
 The L4 route kinds (issue #194), as a JSON list of {kind, field, protocol}: the
 values map each kind is declared in, and the protocol its backends must carry.
 The single home of that enumeration, read by l4routes.yaml, the collision
@@ -483,7 +507,7 @@ Numbers come back float64: see the file header.
 {{- /* Priority 2: Deployment reference */ -}}
 {{- else if $ref.deployment -}}
   {{- $depName := $ref.deployment -}}
-  {{- $deploy := index $root.Values.deployments $depName -}}
+  {{- $deploy := index (default (dict) $root.Values.deployments) $depName -}}
   {{- if not $deploy -}}
     {{- if hasKey (default (dict) $root.Values.deployments) $depName -}}
       {{- fail (printf "%s.deployment: references deployment '%s', which is empty: an empty deployments entry renders nothing. Fill the entry, or drop the reference." $path $depName) -}}

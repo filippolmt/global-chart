@@ -175,3 +175,23 @@ tests:
           pattern: "TCPRoute myrel-global-chart-gps is bound to Gateway\\(s\\):\\n  - direct-gw \\(namespace: gateway-system\\) \\(listener: gps-5027\\)"
       - matchRegexRaw:
           pattern: "UDPRoute myrel-global-chart-dns is bound to Gateway\\(s\\):\\n  - dns-gw"
+
+  - it: should list each HTTPRoute, the single one and the httpRoutes entries (issue #195)
+    release:
+      name: myrel
+    set:
+      httpRoute:
+        enabled: true
+        parentRefs: [{ name: shared-gw }]
+        hostnames: [app.example.com]
+        rules: [{ backendRefs: [{ service: { name: x } }] }]
+      httpRoutes:
+        traccar:
+          parentRefs: [{ name: direct-gw, sectionName: https }]
+          hostnames: [traccar.example.com]
+          rules: [{ backendRefs: [{ service: { name: y } }] }]
+    asserts:
+      - matchRegexRaw:
+          pattern: "HTTPRoute myrel-global-chart \\(httpRoute\\)\\. Hostnames:\\n  - app\\.example\\.com"
+      - matchRegexRaw:
+          pattern: "HTTPRoute myrel-global-chart-traccar \\(httpRoutes\\.traccar\\)\\. Hostnames:\\n  - traccar\\.example\\.com\\n\\nBound to Gateway\\(s\\):\\n  - direct-gw \\(listener: https\\)"

@@ -38,7 +38,7 @@
 apiVersion: gateway.networking.k8s.io/v1
 kind: {{ $kind }}
 metadata:
-  name: {{ include "global-chart.l4RouteName" (dict "root" $root "key" $key) }}
+  name: {{ include "global-chart.gatewayRouteName" (dict "root" $root "key" $key) }}
   labels:
     {{- include "global-chart.labels" $root | nindent 4 }}
   {{- with (include "global-chart.renderAnnotations" (dict "root" $root "own" $route.annotations)) }}

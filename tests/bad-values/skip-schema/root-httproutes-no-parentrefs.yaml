@@ -1,0 +1,9 @@
+# An httpRoutes entry without parentRefs. The schema requires it; under
+# --skip-schema-validation the template fails rather than render a route that
+# attaches to no Gateway.
+# Expected fail substring: "httpRoutes.web.parentRefs: empty. Provide"
+httpRoutes:
+  web:
+    rules:
+      - backendRefs:
+          - service: { name: web, port: 80 }

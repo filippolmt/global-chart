@@ -433,6 +433,23 @@ httpRoute:
   #       - deployment: api-canary
   #         weight: 10
 
+# -- HTTPRoutes, one per entry, named `<fullname>-<key>` (issue #195): for a
+# release whose hostnames reach different deployments, or attach to different
+# Gateways. Each entry has the fields of `httpRoute` without `enabled`: an entry
+# present is a route rendered, so `parentRefs` and `rules` are required. They
+# coexist with `httpRoute`, the single-route shorthand: together they are the
+# HTTP routing layer, which excludes `ingress`.
+httpRoutes: {}
+  # Example:
+  # traccar-web:
+  #   parentRefs:
+  #     - name: shared-gateway
+  #       namespace: envoy-gateway-system
+  #   hostnames: [traccar.example.com]
+  #   rules:
+  #     - backendRefs:
+  #         - deployment: traccar
+
 # -- TCPRoutes (gateway.networking.k8s.io/v1, Gateway API v1.6.0 or later), one per entry, named
 # `<fullname>-<key>`: raw TCP ports on an existing Gateway listener, for the
 # protocols that are not HTTP. An entry present is a route rendered. They

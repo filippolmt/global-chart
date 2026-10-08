@@ -39,28 +39,31 @@ Ingress is enabled:
 {{- end }}
 {{- end }}
 
-{{- if and .Values.httpRoute .Values.httpRoute.enabled }}
+{{- range $entry := (include "global-chart.httpRouteEntries" $ | fromJsonArray) }}
 
-HTTPRoute is configured. Hostnames:
-{{- range .Values.httpRoute.hostnames }}
+HTTPRoute {{ $entry.name }} ({{ $entry.ctx }}). Hostnames:
+{{- range $entry.route.hostnames }}
   - {{ . }}
 {{- end }}
 
 Bound to Gateway(s):
-{{- range .Values.httpRoute.parentRefs }}
-  - {{ .name }}{{ if .namespace }} (namespace: {{ .namespace }}){{ end }}{{ if .sectionName }} (listener: {{ .sectionName }}){{ end }}
+{{- range $entry.route.parentRefs }}
+{{- $ref := default (dict) . }}
+  - {{ $ref.name }}{{ if $ref.namespace }} (namespace: {{ $ref.namespace }}){{ end }}{{ if $ref.sectionName }} (listener: {{ $ref.sectionName }}){{ end }}
 {{- end }}
+{{- end }}
+{{- if (include "global-chart.httpRouteEntries" $ | fromJsonArray) }}
 
-Reminder: Gateway API CRDs must be installed in the cluster.
-The chart does not create the Gateway resource — it must be managed externally.
+Reminder: the chart does not create the Gateway resource — it must be managed externally.
 {{- end }}
 
 {{- range $spec := (include "global-chart.l4RouteKinds" $ | fromJsonArray) }}
 {{- range $key, $route := (index $.Values $spec.field) }}
 
-{{ $spec.kind }} {{ include "global-chart.l4RouteName" (dict "root" $ "key" $key) }} is bound to Gateway(s):
+{{ $spec.kind }} {{ include "global-chart.gatewayRouteName" (dict "root" $ "key" $key) }} is bound to Gateway(s):
 {{- range $route.parentRefs }}
-  - {{ .name }}{{ if .namespace }} (namespace: {{ .namespace }}){{ end }}{{ if .sectionName }} (listener: {{ .sectionName }}){{ end }}
+{{- $ref := default (dict) . }}
+  - {{ $ref.name }}{{ if $ref.namespace }} (namespace: {{ $ref.namespace }}){{ end }}{{ if $ref.sectionName }} (listener: {{ $ref.sectionName }}){{ end }}
 {{- end }}
 {{- end }}
 {{- end }}

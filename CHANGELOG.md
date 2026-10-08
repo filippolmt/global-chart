@@ -21,6 +21,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   fails, per kind, unless the cluster serves that version. An offline render needs
   `--api-versions gateway.networking.k8s.io/v1/TCPRoute` (and/or `UDPRoute`).
   Keys are DNS-1123 labels; two keys that truncate onto one name fail.
+- **`httpRoutes`: one HTTPRoute per entry** (issue #195), named
+  `<fullname>-<key>`, for a release whose hostnames reach different
+  deployments or attach to different Gateways (a rule cannot match on
+  hostname, so the single `httpRoute` could not express it). An entry has the
+  fields of `httpRoute` without `enabled`: present is rendered, `parentRefs`
+  and `rules` required. `httpRoute` stays as the single-route shorthand and
+  coexists with the map; together they are the HTTP routing layer, so any
+  entry with `ingress.enabled` fails the render. A key that truncates onto
+  another route's name fails too.
 - **`portName` on a `deployment:` backend** (issue #194), in `ingress.hosts[]`,
   `httpRoute` backendRefs and the L4 routes: it picks a port of the deployment's
   Service by name, `service.portName` or a `service.extraPorts[].name`, instead

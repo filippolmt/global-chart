@@ -1,33 +1,36 @@
-{{- $rt := default (dict) .Values.httpRoute }}
-{{- if $rt.enabled }}
-{{- $root := . }}
-{{- $fullName := include "global-chart.fullname" $root }}
+{{- /* Every HTTPRoute of the release (issues #195, #196): the single httpRoute
+       and one per httpRoutes entry, listed by httpRouteEntries and rendered
+       by this one body, so the two forms cannot drift.
 
-{{- /* parentRefs and matches are verbatim Gateway API structures rendered straight
-       through toYaml, so the chart never re-implements — and drifts from — the
-       upstream schema. Field-level validation lives in values.schema.json; field
-       defaults (e.g. path type/value) are owned by the Gateway API CRD, not
-       duplicated here. Only backendRefs is rendered field-by-field, since that is
-       where the chart transforms input (deployment name -> Service via
-       resolveBackend). */ -}}
+       parentRefs and matches are verbatim Gateway API structures rendered
+       straight through toYaml, so the chart never re-implements — and drifts
+       from — the upstream schema. Field-level validation lives in
+       values.schema.json; field defaults (e.g. path type/value) are owned by
+       the Gateway API CRD, not duplicated here. Only backendRefs is rendered
+       field-by-field, since that is where the chart transforms input
+       (deployment name -> Service via resolveBackend).
 
-{{- /* HTTPRoute is served at gateway.networking.k8s.io/v1 since Gateway API
+       HTTPRoute is served at gateway.networking.k8s.io/v1 since Gateway API
        v1.0.0. Guarded like the L4 routes (issue #196): without the CRD the
        failure would be the API server's "no matches for kind" at apply. */ -}}
-{{- include "global-chart.requireCrd" (dict "root" $root "apiVersion" "gateway.networking.k8s.io/v1/HTTPRoute" "install" "Install the Gateway API CRDs at v1.0.0 or later, the first release serving HTTPRoute at v1" "errCtx" "httpRoute") }}
-
-{{- /* Validate required-when-enabled fields */ -}}
+{{- $root := . }}
+{{- range $entry := (include "global-chart.httpRouteEntries" $root | fromJsonArray) }}
+{{- $rt := $entry.route }}
+{{- $ctx := $entry.ctx }}
+{{- include "global-chart.requireCrd" (dict "root" $root "apiVersion" "gateway.networking.k8s.io/v1/HTTPRoute" "install" "Install the Gateway API CRDs at v1.0.0 or later, the first release serving HTTPRoute at v1" "errCtx" $ctx) }}
+{{- /* Required fields: the schema requires them on an httpRoutes entry, so
+       there these are fallback guards for --skip-schema-validation */ -}}
 {{- if not $rt.parentRefs }}
-  {{- fail "httpRoute.parentRefs: empty while httpRoute.enabled is true. Provide at least one parentRef pointing to an existing Gateway (the chart does not create Gateways)." }}
+  {{- fail (printf "%s.parentRefs: empty%s. Provide at least one parentRef pointing to an existing Gateway (the chart does not create Gateways)." $ctx $entry.whenEnabled) }}
 {{- end }}
 {{- if not $rt.rules }}
-  {{- fail "httpRoute.rules: empty while httpRoute.enabled is true. Provide at least one rule." }}
+  {{- fail (printf "%s.rules: empty%s. Provide at least one rule." $ctx $entry.whenEnabled) }}
 {{- end }}
-
+---
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: {{ $fullName }}
+  name: {{ $entry.name }}
   labels:
     {{- include "global-chart.labels" $root | nindent 4 }}
   {{- with (include "global-chart.renderAnnotations" (dict "root" $root "own" $rt.annotations)) }}
@@ -46,6 +49,7 @@ spec:
   rules:
     {{- range $ruleIdx, $rule := $rt.rules }}
     {{- $rule = default (dict) $rule }}
+    {{- $ruleCtx := printf "%s.rules[%d]" $ctx $ruleIdx }}
     {{- /* A RequestRedirect answers the request itself: Gateway API rejects it
            together with backendRefs (a CEL rule of the CRD, which kubeconform
            does not evaluate), so such a rule is the one that has none */ -}}
@@ -63,14 +67,15 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       {{- if and $redirects $rule.backendRefs }}
-        {{- fail (printf "httpRoute.rules[%d].backendRefs: set on a rule with a RequestRedirect filter, which the API server rejects: a redirect answers the request itself. Drop backendRefs from the rule." $ruleIdx) }}
+        {{- fail (printf "%s.backendRefs: set on a rule with a RequestRedirect filter, which the API server rejects: a redirect answers the request itself. Drop backendRefs from the rule." $ruleCtx) }}
       {{- else if and (not $redirects) (not $rule.backendRefs) }}
-        {{- fail (printf "httpRoute.rules[%d].backendRefs: empty — provide at least one backendRef (deployment or service)." $ruleIdx) }}
+        {{- fail (printf "%s.backendRefs: empty — provide at least one backendRef (deployment or service)." $ruleCtx) }}
       {{- end }}
       {{- with $rule.backendRefs }}
       backendRefs:
         {{- range $brIdx, $br := $rule.backendRefs }}
-        {{- $brCtx := printf "httpRoute.rules[%d].backendRefs[%d]" $ruleIdx $brIdx }}
+        {{- $br = default (dict) $br }}
+        {{- $brCtx := printf "%s.backendRefs[%d]" $ruleCtx $brIdx }}
         {{- $b := include "global-chart.resolveBackend" (dict "root" $root "ref" $br "errCtx" $brCtx "protocol" "TCP") | fromJson }}
         - name: {{ $b.name | quote }}
           port: {{ include "global-chart.printScalar" $b.port }}

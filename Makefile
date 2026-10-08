@@ -61,7 +61,7 @@ ESO_NAMESPACE := external-secrets
 GATEWAY_API_VERSION := v1.6.3
 # Every scenario that renders a Gateway API route, checked by e2e-routes.
 E2E_ROUTE_VALUES := tests/httproute-basic.yaml tests/httproute-canary.yaml \
-	tests/httproute-filters.yaml tests/l4routes.yaml
+	tests/httproute-filters.yaml tests/httproutes.yaml tests/l4routes.yaml
 # Argo CD core (no UI, no dex), for `make e2e-argocd`: the hook-prerequisite
 # copies under a real sync, where pre-install runs on every sync and a failed
 # operation marks every hook HookFailed (issues #149, #164).
@@ -104,6 +104,7 @@ TEST_CASES := \
 	tests/httproute-canary.yaml:httproute-canary:httproute-canary \
 	tests/httproute-filters.yaml:httproute-filters:httproute-filters \
 	tests/l4routes.yaml:l4routes:l4routes \
+	tests/httproutes.yaml:httproutes:httproutes \
 	tests/keda.yaml:keda:keda \
 	tests/common-annotations.yaml:common-annotations:common-annotations
 

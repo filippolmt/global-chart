@@ -25,7 +25,7 @@ deployments.{{ . }}
 Validate that all generated resource names are unique after truncation.
 Checks within each resource kind: Deployments, CronJobs, Jobs (hooks),
 ServiceAccounts, ConfigMaps, Secrets, ExternalSecrets, TriggerAuthentications,
-TCPRoutes and UDPRoutes,
+HTTPRoutes, TCPRoutes and UDPRoutes,
 Roles and RoleBindings, the hook-prerequisite copies included.
 A kind's accumulator holds every name of that kind whatever derived it, because
 collisions cross sources: $cmNames carries the deployment's own ConfigMap, its
@@ -223,15 +223,21 @@ Called from validate.yaml.
   {{- end -}}
 {{- end -}}
 
-{{- /* 5b. L4 routes (trunc 63, issue #194), one accumulator per kind: a
-       TCPRoute and a UDPRoute may share a name, two TCPRoutes may not, and
-       two keys sharing a long prefix truncate to one */ -}}
+{{- /* 5b. Gateway API routes (trunc 63, issues #194, #195), one accumulator
+       per kind: a TCPRoute and a UDPRoute may share a name, two TCPRoutes may
+       not, and two keys sharing a long prefix truncate to one. The HTTPRoutes:
+       the single httpRoute is the fullname itself, which an httpRoutes key can
+       truncate back onto */ -}}
+{{- $httpRouteNames := dict -}}
+{{- range (include "global-chart.httpRouteEntries" $root | fromJsonArray) -}}
+  {{- include "global-chart.registerName" (dict "names" $httpRouteNames "kind" "HTTPRoute" "name" .name "owner" .ctx) -}}
+{{- end -}}
 {{- range (include "global-chart.l4RouteKinds" $root | fromJsonArray) -}}
   {{- $routeNames := dict -}}
   {{- $kind := .kind -}}
   {{- $field := .field -}}
   {{- range $key, $_ := (index $root.Values $field) -}}
-    {{- include "global-chart.registerName" (dict "names" $routeNames "kind" $kind "name" (include "global-chart.l4RouteName" (dict "root" $root "key" $key)) "owner" (printf "%s.%s" $field $key)) -}}
+    {{- include "global-chart.registerName" (dict "names" $routeNames "kind" $kind "name" (include "global-chart.gatewayRouteName" (dict "root" $root "key" $key)) "owner" (printf "%s.%s" $field $key)) -}}
   {{- end -}}
 {{- end -}}
 
@@ -410,19 +416,23 @@ Usage: {{- include "global-chart.requireCrd" (dict "root" $root "apiVersion" "ke
 {{- end }}
 
 {{/*
-Validate that .Values.ingress and .Values.httpRoute are not both enabled.
-The chart supports one HTTP routing layer per release; both being enabled
-would render conflicting top-level routing resources. The L4 routes
-(tcpRoutes, udpRoutes) are not a routing layer and coexist with either.
+Validate that the Ingress and the HTTPRoutes are not both rendered.
+The chart supports one HTTP routing layer per release: the Ingress, or the
+HTTPRoutes (the single httpRoute and the httpRoutes entries alike, listed by
+httpRouteEntries — two forms of one layer, so they coexist). Both would answer
+the same hostnames from two places. The L4 routes (tcpRoutes, udpRoutes) are
+not a routing layer and coexist with either.
 Called from validate.yaml. Emits nothing on success.
 */}}
 {{- define "global-chart.validateRoutingConflict" -}}
 {{- $ing := default (dict) .Values.ingress -}}
-{{- $rt := default (dict) .Values.httpRoute -}}
-{{- $ingEnabled := default false $ing.enabled -}}
-{{- $rtEnabled := default false $rt.enabled -}}
-{{- if and $ingEnabled $rtEnabled -}}
-{{- fail "Both .Values.ingress.enabled and .Values.httpRoute.enabled are true. The chart supports only one HTTP routing layer per release. Disable one (set enabled: false) to proceed." -}}
+{{- if $ing.enabled -}}
+  {{- range (include "global-chart.httpRouteEntries" . | fromJsonArray) -}}
+    {{- if eq .ctx "httpRoute" -}}
+      {{- fail "Both .Values.ingress.enabled and .Values.httpRoute.enabled are true. The chart supports only one HTTP routing layer per release. Disable one (set enabled: false) to proceed." -}}
+    {{- end -}}
+    {{- fail (printf "Both .Values.ingress.enabled and .Values.%s are set. The chart supports only one HTTP routing layer per release, and every httpRoutes entry is part of it. Disable the ingress, or drop the httpRoutes entries." .ctx) -}}
+  {{- end -}}
 {{- end -}}
 {{- end }}
 
