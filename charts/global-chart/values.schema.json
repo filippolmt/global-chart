@@ -1309,7 +1309,7 @@
       "$ref": "#/$defs/ianaSvcName"
     },
     "l4Route": {
-      "description": "A TCPRoute or UDPRoute (Gateway API v1, experimental channel), named <fullname>-<key>. An entry present is a route rendered.",
+      "description": "A TCPRoute or UDPRoute (gateway.networking.k8s.io/v1, Gateway API v1.6.0 or later), named <fullname>-<key>. An entry present is a route rendered.",
       "type": "object",
       "additionalProperties": false,
       "required": ["parentRefs", "rules"],

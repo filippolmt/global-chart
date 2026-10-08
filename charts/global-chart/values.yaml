@@ -431,7 +431,7 @@ httpRoute:
   #       - deployment: api-canary
   #         weight: 10
 
-# -- TCPRoutes (Gateway API v1, experimental channel), one per entry, named
+# -- TCPRoutes (gateway.networking.k8s.io/v1, Gateway API v1.6.0 or later), one per entry, named
 # `<fullname>-<key>`: raw TCP ports on an existing Gateway listener, for the
 # protocols that are not HTTP. An entry present is a route rendered. They
 # coexist with `ingress` / `httpRoute`, and may attach to different Gateways.
@@ -455,7 +455,7 @@ tcpRoutes: {}
   #         - deployment: traccar
   #           portName: teltonika
 
-# -- UDPRoutes (Gateway API v1, experimental channel): the same shape as
+# -- UDPRoutes (gateway.networking.k8s.io/v1, Gateway API v1.6.0 or later): the same shape as
 # `tcpRoutes`, one per entry, named `<fullname>-<key>`. The port a backendRef
 # picks must be UDP. An offline render needs
 # `--api-versions gateway.networking.k8s.io/v1/UDPRoute`.

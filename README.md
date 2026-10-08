@@ -346,9 +346,10 @@ port whose protocol is not the one the route forwards: TCP for ingress,
 `httpRoute` and `tcpRoutes`, UDP for `udpRoutes`. Kubernetes would accept the
 route, and the traffic would never arrive.
 
-Only `gateway.networking.k8s.io/v1` is rendered. TCPRoute and UDPRoute are in
-the Gateway API **experimental** channel, so the render fails unless the cluster
-serves that version of each kind the release uses. Check with
+Only `gateway.networking.k8s.io/v1` is rendered. TCPRoute and UDPRoute reach it
+in **Gateway API v1.6.0**, in the standard and experimental channels alike; up to
+v1.5 they are `v1alpha2`, experimental only. The render fails unless the cluster
+serves `v1` for each kind the release uses. Check with
 `kubectl get crd tcproutes.gateway.networking.k8s.io -o jsonpath='{.spec.versions[*].name}'`.
 An offline render (`helm template`, a GitOps pre-render) needs
 `--api-versions gateway.networking.k8s.io/v1/TCPRoute` and/or

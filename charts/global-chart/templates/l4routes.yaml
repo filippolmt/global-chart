@@ -6,9 +6,11 @@
 
        An entry present is a route rendered: there is no enabled flag. They
        coexist with ingress and httpRoute, which serve HTTP; the L4 routes
-       serve other ports. Both kinds are Gateway API experimental channel, so
-       each is guarded by requireCrd at gateway.networking.k8s.io/v1, the
-       only version rendered.
+       serve other ports. Both kinds reach gateway.networking.k8s.io/v1 in
+       Gateway API v1.6.0, in the standard and experimental channels alike;
+       up to v1.5 they are v1alpha2, experimental only. So each is guarded by
+       requireCrd at v1, the only version rendered: a cluster on an older
+       release, or with the HTTPRoute CRD alone, fails here.
 
        parentRefs is a verbatim Gateway API structure, rendered through toYaml
        as in httproute.yaml. backendRefs is rendered field by field, since
@@ -25,7 +27,7 @@
 {{- range $key, $route := (index $root.Values $spec.field) }}
 {{- $route = default (dict) $route }}
 {{- $ctx := printf "%s.%s" $spec.field $key }}
-{{- include "global-chart.requireCrd" (dict "root" $root "apiVersion" (printf "gateway.networking.k8s.io/v1/%s" $kind) "install" (printf "Install the Gateway API experimental-channel CRDs that serve %s at v1" $kind) "errCtx" $ctx) }}
+{{- include "global-chart.requireCrd" (dict "root" $root "apiVersion" (printf "gateway.networking.k8s.io/v1/%s" $kind) "install" (printf "Install the Gateway API CRDs at v1.6.0 or later, the first release serving %s at v1" $kind) "errCtx" $ctx) }}
 {{- if not $route.parentRefs }}
   {{- fail (printf "%s.parentRefs: empty. Provide at least one parentRef pointing to an existing Gateway listener (the chart does not create Gateways)." $ctx) }}
 {{- end }}

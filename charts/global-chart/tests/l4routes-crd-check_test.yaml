@@ -12,7 +12,7 @@ tests:
           rules: [{ backendRefs: [{ service: { name: x } }] }]
     asserts:
       - failedTemplate:
-          errorMessage: "tcpRoutes.db: needs the CRD gateway.networking.k8s.io/v1/TCPRoute, which is not registered in the cluster. Install the Gateway API experimental-channel CRDs that serve TCPRoute at v1 before installing this release, or render offline with --api-versions gateway.networking.k8s.io/v1/TCPRoute."
+          errorMessage: "tcpRoutes.db: needs the CRD gateway.networking.k8s.io/v1/TCPRoute, which is not registered in the cluster. Install the Gateway API CRDs at v1.6.0 or later, the first release serving TCPRoute at v1 before installing this release, or render offline with --api-versions gateway.networking.k8s.io/v1/TCPRoute."
 
   - it: should check each kind on its own (TCPRoute served, UDPRoute not)
     capabilities:

@@ -16,8 +16,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   follows Gateway API: `parentRefs` verbatim, `rules[].backendRefs[]` with
   `deployment` (plus `portName`) or `service: {name, port}`, and an optional
   `weight` and rule `name`. Only `gateway.networking.k8s.io/v1` is rendered:
-  both kinds are in the Gateway API experimental channel, and the render fails,
-  per kind, unless the cluster serves that version. An offline render needs
+  both kinds reach it in Gateway API v1.6.0, standard and experimental channels
+  alike (up to v1.5 they are `v1alpha2`, experimental only), and the render
+  fails, per kind, unless the cluster serves that version. An offline render needs
   `--api-versions gateway.networking.k8s.io/v1/TCPRoute` (and/or `UDPRoute`).
   Keys are DNS-1123 labels; two keys that truncate onto one name fail.
 - **`portName` on a `deployment:` backend** (issue #194), in `ingress.hosts[]`,

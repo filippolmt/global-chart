@@ -397,7 +397,7 @@ Params:
   root       - the chart context
   apiVersion - what .Capabilities.APIVersions.Has is asked: "group/version", or
                "group/version/Kind" when one version serves kinds a cluster may
-               lack (the Gateway API experimental channel)
+               lack (TCPRoute and UDPRoute reach Gateway API v1 later than HTTPRoute)
   install    - the remedy, a sentence head ("Install KEDA")
   errCtx     - values path of the resource; leads the message
 Usage: {{- include "global-chart.requireCrd" (dict "root" $root "apiVersion" "keda.sh/v1alpha1" "install" "Install KEDA" "errCtx" "deployments.foo.keda") -}}
