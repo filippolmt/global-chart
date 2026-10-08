@@ -17,14 +17,11 @@ reports a template `fail` or `required` (`execution error at (…): <message>`)
 whose message does not itself carry a raw template error. Anything else is a
 finding: the template path and the error are printed.
 
-The baseline. The findings the chart had when the sweep arrived (issue #198)
-are listed, one `<scenario>: <path>` per line, in null-sweep-baseline.txt. A
-finding outside it fails, and so does a line it holds that no longer
-reproduces: the list is a ratchet, it only shrinks. Fix a null, delete its line.
-`--write-baseline` rewrites the file from the current findings; use it only to
-drop fixed lines, never to admit new ones.
+When it arrived the sweep found 166 such nulls (issue #198), all fixed; a
+finding now fails CI. The rule it holds is in CODING_STANDARDS.md (fallback
+guards and nulls).
 
-Usage: null-sweep.py [--write-baseline] <chart dir> <values file>... [-- <helm flags>...]
+Usage: null-sweep.py <chart dir> <values file>... [-- <helm flags>...]
 """
 import concurrent.futures
 import json
@@ -83,16 +80,11 @@ def verdict(out):
     return err.replace("Use --debug flag to render out invalid YAML", "").strip()[:240]
 
 
-BASELINE = pathlib.Path(__file__).resolve().parent / "null-sweep-baseline.txt"
-
-
 def main(argv):
-    write = "--write-baseline" in argv
-    argv = [a for a in argv if a != "--write-baseline"]
     flags = argv[argv.index("--") + 1:] if "--" in argv else []
     argv = argv[:argv.index("--")] if "--" in argv else argv
     chart, files = pathlib.Path(argv[0]), argv[1:]
-    findings = {}
+    findings = []
     with tempfile.TemporaryDirectory() as tmp:
         scratch = pathlib.Path(tmp) / "values-to-json"
         (scratch / "templates").mkdir(parents=True)
@@ -106,28 +98,13 @@ def main(argv):
             results = pool.map(lambda j: (j[0], j[1], verdict(render(chart, flags, j[2], tmp))), jobs)
             for f, p, v in results:
                 if v:
-                    findings[f"{f}: {'.'.join(map(str, p))}"] = v
-    if write:
-        BASELINE.write_text("# Nulls that end in a raw template error today (issue #198). A ratchet:\n"
-                            "# fix one, delete its line. Read by null-sweep.py, whose docstring has the rules.\n"
-                            + "".join(f"{k}\n" for k in sorted(findings)))
-        print(f"    wrote {len(findings)} findings to {BASELINE.name}")
-        return
-    known = {l for l in BASELINE.read_text().splitlines() if l and not l.startswith("#")} if BASELINE.exists() else set()
-    new = sorted(findings.keys() - known)
-    fixed = sorted(known - findings.keys())
-    if new:
+                    findings.append(f"{f}: {'.'.join(map(str, p))} = null → {v}")
+    if findings:
         print("    FAIL: a null under --skip-schema-validation does not fail naming its values path:")
-        for k in new:
-            print(f"          - {k} = null → {findings[k]}")
-    if fixed:
-        print(f"    FAIL: {BASELINE.name} lists nulls that now fail cleanly; delete their lines:")
-        for k in fixed:
-            print(f"          - {k}")
-    if new or fixed:
+        for line in sorted(findings):
+            print(f"          - {line}")
         sys.exit(1)
-    print(f"    OK: {len(jobs)} nulls across {len(files)} scenarios render or fail naming their path"
-          f" ({len(known)} known in {BASELINE.name})")
+    print(f"    OK: {len(jobs)} nulls across {len(files)} scenarios render or fail naming their path")
 
 
 if __name__ == "__main__":

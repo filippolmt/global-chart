@@ -62,9 +62,9 @@ is the source of truth, this table is only the routing.
 | `_job-helpers.tpl` | The one pod spec of every hook and cronjob, both scopes: image resolution, CronJob and Job spec fields, `jobValuesPath` |
 | `_serviceaccount-helpers.tpl` | Every ServiceAccount rendered or bound (`resolveServiceAccount`, the job resolver) and the SA side of the hook copies (ADR 0010, 0011) |
 | `_hook-helpers.tpl` | The `helm.sh/hook*` annotations from the role table, the phase cut `hookReadsPrereqCopy`, the hook-copy consumer scans |
-| `_render-helpers.tpl` | `printScalar`, shared render blocks and data bodies, mounts (`containerVolumeMounts`), ports (`servicePrimaryPort`, `servicePorts`, `containerPorts`), backends and routes (`resolveBackend`, `httpRouteEntries`, `l4RouteKinds`) |
+| `_render-helpers.tpl` | `printScalar`, `rejectNull` / `rejectNullItems`, shared render blocks and data bodies, mounts (`containerVolumeMounts`), ports (`servicePrimaryPort`, `servicePorts`, `containerPorts`), backends and routes (`resolveBackend`, `httpRouteEntries`, `l4RouteKinds`) |
 | `_keda-helpers.tpl` | KEDA names, trigger and `authenticationRef` resolution |
-| `_validate-helpers.tpl` | Values paths (`deploymentValuesPath`), the `fail` message shape, cross-resource validators, `hpaActiveTargets`, `requireCrd` |
+| `_validate-helpers.tpl` | Values paths (`deploymentValuesPath`), the `fail` message shape, cross-resource validators, `validateNullItems`, `hpaActiveTargets`, `requireCrd` |
 
 ### Key Design Patterns
 

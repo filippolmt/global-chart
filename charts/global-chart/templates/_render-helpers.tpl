@@ -85,6 +85,32 @@ Usage: {{- include "global-chart.rejectNull" (dict "value" $v "errCtx" "deployme
 {{- end }}
 
 {{/*
+Fail on a null item of a list read from values, naming its index (issue #198):
+`<errCtx>[<i>]: null`, and on a null in one of the item's required fields,
+`<errCtx>[<i>].<field>: null`, through rejectNull. A null item is a value
+nobody wrote — a YAML `-` with nothing after it — and the schema rejects it;
+under --skip-schema-validation this is what names it, before a template reads
+a field off it and dies on a nil pointer naming a template line. Renders
+nothing when every item is set.
+Usage: {{- include "global-chart.rejectNullItems" (dict "list" $hosts "errCtx" "ingress.hosts" "required" (list "host")) -}}
+*/}}
+{{- define "global-chart.rejectNullItems" -}}
+{{- $errCtx := .errCtx -}}
+{{- $required := default (list) .required -}}
+{{- range $i, $item := (default (list) .list) -}}
+  {{- $itemCtx := printf "%s[%d]" $errCtx $i -}}
+  {{- include "global-chart.rejectNull" (dict "value" $item "errCtx" $itemCtx) -}}
+  {{- if kindIs "map" $item -}}
+    {{- range $field := $required -}}
+      {{- if hasKey $item $field -}}
+        {{- include "global-chart.rejectNull" (dict "value" (index $item $field) "errCtx" (printf "%s.%s" $itemCtx $field)) -}}
+      {{- end -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+{{- end }}
+
+{{/*
 Render a single volume entry. Supports both:
 - Legacy format: { name, type, secret/configMap/persistentVolumeClaim/emptyDir }
 - Native format: { name, <any-k8s-volume-source> } (no .type field)
@@ -181,9 +207,10 @@ Returns empty string if list is nil/empty.
 {{- with . -}}
 imagePullSecrets:
   {{- range . }}
+    {{- /* A null item is validateNullItems' to report, with its path */}}
     {{- if kindIs "string" . }}
   - name: {{ . | quote }}
-    {{- else }}
+    {{- else if kindIs "map" . }}
   - name: {{ .name | quote }}
     {{- end }}
   {{- end }}
@@ -214,11 +241,13 @@ dnsConfig:
   {{- if $dnsConfig.options }}
   options:
     {{- range $dnsConfig.options }}
+    {{- if kindIs "map" . }}{{/* a null item is validateNullItems' to report */}}
     - name: {{ .name }}
       {{- /* Set means present and not null: 0 and "" are values */}}
       {{- if not (kindIs "invalid" .value) }}
       value: {{ include "global-chart.printScalar" .value | quote }}
       {{- end }}
+    {{- end }}
     {{- end }}
   {{- end }}
 {{- end }}
@@ -607,7 +636,7 @@ Numbers come back float64: see the file header.
 {{- $names := dict $portName true -}}
 {{- $numbers := dict (printf "%s/%s" (include "global-chart.printScalar" $containerPort) $protocol) true -}}
 {{- range (default (list) $svc.extraPorts) -}}
-  {{- if not (kindIs "string" .targetPort) -}}
+  {{- if and (kindIs "map" .) (not (kindIs "string" .targetPort)) -}}
     {{- $extraProtocol := include "global-chart.extraPortProtocol" . -}}
     {{- $key := printf "%s/%s" (include "global-chart.printScalar" .targetPort) $extraProtocol -}}
     {{- if and (not (hasKey $names .name)) (not (hasKey $numbers $key)) -}}
@@ -670,7 +699,9 @@ the file header.
 {{- $primary := include "global-chart.servicePrimaryPort" . | fromJson -}}
 {{- $ports := list (dict "name" $primary.name "port" $primary.port "protocol" $primary.protocol "index" -1) -}}
 {{- range $i, $port := (default (list) .service.extraPorts) -}}
+  {{- if kindIs "map" $port -}}{{/* a null item is validateNullItems' to report */}}
   {{- $ports = append $ports (dict "name" $port.name "port" $port.port "protocol" (include "global-chart.extraPortProtocol" $port) "index" $i) -}}
+  {{- end -}}
 {{- end -}}
 {{- $ports | toJson -}}
 {{- end }}
@@ -733,6 +764,8 @@ Params:
 {{- define "global-chart.renderExternalSecretSpec" -}}
 {{- $key := .key -}}
 {{- $secret := .secret -}}
+{{- include "global-chart.rejectNullItems" (dict "list" $secret.data "errCtx" (printf "externalSecrets.%s.data" $key)) -}}
+{{- include "global-chart.rejectNullItems" (dict "list" $secret.dataFrom "errCtx" (printf "externalSecrets.%s.dataFrom" $key)) -}}
 {{- $target := default (dict) $secret.target -}}
 {{- $hasData := hasKey $secret "data" -}}
 {{- $hasDataFrom := hasKey $secret "dataFrom" -}}
@@ -831,9 +864,11 @@ Params:
 {{- $root := .root -}}
 {{- $readsCopy := and (hasKey . "hook") .hook -}}
 {{- $taken := dict -}}
-{{- range (default (list) .volumes) -}}{{- $_ := set $taken (toString .name) true -}}{{- end -}}
+{{- range (default (list) .volumes) -}}{{- if kindIs "map" . -}}{{- $_ := set $taken (toString .name) true -}}{{- end -}}{{- end -}}
 {{- $out := dict "env" (list) "mounted" (list) "specs" (list) "targets" (list) -}}
 {{- range $ref := (default (list) .refs) -}}
+  {{- /* A null ref, or a null name, is validateNullItems' to report */ -}}
+  {{- if and (kindIs "map" $ref) (kindIs "string" $ref.name) -}}
   {{- $secret := index (default (dict) $root.Values.externalSecrets) $ref.name -}}
   {{- if not $secret -}}
     {{- if hasKey (default (dict) $root.Values.externalSecrets) $ref.name -}}
@@ -857,6 +892,7 @@ Params:
     {{- $_ := set $out "mounted" (append $out.mounted (dict "key" $ref.name "secretName" $secretName "volumeName" $volumeName "mountPath" $ref.mountPath)) -}}
   {{- else -}}
     {{- $_ := set $out "env" (append $out.env $secretName) -}}
+  {{- end -}}
   {{- end -}}
 {{- end -}}
 {{- toJson $out -}}

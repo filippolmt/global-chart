@@ -2,7 +2,9 @@
 {{- /* The hooks that run as each role's SA during a phase the normal resources
        are absent (ADR 0010); a role absent from it gets no copy */ -}}
 {{- $consumers := include "global-chart.rbacHookConsumers" $root | fromJson }}
-{{- range $role := $root.Values.rbacs.roles }}
+{{- $roles := (default (dict) $root.Values.rbacs).roles }}
+{{- include "global-chart.rejectNullItems" (dict "list" $roles "errCtx" "rbacs.roles" "required" (list "name")) }}
+{{- range $role := $roles }}
 {{- $resolved := include "global-chart.rbacServiceAccount" $role | fromJson }}
 {{- if $resolved.create }}
 apiVersion: v1

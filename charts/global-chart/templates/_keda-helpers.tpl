@@ -64,15 +64,21 @@ Usage: {{ include "global-chart.requireKedaCrd" (dict "root" . "errCtx" "deploym
 
 {{/*
 Build the ScaledObject trigger list with every authenticationRef resolved.
-Returns the triggers as YAML, ready to nindent under `triggers:`.
-Usage: {{ include "global-chart.kedaTriggers" (dict "root" . "triggers" $keda.triggers) }}
+Returns the triggers as YAML, ready to nindent under `triggers:`. A null
+trigger, or a null authenticationRef name, fails naming its path (issue #198).
+Usage: {{ include "global-chart.kedaTriggers" (dict "root" . "triggers" $keda.triggers "errCtx" "deployments.api.keda.triggers") }}
 */}}
 {{- define "global-chart.kedaTriggers" -}}
 {{- $root := .root -}}
+{{- $errCtx := required "kedaTriggers: errCtx is required (the values path of the triggers)" .errCtx -}}
+{{- include "global-chart.rejectNullItems" (dict "list" .triggers "errCtx" $errCtx) -}}
 {{- $resolved := list -}}
-{{- range $trigger := .triggers -}}
+{{- range $i, $trigger := .triggers -}}
   {{- $copy := deepCopy $trigger -}}
   {{- with $copy.authenticationRef -}}
+    {{- if hasKey . "name" -}}
+      {{- include "global-chart.rejectNull" (dict "value" .name "errCtx" (printf "%s[%d].authenticationRef.name" $errCtx $i)) -}}
+    {{- end -}}
     {{- $ref := deepCopy . -}}
     {{- $_ := set $ref "name" (include "global-chart.kedaAuthRefName" (dict "root" $root "name" .name "kind" .kind)) -}}
     {{- $_ := set $copy "authenticationRef" $ref -}}

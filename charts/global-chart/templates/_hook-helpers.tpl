@@ -191,7 +191,10 @@ Usage: {{ $consumers := include "global-chart.externalSecretHookConsumers" $root
 {{- range $id, $hook := $hooks -}}
   {{- $refs := include "global-chart.jobExternalSecretRefs" (dict "job" $hook.command "deploy" $hook.deploy) | fromJson -}}
   {{- range $ref := concat $refs.inherited $refs.own -}}
+    {{- /* A null ref, or a null name, is validateNullItems' to report */ -}}
+    {{- if and (kindIs "map" $ref) (kindIs "string" $ref.name) -}}
     {{- include "global-chart.addPrereqConsumer" (dict "out" $out "key" $ref.name "hookType" $hook.hookType "id" $id "command" $hook.command) -}}
+    {{- end -}}
   {{- end -}}
 {{- end -}}
 {{- toJson $out -}}

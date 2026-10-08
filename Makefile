@@ -155,7 +155,7 @@ lint-templates: ## Check the mechanical rules of CODING_STANDARDS.md on the temp
 	@echo "==> Checking template coding rules..."
 	@python3 tests/lint-templates.py ./$(CHART_DIR)/$(GLOBAL_CHART_NAME)
 
-null-sweep: ## Null every values node of every scenario in turn: each must render or fail naming its path (ratchet: tests/bad-values/null-sweep-baseline.txt)
+null-sweep: ## Null every values node of every scenario in turn: each must render or fail naming its path
 	@echo "==> Sweeping nulls under --skip-schema-validation..."
 	@python3 tests/bad-values/null-sweep.py ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) \
 		$(foreach e,$(TEST_CASES),$(firstword $(subst :, ,$(e)))) -- $(HELM_API_VERSIONS)

@@ -336,7 +336,7 @@ Resolution order:
 {{- else if .deployName -}}
   {{- $image = dict "image" (index .root.Values.deployments .deployName).image "from" (include "global-chart.deploymentValuesPath" .deployName) -}}
 {{- else if $job.fromDeployment -}}
-  {{- $dep := index .root.Values.deployments $job.fromDeployment -}}
+  {{- $dep := index (default (dict) .root.Values.deployments) $job.fromDeployment -}}
   {{- if not $dep -}}
     {{- if hasKey (default (dict) .root.Values.deployments) $job.fromDeployment -}}
       {{- fail (printf "%s.fromDeployment: references deployment '%s', which is empty: an empty deployments entry renders nothing. Fill the entry, or drop the reference." $errCtx $job.fromDeployment) -}}

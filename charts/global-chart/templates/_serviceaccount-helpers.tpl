@@ -43,9 +43,11 @@ An explicit, non-empty sa.name wins over both.
 */}}
 {{- define "global-chart.resolveServiceAccount" -}}
 {{- $sa := default (dict) .sa -}}
-{{- $create := hasKey $sa "create" | ternary $sa.create true -}}
+{{- /* A null create or automount is unset, as Helm itself reads a null in
+       values: the default applies (issue #198) */ -}}
+{{- $create := and (hasKey $sa "create") (not (kindIs "invalid" $sa.create)) | ternary $sa.create true -}}
 {{- $name := default (ternary .defaultName (default "" .nameIfBound) $create) $sa.name -}}
-{{- dict "create" $create "name" $name "automount" (hasKey $sa "automount" | ternary $sa.automount true) "annotations" $sa.annotations | toJson -}}
+{{- dict "create" $create "name" $name "automount" (and (hasKey $sa "automount") (not (kindIs "invalid" $sa.automount)) | ternary $sa.automount true) "annotations" $sa.annotations | toJson -}}
 {{- end }}
 
 {{/*

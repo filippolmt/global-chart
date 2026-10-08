@@ -1,6 +1,11 @@
-{{- if .Values.ingress.enabled }}
+{{- $ing := default (dict) .Values.ingress }}
+{{- if $ing.enabled }}
 {{- $root := . }}
-{{- $ing := $root.Values.ingress }}
+{{- include "global-chart.rejectNullItems" (dict "list" $ing.tls "errCtx" "ingress.tls") }}
+{{- include "global-chart.rejectNullItems" (dict "list" $ing.hosts "errCtx" "ingress.hosts") }}
+{{- range $hostIdx, $hostEntry := $ing.hosts }}
+{{- include "global-chart.rejectNullItems" (dict "list" $hostEntry.paths "errCtx" (printf "ingress.hosts[%d].paths" $hostIdx)) }}
+{{- end }}
 {{- $fullName := include "global-chart.fullname" $root }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress

@@ -22,6 +22,66 @@ deployments.{{ . }}
 {{- end }}
 
 {{/*
+Validate that no list of a deployment or a job carries a null item, nor a null
+in an item's required field (issue #198): the single home of that check for
+the lists the pod-spec helpers read — imagePullSecrets, volumes,
+volumeMounts, externalSecrets, dnsConfig.options, and a deployment's
+service.extraPorts and mountedConfigFiles — in every scope, and for
+global.imagePullSecrets. Those helpers skip a null item instead of reading a
+field off it, so this is the one error a null reaches, whatever order Helm
+renders the templates in. Runs first in validate.yaml, before the validators
+that read the same lists. A root-level list a template reads itself (ingress,
+rbacs.roles, externalSecrets data, keda triggers) is checked by that template,
+which has the path at hand.
+Called from validate.yaml. Emits nothing on success.
+*/}}
+{{- define "global-chart.validateNullItems" -}}
+{{- $root := . -}}
+{{- include "global-chart.rejectNullItems" (dict "list" (default (dict) .Values.global).imagePullSecrets "errCtx" "global.imagePullSecrets") -}}
+{{- $owners := list -}}
+{{- range $name, $deploy := (default (dict) .Values.deployments) -}}
+  {{- if kindIs "map" $deploy -}}
+    {{- $path := include "global-chart.deploymentValuesPath" $name -}}
+    {{- $owners = append $owners (dict "path" $path "spec" $deploy) -}}
+    {{- $svc := default (dict) $deploy.service -}}
+    {{- include "global-chart.rejectNullItems" (dict "list" $svc.extraPorts "errCtx" (printf "%s.service.extraPorts" $path) "required" (list "name" "port" "targetPort")) -}}
+    {{- $mcf := default (dict) $deploy.mountedConfigFiles -}}
+    {{- include "global-chart.rejectNullItems" (dict "list" $mcf.files "errCtx" (printf "%s.mountedConfigFiles.files" $path) "required" (list "name")) -}}
+    {{- include "global-chart.rejectNullItems" (dict "list" $mcf.bundles "errCtx" (printf "%s.mountedConfigFiles.bundles" $path) "required" (list "name")) -}}
+    {{- range $bi, $b := (default (list) $mcf.bundles) -}}
+      {{- include "global-chart.rejectNullItems" (dict "list" (default (dict) $b).files "errCtx" (printf "%s.mountedConfigFiles.bundles[%d].files" $path $bi) "required" (list "name")) -}}
+    {{- end -}}
+    {{- range $jobName, $job := (default (dict) $deploy.cronJobs) -}}
+      {{- $owners = append $owners (dict "path" (include "global-chart.jobValuesPath" (dict "kind" "cronjob" "deploymentName" $name "jobName" $jobName)) "spec" $job) -}}
+    {{- end -}}
+    {{- range $hookType, $jobs := (default (dict) $deploy.hooks) -}}
+      {{- range $jobName, $job := (default (dict) $jobs) -}}
+        {{- $owners = append $owners (dict "path" (include "global-chart.jobValuesPath" (dict "kind" "hook" "deploymentName" $name "hookType" $hookType "jobName" $jobName)) "spec" $job) -}}
+      {{- end -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+{{- range $jobName, $job := (default (dict) .Values.cronJobs) -}}
+  {{- $owners = append $owners (dict "path" (include "global-chart.jobValuesPath" (dict "kind" "cronjob" "jobName" $jobName)) "spec" $job) -}}
+{{- end -}}
+{{- range $hookType, $jobs := (default (dict) .Values.hooks) -}}
+  {{- range $jobName, $job := (default (dict) $jobs) -}}
+    {{- $owners = append $owners (dict "path" (include "global-chart.jobValuesPath" (dict "kind" "hook" "hookType" $hookType "jobName" $jobName)) "spec" $job) -}}
+  {{- end -}}
+{{- end -}}
+{{- range $owner := $owners -}}
+  {{- if kindIs "map" $owner.spec -}}
+    {{- $spec := $owner.spec -}}
+    {{- include "global-chart.rejectNullItems" (dict "list" $spec.imagePullSecrets "errCtx" (printf "%s.imagePullSecrets" $owner.path)) -}}
+    {{- include "global-chart.rejectNullItems" (dict "list" $spec.volumes "errCtx" (printf "%s.volumes" $owner.path) "required" (list "name")) -}}
+    {{- include "global-chart.rejectNullItems" (dict "list" $spec.volumeMounts "errCtx" (printf "%s.volumeMounts" $owner.path) "required" (list "name" "mountPath")) -}}
+    {{- include "global-chart.rejectNullItems" (dict "list" $spec.externalSecrets "errCtx" (printf "%s.externalSecrets" $owner.path) "required" (list "name")) -}}
+    {{- include "global-chart.rejectNullItems" (dict "list" (default (dict) $spec.dnsConfig).options "errCtx" (printf "%s.dnsConfig.options" $owner.path) "required" (list "name")) -}}
+  {{- end -}}
+{{- end -}}
+{{- end }}
+
+{{/*
 Validate that all generated resource names are unique after truncation.
 Checks within each resource kind: Deployments, CronJobs, Jobs (hooks),
 ServiceAccounts, ConfigMaps, Secrets, ExternalSecrets, TriggerAuthentications,
@@ -122,14 +182,19 @@ Called from validate.yaml.
            truncating to the same $depFullname. */ -}}
     {{- $mcf := default (dict) $deploy.mountedConfigFiles -}}
     {{- $mcHint := ". Give one of the two entries a different 'name'." -}}
+    {{- /* A null file or bundle, or a null name, is validateNullItems' to report */ -}}
     {{- range $i, $f := (default (list) $mcf.files) -}}
+      {{- if and (kindIs "map" $f) (kindIs "string" $f.name) -}}
       {{- $owner := printf "%s.mountedConfigFiles.files[%d] ('%s')" (include "global-chart.deploymentValuesPath" $name) $i $f.name -}}
       {{- include "global-chart.registerName" (dict "names" $cmNames "kind" "ConfigMap" "name" (include "global-chart.mountedConfigMapName" (dict "deploymentFullname" $depFullname "fileName" $f.name)) "owner" $owner "hint" $mcHint) -}}
+      {{- end -}}
     {{- end -}}
     {{- range $bi, $b := (default (list) $mcf.bundles) -}}
-      {{- range $fi, $f := (default (list) $b.files) -}}
+      {{- range $fi, $f := (default (list) (default (dict) $b).files) -}}
+        {{- if and (kindIs "map" $f) (kindIs "string" $f.name) -}}
         {{- $owner := printf "%s.mountedConfigFiles.bundles[%d].files[%d] ('%s')" (include "global-chart.deploymentValuesPath" $name) $bi $fi $f.name -}}
         {{- include "global-chart.registerName" (dict "names" $cmNames "kind" "ConfigMap" "name" (include "global-chart.mountedConfigMapName" (dict "deploymentFullname" $depFullname "fileName" $f.name)) "owner" $owner "hint" $mcHint) -}}
+        {{- end -}}
       {{- end -}}
     {{- end -}}
 
@@ -247,6 +312,7 @@ Called from validate.yaml.
        chart-created one. */ -}}
 {{- $roleNames := dict -}}
 {{- $bindingNames := dict -}}
+{{- include "global-chart.rejectNullItems" (dict "list" (default (dict) .Values.rbacs).roles "errCtx" "rbacs.roles" "required" (list "name")) -}}
 {{- range $i, $role := (default (dict) .Values.rbacs).roles -}}
   {{- $owner := printf "rbacs.roles[%d] ('%s')" $i $role.name -}}
   {{- include "global-chart.registerName" (dict "names" $roleNames "kind" "Role" "name" $role.name "owner" $owner) -}}
@@ -597,7 +663,8 @@ Params:
 {{- define "global-chart.validateMountPaths" -}}
 {{- $seen := dict -}}
 {{- range .mounts -}}
-  {{- $path := .mount.mountPath | default "" | toString -}}
+  {{- /* A null mount is validateNullItems' to report */ -}}
+  {{- $path := (default (dict) .mount).mountPath | default "" | toString -}}
   {{- if $path -}}
     {{- if hasKey $seen $path -}}
       {{- fail (printf "%s: %s mounts on '%s', which %s already mounts. The API server rejects two mounts on one path in a container: give each its own mountPath." $.errCtx .owner $path (get $seen $path)) -}}

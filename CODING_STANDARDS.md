@@ -124,7 +124,14 @@ rejects a value and a template `fail` repeats it, the `fail` is what a user on
 fixture, and a list the template ranges over takes `default (dict)` on its
 entries, so a `null` entry fails naming its path rather than a template line.
 `make null-sweep` covers the scenarios; a values node no scenario reaches is
-not swept, so a new map or list gets a scenario that sets it.
+not swept, so a new map or list gets a scenario that sets it. What a null
+means is fixed (issue #198): a null map, or a null on a key the chart defaults
+(`create`, `automount`), is unset — Helm itself reads a null so — and the
+default applies; a null list item, or a null in an item's required field,
+fails as `<path>[i]: null` through `rejectNullItems`. The lists of a
+deployment or a job are checked once, by `validateNullItems`, and the helpers
+that read them skip a null item; a root-level list is checked by the
+template that reads it, which has its path at hand.
 
 **A rule the API server enforces is checked against the API server.** A CEL
 rule of a CRD (Gateway API's `RequestRedirect` without `backendRefs`) is
