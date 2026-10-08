@@ -363,12 +363,17 @@ Usage: {{ include "global-chart.externalSecretVolumeName" (dict "key" $key) }}
 {{/*
 Name of a Gateway API route declared in a map (a tcpRoutes, udpRoutes or
 httpRoutes entry, issues #194, #195): {fullname}-{key}, the idiom of the other
-root-level named resources. The single httpRoute is named {fullname} itself. Truncated
+root-level named resources. Without a key, the single httpRoute's name: the
+fullname itself. Truncated
 at 63 like most names of the chart, so two keys can truncate onto one name:
 validateNameCollisions checks it, per kind. The truncation constant lives here
 only.
 Usage: {{ include "global-chart.gatewayRouteName" (dict "root" . "key" $key) }}
 */}}
 {{- define "global-chart.gatewayRouteName" -}}
+{{- if .key -}}
 {{- include "global-chart.truncName" (list (printf "%s-%s" (include "global-chart.fullname" .root) .key) 63) -}}
+{{- else -}}
+{{- include "global-chart.fullname" .root -}}
+{{- end -}}
 {{- end -}}

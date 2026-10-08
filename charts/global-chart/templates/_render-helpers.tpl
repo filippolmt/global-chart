@@ -430,11 +430,25 @@ rules:
 {{- end }}
 
 {{/*
+The parentRefs of a route as NOTES.txt lists them, one "  - <name> (namespace:
+…) (listener: …)" line each, every line led by a newline. Shared by the HTTP
+and the L4 routes, so the two lists read alike. A null item is skipped: the
+route template reports it.
+Usage: {{- include "global-chart.parentRefNotes" $route.parentRefs }}
+*/}}
+{{- define "global-chart.parentRefNotes" -}}
+{{- range . }}
+{{- $ref := default (dict) . }}
+  - {{ $ref.name }}{{ if $ref.namespace }} (namespace: {{ $ref.namespace }}){{ end }}{{ if $ref.sectionName }} (listener: {{ $ref.sectionName }}){{ end }}
+{{- end }}
+{{- end }}
+
+{{/*
 The HTTPRoutes the release renders (issues #195, #196), as a JSON list of
-{ctx, name, route, whenEnabled}: the single httpRoute when enabled, named
-{fullname}, then one per httpRoutes entry, named by gatewayRouteName. ctx is
-the values path of the route, and whenEnabled the clause the single one's
-required-field messages carry. The single home of that list, read by
+{errCtx, name, route, single}: the single httpRoute when enabled, then one per
+httpRoutes entry, both named by gatewayRouteName. errCtx is the values path of
+the route, single tells the shorthand from a map entry. The single home of
+that list, read by
 httproute.yaml, validateNameCollisions, validateRoutingConflict and NOTES.txt:
 together they are the HTTP routing layer.
 Usage: {{- range (include "global-chart.httpRouteEntries" . | fromJsonArray) }}
@@ -445,10 +459,10 @@ header.
 {{- $entries := list -}}
 {{- $single := default (dict) .Values.httpRoute -}}
 {{- if $single.enabled -}}
-  {{- $entries = append $entries (dict "ctx" "httpRoute" "name" (include "global-chart.fullname" .) "route" $single "whenEnabled" " while httpRoute.enabled is true") -}}
+  {{- $entries = append $entries (dict "errCtx" "httpRoute" "name" (include "global-chart.gatewayRouteName" (dict "root" .)) "route" $single "single" true) -}}
 {{- end -}}
 {{- range $key, $route := (default (dict) .Values.httpRoutes) -}}
-  {{- $entries = append $entries (dict "ctx" (printf "httpRoutes.%s" $key) "name" (include "global-chart.gatewayRouteName" (dict "root" $ "key" $key)) "route" (default (dict) $route) "whenEnabled" "") -}}
+  {{- $entries = append $entries (dict "errCtx" (printf "httpRoutes.%s" $key) "name" (include "global-chart.gatewayRouteName" (dict "root" $ "key" $key)) "route" (default (dict) $route) "single" false) -}}
 {{- end -}}
 {{- $entries | toJson -}}
 {{- end }}

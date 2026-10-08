@@ -9,7 +9,9 @@ helper as errCtx. Two kinds of message keep another shape, each because it
 has no path to lead with: a helper's own invariant ("<helper>: …", a chart
 bug, not a values one), and a conflict between entries (name collisions, the
 fullname, ingress with httpRoute). A null read from values fails through
-rejectNull (_render-helpers.tpl), naming its key (issue #191).
+rejectNull (_render-helpers.tpl), naming its key (issue #191). The shape and
+its exceptions are mirrored by FAIL_SHAPE in tests/lint-templates.py, which
+checks every fail against them: change both.
 */}}
 
 {{/*
@@ -295,7 +297,7 @@ Called from validate.yaml.
        truncate back onto */ -}}
 {{- $httpRouteNames := dict -}}
 {{- range (include "global-chart.httpRouteEntries" $root | fromJsonArray) -}}
-  {{- include "global-chart.registerName" (dict "names" $httpRouteNames "kind" "HTTPRoute" "name" .name "owner" .ctx) -}}
+  {{- include "global-chart.registerName" (dict "names" $httpRouteNames "kind" "HTTPRoute" "name" .name "owner" .errCtx) -}}
 {{- end -}}
 {{- range (include "global-chart.l4RouteKinds" $root | fromJsonArray) -}}
   {{- $routeNames := dict -}}
@@ -458,7 +460,8 @@ Called from validate.yaml. Emits nothing on success.
 {{/*
 Fail unless a CRD the release renders is registered in the target cluster: the
 single home of the capability check every opt-in custom resource goes through
-(KEDA, the Gateway API L4 routes). Without it the failure surfaces at apply as
+(KEDA through requireKedaCrd, the Gateway API routes through
+requireGatewayApiCrd). Without it the failure surfaces at apply as
 the API server's "no matches for kind", which names neither the values key nor
 the remedy.
 .Capabilities.APIVersions carries the cluster's CRDs only during
@@ -469,7 +472,8 @@ Params:
   root       - the chart context
   apiVersion - what .Capabilities.APIVersions.Has is asked: "group/version", or
                "group/version/Kind" when one version serves kinds a cluster may
-               lack (TCPRoute and UDPRoute reach Gateway API v1 later than HTTPRoute)
+               lack (TCPRoute and UDPRoute reach Gateway API v1 later than
+               HTTPRoute)
   install    - the remedy, a sentence head ("Install KEDA")
   errCtx     - values path of the resource; leads the message
 Usage: {{- include "global-chart.requireCrd" (dict "root" $root "apiVersion" "keda.sh/v1alpha1" "install" "Install KEDA" "errCtx" "deployments.foo.keda") -}}
@@ -479,6 +483,23 @@ Usage: {{- include "global-chart.requireCrd" (dict "root" $root "apiVersion" "ke
 {{- if not (.root.Capabilities.APIVersions.Has $apiVersion) -}}
 {{- fail (printf "%s: needs the CRD %s, which is not registered in the cluster. %s before installing this release, or render offline with --api-versions %s." (required "requireCrd: errCtx is required (the values path of the resource)" .errCtx) $apiVersion (required "requireCrd: install is required" .install) $apiVersion) -}}
 {{- end -}}
+{{- end }}
+
+{{/*
+requireCrd for a Gateway API route kind (issues #194, #196): the single home of
+the group and version the chart renders (gateway.networking.k8s.io/v1, checked
+per kind) and of the first Gateway API release serving each kind there, read
+from the release manifests: HTTPRoute v1.0.0, TCPRoute and UDPRoute v1.6.0
+(up to v1.5 they are v1alpha2, experimental only). A new kind is a row here.
+Usage: {{- include "global-chart.requireGatewayApiCrd" (dict "root" $root "kind" "TCPRoute" "errCtx" "tcpRoutes.gps") -}}
+*/}}
+{{- define "global-chart.requireGatewayApiCrd" -}}
+{{- $since := dict "HTTPRoute" "v1.0.0" "TCPRoute" "v1.6.0" "UDPRoute" "v1.6.0" -}}
+{{- $kind := required "requireGatewayApiCrd: kind is required" .kind -}}
+{{- if not (hasKey $since $kind) -}}
+  {{- fail (printf "requireGatewayApiCrd: no release is known for kind %q; add its row" $kind) -}}
+{{- end -}}
+{{- include "global-chart.requireCrd" (dict "root" .root "apiVersion" (printf "gateway.networking.k8s.io/v1/%s" $kind) "install" (printf "Install the Gateway API CRDs, release %s or later (the first to serve %s at v1)," (index $since $kind) $kind) "errCtx" .errCtx) -}}
 {{- end }}
 
 {{/*
@@ -493,11 +514,12 @@ Called from validate.yaml. Emits nothing on success.
 {{- define "global-chart.validateRoutingConflict" -}}
 {{- $ing := default (dict) .Values.ingress -}}
 {{- if $ing.enabled -}}
-  {{- range (include "global-chart.httpRouteEntries" . | fromJsonArray) -}}
-    {{- if eq .ctx "httpRoute" -}}
+  {{- with (include "global-chart.httpRouteEntries" . | fromJsonArray) -}}
+    {{- $first := first . -}}
+    {{- if $first.single -}}
       {{- fail "Both .Values.ingress.enabled and .Values.httpRoute.enabled are true. The chart supports only one HTTP routing layer per release. Disable one (set enabled: false) to proceed." -}}
     {{- end -}}
-    {{- fail (printf "Both .Values.ingress.enabled and .Values.%s are set. The chart supports only one HTTP routing layer per release, and every httpRoutes entry is part of it. Disable the ingress, or drop the httpRoutes entries." .ctx) -}}
+    {{- fail (printf "Both .Values.ingress.enabled and .Values.%s are set. The chart supports only one HTTP routing layer per release, and every httpRoutes entry is part of it. Disable the ingress, or drop the httpRoutes entries." $first.errCtx) -}}
   {{- end -}}
 {{- end -}}
 {{- end }}

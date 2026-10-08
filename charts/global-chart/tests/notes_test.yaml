@@ -195,3 +195,15 @@ tests:
           pattern: "HTTPRoute myrel-global-chart \\(httpRoute\\)\\. Hostnames:\\n  - app\\.example\\.com"
       - matchRegexRaw:
           pattern: "HTTPRoute myrel-global-chart-traccar \\(httpRoutes\\.traccar\\)\\. Hostnames:\\n  - traccar\\.example\\.com\\n\\nBound to Gateway\\(s\\):\\n  - direct-gw \\(listener: https\\)"
+
+  - it: should not print a Hostnames header for an HTTPRoute without hostnames
+    set:
+      httpRoutes:
+        api:
+          parentRefs: [{ name: gw }]
+          rules: [{ backendRefs: [{ service: { name: x } }] }]
+    asserts:
+      - notMatchRegexRaw:
+          pattern: "Hostnames:"
+      - matchRegexRaw:
+          pattern: "\\(httpRoutes\\.api\\)\\.\\n\\nBound to Gateway\\(s\\):\\n  - gw"
