@@ -68,7 +68,7 @@ is the source of truth, this table is only the routing.
 | `_hook-helpers.tpl` | The `helm.sh/hook*` annotations from the role table, the phase cut `hookReadsPrereqCopy`, the hook-copy consumer scans |
 | `_render-helpers.tpl` | `printScalar`, render blocks, data bodies, `containerVolumeMounts`, ports (`servicePrimaryPort`, `servicePorts`, `containerPorts`), `resolveBackend`, `l4RouteKinds` |
 | `_keda-helpers.tpl` | KEDA names, trigger and `authenticationRef` resolution |
-| `_validate-helpers.tpl` | Values paths (`deploymentValuesPath`), the `fail` message shape, cross-resource validators, `hpaActiveTargets`, `requireCrd` |
+| `_validate-helpers.tpl` | Values paths (`deploymentValuesPath`), the `fail` message shape, cross-resource validators, `hpaActiveTargets`, `requireCrd` / `requireGatewayApiCrd` |
 
 ### Key Design Patterns
 
@@ -230,9 +230,10 @@ is the source of truth, this table is only the routing.
     `httpRoute` exclude each other; `tcpRoutes` / `udpRoutes` coexist with
     either. The rules (protocol per consumer, `v1` only from Gateway API
     v1.6.0) live in the headers of `l4routes.yaml` and `resolveBackend`. As
-    with KEDA, an offline render needs
-    `--api-versions gateway.networking.k8s.io/v1/TCPRoute` / `UDPRoute`
-    (`HELM_API_VERSIONS`; `capabilities.apiVersions` in the suites)
+    with KEDA, every route kind is guarded by its CRD
+    (`requireGatewayApiCrd`), so an offline render needs
+    `--api-versions gateway.networking.k8s.io/v1/<Kind>` for HTTPRoute, TCPRoute
+    and UDPRoute (`HELM_API_VERSIONS`; `capabilities.apiVersions` in the suites)
 
 ### Resource Naming Limits
 

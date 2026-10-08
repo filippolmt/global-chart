@@ -72,7 +72,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Migration guide from 3.2.0
 
-- Releases without `tcpRoutes` / `udpRoutes` render the same manifests.
+- Releases without `tcpRoutes` / `udpRoutes` render the same manifests. An
+  offline render with `httpRoute` enabled needs one flag more (below).
 - An ingress host or `httpRoute` backendRef whose deployment's primary port is
   UDP (or SCTP) now fails the render. It could not carry HTTP before either:
   point it at a TCP port with `portName`.

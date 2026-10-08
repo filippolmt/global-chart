@@ -11,10 +11,8 @@
        where the chart transforms input (deployment name -> Service via
        resolveBackend). */ -}}
 
-{{- /* HTTPRoute is served at gateway.networking.k8s.io/v1 since Gateway API
-       v1.0.0. Guarded like the L4 routes (issue #196): without the CRD the
-       failure would be the API server's "no matches for kind" at apply. */ -}}
-{{- include "global-chart.requireCrd" (dict "root" $root "apiVersion" "gateway.networking.k8s.io/v1/HTTPRoute" "install" "Install the Gateway API CRDs at v1.0.0 or later, the first release serving HTTPRoute at v1" "errCtx" "httpRoute") }}
+{{- /* Guarded like the L4 routes (issue #196); see requireGatewayApiCrd */ -}}
+{{- include "global-chart.requireGatewayApiCrd" (dict "root" $root "kind" "HTTPRoute" "errCtx" "httpRoute") }}
 
 {{- /* Validate required-when-enabled fields */ -}}
 {{- if not $rt.parentRefs }}

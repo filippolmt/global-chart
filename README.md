@@ -349,8 +349,8 @@ route, and the traffic would never arrive.
 `httpRoute` is guarded the same way: the render fails unless the cluster serves
 `gateway.networking.k8s.io/v1` HTTPRoute (Gateway API v1.0.0 or later), and an
 offline render needs `--api-versions gateway.networking.k8s.io/v1/HTTPRoute`.
-Argo CD passes the destination cluster's API versions, kinds included, so a
-GitOps render needs nothing.
+Argo CD passes the destination cluster's API versions, kinds included, so an
+Argo CD Application needs nothing; a pre-render in CI does need the flag.
 
 Only `gateway.networking.k8s.io/v1` is rendered. TCPRoute and UDPRoute reach it
 in **Gateway API v1.6.0**, in the standard and experimental channels alike; up to
