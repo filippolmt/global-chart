@@ -117,7 +117,7 @@ is the source of truth, this table is only the routing.
      its `envFromConfigMaps`. Fixed by an `equal` on the whole list in
      `deployment_test.yaml` and `cronjob_test.yaml`; `contains` passes whatever
      the order, which is how the two ends drifted unobserved. See *Sorgente
-     d'ambiente* in `CONTEXT.md`
+     d'ambiente* in `GLOSSARY.md`
    - **Asymmetry**: root-level `.Values.cronJobs` and `.Values.hooks` inherit
      nothing — they are standalone. Reference deployment ConfigMaps/Secrets
      explicitly via `envFromConfigMaps` / `envFromSecrets` (or `fromDeployment`
@@ -200,7 +200,7 @@ is the source of truth, this table is only the routing.
     lands in accepts — a new such map needs one too, with its own fixture. A
     list field that identifies its entry and becomes a name is held to the same
     rule, by a `$ref` on the field: `rbacs.roles[].name` (ADR 0008). See
-    *Chiave nominante* in `CONTEXT.md`
+    *Chiave nominante* in `GLOSSARY.md`
 11. **Autoscaling is either/or**: `deployments.<name>.autoscaling` (a
     chart-rendered HPA) and `deployments.<name>.keda` (a ScaledObject) are
     mutually exclusive per deployment — KEDA owns its own *derived HPA*. Either
@@ -264,13 +264,17 @@ before writing a template or helper. The mechanical rules are checked by
 
 ## Agent skills
 
-`CONTEXT.md` (glossario di dominio), `docs/agents/` e `docs/adr/` sono
-tracciati. Restano fuori dal pacchetto del chart, che contiene solo
-`charts/global-chart/`.
+`GLOSSARY.md`, `docs/agents/` and `docs/adr/` are tracked. They stay out of the
+chart package, which contains only `charts/global-chart/`.
 
-- **Issue tracker** — issues e PRD su GitHub Issues (`filippolmt/global-chart`),
-  via `gh` CLI. See `docs/agents/issue-tracker.md`
-- **Triage labels** — cinque ruoli canonici, label = nome del ruolo (default).
-  See `docs/agents/triage-labels.md`
-- **Domain docs** — single-context: `CONTEXT.md` + `docs/adr/` alla root. See
-  `docs/agents/domain.md`
+### Issue tracker
+
+GitHub Issues on `filippolmt/global-chart`, via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The five canonical roles, each label equal to its role name. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: `GLOSSARY.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.

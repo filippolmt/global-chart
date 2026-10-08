@@ -7,7 +7,7 @@ status: accepted
 The chart serves about ten internal applications, deployed both by Argo CD and
 by GitLab pipelines that run `helm`. Today their values are written by the
 maintainer. The goal is that developers edit them with the help of an LLM: a
-*values author* (see `CONTEXT.md`) who does not know the chart's internal rules
+*values author* (see `GLOSSARY.md`) who does not know the chart's internal rules
 and learns them only from what the chart rejects and what it describes. That
 reader decides the chart's scope.
 

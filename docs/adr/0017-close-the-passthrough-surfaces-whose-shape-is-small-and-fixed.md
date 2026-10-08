@@ -6,7 +6,7 @@ status: accepted
 
 ADR 0006 closed the chart's own definitions. It left one question open: how much
 of a Kubernetes or operator shape to admit on a *passthrough surface* (see
-`CONTEXT.md`), a values node the chart hands to a manifest verbatim. Issue #180
+`GLOSSARY.md`), a values node the chart hands to a manifest verbatim. Issue #180
 asks it for four such surfaces: `networkPolicy.ingress` / `egress`, `probe`,
 `volumes` and `externalSecrets.<name>.dataFrom[].sourceRef`.
 

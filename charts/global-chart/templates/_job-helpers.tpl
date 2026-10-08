@@ -138,7 +138,7 @@ containers:
   {{- $hasDeploySecret := and $inheritSec $deploy.secret (gt (len $deploy.secret) 0) -}}
   {{- /* externalSecrets: inherited when the job does not set its own (hasKey), and
          split by form — an entry with a mountPath is a volume, any other one an
-         envFrom source. Each group keeps its level: proximity, see CONTEXT.md */ -}}
+         envFrom source. Each group keeps its level: proximity, see GLOSSARY.md */ -}}
   {{- $esRefs := include "global-chart.jobExternalSecretRefs" (dict "job" $job "deploy" $deploy) | fromJson -}}
   {{- $esReadsCopy := and (eq .kind "hook") (eq (include "global-chart.hookReadsPrereqCopy" .hookType) "true") -}}
   {{- /* Only one of the two lists is ever non-empty (a job's own replaces the

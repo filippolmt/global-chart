@@ -7,7 +7,7 @@ backup
 *opsx*
 .bin
 
-# Working notes: kept on the developer's machine. CONTEXT.md, docs/agents/ and
+# Working notes: kept on the developer's machine. GLOSSARY.md, docs/agents/ and
 # docs/adr/ are tracked (ADR 0019 relies on the glossary).
 docs/plans/
 docs/superpowers/
