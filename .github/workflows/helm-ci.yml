@@ -35,6 +35,9 @@ jobs:
       - name: Check template coding rules
         run: make lint-templates
 
+      - name: Check documentation pointers
+        run: make lint-docs
+
       - name: Run unit tests
         run: make unit-test
 

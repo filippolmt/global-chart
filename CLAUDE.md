@@ -9,9 +9,10 @@ rules below.
 
 ```bash
 make all                    # check + generate + kubeconform + kube-linter
-make check                  # the fast loop: lint-chart, lint-templates, unit-test, bad-values, null-sweep
+make check                  # the fast loop: lint-chart, lint-templates, lint-docs, unit-test, bad-values, null-sweep
 make lint-chart             # lint every scenario in TEST_CASES
 make lint-templates         # the mechanical rules of CODING_STANDARDS.md
+make lint-docs              # every file a document or a comment points at exists
 make unit-test              # helm-unittest suites via Docker
 make null-sweep             # null every values node of every scenario: each must render or fail naming its path
 make generate-docs          # regenerate the helm-docs README
@@ -47,17 +48,9 @@ passes, so a `fail` is proven by `tests/bad-values/` and the suites.
 - `charts/global-chart/values.schema.json` — JSON Schema
 - `charts/global-chart/tests/` — helm-unittest suites, one `*_test.yaml` per
   template
-- `tests/` — lint scenario values + `bad-values/` for rejection tests, in three
-  classes: `schema/` (rejected by `values.schema.json`), `fail/` (rejected by a
-  template `fail`) and `skip-schema/` (rejected by the schema, *and* by a
-  template `fail` under `--skip-schema-validation`: a guard the schema shadows,
-  the only protection left on the escape hatch ADR 0017 recommends). The
-  directory *is* the declaration and `validate-bad-values` asserts it, so a
-  schema hole covered by a `fail` cannot pass as coverage. Every `fail/` and
-  `skip-schema/` fixture carries one or more `# Expected fail substring: "…"`
-  lines, and each must appear in the error: a fixture rejected by the wrong
-  `fail` does not pass. helm-unittest cannot skip the schema, so a shadowed
-  guard is tested in `skip-schema/`, never in a suite
+- `tests/` — lint scenario values + `bad-values/` for rejection tests. Before
+  adding a fixture, read *Schema validation* in the README's *Testing & CI*:
+  the subdirectory declares which mechanism must reject it
 
 ### Helper Files
 

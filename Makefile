@@ -115,7 +115,7 @@ TEST_CASES := \
 .DEFAULT_GOAL := help
 
 # All phony targets
-.PHONY: help all check lint-chart lint-templates unit-test null-sweep validate-bad-values generate-templates \
+.PHONY: help all check lint-chart lint-templates lint-docs unit-test null-sweep validate-bad-values generate-templates \
 	kubeconform kube-linter-manifests kube-linter generate-docs package \
 	install install-test01 render clean clean-all \
 	kind-install kind-cluster kind-keda kind-eso kind-gateway-api kind-argocd kind-delete e2e e2e-routes e2e-argocd check-helm-floor
@@ -141,9 +141,9 @@ help: ## Show this help message
 # Main targets
 # ============================================================================
 
-all: lint-chart lint-templates unit-test validate-bad-values null-sweep generate-templates kubeconform kube-linter ## Lint, template rules, unit tests, bad-values, null sweep, then generate, validate and lint the manifests
+all: lint-chart lint-templates lint-docs unit-test validate-bad-values null-sweep generate-templates kubeconform kube-linter ## Lint, template rules, doc pointers, unit tests, bad-values, null sweep, then generate, validate and lint the manifests
 
-check: lint-chart lint-templates unit-test validate-bad-values null-sweep ## The development loop: lint, template rules, unit tests, bad-values, null sweep (no manifest validation)
+check: lint-chart lint-templates lint-docs unit-test validate-bad-values null-sweep ## The development loop: lint, template rules, doc pointers, unit tests, bad-values, null sweep (no manifest validation)
 
 lint-chart: ## Lint chart with all test values files
 	@echo "==> Linting chart with all test cases..."
@@ -157,6 +157,10 @@ lint-chart: ## Lint chart with all test values files
 lint-templates: ## Check the mechanical rules of CODING_STANDARDS.md on the templates
 	@echo "==> Checking template coding rules..."
 	@python3 tests/lint-templates.py ./$(CHART_DIR)/$(GLOBAL_CHART_NAME)
+
+lint-docs: ## Check that every file a document or a comment points at exists
+	@echo "==> Checking documentation pointers..."
+	@python3 tests/lint-docs.py
 
 null-sweep: ## Null every values node of every scenario in turn: each must render or fail naming its path
 	@echo "==> Sweeping nulls under --skip-schema-validation..."
