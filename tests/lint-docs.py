@@ -99,6 +99,8 @@ def main():
     code = set()
     for g in CODE_GLOBS:
         code.update(p for p in ROOT.glob(g) if p.is_file() and str(p.relative_to(ROOT)) in files)
+    # This script names the forbidden shape in order to describe it.
+    code.discard(pathlib.Path(__file__).resolve())
     for path in sorted(code):
         rel = path.relative_to(ROOT)
         for n, line in enumerate(path.read_text(errors="replace").splitlines(), 1):
