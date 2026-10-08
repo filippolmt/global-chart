@@ -1,0 +1,52 @@
+# httpRoutes lint scenario (issue #195): two hostnames of one release reaching
+# different deployments, on two Gateways, next to the single httpRoute.
+deployments:
+  nginx:
+    image: nginx:1.25
+    service:
+      port: 8080
+  traccar:
+    image: traccar/traccar:6.6
+    service:
+      port: 8082
+
+httpRoute:
+  enabled: true
+  parentRefs:
+    - name: shared-gateway
+      namespace: envoy-gateway-system
+  hostnames:
+    - app.example.com
+  rules:
+    - backendRefs:
+        - deployment: nginx
+
+httpRoutes:
+  traccar-web:
+    annotations:
+      example.com/owner: fleet
+    parentRefs:
+      - name: shared-gateway
+        namespace: envoy-gateway-system
+        sectionName: https
+    hostnames:
+      - traccar.example.com
+    rules:
+      - matches:
+          - path:
+              type: PathPrefix
+              value: /
+        backendRefs:
+          - deployment: traccar
+  legacy-redirect:
+    parentRefs:
+      - name: direct-gateway
+        namespace: envoy-gateway-system
+    hostnames:
+      - old.example.com
+    rules:
+      - filters:
+          - type: RequestRedirect
+            requestRedirect:
+              hostname: app.example.com
+              statusCode: 301

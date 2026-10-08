@@ -1,0 +1,10 @@
+# The key becomes the TCPRoute name `<fullname>-<key>`, which the chart composes
+# as a DNS-1123 label (issue #194). `Gps_Trackers` renders and passes
+# `helm lint`, then the API server rejects it.
+tcpRoutes:
+  Gps_Trackers:
+    parentRefs:
+      - name: gw
+    rules:
+      - backendRefs:
+          - service: { name: db, port: 5432 }

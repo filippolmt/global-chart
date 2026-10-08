@@ -1,8 +1,9 @@
 {{- $root := . }}
 {{- $firstSvc := "" }}
 {{- $firstPort := 0 }}{{/* placeholder: overwritten with servicePrimaryPort below, and nothing renders unless it is */}}
-{{- range $name := keys .Values.deployments | sortAlpha }}
-{{- $deploy := index $.Values.deployments $name }}
+{{- $deployments := default (dict) .Values.deployments }}
+{{- range $name := keys $deployments | sortAlpha }}
+{{- $deploy := index $deployments $name }}
 {{- if and $deploy (not $firstSvc) }}
 {{- if eq (include "global-chart.deploymentEnabled" $deploy) "true" }}
 {{- $svc := default (dict) $deploy.service }}

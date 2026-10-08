@@ -1,0 +1,77 @@
+{{- /* L4 routes (issue #194): one TCPRoute per tcpRoutes entry, one UDPRoute per
+       udpRoutes entry. The two kinds share one shape and differ only in kind
+       and in the protocol their backends must carry, so they share this
+       template: two copies would drift, the way deployment.yaml and
+       service.yaml did over ports (issue #82).
+
+       An entry present is a route rendered: there is no enabled flag. They
+       coexist with ingress and httpRoute, which serve HTTP; the L4 routes
+       serve other ports. Both kinds reach gateway.networking.k8s.io/v1 in
+       Gateway API v1.6.0, in the standard and experimental channels alike;
+       up to v1.5 they are v1alpha2, experimental only. So each is guarded by
+       requireCrd at v1, the only version rendered: a cluster on an older
+       release, or with the HTTPRoute CRD alone, fails here.
+
+       parentRefs is a verbatim Gateway API structure, rendered through toYaml
+       as in httproute.yaml. backendRefs is rendered field by field, since
+       that is where the chart transforms input (deployment + portName ->
+       Service name and port, via resolveBackend).
+
+       The required-field fails below repeat what the schema rejects
+       (required, minItems): they are fallback guards for
+       --skip-schema-validation, where a route without parentRefs would
+       attach to nothing in silence. Tested in tests/bad-values/skip-schema/. */ -}}
+{{- $root := . }}
+{{- range $spec := (include "global-chart.l4RouteKinds" $root | fromJsonArray) }}
+{{- $kind := $spec.kind }}
+{{- range $key, $route := (index $root.Values $spec.field) }}
+{{- /* A null entry is unset, like a null deployments entry: no route */ -}}
+{{- if not (kindIs "invalid" $route) }}
+{{- $route = default (dict) $route }}
+{{- $ctx := printf "%s.%s" $spec.field $key }}
+{{- include "global-chart.requireGatewayApiCrd" (dict "root" $root "kind" $kind "errCtx" $ctx) }}
+{{- if not $route.parentRefs }}
+  {{- fail (printf "%s.parentRefs: empty. Provide at least one parentRef pointing to an existing Gateway listener (the chart does not create Gateways)." $ctx) }}
+{{- end }}
+{{- if not $route.rules }}
+  {{- fail (printf "%s.rules: empty. Provide at least one rule." $ctx) }}
+{{- end }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: {{ $kind }}
+metadata:
+  name: {{ include "global-chart.gatewayRouteName" (dict "root" $root "key" $key) }}
+  labels:
+    {{- include "global-chart.labels" $root | nindent 4 }}
+  {{- with (include "global-chart.renderAnnotations" (dict "root" $root "own" $route.annotations)) }}
+  annotations:
+    {{- . | nindent 4 }}
+  {{- end }}
+spec:
+  parentRefs:
+    {{- toYaml $route.parentRefs | nindent 4 }}
+  rules:
+    {{- range $ruleIdx, $rule := $route.rules }}
+    {{- $rule = default (dict) $rule }}
+    {{- $ruleCtx := printf "%s.rules[%d]" $ctx $ruleIdx }}
+    {{- if not $rule.backendRefs }}
+      {{- fail (printf "%s.backendRefs: empty. Provide at least one backendRef (deployment or service)." $ruleCtx) }}
+    {{- end }}
+    -
+      {{- with $rule.name }}
+      name: {{ . | quote }}
+      {{- end }}
+      backendRefs:
+        {{- range $brIdx, $br := $rule.backendRefs }}
+        {{- $brCtx := printf "%s.backendRefs[%d]" $ruleCtx $brIdx }}
+        {{- $b := include "global-chart.resolveBackend" (dict "root" $root "ref" $br "errCtx" $brCtx "protocol" $spec.protocol) | fromJson }}
+        - name: {{ $b.name | quote }}
+          port: {{ include "global-chart.printScalar" $b.port }}
+          {{- if hasKey $br "weight" }}
+          weight: {{ include "global-chart.printScalar" (dict "value" $br.weight "errCtx" (printf "%s.weight" $brCtx)) }}
+          {{- end }}
+        {{- end }}
+    {{- end }}
+{{- end }}
+{{- end }}
+{{- end }}

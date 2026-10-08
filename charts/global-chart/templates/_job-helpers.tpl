@@ -70,13 +70,13 @@ docs/adr/0014-job-pod-automount-follows-the-inheritance-chain.md).
 {{ . }}
 {{- end }}
 {{- /* HostAliases: explicit > inherited from deployment */ -}}
-{{- $hostAliases := ternary $job.hostAliases $deploy.hostAliases (hasKey $job "hostAliases") -}}
+{{- $hostAliases := ternary $job.hostAliases $deploy.hostAliases (eq (include "global-chart.isSet" (list $job "hostAliases")) "true") -}}
 {{- with $hostAliases }}
 hostAliases:
   {{- toYaml . | nindent 2 }}
 {{- end }}
 {{- /* PodSecurityContext: explicit > inherited from deployment */ -}}
-{{- $podSecCtx := ternary $job.podSecurityContext $deploy.podSecurityContext (hasKey $job "podSecurityContext") -}}
+{{- $podSecCtx := ternary $job.podSecurityContext $deploy.podSecurityContext (eq (include "global-chart.isSet" (list $job "podSecurityContext")) "true") -}}
 {{- with $podSecCtx }}
 securityContext:
   {{- toYaml . | nindent 2 }}
@@ -117,7 +117,7 @@ containers:
     {{- toYaml $job.args | nindent 4 }}
   {{- end }}
   {{- /* Container securityContext: explicit > inherited from deployment */ -}}
-  {{- $secCtx := ternary $job.securityContext $deploy.securityContext (hasKey $job "securityContext") -}}
+  {{- $secCtx := ternary $job.securityContext $deploy.securityContext (eq (include "global-chart.isSet" (list $job "securityContext")) "true") -}}
   {{- with $secCtx }}
   securityContext:
     {{- toYaml . | nindent 4 }}
@@ -128,10 +128,10 @@ containers:
          Secret/ConfigMap, inheritDeploymentEnvFromSecrets/-ConfigMaps for the
          deployment's envFromSecrets/envFromConfigMaps (issue #159). The job's
          own lists add to what it inherits, they never replace it */ -}}
-  {{- $inheritCM := ternary $job.inheritDeploymentConfigMap true (hasKey $job "inheritDeploymentConfigMap") -}}
-  {{- $inheritSec := ternary $job.inheritDeploymentSecret true (hasKey $job "inheritDeploymentSecret") -}}
-  {{- $inheritEnvFromCMs := ternary $job.inheritDeploymentEnvFromConfigMaps true (hasKey $job "inheritDeploymentEnvFromConfigMaps") -}}
-  {{- $inheritEnvFromSecrets := ternary $job.inheritDeploymentEnvFromSecrets true (hasKey $job "inheritDeploymentEnvFromSecrets") -}}
+  {{- $inheritCM := ternary $job.inheritDeploymentConfigMap true (eq (include "global-chart.isSet" (list $job "inheritDeploymentConfigMap")) "true") -}}
+  {{- $inheritSec := ternary $job.inheritDeploymentSecret true (eq (include "global-chart.isSet" (list $job "inheritDeploymentSecret")) "true") -}}
+  {{- $inheritEnvFromCMs := ternary $job.inheritDeploymentEnvFromConfigMaps true (eq (include "global-chart.isSet" (list $job "inheritDeploymentEnvFromConfigMaps")) "true") -}}
+  {{- $inheritEnvFromSecrets := ternary $job.inheritDeploymentEnvFromSecrets true (eq (include "global-chart.isSet" (list $job "inheritDeploymentEnvFromSecrets")) "true") -}}
   {{- $deployEnvFromCMs := ternary $deploy.envFromConfigMaps list $inheritEnvFromCMs -}}
   {{- $deployEnvFromSecrets := ternary $deploy.envFromSecrets list $inheritEnvFromSecrets -}}
   {{- $hasDeployConfigMap := and $inheritCM $deploy.configMap (gt (len $deploy.configMap) 0) -}}
@@ -234,29 +234,29 @@ automountServiceAccountToken: {{ $job.automountServiceAccountToken }}
 automountServiceAccountToken: {{ $deploy.automountServiceAccountToken }}
 {{- end }}
 {{- /* NodeSelector: explicit > inherited from deployment */ -}}
-{{- $nodeSelector := ternary $job.nodeSelector $deploy.nodeSelector (hasKey $job "nodeSelector") -}}
+{{- $nodeSelector := ternary $job.nodeSelector $deploy.nodeSelector (eq (include "global-chart.isSet" (list $job "nodeSelector")) "true") -}}
 {{- with $nodeSelector }}
 nodeSelector:
   {{- toYaml . | nindent 2 }}
 {{- end }}
 {{- /* Affinity: explicit > inherited from deployment */ -}}
-{{- $affinity := ternary $job.affinity $deploy.affinity (hasKey $job "affinity") -}}
+{{- $affinity := ternary $job.affinity $deploy.affinity (eq (include "global-chart.isSet" (list $job "affinity")) "true") -}}
 {{- with $affinity }}
 affinity:
   {{- toYaml . | nindent 2 }}
 {{- end }}
 {{- /* Tolerations: explicit > inherited from deployment */ -}}
-{{- $tolerations := ternary $job.tolerations $deploy.tolerations (hasKey $job "tolerations") -}}
+{{- $tolerations := ternary $job.tolerations $deploy.tolerations (eq (include "global-chart.isSet" (list $job "tolerations")) "true") -}}
 {{- with $tolerations }}
 tolerations:
   {{- toYaml . | nindent 2 }}
 {{- end }}
 {{- /* PriorityClassName: explicit > inherited from deployment; "" stops it */ -}}
-{{- $priorityClassName := ternary $job.priorityClassName $deploy.priorityClassName (hasKey $job "priorityClassName") -}}
+{{- $priorityClassName := ternary $job.priorityClassName $deploy.priorityClassName (eq (include "global-chart.isSet" (list $job "priorityClassName")) "true") -}}
 {{- with $priorityClassName }}
 priorityClassName: {{ . | quote }}
 {{- end }}
-restartPolicy: {{ default "Never" (ternary $job.restartPolicy "" (hasKey $job "restartPolicy")) | quote }}
+restartPolicy: {{ default "Never" (ternary $job.restartPolicy "" (eq (include "global-chart.isSet" (list $job "restartPolicy")) "true")) | quote }}
 {{- end }}
 
 {{/*
@@ -336,7 +336,7 @@ Resolution order:
 {{- else if .deployName -}}
   {{- $image = dict "image" (index .root.Values.deployments .deployName).image "from" (include "global-chart.deploymentValuesPath" .deployName) -}}
 {{- else if $job.fromDeployment -}}
-  {{- $dep := index .root.Values.deployments $job.fromDeployment -}}
+  {{- $dep := index (default (dict) .root.Values.deployments) $job.fromDeployment -}}
   {{- if not $dep -}}
     {{- if hasKey (default (dict) .root.Values.deployments) $job.fromDeployment -}}
       {{- fail (printf "%s.fromDeployment: references deployment '%s', which is empty: an empty deployments entry renders nothing. Fill the entry, or drop the reference." $errCtx $job.fromDeployment) -}}

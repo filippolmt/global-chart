@@ -1,0 +1,14 @@
+# A null item in an ingress host's paths. The schema wants an object; under
+# --skip-schema-validation ingress.yaml names it, rather than die on a nil
+# pointer at $path.path (issue #198).
+# Expected fail substring: "ingress.hosts[0].paths[0]: null, a value nobody wrote"
+deployments:
+  web:
+    image: nginx:1.25
+ingress:
+  enabled: true
+  hosts:
+    - host: example.com
+      deployment: web
+      paths:
+        - null

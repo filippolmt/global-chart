@@ -1,0 +1,9 @@
+# A tcpRoutes entry without parentRefs. The schema requires it; under
+# --skip-schema-validation the template fails rather than render a route the
+# CRD accepts and that attaches to no Gateway.
+# Expected fail substring: "tcpRoutes.db.parentRefs: empty"
+tcpRoutes:
+  db:
+    rules:
+      - backendRefs:
+          - service: { name: db, port: 5432 }

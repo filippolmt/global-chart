@@ -1,6 +1,11 @@
-{{- if .Values.ingress.enabled }}
+{{- $ing := default (dict) .Values.ingress }}
+{{- if $ing.enabled }}
 {{- $root := . }}
-{{- $ing := $root.Values.ingress }}
+{{- include "global-chart.rejectNullItems" (dict "list" $ing.tls "errCtx" "ingress.tls") }}
+{{- include "global-chart.rejectNullItems" (dict "list" $ing.hosts "errCtx" "ingress.hosts") }}
+{{- range $hostIdx, $hostEntry := $ing.hosts }}
+{{- include "global-chart.rejectNullItems" (dict "list" $hostEntry.paths "errCtx" (printf "ingress.hosts[%d].paths" $hostIdx)) }}
+{{- end }}
 {{- $fullName := include "global-chart.fullname" $root }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -30,7 +35,7 @@ spec:
   rules:
     {{- range $hostIdx, $hostEntry := $ing.hosts }}
       {{- /* Resolve service name and port via shared helper */ -}}
-      {{- $b := include "global-chart.resolveBackend" (dict "root" $root "ref" $hostEntry "errCtx" (printf "ingress.hosts[%d]" $hostIdx)) | fromJson -}}
+      {{- $b := include "global-chart.resolveBackend" (dict "root" $root "ref" $hostEntry "errCtx" (printf "ingress.hosts[%d]" $hostIdx) "protocol" "TCP") | fromJson -}}
       {{- $svcName := $b.name -}}
       {{- $svcPort := $b.port }}
 
@@ -39,7 +44,7 @@ spec:
         paths:
           {{- range $path := $hostEntry.paths }}
           - path: {{ $path.path }}
-            pathType: {{ ternary $path.pathType "ImplementationSpecific" (hasKey $path "pathType") }}
+            pathType: {{ ternary $path.pathType "ImplementationSpecific" (eq (include "global-chart.isSet" (list $path "pathType")) "true") }}
             backend:
               service:
                 name: {{ $svcName }}

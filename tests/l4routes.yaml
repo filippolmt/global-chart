@@ -1,0 +1,53 @@
+# L4 routes lint scenario (issue #194): a web port through httpRoute, a TCP and
+# a UDP port of the same deployment through TCPRoute/UDPRoute on another Gateway.
+deployments:
+  traccar:
+    image: traccar/traccar:6.6
+    service:
+      port: 8082
+      portName: http
+      extraPorts:
+        - name: teltonika
+          port: 5027
+          targetPort: 5027
+        - name: osmand-udp
+          port: 5055
+          targetPort: 5055
+          protocol: UDP
+
+httpRoute:
+  enabled: true
+  parentRefs:
+    - name: shared-gateway
+      namespace: envoy-gateway-system
+  hostnames:
+    - traccar.example.com
+  rules:
+    - backendRefs:
+        - deployment: traccar
+
+tcpRoutes:
+  gps:
+    annotations:
+      example.com/owner: fleet
+    parentRefs:
+      - name: direct-gateway
+        namespace: envoy-gateway-system
+        sectionName: gps-5027
+    rules:
+      - backendRefs:
+          - deployment: traccar
+            portName: teltonika
+            weight: 1
+
+udpRoutes:
+  gps:
+    parentRefs:
+      - name: direct-gateway
+        namespace: envoy-gateway-system
+        sectionName: osmand-5055
+    rules:
+      - name: osmand
+        backendRefs:
+          - deployment: traccar
+            portName: osmand-udp

@@ -55,26 +55,30 @@ ScaledObject", which names neither the deployment nor the remedy.
 install/upgrade; `helm template` and `helm lint` see the built-in set alone, so
 offline rendering of a KEDA scenario needs `--api-versions keda.sh/v1alpha1`
 (the Makefile passes it, and the unit-test suites declare it under
-`capabilities.apiVersions`).
+`capabilities.apiVersions`). The check itself is requireCrd's.
 Usage: {{ include "global-chart.requireKedaCrd" (dict "root" . "errCtx" "deployments.foo.keda") }}
 */}}
 {{- define "global-chart.requireKedaCrd" -}}
-{{- if not (.root.Capabilities.APIVersions.Has "keda.sh/v1alpha1") -}}
-{{- fail (printf "%s: needs the CRD keda.sh/v1alpha1, which is not registered in the cluster. Install KEDA before installing this release, or render offline with --api-versions keda.sh/v1alpha1." (required "requireKedaCrd: errCtx is required (the values path of the KEDA resource)" .errCtx)) -}}
-{{- end -}}
+{{- include "global-chart.requireCrd" (dict "root" .root "apiVersion" "keda.sh/v1alpha1" "install" "Install KEDA" "errCtx" (required "requireKedaCrd: errCtx is required (the values path of the KEDA resource)" .errCtx)) -}}
 {{- end -}}
 
 {{/*
 Build the ScaledObject trigger list with every authenticationRef resolved.
-Returns the triggers as YAML, ready to nindent under `triggers:`.
-Usage: {{ include "global-chart.kedaTriggers" (dict "root" . "triggers" $keda.triggers) }}
+Returns the triggers as YAML, ready to nindent under `triggers:`. A null
+trigger, or a null authenticationRef name, fails naming its path (issue #198).
+Usage: {{ include "global-chart.kedaTriggers" (dict "root" . "triggers" $keda.triggers "errCtx" "deployments.api.keda.triggers") }}
 */}}
 {{- define "global-chart.kedaTriggers" -}}
 {{- $root := .root -}}
+{{- $errCtx := required "kedaTriggers: errCtx is required (the values path of the triggers)" .errCtx -}}
+{{- include "global-chart.rejectNullItems" (dict "list" .triggers "errCtx" $errCtx) -}}
 {{- $resolved := list -}}
-{{- range $trigger := .triggers -}}
+{{- range $i, $trigger := .triggers -}}
   {{- $copy := deepCopy $trigger -}}
   {{- with $copy.authenticationRef -}}
+    {{- if hasKey . "name" -}}
+      {{- include "global-chart.rejectNull" (dict "value" .name "errCtx" (printf "%s[%d].authenticationRef.name" $errCtx $i)) -}}
+    {{- end -}}
     {{- $ref := deepCopy . -}}
     {{- $_ := set $ref "name" (include "global-chart.kedaAuthRefName" (dict "root" $root "name" .name "kind" .kind)) -}}
     {{- $_ := set $copy "authenticationRef" $ref -}}

@@ -1,0 +1,10 @@
+# The key becomes the UDPRoute name `<fullname>-<key>`, which the chart composes
+# as a DNS-1123 label (issue #194). `Gps.Trackers` renders and passes
+# `helm lint`, then the API server rejects it.
+udpRoutes:
+  Gps.Trackers:
+    parentRefs:
+      - name: gw
+    rules:
+      - backendRefs:
+          - service: { name: dns, port: 53 }

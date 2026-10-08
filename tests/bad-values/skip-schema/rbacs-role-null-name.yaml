@@ -1,0 +1,8 @@
+# An rbacs.roles entry whose name is null. The schema wants a DNS-1123
+# subdomain; under --skip-schema-validation the null fails naming its key,
+# where a name would otherwise be printed as "<nil>" (issue #198).
+# Expected fail substring: "rbacs.roles[0].name: null, a value nobody wrote"
+rbacs:
+  roles:
+    - name: null
+      rules: []

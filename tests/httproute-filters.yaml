@@ -28,8 +28,8 @@ httpRoute:
               type: ReplacePrefixMatch
               replacePrefixMatch: /new
             statusCode: 301
-      backendRefs:
-        - deployment: api
+      # No backendRefs: a redirect answers the request itself, and Gateway API
+      # rejects the two together
     # Rewrite /api/v1 to / + inject request and response headers
     - matches:
         - path:

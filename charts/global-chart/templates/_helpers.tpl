@@ -135,7 +135,7 @@ Input: the deployment map. The caller has already guarded it against nil —
 Returns the string "true" or "false".
 */}}
 {{- define "global-chart.deploymentEnabled" -}}
-{{- ternary .enabled true (hasKey . "enabled") -}}
+{{- ternary .enabled true (eq (include "global-chart.isSet" (list . "enabled")) "true") -}}
 {{- end }}
 
 {{/*
@@ -148,7 +148,7 @@ Input: the deployment's service map, already defaulted to (dict) by the caller.
 Returns the string "true" or "false".
 */}}
 {{- define "global-chart.serviceEnabled" -}}
-{{- ternary .enabled true (hasKey . "enabled") -}}
+{{- ternary .enabled true (eq (include "global-chart.isSet" (list . "enabled")) "true") -}}
 {{- end }}
 
 {{/*
@@ -342,7 +342,7 @@ secret (the externalSecrets.<key> map), whose target.name overrides the default.
 
 {{- define "global-chart.externalSecretTargetName" -}}
 {{- $target := default (dict) .secret.target -}}
-{{- ternary $target.name (include "global-chart.externalSecretName" .) (hasKey $target "name") -}}
+{{- ternary $target.name (include "global-chart.externalSecretName" .) (eq (include "global-chart.isSet" (list $target "name")) "true") -}}
 {{- end -}}
 
 {{- define "global-chart.externalSecretHookTargetName" -}}
@@ -358,4 +358,22 @@ Usage: {{ include "global-chart.externalSecretVolumeName" (dict "key" $key) }}
 */}}
 {{- define "global-chart.externalSecretVolumeName" -}}
 {{- printf "es-%s" .key -}}
+{{- end -}}
+
+{{/*
+Name of a Gateway API route declared in a map (a tcpRoutes, udpRoutes or
+httpRoutes entry, issues #194, #195): {fullname}-{key}, the idiom of the other
+root-level named resources. Without a key, the single httpRoute's name: the
+fullname itself. Truncated
+at 63 like most names of the chart, so two keys can truncate onto one name:
+validateNameCollisions checks it, per kind. The truncation constant lives here
+only.
+Usage: {{ include "global-chart.gatewayRouteName" (dict "root" . "key" $key) }}
+*/}}
+{{- define "global-chart.gatewayRouteName" -}}
+{{- if .key -}}
+{{- include "global-chart.truncName" (list (printf "%s-%s" (include "global-chart.fullname" .root) .key) 63) -}}
+{{- else -}}
+{{- include "global-chart.fullname" .root -}}
+{{- end -}}
 {{- end -}}

@@ -12,7 +12,7 @@ inside one (`additionalProperties: false` on a property, on `items`) breaks just
 as silently (issue #177). `$ref` is not followed — its target is a `$defs` of
 its own and is walked there. The pointer is the literal JSON pointer relative to
 `$defs` (`deployment`, `service/properties/extraPorts/items`); the schema root
-is `#`. The five `allOf` branches are exempt at their root only: they must stay
+is `#`. The six `allOf` branches are exempt at their root only: they must stay
 open (ADR 0006). A closed node under `if` or `not` fails outright: it decides a
 condition rather than what the values may carry, so no typo fixture can assert
 it. `then`/`else` do constrain the values and count like any other node. A
@@ -42,7 +42,7 @@ import tempfile
 HERE = pathlib.Path(__file__).resolve().parent
 CHART = HERE.parent.parent / "charts" / "global-chart"
 
-BRANCHES = {"jobCommon", "cronJobSpec", "hookJobSpec", "rootJobSpec", "deploymentJobSpec"}
+BRANCHES = {"jobCommon", "cronJobSpec", "hookJobSpec", "rootJobSpec", "deploymentJobSpec", "httpRouteFields"}
 
 # Keywords whose value is a map of name -> schema, a list of schemas, or one
 # schema. Data keywords (enum, const, default, ...) hold no schema and are skipped.

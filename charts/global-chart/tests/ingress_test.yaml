@@ -436,3 +436,53 @@ tests:
     asserts:
       - failedTemplate:
           errorPattern: "pathType"
+
+  # ====== portName (issue #194) ======
+  - it: should route a host to a named extra port of the deployment's Service
+    release:
+      name: myrel
+    set:
+      deployments:
+        api:
+          image: nginx:1.25
+          service:
+            extraPorts:
+              - name: admin
+                port: 9000
+                targetPort: 9000
+      ingress:
+        enabled: true
+        hosts:
+          - host: admin.example.com
+            deployment: api
+            portName: admin
+            paths: [{ path: / }]
+    asserts:
+      - equal:
+          path: spec.rules[0].http.paths[0].backend.service
+          value:
+            name: myrel-global-chart-api
+            port:
+              number: 9000
+
+  - it: should fail a host routed to a UDP port
+    set:
+      deployments:
+        api:
+          image: nginx:1.25
+          service:
+            extraPorts:
+              - name: syslog
+                port: 514
+                targetPort: 514
+                protocol: UDP
+      ingress:
+        enabled: true
+        hosts:
+          - host: example.com
+            deployment: api
+            portName: syslog
+            paths: [{ path: / }]
+    asserts:
+      - failedTemplate:
+          errorPattern: "ingress\\.hosts\\[0\\]\\.portName: resolves to the UDP port 'syslog' of deployment 'api', but this backend forwards TCP"
