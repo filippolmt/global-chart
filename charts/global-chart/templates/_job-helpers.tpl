@@ -9,6 +9,34 @@ resolves to the job's own value — and, for `imagePullSecrets` only, to
 not already have. Same widening as `jobServiceAccount`, in
 _serviceaccount-helpers.tpl (see ADR 0001).
 
+Inheritance, deployment scope. A job inherits image, configMap, secret,
+ServiceAccount, the envFrom lists, externalSecrets, imagePullSecrets,
+hostAliases, podSecurityContext, securityContext, dnsConfig (cronjobs only),
+nodeSelector, tolerations, affinity and priorityClassName. An explicit value
+overrides; an empty `{}`, `[]` or `""` (priorityClassName) stops the
+inheritance. Three exceptions to that shape:
+- envFromConfigMaps / envFromSecrets are additive: the job's own (`[]`
+  included) come after the deployment's and never replace them. The opt-outs
+  are toggles, default true: inheritDeploymentConfigMap /
+  inheritDeploymentSecret break the generated ConfigMap/Secret injection, and
+  inheritDeploymentEnvFromConfigMaps / inheritDeploymentEnvFromSecrets drop the
+  deployment's lists (issue #159). They narrow the secret leak surface of a
+  narrow-scope job.
+- externalSecrets is not an envFrom list here: the job's own replaces the
+  inherited one.
+- The envFrom order is by proximity, the Deployment's by type: see *Environment
+  source* in GLOSSARY.md. Locked by an `equal` on the whole list in
+  deployment_test.yaml and cronjob_test.yaml; a `contains` passes whatever the
+  order, which is how the two ends drifted unobserved.
+Never inherited:
+- command / args: a migration hook inheriting `python -m app.worker` would
+  silently run the worker. Locked by regression tests in hook_test.yaml and
+  cronjob_test.yaml.
+- mountedConfigFiles: they describe the Deployment's runtime (see *Mounted
+  config file* in GLOSSARY.md), and one can carry credentials. A job that needs
+  one declares its own volumes / volumeMounts; the generated ConfigMap name is
+  not a public interface, so values never hardcode it.
+
 Accepts a dict with:
   root           - top-level chart context (for global values, defaults)
   job            - the cronjob/hook command map
@@ -138,7 +166,7 @@ containers:
   {{- $hasDeploySecret := and $inheritSec $deploy.secret (gt (len $deploy.secret) 0) -}}
   {{- /* externalSecrets: inherited when the job does not set its own (hasKey), and
          split by form — an entry with a mountPath is a volume, any other one an
-         envFrom source. Each group keeps its level: proximity, see CONTEXT.md */ -}}
+         envFrom source. Each group keeps its level: proximity, see GLOSSARY.md */ -}}
   {{- $esRefs := include "global-chart.jobExternalSecretRefs" (dict "job" $job "deploy" $deploy) | fromJson -}}
   {{- $esReadsCopy := and (eq .kind "hook") (eq (include "global-chart.hookReadsPrereqCopy" .hookType) "true") -}}
   {{- /* Only one of the two lists is ever non-empty (a job's own replaces the
@@ -424,7 +452,7 @@ cronJobSpec and hookJobSpec declare the same lists, and they are what rejects
 a field a kind does not admit:
 - cronjob: all five.
 - hook: activeDeadlineSeconds and backoffLimit only. Not ttlSecondsAfterFinished:
-  a completed hook Job is kept as the record of what ran (CLAUDE.md pattern 8),
+  a completed hook Job is kept as the record of what ran (the role table in _hook-helpers.tpl),
   and a TTL controller deleting it races before-hook-creation — deletePolicy
   hook-succeeded already covers cleanup. Not parallelism/completions: a hook is
   one run.

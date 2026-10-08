@@ -1644,7 +1644,7 @@ tests:
   # ====== Root-level cronJobs inherit nothing from deployments ======
   # Same guard as hook_test.yaml: cronjob.yaml PART 1 omits "deploy" in its
   # jobPodSpec call, and nothing but that omission keeps the inheritance chain
-  # inactive for root-level cronJobs (CLAUDE.md pattern 5, "Asymmetry").
+  # inactive for root-level cronJobs (_job-helpers.tpl header, "Inheritance").
   - it: should inherit nothing from a deployment for a root-level cronjob
     documentSelector:
       path: kind

@@ -122,8 +122,8 @@ deployments:
         # Negative weight on purpose. minJobWeight becomes -5, so the derived
         # prereq ConfigMap/Secret and the SA copy land at -12. Were those
         # ever floored at 0 they would sort AFTER this Job, which would then
-        # start without the ConfigMap it reads. Guards the weight invariant in
-        # CLAUDE.md pattern 6 at runtime, where helm-unittest cannot see it.
+        # start without the ConfigMap it reads. Guards the weight invariant of
+        # _hook-helpers.tpl at runtime, where helm-unittest cannot see it.
         early:
           weight: "-5"
           command: ["sh", "-c"]

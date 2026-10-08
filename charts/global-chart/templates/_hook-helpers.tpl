@@ -11,6 +11,15 @@ admits, and the consumer scans that decide when a copy exists and who reads it
 copy of a ServiceAccount the release creates (ADR 0011). Which copy a hook's
 ServiceAccount matches is a ServiceAccount question, answered by hookRbacCopy
 and hookReadsServiceAccountCopy in _serviceaccount-helpers.tpl.
+
+Why the plumbing deletes itself: hook resources are not part of the release
+manifest, so Helm never deletes them at uninstall. The prereq ConfigMap/Secret
+and the chart-created hook ServiceAccounts therefore carry their own delete
+policy; the prereq Secret holds the deployment's secret data and must not
+outlive the release. Hook Jobs keep plain before-hook-creation: a completed
+Job is the record of what ran. A hook's explicit deletePolicy reaches what the
+hook owns, its Job and its ServiceAccount; the copies have a fixed policy per
+role, because a copy shared by every hook has no owner to take it from.
 */}}
 
 {{/*
