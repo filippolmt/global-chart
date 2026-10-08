@@ -309,7 +309,7 @@ deployments: {}
   #   # volume name `md-cm-file-<name>`, and `files` and `bundles` share one
   #   # name space, so the same name on both sides is a collision.
   #   # These files belong to the Deployment's runtime: a deployment-level hook
-  #   # or cronJob does NOT inherit them (see CLAUDE.md, "Not inheritable").
+  #   # or cronJob does NOT inherit them (see the _job-helpers.tpl header, "Never inherited").
   #   mountedConfigFiles:
   #     files: []      # each: name, filename, targetPath, content
   #     bundles: []

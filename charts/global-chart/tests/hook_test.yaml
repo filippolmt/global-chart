@@ -2993,7 +2993,7 @@ tests:
   # ====== Root-level hooks inherit nothing from deployments ======
   # Guards the omission of "deploy" in hook.yaml PART 1's jobPodSpec call: the
   # helper carries the whole inheritance chain, and only the missing key keeps
-  # it inactive for root-level hooks (CLAUDE.md pattern 5, "Asymmetry").
+  # it inactive for root-level hooks (_job-helpers.tpl header, "Inheritance").
   - it: should inherit nothing from a deployment for a root-level hook
     documentSelector:
       path: kind
