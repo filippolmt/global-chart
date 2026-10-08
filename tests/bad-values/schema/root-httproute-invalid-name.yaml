@@ -1,0 +1,10 @@
+# The key becomes the HTTPRoute name `<fullname>-<key>`, which the chart
+# composes as a DNS-1123 label (issue #195). `Traccar_Web` renders and passes
+# `helm lint`, then the API server rejects it.
+httpRoutes:
+  Traccar_Web:
+    parentRefs:
+      - name: gw
+    rules:
+      - backendRefs:
+          - service: { name: web, port: 80 }

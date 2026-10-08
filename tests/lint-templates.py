@@ -11,8 +11,9 @@ a rule below cannot recognise: a check that sees nothing is not a pass.
 - values-mutation: `set` on a map reached from `.Values` mutates the values
   every later template reads: on `.Values…` itself, or on a variable bound to
   it (`$d := index .Values.deployments $n`, `range $k, $d := .Values.x`, and
-  anything bound from such a variable). A variable bound through `deepCopy` is
-  a copy, and so is one built by `dict`, `list`, `include` or `fromJson`.
+  anything bound from such a variable, within one define). A variable bound
+  through `deepCopy` is a copy, and so is one built by `dict`, `list`,
+  `append`, `include` or `fromJson`.
 - fail-shape: a `fail` message leads with the values path of the wrong key, or
   with one of the two documented exceptions. The shape and the exceptions are
   the _validate-helpers.tpl header's (issue #190), mirrored by FAIL_SHAPE below:
@@ -40,7 +41,8 @@ DEFAULT_TRUE = re.compile(r"\bdefault\s+true\s+[$.(]|\|\s*default\s+true\b")
 SET_TARGET = re.compile(r"\bset\s+(\$[\w]+|\.Values\b|\$\.Values\b|\$root\.Values\b)")
 BIND = re.compile(r"(\$\w+)\s*:?=\s*([^}]*?)\s*-?\}\}")
 RANGE_BIND = re.compile(r"\brange\s+(?:\$\w+\s*,\s*)?(\$\w+)\s*:=\s*([^}]*?)\s*-?\}\}")
-COPY = re.compile(r"^\(?\s*(deepCopy|dict|list|include|fromJson|fromJsonArray|toJson|printf|print|len|keys)\b")
+COPY = re.compile(r"^\(?\s*(deepCopy|dict|list|append|include|fromJson|fromJsonArray|toJson|printf|print|len|keys)\b")
+DEFINE = re.compile(r"\{\{-?\s*define\s")
 FAIL = re.compile(r"\bfail\s+(\(\s*printf\s+\"|\")((?:[^\"\\]|\\.)*)\"", re.S)
 FAIL_ANY = re.compile(r"\bfail\s+(?!\(\s*printf\s+\"|\")(\S+)")
 EXCEPTIONS = ("Name collision: ", "The fullname ", "Both .Values.ingress")
@@ -102,11 +104,16 @@ def main(chart):
         rel = path.relative_to(chart)
         for m in DEFAULT_TRUE.finditer(text):
             problems.append(f"{rel}:{lineno(text, m.start())}: default-true: {m.group(0).strip()}")
-        aliases = values_aliases(text)
-        for m in SET_TARGET.finditer(text):
-            target = m.group(1)
-            if "Values" in target or target in aliases:
-                problems.append(f"{rel}:{lineno(text, m.start())}: values-mutation: set on {target}, bound to .Values; work on a deepCopy")
+        # A variable lives in its define (or the file's top level): aliases are
+        # computed per block, so two blocks reusing $out do not mix
+        starts = [0] + [m.start() for m in DEFINE.finditer(text)] + [len(text)]
+        for a, b in zip(starts, starts[1:]):
+            block = text[a:b]
+            aliases = values_aliases(block)
+            for m in SET_TARGET.finditer(block):
+                target = m.group(1)
+                if "Values" in target or target in aliases:
+                    problems.append(f"{rel}:{lineno(text, a + m.start())}: values-mutation: set on {target}, bound to .Values; work on a deepCopy")
         for m in FAIL.finditer(text):
             if not fail_shape(m.group(2), top_keys, helpers):
                 problems.append(f"{rel}:{lineno(text, m.start())}: fail-shape: \"{m.group(2)[:60]}\" leads with neither a values path nor a documented exception")

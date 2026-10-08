@@ -25,9 +25,11 @@
 {{- range $spec := (include "global-chart.l4RouteKinds" $root | fromJsonArray) }}
 {{- $kind := $spec.kind }}
 {{- range $key, $route := (index $root.Values $spec.field) }}
+{{- /* A null entry is unset, like a null deployments entry: no route */ -}}
+{{- if not (kindIs "invalid" $route) }}
 {{- $route = default (dict) $route }}
 {{- $ctx := printf "%s.%s" $spec.field $key }}
-{{- include "global-chart.requireCrd" (dict "root" $root "apiVersion" (printf "gateway.networking.k8s.io/v1/%s" $kind) "install" (printf "Install the Gateway API CRDs at v1.6.0 or later, the first release serving %s at v1" $kind) "errCtx" $ctx) }}
+{{- include "global-chart.requireGatewayApiCrd" (dict "root" $root "kind" $kind "errCtx" $ctx) }}
 {{- if not $route.parentRefs }}
   {{- fail (printf "%s.parentRefs: empty. Provide at least one parentRef pointing to an existing Gateway listener (the chart does not create Gateways)." $ctx) }}
 {{- end }}
@@ -38,7 +40,7 @@
 apiVersion: gateway.networking.k8s.io/v1
 kind: {{ $kind }}
 metadata:
-  name: {{ include "global-chart.l4RouteName" (dict "root" $root "key" $key) }}
+  name: {{ include "global-chart.gatewayRouteName" (dict "root" $root "key" $key) }}
   labels:
     {{- include "global-chart.labels" $root | nindent 4 }}
   {{- with (include "global-chart.renderAnnotations" (dict "root" $root "own" $route.annotations)) }}
@@ -70,5 +72,6 @@ spec:
           {{- end }}
         {{- end }}
     {{- end }}
+{{- end }}
 {{- end }}
 {{- end }}

@@ -58,7 +58,7 @@ spec:
     {{- toYaml . | nindent 4 }}
   {{- end }}
   triggers:
-    {{- include "global-chart.kedaTriggers" (dict "root" $root "triggers" $keda.triggers) | nindent 4 }}
+    {{- include "global-chart.kedaTriggers" (dict "root" $root "triggers" $keda.triggers "errCtx" (printf "%s.keda.triggers" $errCtx)) | nindent 4 }}
 {{- end }}
 {{- end }}
 {{- end }}

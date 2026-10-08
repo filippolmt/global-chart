@@ -2,7 +2,10 @@
 {{- /* The hooks that run as each role's SA during a phase the normal resources
        are absent (ADR 0010); a role absent from it gets no copy */ -}}
 {{- $consumers := include "global-chart.rbacHookConsumers" $root | fromJson }}
-{{- range $role := $root.Values.rbacs.roles }}
+{{- $roles := (default (dict) $root.Values.rbacs).roles }}
+{{- range $role := $roles }}
+{{- /* A null role, or a null name, is validateNullItems' to report */ -}}
+{{- if include "global-chart.isNamedEntry" $role }}
 {{- $resolved := include "global-chart.rbacServiceAccount" $role | fromJson }}
 {{- if $resolved.create }}
 apiVersion: v1
@@ -106,5 +109,6 @@ subjects:
     name: {{ $copySA }}
     namespace: {{ $root.Release.Namespace | quote }}
 ---
+{{- end }}
 {{- end }}
 {{- end }}

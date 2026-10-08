@@ -1,6 +1,10 @@
 suite: httproute template tests
 templates:
   - templates/httproute.yaml
+# The CRD-missing path lives in gateway-api-crd-check_test.yaml.
+capabilities:
+  apiVersions:
+    - gateway.networking.k8s.io/v1/HTTPRoute
 tests:
   # ====== 1. Basic rendering ======
   - it: should render HTTPRoute with minimal valid input
@@ -889,3 +893,102 @@ tests:
     asserts:
       - failedTemplate:
           errorMessage: "httpRoute.rules[0].backendRefs: set on a rule with a RequestRedirect filter, which the API server rejects: a redirect answers the request itself. Drop backendRefs from the rule."
+
+  # ====== httpRoutes (issue #195) ======
+  - it: should render one HTTPRoute per httpRoutes entry, named <fullname>-<key>
+    release:
+      name: myrel
+    set:
+      deployments:
+        nginx: { image: nginx:1.25 }
+        traccar: { image: traccar/traccar:6.6, service: { port: 8082 } }
+      httpRoutes:
+        web:
+          parentRefs: [{ name: gw-a }]
+          hostnames: [app.example.com]
+          rules: [{ backendRefs: [{ deployment: nginx }] }]
+        traccar:
+          parentRefs: [{ name: gw-b }]
+          hostnames: [traccar.example.com]
+          rules: [{ backendRefs: [{ deployment: traccar }] }]
+    asserts:
+      - hasDocuments:
+          count: 2
+      - equal:
+          path: metadata.name
+          value: myrel-global-chart-traccar
+        documentIndex: 0
+      - equal:
+          path: spec.rules[0].backendRefs[0]
+          value: { name: myrel-global-chart-traccar, port: 8082 }
+        documentIndex: 0
+      - equal:
+          path: spec.hostnames
+          value: [traccar.example.com]
+        documentIndex: 0
+      - equal:
+          path: metadata.name
+          value: myrel-global-chart-web
+        documentIndex: 1
+      - equal:
+          path: spec.parentRefs
+          value: [{ name: gw-a }]
+        documentIndex: 1
+
+  - it: should render the single httpRoute first and the httpRoutes entries beside it
+    release:
+      name: myrel
+    set:
+      deployments:
+        api: { image: nginx:1.25 }
+      httpRoute:
+        enabled: true
+        parentRefs: [{ name: gw }]
+        rules: [{ backendRefs: [{ deployment: api }] }]
+      httpRoutes:
+        admin:
+          parentRefs: [{ name: gw }]
+          rules: [{ backendRefs: [{ deployment: api }] }]
+    asserts:
+      - hasDocuments:
+          count: 2
+      - equal:
+          path: metadata.name
+          value: myrel-global-chart
+        documentIndex: 0
+      - equal:
+          path: metadata.name
+          value: myrel-global-chart-admin
+        documentIndex: 1
+
+  - it: should name the httpRoutes entry in a backend failure
+    set:
+      httpRoutes:
+        web:
+          parentRefs: [{ name: gw }]
+          rules: [{ backendRefs: [{ deployment: ghost }] }]
+    asserts:
+      - failedTemplate:
+          errorMessage: "httpRoutes.web.rules[0].backendRefs[0].deployment: references deployment 'ghost', which does not exist in .Values.deployments"
+
+  - it: should name the httpRoutes entry when a redirect rule carries backendRefs
+    set:
+      deployments:
+        api: { image: nginx:1.25 }
+      httpRoutes:
+        old:
+          parentRefs: [{ name: gw }]
+          rules:
+            - filters: [{ type: RequestRedirect, requestRedirect: { statusCode: 301 } }]
+              backendRefs: [{ deployment: api }]
+    asserts:
+      - failedTemplate:
+          errorPattern: "httpRoutes\\.old\\.rules\\[0\\]\\.backendRefs: set on a rule with a RequestRedirect filter"
+
+  - it: should reject an httpRoutes entry without rules (schema)
+    set:
+      httpRoutes:
+        web:
+          parentRefs: [{ name: gw }]
+    asserts:
+      - failedTemplate: {}

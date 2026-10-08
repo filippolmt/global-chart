@@ -1,0 +1,9 @@
+# A null item in a passthrough list (tolerations), which the chart hands to the
+# pod spec verbatim. The schema wants an object; under --skip-schema-validation
+# rejectNullInLists names it, as it does a null item in any list (issue #198).
+# Expected fail substring: "deployments.web.tolerations[0]: null, a value nobody wrote"
+deployments:
+  web:
+    image: nginx:1.25
+    tolerations:
+      - null

@@ -16,6 +16,7 @@ GENERATED_DIR := generated-manifests
 # CRD presence check (requireCrd, _validate-helpers.tpl) fails. (`helm lint` does not evaluate
 # template `fail` and has no equivalent flag, so lint-chart needs nothing.)
 HELM_API_VERSIONS := --api-versions keda.sh/v1alpha1 \
+	--api-versions gateway.networking.k8s.io/v1/HTTPRoute \
 	--api-versions gateway.networking.k8s.io/v1/TCPRoute \
 	--api-versions gateway.networking.k8s.io/v1/UDPRoute
 
@@ -106,6 +107,7 @@ TEST_CASES := \
 	tests/httproute-canary.yaml:httproute-canary:httproute-canary \
 	tests/httproute-filters.yaml:httproute-filters:httproute-filters \
 	tests/l4routes.yaml:l4routes:l4routes \
+	tests/httproutes.yaml:httproutes:httproutes \
 	tests/keda.yaml:keda:keda \
 	tests/common-annotations.yaml:common-annotations:common-annotations
 
@@ -156,7 +158,7 @@ lint-templates: ## Check the mechanical rules of CODING_STANDARDS.md on the temp
 	@echo "==> Checking template coding rules..."
 	@python3 tests/lint-templates.py ./$(CHART_DIR)/$(GLOBAL_CHART_NAME)
 
-null-sweep: ## Null every values node of every scenario in turn: each must render or fail naming its path (ratchet: tests/bad-values/null-sweep-baseline.txt)
+null-sweep: ## Null every values node of every scenario in turn: each must render or fail naming its path
 	@echo "==> Sweeping nulls under --skip-schema-validation..."
 	@python3 tests/bad-values/null-sweep.py ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) \
 		$(foreach e,$(TEST_CASES),$(firstword $(subst :, ,$(e)))) -- $(HELM_API_VERSIONS)
