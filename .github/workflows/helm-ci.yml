@@ -32,11 +32,17 @@ jobs:
       - name: Lint chart scenarios
         run: make lint-chart
 
+      - name: Check template coding rules
+        run: make lint-templates
+
       - name: Run unit tests
         run: make unit-test
 
       - name: Validate bad-values rejected
         run: make validate-bad-values
+
+      - name: Sweep nulls under --skip-schema-validation
+        run: make null-sweep
 
       - name: Generate manifests
         run: make generate-templates

@@ -57,14 +57,14 @@ is the source of truth, this table is only the routing.
 
 | File | Domain |
 |------|--------|
-| `_helpers.tpl` | Naming and labels. `truncName` is the single home of the truncation trim; `mergeLabels` is the single home of the label precedence; the Job-family, mounted-config-file, L4 route and hook-copy name helpers (`rbacs.roles` and every release-created ServiceAccount) are the single home of each generated name and its truncation constant |
-| `_image-helpers.tpl` | `imageString`, `imagePullPolicy`. The registry test in `imageString` is mirrored by the image `pattern`s in `values.schema.json`, and its `fail` on a tag carrying `@<digest>` together with `digest` by the `if`/`then` in `$defs/imageMap` (ADR 0018): change one, change the other |
-| `_job-helpers.tpl` | One implementation of the pod spec, image resolution (`jobImageSource`, read for the image and its pull policy), the CronJob spec fields (`cronJobSpecFields`) and the Job spec fields table (`jobSpecVerbatimFields`) for **every** hook and cronjob, both scopes — root-level callers simply pass no `deploy` (the image helpers take `deployName` instead, and read the deployment from it). `jobValuesPath` is the single home of the name a job carries in error messages |
-| `_serviceaccount-helpers.tpl` | Every ServiceAccount the chart renders or binds, resolved to `{create, name, automount, annotations}`: deployment, rbac and job resolvers, with the deployment and rbac defaults in `resolveServiceAccount`; the job resolver keeps its own chain, and rejects a job naming its SA twice with different names itself — every job render path goes through it, so the check cannot be skipped. Also the SA side of the hook copies (ADR 0010, 0011): every SA the release creates (`releaseServiceAccounts`), whether it creates one (`releaseCreatesServiceAccount`), the SA a copy binds (`serviceAccountCopyName`), the match of a hook to the SA copy (`hookReadsServiceAccountCopy`) and to the `rbacs.roles` copies (`hookRbacCopy`, over `rbacServiceAccounts`), and the SA a hook's pod runs as (`hookServiceAccountName`). Templates never read `serviceAccount.*` from values |
-| `_hook-helpers.tpl` | The three `helm.sh/hook*` annotations, weights and delete policies, driven by a role table; the phase cut `hookReadsPrereqCopy`, the one enumeration of the hooks it admits (`prereqCopyHooks`) and the consumer scans of the ExternalSecret, `rbacs.roles` and ServiceAccount hook copies |
-| `_render-helpers.tpl` | `printScalar`, the single home of how a number from values is printed, in integer and string fields alike; shared render blocks, `renderAnnotations`, the ConfigMap/Secret `data:` bodies with `rejectNullDataValue`, the single home of their null check, and the Role `rules:` block shared with the hook-prerequisite copies, `deploymentOwnAnnotations` (the single home of `reloader.externalSecrets`: the reload list, its union with the user's, its fail — ADR 0016), `legacyVolumePaths` (the legacy `volumes[].type` entries NOTES.txt lists, gone in 4.0.0), `containerVolumeMounts` (the single home of the mounts a main container receives, Deployment and jobs alike, checked by `validateMountPaths`), the port helpers (`containerPorts`, `servicePrimaryPort`, `servicePorts` — every Service port, the primary first — `extraPortProtocol`, `serviceType`), `resolveBackend`, the single home of the Service and port a route or ingress backend reaches: `portName` and the protocol check, and `l4RouteKinds`, the one enumeration of the L4 route kinds (kind, values field, protocol) |
-| `_keda-helpers.tpl` | KEDA names, trigger and `authenticationRef` resolution, the CRD guard (through `requireCrd`) |
-| `_validate-helpers.tpl` | `deploymentValuesPath`, the single home of `deployments.<name>` in error messages (as `jobValuesPath` is a job's), and the header carrying the shape of every `fail` message. The fullname against the labels it leads, name collisions, routing and autoscaling conflicts, named-`targetPort` resolution (`validateServiceTargetPorts`), the Service-side port constraints (`validateServicePorts`: duplicate port names and port+protocol pairs, `nodePort` only on NodePort/LoadBalancer), a duplicate `mountPath` in a container (`validateMountPaths`, called by `containerVolumeMounts`). Also `hpaActiveTargets`, the single home of "an HPA target is active", read by the autoscaling validator and by `hpa.yaml`, and `requireCrd`, the single home of the CRD presence check (KEDA, the L4 routes) |
+| `_helpers.tpl` | Naming and labels: `truncName`, `mergeLabels`, and every generated name with its truncation constant |
+| `_image-helpers.tpl` | `imageString`, `imagePullPolicy`; mirrored by the image `pattern`s and `$defs/imageMap` in the schema (ADR 0018) |
+| `_job-helpers.tpl` | The one pod spec of every hook and cronjob, both scopes: image resolution, CronJob and Job spec fields, `jobValuesPath` |
+| `_serviceaccount-helpers.tpl` | Every ServiceAccount rendered or bound (`resolveServiceAccount`, the job resolver) and the SA side of the hook copies (ADR 0010, 0011) |
+| `_hook-helpers.tpl` | The `helm.sh/hook*` annotations from the role table, the phase cut `hookReadsPrereqCopy`, the hook-copy consumer scans |
+| `_render-helpers.tpl` | `printScalar`, shared render blocks and data bodies, mounts (`containerVolumeMounts`), ports (`servicePrimaryPort`, `servicePorts`, `containerPorts`), backends (`resolveBackend`, `l4RouteKinds`) |
+| `_keda-helpers.tpl` | KEDA names, trigger and `authenticationRef` resolution |
+| `_validate-helpers.tpl` | Values paths (`deploymentValuesPath`), the `fail` message shape, cross-resource validators, `hpaActiveTargets`, `requireCrd` |
 
 ### Key Design Patterns
 
@@ -223,14 +223,9 @@ is the source of truth, this table is only the routing.
     time, far from its cause. Three separate bugs came from `deployment.yaml` and
     `service.yaml` each deriving ports on their own (issue #82)
 14. **One HTTP routing layer, any number of L4 routes**: `ingress` and
-    `httpRoute` are mutually exclusive; `tcpRoutes` / `udpRoutes` coexist with
-    either. A `deployment:` backend must carry the protocol its consumer
-    forwards (`protocol` on `resolveBackend`: TCP for ingress, httpRoute and
-    TCPRoute, UDP for UDPRoute) — Kubernetes accepts the mismatch and the
-    traffic never arrives. The L4 routes render `gateway.networking.k8s.io/v1`
-    only, guarded per kind, so an offline render needs
-    `--api-versions gateway.networking.k8s.io/v1/TCPRoute` / `UDPRoute`
-    (`HELM_API_VERSIONS`, `capabilities.apiVersions`), as KEDA does
+    `httpRoute` exclude each other; `tcpRoutes` / `udpRoutes` coexist with
+    either. The rules (protocol per consumer, `v1` only from Gateway API
+    v1.6.0) live in the headers of `l4routes.yaml` and `resolveBackend`
 
 ### Resource Naming Limits
 
@@ -243,94 +238,13 @@ exceptions, each owned by a name helper in `_helpers.tpl`:
 | `mountedConfigFiles` `name` | 52, DNS-1123 label, enforced by `values.schema.json` — it feeds the pod volume name, and a volume name is a DNS-1123 *label* |
 | Mounted config file ConfigMap | Not truncated at all: a ConfigMap name is a DNS *subdomain*, so it has room the volume does not. Truncating would manufacture the collision `validateNameCollisions` exists to catch |
 
-## Template Coding Rules
+## Coding standards
 
-Hard-won. Violating them causes subtle bugs.
-
-**Boolean/numeric fields — never use `default`:**
-```yaml
-# WRONG: default true $var replaces false with true
-enabled: {{ default true $deploy.enabled }}
-# CORRECT:
-enabled: {{ hasKey $deploy "enabled" | ternary $deploy.enabled true }}
-```
-
-**Numbers from values — never print them bare, never `toString` / `%v` them:**
-```yaml
-# WRONG: a values-file number is a float64; 10000000 renders as 1e+07
-terminationGracePeriodSeconds: {{ $deploy.terminationGracePeriodSeconds }}
-LIMIT: {{ toString $value | quote }}
-# CORRECT: whole numbers print as digits, 1.5 stays 1.5, strings pass through
-terminationGracePeriodSeconds: {{ include "global-chart.printScalar" $deploy.terminationGracePeriodSeconds }}
-LIMIT: {{ include "global-chart.printScalar" $value | quote }}
-```
-
-**Inheritance — use `hasKey` to distinguish "not set" from "empty":**
-```yaml
-# WRONG: {} and [] are falsy, incorrectly inherits
-{{- if not $job.field }}{{ $deploy.field }}{{- end }}
-# CORRECT:
-{{ hasKey $job "field" | ternary $job.field $deploy.field }}
-```
-
-**Never mutate `.Values`:**
-```yaml
-# WRONG:
-{{- $_ := set $ing.annotations "key" "value" }}
-# CORRECT:
-{{- $annotations := deepCopy $ing.annotations }}
-```
-
-**Nil-safe nested access:**
-```yaml
-{{- $service := default (dict) $deploy.service }}
-```
-
-**Shared helpers that can return empty — wrap with `{{- with }}`:**
-```yaml
-{{- with (include "global-chart.renderFoo" $arg) }}{{- . | nindent N }}{{- end }}
-```
-
-**Shared helpers — use `-}}` trim before literal content:**
-```yaml
-{{- with . -}}
-imagePullSecrets:
-```
-
-**Schema ↔ Template consistency:**
-- Every field a template accesses must be declared in the schema
-- Every schema field must be used by a template
-- Run `make lint-chart` to verify the schema doesn't reject valid test values
-
-**Error messages — `<values path>: <problem>`:**
-```yaml
-# WRONG: the entry named in prose, the path printed by hand
-{{- fail (printf "PDB for deployment '%s': set only one." $name) }}
-# CORRECT: the path of the key holding the wrong value leads, from its single home
-{{- fail (printf "%s.pdb: set only one." (include "global-chart.deploymentValuesPath" $name)) }}
-```
-A job's path comes from `jobValuesPath`, a deployment's from
-`deploymentValuesPath`; never printf either inline, and a helper receives it as
-`errCtx`. Two exceptions keep another shape, neither having a path to lead
-with: a helper's own invariant (`<helper>: …`, a chart bug) and a conflict
-between entries (name collisions, the fullname, ingress with httpRoute). A
-number read straight from values goes to `printScalar` with its path,
-`(dict "value" $v "errCtx" "<path>")`, so a null fails naming its key (#191).
-The rule and its exceptions live in the `_validate-helpers.tpl` header (issue #190)
-
-**Adding a new helper:** place it in the appropriate domain file, not
-`_helpers.tpl`, and give it a header comment carrying its rules — that header is
-where the next reader looks
-
-**Adding `merge` on `.Values` maps:** always `deepCopy` the first argument
-
-**Adding a hook role:** add a row to the table in `hookAnnotations`
-(`_hook-helpers.tpl`), never a new weight or delete-policy derivation at the call
-site. The row is the enforcement: the two `fail` guards beside it exist because a
-missing row renders a null annotation instead of stopping
-
-**Every template must have a corresponding `*_test.yaml`** in
-`charts/global-chart/tests/`
+`CODING_STANDARDS.md` — how templates and helpers are written: `default` on
+booleans, `printScalar` for numbers, `hasKey` for inheritance, the
+`<values path>: <problem>` shape of a `fail`, one home per enumeration. Read it
+before writing a template or helper. The mechanical rules are checked by
+`make lint-templates` and `make null-sweep`; `make check` runs the fast loop.
 
 ## Agent skills
 

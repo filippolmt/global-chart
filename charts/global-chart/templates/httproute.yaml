@@ -40,6 +40,14 @@ spec:
   {{- end }}
   rules:
     {{- range $ruleIdx, $rule := $rt.rules }}
+    {{- $rule = default (dict) $rule }}
+    {{- /* A RequestRedirect answers the request itself: Gateway API rejects it
+           together with backendRefs (a CEL rule of the CRD, which kubeconform
+           does not evaluate), so such a rule is the one that has none */ -}}
+    {{- $redirects := false }}
+    {{- range $rule.filters }}
+      {{- if eq (default (dict) .).type "RequestRedirect" }}{{- $redirects = true }}{{- end }}
+    {{- end }}
     -
       {{- with $rule.matches }}
       matches:
@@ -49,9 +57,12 @@ spec:
       filters:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- if not $rule.backendRefs }}
+      {{- if and $redirects $rule.backendRefs }}
+        {{- fail (printf "httpRoute.rules[%d].backendRefs: set on a rule with a RequestRedirect filter, which the API server rejects: a redirect answers the request itself. Drop backendRefs from the rule." $ruleIdx) }}
+      {{- else if and (not $redirects) (not $rule.backendRefs) }}
         {{- fail (printf "httpRoute.rules[%d].backendRefs: empty — provide at least one backendRef (deployment or service)." $ruleIdx) }}
       {{- end }}
+      {{- with $rule.backendRefs }}
       backendRefs:
         {{- range $brIdx, $br := $rule.backendRefs }}
         {{- $brCtx := printf "httpRoute.rules[%d].backendRefs[%d]" $ruleIdx $brIdx }}
@@ -66,6 +77,7 @@ spec:
             {{- toYaml . | nindent 12 }}
           {{- end }}
         {{- end }}
+      {{- end }}
       {{- with $rule.timeouts }}
       timeouts:
         {{- toYaml . | nindent 8 }}

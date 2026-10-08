@@ -52,6 +52,15 @@ HELM_REPO_ENV := HELM_REPOSITORY_CONFIG=$(KIND_BIN_DIR)/helm-repositories.yaml \
 ESO_VERSION := 2.12.0
 ESO_REPO_URL := https://charts.external-secrets.io
 ESO_NAMESPACE := external-secrets
+# Gateway API CRDs (standard channel, no controller), so the routes the chart
+# renders are validated by a real API server against the real CRD schema: kubeconform
+# reads a third-party copy of it, and TCPRoute/UDPRoute reach v1 only in v1.6.0
+# (issue #194). Nothing routes traffic: there is no Gateway controller.
+# renovate: datasource=github-releases depName=kubernetes-sigs/gateway-api
+GATEWAY_API_VERSION := v1.6.3
+# Every scenario that renders a Gateway API route, checked by e2e-routes.
+E2E_ROUTE_VALUES := tests/httproute-basic.yaml tests/httproute-canary.yaml \
+	tests/httproute-filters.yaml tests/l4routes.yaml
 # Argo CD core (no UI, no dex), for `make e2e-argocd`: the hook-prerequisite
 # copies under a real sync, where pre-install runs on every sync and a failed
 # operation marks every hook HookFailed (issues #149, #164).
@@ -101,10 +110,10 @@ TEST_CASES := \
 .DEFAULT_GOAL := help
 
 # All phony targets
-.PHONY: help all lint-chart unit-test validate-bad-values generate-templates \
+.PHONY: help all check lint-chart lint-templates unit-test null-sweep validate-bad-values generate-templates \
 	kubeconform kube-linter-manifests kube-linter generate-docs package \
 	install install-test01 render clean clean-all \
-	kind-install kind-cluster kind-keda kind-eso kind-argocd kind-delete e2e e2e-argocd check-helm-floor
+	kind-install kind-cluster kind-keda kind-eso kind-gateway-api kind-argocd kind-delete e2e e2e-routes e2e-argocd check-helm-floor
 
 # ============================================================================
 # Help
@@ -127,7 +136,9 @@ help: ## Show this help message
 # Main targets
 # ============================================================================
 
-all: lint-chart unit-test validate-bad-values generate-templates kubeconform kube-linter ## Run lint, unit tests, bad-values, generate, validate, and lint manifests
+all: lint-chart lint-templates unit-test validate-bad-values null-sweep generate-templates kubeconform kube-linter ## Run lint, unit tests, bad-values, generate, validate, and lint manifests
+
+check: lint-chart lint-templates unit-test validate-bad-values null-sweep ## The development loop: lint, template rules, unit tests, bad-values (no manifest validation)
 
 lint-chart: ## Lint chart with all test values files
 	@echo "==> Linting chart with all test cases..."
@@ -137,6 +148,15 @@ lint-chart: ## Lint chart with all test values files
 		helm lint $(STRICT) -f "$${values}" ./$(CHART_DIR)/$(GLOBAL_CHART_NAME); \
 	done
 	@echo "==> All lint checks passed!"
+
+lint-templates: ## Check the mechanical rules of CODING_STANDARDS.md on the templates
+	@echo "==> Checking template coding rules..."
+	@python3 tests/lint-templates.py ./$(CHART_DIR)/$(GLOBAL_CHART_NAME)
+
+null-sweep: ## Null every values node of every scenario in turn: each must render or fail naming its path (ratchet: tests/bad-values/null-sweep-baseline.txt)
+	@echo "==> Sweeping nulls under --skip-schema-validation..."
+	@python3 tests/bad-values/null-sweep.py ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) \
+		$(foreach e,$(TEST_CASES),$(firstword $(subst :, ,$(e)))) -- $(HELM_API_VERSIONS)
 
 unit-test: ## Run helm-unittest via Docker
 	@echo "==> Running helm unit tests..."
@@ -370,6 +390,29 @@ kind-eso: kind-cluster ## Install External Secrets Operator (operator + CRDs) an
 	@KUBECONFIG=$(KIND_KUBECONFIG) kubectl wait --for=condition=Ready clustersecretstore/e2e-fake --timeout=120s >/dev/null
 	@echo "    External Secrets Operator ready, fake ClusterSecretStore Ready"
 
+kind-gateway-api: kind-cluster ## Install the Gateway API CRDs (standard channel) into the e2e kind cluster
+	@echo "==> Installing Gateway API $(GATEWAY_API_VERSION) CRDs (standard channel)..."
+	@KUBECONFIG=$(KIND_KUBECONFIG) kubectl apply --server-side --force-conflicts \
+		-f https://github.com/kubernetes-sigs/gateway-api/releases/download/$(GATEWAY_API_VERSION)/standard-install.yaml >/dev/null
+	@KUBECONFIG=$(KIND_KUBECONFIG) kubectl wait --for=condition=Established \
+		crd/httproutes.gateway.networking.k8s.io crd/tcproutes.gateway.networking.k8s.io \
+		crd/udproutes.gateway.networking.k8s.io --timeout=60s >/dev/null
+	@echo "    Gateway API CRDs established"
+
+e2e-routes: kind-cluster kind-gateway-api ## Validate every rendered Gateway API route against the real CRDs (server-side dry run)
+	@# A server-side dry run runs the API server's whole validation, the CRD's
+	@# OpenAPI schema and CEL rules included, and persists nothing. It needs no
+	@# controller and no Gateway: an unattached route is still a valid object.
+	@set -e; export KUBECONFIG=$(KIND_KUBECONFIG); \
+	for values in $(E2E_ROUTE_VALUES); do \
+		out=$$(helm template e2e-routes ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) -f "$$values" $(HELM_API_VERSIONS) \
+			| kubectl apply --dry-run=server -n default -f - 2>&1) \
+			|| { echo "FAIL: $$values rejected by the API server:"; echo "$$out"; exit 1; }; \
+		routes=$$(echo "$$out" | grep -cE '^(httproute|tcproute|udproute)\.' || true); \
+		[ "$$routes" -gt 0 ] || { echo "FAIL: $$values rendered no Gateway API route"; exit 1; }; \
+		echo "    $$values: $$routes route(s) accepted"; \
+	done
+
 kind-argocd: kind-cluster ## Install Argo CD (core) into the e2e kind cluster
 	@echo "==> Installing Argo CD $(ARGOCD_VERSION) (core)..."
 	@KUBECONFIG=$(KIND_KUBECONFIG) kubectl create namespace $(ARGOCD_NAMESPACE) --dry-run=client -o yaml \
@@ -399,7 +442,7 @@ check-helm-floor: kind-cluster ## Assert NOTES.txt warns on a Helm below 3.18.6
 		|| { echo "FAIL: NOTES.txt did not warn on $(HELM_FLOOR_IMAGE)"; exit 1; }
 	@echo "    warning shown below the floor"
 
-e2e: kind-cluster kind-keda kind-eso check-helm-floor ## Install/upgrade/rollback/uninstall tests/e2e/values.yaml on kind and assert the hook lifecycle
+e2e: kind-cluster kind-keda kind-eso check-helm-floor e2e-routes ## Install/upgrade/rollback/uninstall tests/e2e/values.yaml on kind and assert the hook lifecycle
 	@set -e; \
 	export KUBECONFIG=$(KIND_KUBECONFIG); \
 	ns=$(E2E_NAMESPACE); rel=$(E2E_RELEASE); \
