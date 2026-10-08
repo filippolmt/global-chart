@@ -37,6 +37,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   L4 routes are not a routing layer and do not take part in it.
 - The CRD presence check has one home, `requireCrd`, shared by KEDA and the L4
   routes. The KEDA message is unchanged.
+- The root `README.md.gotmpl` is gone: no target rendered it since helm-docs
+  runs inside the chart directory, and it had drifted from `README.md`.
 
 ### Migration guide from 3.2.0
 
