@@ -12,7 +12,11 @@ The sweep. Each lint scenario is read back as JSON through a scratch chart
 PyYAML. Then every node under it — each map value and each list item — is set to
 null in turn, and the chart is rendered with --skip-schema-validation plus the
 CRD API versions. A render that succeeds passes (a null the chart tolerates),
-unless its output carries more null-looking lines — `<nil>`, a `- null` list
+unless a null on a key the templates read through isSet renders otherwise than
+the same key removed — a null is unset, so the two must match (a key the
+chart's values.yaml defaults is left out: Helm deletes the default on a null,
+and restores it on a removal) — or unless its output carries more null-looking
+lines — `<nil>`, a `- null` list
 item, an empty `name:` — than the scenario's own render: a null that reached
 the manifest. A `key: null` is not one: a null map value is unset, for the
 chart as for the API server. A render that fails passes only when Helm reports a
@@ -41,6 +45,15 @@ import tempfile
 RAW = re.compile(r"nil pointer|error calling|wrong type for value|can't evaluate|"
                  r"executing \"|invalid value; expected|incompatible types|error converting YAML")
 FAIL = re.compile(r"execution error at \([^)]*\): ")
+# A `key: null` line toYaml writes for a passthrough value: the API server
+# reads it as the key absent, so the comparison with the key removed drops it
+NULL_VALUE = re.compile(r"^[ \t]*(?:- )?[^\s:][^:\n]*:[ \t]+null[ \t]*\n", re.M)
+# podRecreation stamps the pod template with the render time: two renders a
+# second apart differ there and nowhere else
+TIMESTAMP = re.compile(r'^\s*timestamp: "\d{14}"\n', re.M)
+# The keys the templates read through isSet: a null on one must render as the
+# key absent. Read from the templates, so the list cannot drift from them.
+IS_SET = re.compile(r'isSet" \(list \S+ "(\w+)"\)')
 NULLISH = re.compile(r"<nil>|^\s*-\s+null\s*$|^\s*-?\s*name:\s*(\"\")?\s*$", re.M)
 
 
@@ -56,6 +69,15 @@ def paths(node, prefix=()):
     for key, value in items:
         yield prefix + (key,)
         yield from paths(value, prefix + (key,))
+
+
+def removed(values, path):
+    copy = json.loads(json.dumps(values))
+    node = copy
+    for key in path[:-1]:
+        node = node[key]
+    del node[path[-1]]
+    return copy
 
 
 def nulled(values, path):
@@ -94,8 +116,11 @@ def needle(path):
     return str(last)
 
 
-def verdict(out, base, path):
+def verdict(out, base, path, unset=None):
     if out.returncode == 0:
+        if unset is not None and unset.returncode == 0 and \
+                TIMESTAMP.sub("", NULL_VALUE.sub("", out.stdout)) != TIMESTAMP.sub("", unset.stdout):
+            return "renders otherwise than with the key removed: a null map value is not read as unset"
         if len(NULLISH.findall(out.stdout)) > len(NULLISH.findall(base)):
             new = [l.strip() for l in out.stdout.splitlines() if NULLISH.search(l) and l not in base.splitlines()]
             return f"renders a null: {new[0] if new else '(a null-looking line)'}"
@@ -121,12 +146,20 @@ def main(argv):
         (scratch / "Chart.yaml").write_text("apiVersion: v2\nname: values-to-json\nversion: 0.0.0\n")
         (scratch / "templates" / "values.json").write_text("{{ .Values | toJson }}\n")
         jobs, bases = [], {}
+        # "name" is left out: isSet reads it for one default (an ExternalSecret's
+        # target), and the key names every other required field of the chart
+        is_set = {k for t in (chart / "templates").rglob("*") if t.is_file()
+                  for k in IS_SET.findall(t.read_text())} - {"name"}
+        defaults = set(paths(to_json(chart / "values.yaml", scratch)))
         for f in files:
             values = to_json(f, scratch)
             bases[f] = render(chart, flags, values, tmp).stdout
-            jobs += [(f, p, nulled(values, p)) for p in paths(values)]
+            jobs += [(f, p, nulled(values, p),
+                      removed(values, p) if p[-1] in is_set and p not in defaults else None)
+                     for p in paths(values)]
         with concurrent.futures.ThreadPoolExecutor(max_workers=os.cpu_count() or 4) as pool:
-            results = pool.map(lambda j: (j[0], j[1], verdict(render(chart, flags, j[2], tmp), bases[j[0]], j[1])), jobs)
+            results = pool.map(lambda j: (j[0], j[1], verdict(render(chart, flags, j[2], tmp), bases[j[0]], j[1],
+                                                              render(chart, flags, j[3], tmp) if j[3] is not None else None)), jobs)
             for f, p, v in results:
                 if v:
                     findings.append(f"{f}: {'.'.join(map(str, p))} = null → {v}")
