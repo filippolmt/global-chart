@@ -27,7 +27,7 @@
 {{- range $key, $route := (index $root.Values $spec.field) }}
 {{- $route = default (dict) $route }}
 {{- $ctx := printf "%s.%s" $spec.field $key }}
-{{- include "global-chart.requireCrd" (dict "root" $root "apiVersion" (printf "gateway.networking.k8s.io/v1/%s" $kind) "install" (printf "Install the Gateway API CRDs at v1.6.0 or later, the first release serving %s at v1" $kind) "errCtx" $ctx) }}
+{{- include "global-chart.requireGatewayApiCrd" (dict "root" $root "kind" $kind "errCtx" $ctx) }}
 {{- if not $route.parentRefs }}
   {{- fail (printf "%s.parentRefs: empty. Provide at least one parentRef pointing to an existing Gateway listener (the chart does not create Gateways)." $ctx) }}
 {{- end }}

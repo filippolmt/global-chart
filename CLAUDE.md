@@ -8,11 +8,15 @@ rules below.
 ## Commands
 
 ```bash
-make all                    # lint + test + bad-values + docs + kubeconform + kube-linter
+make all                    # check + generate + kubeconform + kube-linter
+make check                  # the fast loop: lint-chart, lint-templates, unit-test, bad-values, null-sweep
 make lint-chart             # lint every scenario in TEST_CASES
+make lint-templates         # the mechanical rules of CODING_STANDARDS.md
 make unit-test              # helm-unittest suites via Docker
+make null-sweep             # null every values node of every scenario: each must render or fail naming its path
 make generate-docs          # regenerate the helm-docs README
-make e2e                    # install/upgrade/rollback/uninstall on a throwaway kind cluster
+make e2e                    # install/upgrade/rollback/uninstall on a throwaway kind cluster (runs e2e-routes first)
+make e2e-routes             # every rendered Gateway API route, server-side dry run against the real CRDs
 make e2e-argocd             # the same cluster, synced by Argo CD (hook lifecycle under Argo)
 make render VALUES=tests/test01/values.01.yaml TEMPLATE=deployment.yaml
 ```
@@ -62,9 +66,9 @@ is the source of truth, this table is only the routing.
 | `_job-helpers.tpl` | The one pod spec of every hook and cronjob, both scopes: image resolution, CronJob and Job spec fields, `jobValuesPath` |
 | `_serviceaccount-helpers.tpl` | Every ServiceAccount rendered or bound (`resolveServiceAccount`, the job resolver) and the SA side of the hook copies (ADR 0010, 0011) |
 | `_hook-helpers.tpl` | The `helm.sh/hook*` annotations from the role table, the phase cut `hookReadsPrereqCopy`, the hook-copy consumer scans |
-| `_render-helpers.tpl` | `printScalar`, shared render blocks and data bodies, mounts (`containerVolumeMounts`), ports (`servicePrimaryPort`, `servicePorts`, `containerPorts`), backends and routes (`resolveBackend`, `httpRouteEntries`, `l4RouteKinds`) |
+| `_render-helpers.tpl` | `printScalar`, render blocks, mounts, ports (`servicePrimaryPort`, `servicePorts`, `containerPorts`), `resolveBackend`, route lists (`httpRouteEntries`, `l4RouteKinds`) |
 | `_keda-helpers.tpl` | KEDA names, trigger and `authenticationRef` resolution |
-| `_validate-helpers.tpl` | Values paths (`deploymentValuesPath`), the `fail` message shape, cross-resource validators, `hpaActiveTargets`, `requireCrd` |
+| `_validate-helpers.tpl` | Values paths (`deploymentValuesPath`), the `fail` message shape, cross-resource validators, `hpaActiveTargets`, `requireCrd` / `requireGatewayApiCrd` |
 
 ### Key Design Patterns
 
@@ -174,10 +178,11 @@ is the source of truth, this table is only the routing.
     `sourceRef`; one that is large or growing (`volumes`, `volumeMounts`,
     `container`) stays open and declares only the fields a template reads — see
     `docs/adr/0017-close-the-passthrough-surfaces-whose-shape-is-small-and-fixed.md`. The
-    job composites close with `unevaluatedProperties: false` (Helm >= 3.18.6;
-    below it, ignored in silence), the flat ones with
-    `additionalProperties: false`. The `allOf` branches (`jobCommon`,
-    `cronJobSpec`, `hookJobSpec`, `rootJobSpec`, `deploymentJobSpec`) must
+    job composites and `httpRoute` / `httpRouteEntry` close with
+    `unevaluatedProperties: false` (Helm >= 3.18.6; below it, ignored in
+    silence), the flat ones with `additionalProperties: false`. The `allOf`
+    branches (`jobCommon`, `cronJobSpec`, `hookJobSpec`, `rootJobSpec`,
+    `deploymentJobSpec`, `httpRouteFields`) must
     **never** be closed: a branch validates the whole object alone, so closing
     one rejects every key the others contribute. **Every closed schema node carries
     its own fixture** in `tests/bad-values/schema/` — a top-level `$defs` and
@@ -224,8 +229,13 @@ is the source of truth, this table is only the routing.
     `service.yaml` each deriving ports on their own (issue #82)
 14. **One HTTP routing layer, any number of L4 routes**: `ingress` and the
     HTTPRoutes (`httpRoute`, `httpRoutes`, listed by `httpRouteEntries`)
-    exclude each other; `tcpRoutes` / `udpRoutes` coexist with either. The rules (protocol per consumer, `v1` only from Gateway API
-    v1.6.0) live in the headers of `l4routes.yaml` and `resolveBackend`
+    exclude each other; `tcpRoutes` / `udpRoutes` coexist with either. The
+    rules (protocol per consumer, `v1` only from Gateway API v1.6.0) live in
+    the headers of `l4routes.yaml` and `resolveBackend`. As with KEDA, every
+    route kind is guarded by its CRD (`requireGatewayApiCrd`), so an offline
+    render needs `--api-versions gateway.networking.k8s.io/v1/<Kind>` for
+    HTTPRoute, TCPRoute and UDPRoute (`HELM_API_VERSIONS`;
+    `capabilities.apiVersions` in the suites)
 
 ### Resource Naming Limits
 

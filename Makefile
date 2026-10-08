@@ -59,9 +59,12 @@ ESO_NAMESPACE := external-secrets
 # (issue #194). Nothing routes traffic: there is no Gateway controller.
 # renovate: datasource=github-releases depName=kubernetes-sigs/gateway-api
 GATEWAY_API_VERSION := v1.6.3
-# Every scenario that renders a Gateway API route, checked by e2e-routes.
-E2E_ROUTE_VALUES := tests/httproute-basic.yaml tests/httproute-canary.yaml \
-	tests/httproute-filters.yaml tests/httproutes.yaml tests/l4routes.yaml
+# The Gateway API kinds the chart renders: httproute.yaml and l4RouteKinds
+# (_render-helpers.tpl) are their source, mirrored here; change both. e2e-routes
+# waits for their CRDs and sends every TEST_CASES scenario rendering one of them.
+GATEWAY_ROUTE_KINDS := HTTPRoute TCPRoute UDPRoute
+GATEWAY_ROUTE_CRDS := $(foreach k,$(GATEWAY_ROUTE_KINDS),crd/$(shell echo $(k) | tr A-Z a-z)s.gateway.networking.k8s.io)
+GATEWAY_ROUTE_KIND_RE := ^kind: ($(subst $(subst ,, ),|,$(GATEWAY_ROUTE_KINDS)))$$
 # Argo CD core (no UI, no dex), for `make e2e-argocd`: the hook-prerequisite
 # copies under a real sync, where pre-install runs on every sync and a failed
 # operation marks every hook HookFailed (issues #149, #164).
@@ -138,9 +141,9 @@ help: ## Show this help message
 # Main targets
 # ============================================================================
 
-all: lint-chart lint-templates unit-test validate-bad-values null-sweep generate-templates kubeconform kube-linter ## Run lint, unit tests, bad-values, generate, validate, and lint manifests
+all: lint-chart lint-templates unit-test validate-bad-values null-sweep generate-templates kubeconform kube-linter ## Lint, template rules, unit tests, bad-values, null sweep, then generate, validate and lint the manifests
 
-check: lint-chart lint-templates unit-test validate-bad-values null-sweep ## The development loop: lint, template rules, unit tests, bad-values (no manifest validation)
+check: lint-chart lint-templates unit-test validate-bad-values null-sweep ## The development loop: lint, template rules, unit tests, bad-values, null sweep (no manifest validation)
 
 lint-chart: ## Lint chart with all test values files
 	@echo "==> Linting chart with all test cases..."
@@ -397,23 +400,26 @@ kind-gateway-api: kind-cluster ## Install the Gateway API CRDs (standard channel
 	@KUBECONFIG=$(KIND_KUBECONFIG) kubectl apply --server-side --force-conflicts \
 		-f https://github.com/kubernetes-sigs/gateway-api/releases/download/$(GATEWAY_API_VERSION)/standard-install.yaml >/dev/null
 	@KUBECONFIG=$(KIND_KUBECONFIG) kubectl wait --for=condition=Established \
-		crd/httproutes.gateway.networking.k8s.io crd/tcproutes.gateway.networking.k8s.io \
-		crd/udproutes.gateway.networking.k8s.io --timeout=60s >/dev/null
+		$(GATEWAY_ROUTE_CRDS) --timeout=60s >/dev/null
 	@echo "    Gateway API CRDs established"
 
 e2e-routes: kind-cluster kind-gateway-api ## Validate every rendered Gateway API route against the real CRDs (server-side dry run)
 	@# A server-side dry run runs the API server's whole validation, the CRD's
 	@# OpenAPI schema and CEL rules included, and persists nothing. It needs no
 	@# controller and no Gateway: an unattached route is still a valid object.
-	@set -e; export KUBECONFIG=$(KIND_KUBECONFIG); \
-	for values in $(E2E_ROUTE_VALUES); do \
-		out=$$(helm template e2e-routes ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) -f "$$values" $(HELM_API_VERSIONS) \
-			| kubectl apply --dry-run=server -n default -f - 2>&1) \
+	@# Every TEST_CASES scenario is rendered, and the ones carrying a route are
+	@# sent: a new route scenario is checked without being listed anywhere.
+	@set -e; export KUBECONFIG=$(KIND_KUBECONFIG); checked=0; \
+	for entry in $(TEST_CASES); do \
+		values="$${entry%%:*}"; \
+		manifest=$$(helm template e2e-routes ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) -f "$$values" $(HELM_API_VERSIONS)); \
+		routes=$$(echo "$$manifest" | grep -cE '$(GATEWAY_ROUTE_KIND_RE)' || true); \
+		[ "$$routes" -gt 0 ] || continue; \
+		out=$$(echo "$$manifest" | kubectl apply --dry-run=server -n default -f - 2>&1) \
 			|| { echo "FAIL: $$values rejected by the API server:"; echo "$$out"; exit 1; }; \
-		routes=$$(echo "$$out" | grep -cE '^(httproute|tcproute|udproute)\.' || true); \
-		[ "$$routes" -gt 0 ] || { echo "FAIL: $$values rendered no Gateway API route"; exit 1; }; \
-		echo "    $$values: $$routes route(s) accepted"; \
-	done
+		echo "    $$values: $$routes route(s) accepted"; checked=$$((checked + 1)); \
+	done; \
+	[ "$$checked" -gt 0 ] || { echo "FAIL: no TEST_CASES scenario renders a Gateway API route"; exit 1; }
 
 kind-argocd: kind-cluster ## Install Argo CD (core) into the e2e kind cluster
 	@echo "==> Installing Argo CD $(ARGOCD_VERSION) (core)..."

@@ -64,9 +64,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 - The root `README.md.gotmpl` is gone: no target rendered it since helm-docs
   runs inside the chart directory, and it had drifted from `README.md`.
 
+### Tests
+
+- New `make e2e-routes`, run by `make e2e`: the Gateway API CRDs (standard
+  channel, pinned) on the kind cluster, and every `TEST_CASES` scenario that
+  renders a route sent to the API server as a server-side dry run, so the CRD
+  schema and its CEL rules apply. kubeconform evaluates no CEL.
+- New `make lint-templates`: the mechanical rules of `CODING_STANDARDS.md` on
+  the template source — `default true`, `set` on `.Values` or a variable bound
+  to it, the shape of a `fail` message, a suite per template.
+- New `make null-sweep`: every values node of every scenario nulled under
+  `--skip-schema-validation`; each must render or fail naming its path (issue
+  #198).
+- New `make check`, the fast loop: lint, template rules, unit tests, bad-values,
+  null sweep. `CODING_STANDARDS.md` holds the template rules, out of CLAUDE.md.
+
 ### Migration guide from 3.2.0
 
-- Releases without `tcpRoutes` / `udpRoutes` render the same manifests.
+- Releases without `tcpRoutes` / `udpRoutes` render the same manifests. An
+  offline render with `httpRoute` enabled needs one flag more (below).
 - An ingress host or `httpRoute` backendRef whose deployment's primary port is
   UDP (or SCTP) now fails the render. It could not carry HTTP before either:
   point it at a TCP port with `portName`.

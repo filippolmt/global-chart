@@ -10,21 +10,25 @@
        field-by-field, since that is where the chart transforms input
        (deployment name -> Service via resolveBackend).
 
-       HTTPRoute is served at gateway.networking.k8s.io/v1 since Gateway API
-       v1.0.0. Guarded like the L4 routes (issue #196): without the CRD the
-       failure would be the API server's "no matches for kind" at apply. */ -}}
+       Guarded like the L4 routes (issue #196), once for all of them: see
+       requireGatewayApiCrd. */ -}}
 {{- $root := . }}
-{{- range $entry := (include "global-chart.httpRouteEntries" $root | fromJsonArray) }}
+{{- $entries := include "global-chart.httpRouteEntries" $root | fromJsonArray }}
+{{- with $entries }}
+{{- include "global-chart.requireGatewayApiCrd" (dict "root" $root "kind" "HTTPRoute" "errCtx" (first .).errCtx) }}
+{{- end }}
+{{- range $entry := $entries }}
 {{- $rt := $entry.route }}
-{{- $ctx := $entry.ctx }}
-{{- include "global-chart.requireCrd" (dict "root" $root "apiVersion" "gateway.networking.k8s.io/v1/HTTPRoute" "install" "Install the Gateway API CRDs at v1.0.0 or later, the first release serving HTTPRoute at v1" "errCtx" $ctx) }}
+{{- $ctx := $entry.errCtx }}
 {{- /* Required fields: the schema requires them on an httpRoutes entry, so
-       there these are fallback guards for --skip-schema-validation */ -}}
+       there these are fallback guards for --skip-schema-validation; on the
+       single httpRoute they are required once it is enabled */ -}}
+{{- $when := ternary " while httpRoute.enabled is true" "" $entry.single }}
 {{- if not $rt.parentRefs }}
-  {{- fail (printf "%s.parentRefs: empty%s. Provide at least one parentRef pointing to an existing Gateway (the chart does not create Gateways)." $ctx $entry.whenEnabled) }}
+  {{- fail (printf "%s.parentRefs: empty%s. Provide at least one parentRef pointing to an existing Gateway (the chart does not create Gateways)." $ctx $when) }}
 {{- end }}
 {{- if not $rt.rules }}
-  {{- fail (printf "%s.rules: empty%s. Provide at least one rule." $ctx $entry.whenEnabled) }}
+  {{- fail (printf "%s.rules: empty%s. Provide at least one rule." $ctx $when) }}
 {{- end }}
 ---
 apiVersion: gateway.networking.k8s.io/v1
@@ -71,7 +75,7 @@ spec:
       {{- else if and (not $redirects) (not $rule.backendRefs) }}
         {{- fail (printf "%s.backendRefs: empty — provide at least one backendRef (deployment or service)." $ruleCtx) }}
       {{- end }}
-      {{- with $rule.backendRefs }}
+      {{- if $rule.backendRefs }}
       backendRefs:
         {{- range $brIdx, $br := $rule.backendRefs }}
         {{- $br = default (dict) $br }}

@@ -41,12 +41,13 @@ even on a client dry-run; nothing is applied. It reaches the API server on the
 copy of the kubeconfig, so it never touches `~/.kube/config` either.
 
 Also before it, `e2e-routes` installs the Gateway API CRDs (standard channel,
-version pinned in the Makefile, no controller) and sends every scenario that
-renders a route (`E2E_ROUTE_VALUES`) to the API server as a server-side dry run.
+version pinned in the Makefile, no controller) and sends every `TEST_CASES`
+scenario that renders a route to the API server as a server-side dry run.
 That runs the CRD's own schema and CEL rules, which kubeconform, reading a
 third-party copy of the schema, does not: a RequestRedirect rule carrying
 backendRefs passed every other check. Nothing routes: an unattached route is
-still a valid object. Add a scenario there when it renders a new route kind.
+still a valid object. A new route kind goes in `GATEWAY_ROUTE_KINDS` too, which
+mirrors the kinds the templates render.
 
 It also runs in CI as its own job in `.github/workflows/helm-ci.yml`.
 
