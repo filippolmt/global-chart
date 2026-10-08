@@ -116,8 +116,8 @@ is the source of truth, this table is only the routing.
      they differ on exactly one pair: the deployment's generated Secret against
      its `envFromConfigMaps`. Fixed by an `equal` on the whole list in
      `deployment_test.yaml` and `cronjob_test.yaml`; `contains` passes whatever
-     the order, which is how the two ends drifted unobserved. See *Sorgente
-     d'ambiente* in `GLOSSARY.md`
+     the order, which is how the two ends drifted unobserved. See *Environment
+     source* in `GLOSSARY.md`
    - **Asymmetry**: root-level `.Values.cronJobs` and `.Values.hooks` inherit
      nothing — they are standalone. Reference deployment ConfigMaps/Secrets
      explicitly via `envFromConfigMaps` / `envFromSecrets` (or `fromDeployment`
@@ -200,7 +200,7 @@ is the source of truth, this table is only the routing.
     lands in accepts — a new such map needs one too, with its own fixture. A
     list field that identifies its entry and becomes a name is held to the same
     rule, by a `$ref` on the field: `rbacs.roles[].name` (ADR 0008). See
-    *Chiave nominante* in `GLOSSARY.md`
+    *Naming key* in `GLOSSARY.md`
 11. **Autoscaling is either/or**: `deployments.<name>.autoscaling` (a
     chart-rendered HPA) and `deployments.<name>.keda` (a ScaledObject) are
     mutually exclusive per deployment — KEDA owns its own *derived HPA*. Either

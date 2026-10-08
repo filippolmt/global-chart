@@ -10,8 +10,8 @@ How the engineering skills should consume this repo's domain documentation when 
 
 If any of these files don't exist, **proceed silently**. Don't flag their absence; don't suggest creating them upfront. The `/domain-modeling` skill (reached via `/grill-with-docs` and `/improve-codebase-architecture`) creates them lazily when terms or decisions actually get resolved.
 
-This repo is single-context. `GLOSSARY.md` is written in Italian, like the
-terms it defines; ADRs are in English and reference its terms in italics.
+This repo is single-context. ADRs, `CLAUDE.md` and code comments reference
+`GLOSSARY.md` terms in italics, by their exact name.
 
 ## File structure
 

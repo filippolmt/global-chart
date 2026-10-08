@@ -13,7 +13,7 @@ rejected by the API server.
 
 ## Decisions
 
-**The name is a *Chiave nominante*, although it is a list field and not a map
+**The name is a *naming key*, although it is a list field and not a map
 key.** It plays the same part — it identifies the entry and becomes a name — so
 the glossary entry was widened rather than a second term coined.
 
@@ -46,7 +46,7 @@ breaking every external reference to the SA.
 - **An explicit `serviceAccount.name`** has the same defect (`Reader_SA`), but
   `$defs/serviceAccount` is shared with `deployments.<name>.serviceAccount`.
   Constraining it touches deployments too, and it is a name given as a value,
-  not a *Chiave nominante*.
+  not a *naming key*.
 
 ## Implementation
 

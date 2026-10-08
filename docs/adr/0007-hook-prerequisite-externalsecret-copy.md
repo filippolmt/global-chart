@@ -38,7 +38,7 @@ so the user never writes a generated name.
   as for `mountedConfigFiles`.
 - **Order in `envFrom`.** An `externalSecrets` entry is a secret source. The Deployment
   places it in the secret group (order by type). A job places it by proximity:
-  inherited entries first, then its own. See *Sorgente d'ambiente* in `GLOSSARY.md`.
+  inherited entries first, then its own. See *Environment source* in `GLOSSARY.md`.
 - **The target name of the copy is its own**: `<target>-hook`, where `<target>` is the
   target name of the real ExternalSecret (`target.name`, or `<fullname>-<key>`).
   `validateNameCollisions` must cover the new name.
