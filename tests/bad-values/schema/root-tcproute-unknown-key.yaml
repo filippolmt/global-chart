@@ -1,0 +1,12 @@
+# covers: l4Route
+# An unknown key in a tcpRoutes entry (typo of parentRefs). Without the
+# closure the misspelled key is dropped, and the route attaches to nothing.
+tcpRoutes:
+  db:
+    parentRef:
+      - name: gw
+    parentRefs:
+      - name: gw
+    rules:
+      - backendRefs:
+          - service: { name: db, port: 5432 }

@@ -1,0 +1,19 @@
+# covers: routeBackendRef
+# An unknown key in a tcpRoutes backendRef (typo of portName). Without the
+# closure the route falls back on the primary port, which is not the one meant.
+deployments:
+  traccar:
+    image: traccar/traccar:6.6
+    service:
+      extraPorts:
+        - name: teltonika
+          port: 5027
+          targetPort: 5027
+tcpRoutes:
+  gps:
+    parentRefs:
+      - name: gw
+    rules:
+      - backendRefs:
+          - deployment: traccar
+            port_name: teltonika

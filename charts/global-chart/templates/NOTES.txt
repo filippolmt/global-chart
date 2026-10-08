@@ -55,6 +55,16 @@ Reminder: Gateway API CRDs must be installed in the cluster.
 The chart does not create the Gateway resource — it must be managed externally.
 {{- end }}
 
+{{- range $spec := (include "global-chart.l4RouteKinds" $ | fromJsonArray) }}
+{{- range $key, $route := (index $.Values $spec.field) }}
+
+{{ $spec.kind }} {{ include "global-chart.l4RouteName" (dict "root" $ "key" $key) }} is bound to Gateway(s):
+{{- range $route.parentRefs }}
+  - {{ .name }}{{ if .namespace }} (namespace: {{ .namespace }}){{ end }}{{ if .sectionName }} (listener: {{ .sectionName }}){{ end }}
+{{- end }}
+{{- end }}
+{{- end }}
+
 {{- if .Values.hooks }}
 
 Hooks:

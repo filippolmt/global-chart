@@ -1,4 +1,4 @@
-# covers: httpRoute/properties/parentRefs/items
+# covers: gatewayParentRef
 # An unknown key inside an httpRoute.parentRefs entry (typo of sectionName).
 # Without the closure the route attaches to every listener of the gateway
 # instead of the one intended.

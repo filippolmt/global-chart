@@ -153,3 +153,25 @@ tests:
     asserts:
       - notMatchRegexRaw:
           pattern: "DEPRECATED"
+
+  # ====== L4 routes (issue #194) ======
+  - it: should list each L4 route with its Gateway listeners
+    release:
+      name: myrel
+    set:
+      tcpRoutes:
+        gps:
+          parentRefs:
+            - name: direct-gw
+              namespace: gateway-system
+              sectionName: gps-5027
+          rules: [{ backendRefs: [{ service: { name: x, port: 5027 } }] }]
+      udpRoutes:
+        dns:
+          parentRefs: [{ name: dns-gw }]
+          rules: [{ backendRefs: [{ service: { name: y, port: 53 } }] }]
+    asserts:
+      - matchRegexRaw:
+          pattern: "TCPRoute myrel-global-chart-gps is bound to Gateway\\(s\\):\\n  - direct-gw \\(namespace: gateway-system\\) \\(listener: gps-5027\\)"
+      - matchRegexRaw:
+          pattern: "UDPRoute myrel-global-chart-dns is bound to Gateway\\(s\\):\\n  - dns-gw"

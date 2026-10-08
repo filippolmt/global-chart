@@ -359,3 +359,15 @@ Usage: {{ include "global-chart.externalSecretVolumeName" (dict "key" $key) }}
 {{- define "global-chart.externalSecretVolumeName" -}}
 {{- printf "es-%s" .key -}}
 {{- end -}}
+
+{{/*
+Name of an L4 route (a tcpRoutes or udpRoutes entry, issue #194):
+{fullname}-{key}, the idiom of the other root-level named resources. Truncated
+at 63 like most names of the chart, so two keys can truncate onto one name:
+validateNameCollisions checks it, per kind. The truncation constant lives here
+only.
+Usage: {{ include "global-chart.l4RouteName" (dict "root" . "key" $key) }}
+*/}}
+{{- define "global-chart.l4RouteName" -}}
+{{- include "global-chart.truncName" (list (printf "%s-%s" (include "global-chart.fullname" .root) .key) 63) -}}
+{{- end -}}

@@ -13,9 +13,11 @@ GENERATED_DIR := generated-manifests
 # CRD API versions the chart renders but that no cluster provides offline.
 # .Capabilities.APIVersions is populated from the cluster only during
 # install/upgrade, so `helm template` needs these declared explicitly or the
-# CRD presence check in _keda-helpers.tpl fails. (`helm lint` does not evaluate
+# CRD presence check (requireCrd, _validate-helpers.tpl) fails. (`helm lint` does not evaluate
 # template `fail` and has no equivalent flag, so lint-chart needs nothing.)
-HELM_API_VERSIONS := --api-versions keda.sh/v1alpha1
+HELM_API_VERSIONS := --api-versions keda.sh/v1alpha1 \
+	--api-versions gateway.networking.k8s.io/v1/TCPRoute \
+	--api-versions gateway.networking.k8s.io/v1/UDPRoute
 
 # Docker images
 KUBE_LINTER_VERSION := 0.7.1
@@ -91,6 +93,7 @@ TEST_CASES := \
 	tests/httproute-basic.yaml:httproute-basic:httproute-basic \
 	tests/httproute-canary.yaml:httproute-canary:httproute-canary \
 	tests/httproute-filters.yaml:httproute-filters:httproute-filters \
+	tests/l4routes.yaml:l4routes:l4routes \
 	tests/keda.yaml:keda:keda \
 	tests/common-annotations.yaml:common-annotations:common-annotations
 
@@ -156,7 +159,7 @@ validate-bad-values: ## Verify bad-values are rejected: schema/ by values.schema
 		[ -e "$$f" ] || { echo "    FAIL: tests/bad-values/fail/ holds no fixture; green here would be vacuous"; exit 1; }; \
 		subs=$$(sed -n 's/^# Expected fail substring: "\(.*\)"$$/\1/p' "$$f"); \
 		[ -n "$$subs" ] || { echo "    FAIL: $$f declares no '# Expected fail substring: \"...\"' line; without one, any fail passes it"; exit 1; }; \
-		if out=$$(helm template global-chart-bad-values ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) -f "$$f" 2>&1); then \
+		if out=$$(helm template global-chart-bad-values ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) $(HELM_API_VERSIONS) -f "$$f" 2>&1); then \
 			echo "    FAIL: $$f should have been rejected but was accepted"; \
 			exit 1; \
 		elif helm lint $(STRICT) -f "$$f" ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) 2>&1 | grep -qF "$(SCHEMA_REJECTION)"; then \

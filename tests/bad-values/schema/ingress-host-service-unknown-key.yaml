@@ -1,7 +1,8 @@
-# covers: ingress/properties/hosts/items/properties/service
 # An unknown key inside an ingress host's explicit service reference (typo of
 # port). Without the constraint the backend falls back to port 80 and the
 # traffic lands on the wrong port of an existing Service.
+# The closure is backendServiceRef's, covered by httproute-backendref-service-unknown-key.yaml:
+# this fixture proves the ingress host reaches it through its $ref.
 ingress:
   enabled: true
   hosts:

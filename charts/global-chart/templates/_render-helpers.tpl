@@ -401,23 +401,52 @@ rules:
 {{- end }}
 
 {{/*
+The L4 route kinds (issue #194), as a JSON list of {kind, field, protocol}: the
+values map each kind is declared in, and the protocol its backends must carry.
+The single home of that enumeration, read by l4routes.yaml, the collision
+check in validateNameCollisions and NOTES.txt: a new kind (TLSRoute) is one
+row here, not three edits that can drift.
+Usage: {{- range (include "global-chart.l4RouteKinds" . | fromJsonArray) }}
+*/}}
+{{- define "global-chart.l4RouteKinds" -}}
+{{- list
+      (dict "kind" "TCPRoute" "field" "tcpRoutes" "protocol" "TCP")
+      (dict "kind" "UDPRoute" "field" "udpRoutes" "protocol" "UDP")
+    | toJson -}}
+{{- end }}
+
+{{/*
 Resolve a backend reference to a {name, port} dict, emitted as JSON for the caller to parse via fromJson.
 Usage:
-  {{- $b := include "global-chart.resolveBackend" (dict "root" $root "ref" $hostEntry "errCtx" (printf "ingress.hosts[%d]" $hostIdx)) | fromJson -}}
+  {{- $b := include "global-chart.resolveBackend" (dict "root" $root "ref" $hostEntry "errCtx" (printf "ingress.hosts[%d]" $hostIdx) "protocol" "TCP") | fromJson -}}
   {{- $svcName := $b.name -}}
   {{- $svcPort := $b.port -}}
 
 Inputs (dict):
   - root        (required) — Helm root context (the chart "." passed in)
-  - ref         (required) — host entry (ingress) or backendRef (httpRoute) map; supports .service.name/.port and .deployment
+  - ref         (required) — host entry (ingress) or backendRef (httpRoute, tcpRoutes, udpRoutes) map;
+                             supports .service.name/.port, and .deployment with an optional .portName
   - errCtx      (required) — values path of ref (ingress.hosts[<i>], httpRoute.rules[<i>].backendRefs[<j>]);
                              leads every fail message, "<values path>: <problem>" (issue #190).
+  - protocol    (required) — the protocol the consumer forwards: "TCP" for ingress, httpRoute and
+                             tcpRoutes, "UDP" for udpRoutes.
 
 Resolution priority (mirrors the historical inline ingress logic):
   1. Explicit service override: ref.service.name set      → {name=ref.service.name, port=ref.service.port|80}
-  2. Deployment reference:      ref.deployment set        → {name=deploymentFullname, port=deploy.service.port|80}
+  2. Deployment reference:      ref.deployment set        → {name=deploymentFullname, port=the Service port named
+                                                             ref.portName, or the primary port}
                                 with validations: deployment exists, enabled, service.enabled != false
   3. Otherwise: fail with actionable message.
+
+portName (issue #194) names a port of the deployment's Service — the primary
+port's name (servicePrimaryPort, "http" by default) or an extraPorts[].name —
+and resolves to its number, since a Gateway API backendRef carries numbers only.
+It is the single home of picking a deployment's port, so ingress, httpRoute and
+the L4 routes all get it. Rejected alongside a service carrying a name or a
+port (a foreign Service carries its own port) and on a name the Service lacks. The port picked, primary
+included, must carry the consumer's protocol: Kubernetes accepts a TCP route to
+a UDP port, and the traffic never arrives. A service backend is not checked:
+the chart does not know a foreign Service's ports.
 
 Output: JSON string of the form {"name":"<svc>","port":<int>}
 Numbers come back float64: see the file header.
@@ -426,8 +455,18 @@ Numbers come back float64: see the file header.
 {{- $root := .root -}}
 {{- $ref := .ref -}}
 {{- $path := required "resolveBackend: errCtx is required (the values path of ref)" .errCtx -}}
+{{- $protocol := required "resolveBackend: protocol is required (the protocol the consumer forwards)" .protocol -}}
 {{- $svcName := "" -}}
 {{- $svcPort := 80 -}}
+{{- if hasKey $ref "portName" -}}
+  {{- include "global-chart.rejectNull" (dict "value" $ref.portName "errCtx" (printf "%s.portName" $path)) -}}
+  {{- /* service: {name: ""} is the absent service of priority 1 below (the
+         ingress default host carries it), so it does not conflict; a name or
+         a port does: either one says which port to reach, and so does portName */ -}}
+  {{- if and $ref.service (or $ref.service.name (hasKey $ref.service "port")) -}}
+    {{- fail (printf "%s.portName: set together with service. portName picks a port of a deployment's Service; a service backend carries its own port. Drop one of them." $path) -}}
+  {{- end -}}
+{{- end -}}
 
 {{- /* Priority 1: Explicit service override.
        This 80 is deliberately NOT servicePrimaryPort's: ref.service is an
@@ -460,7 +499,23 @@ Numbers come back float64: see the file header.
   {{- end -}}
   {{- $svcName = include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $depName) -}}
   {{- $depSvcCtx := printf "%s.service" (include "global-chart.deploymentValuesPath" $depName) -}}
-  {{- $svcPort = (include "global-chart.servicePrimaryPort" (dict "service" $depSvc "errCtx" $depSvcCtx) | fromJson).port -}}
+  {{- $svcPorts := include "global-chart.servicePorts" (dict "service" $depSvc "errCtx" $depSvcCtx) | fromJsonArray -}}
+  {{- $ports := dict -}}
+  {{- range $svcPorts -}}
+    {{- $_ := set $ports .name . -}}
+  {{- end -}}
+  {{- $portName := ternary $ref.portName (first $svcPorts).name (hasKey $ref "portName") -}}
+  {{- if not (hasKey $ports $portName) -}}
+    {{- fail (printf "%s.portName: '%s' names no port of the Service of deployment '%s' (ports: %s). Use the name of service.portName or of a service.extraPorts entry." $path $portName $depName (keys $ports | sortAlpha | join ", ")) -}}
+  {{- end -}}
+  {{- $picked := index $ports $portName -}}
+  {{- if ne $picked.protocol $protocol -}}
+    {{- /* The path is the key that picked the port: portName when set, the
+           backend itself when it fell back on the primary port */ -}}
+    {{- $protoCtx := ternary (printf "%s.portName" $path) $path (hasKey $ref "portName") -}}
+    {{- fail (printf "%s: resolves to the %s port '%s' of deployment '%s', but this backend forwards %s. Kubernetes accepts the route and the traffic never arrives. Pick a %s port with portName." $protoCtx $picked.protocol $portName $depName $protocol $protocol) -}}
+  {{- end -}}
+  {{- $svcPort = $picked.port -}}
 {{- /* Priority 3: Error - must specify deployment or service */ -}}
 {{- else -}}
   {{- fail (printf "%s: must specify either 'deployment' (name of a deployment) or 'service.name' (explicit service name)" $path) -}}
@@ -573,6 +628,27 @@ Numbers come back float64: see the file header.
       "protocol" (ternary $svc.protocol "TCP" (hasKey $svc "protocol") | upper)
       "targetPort" (ternary $svc.targetPort $name (hasKey $svc "targetPort"))
     | toJson -}}
+{{- end }}
+
+{{/*
+Every port of a deployment's Service, in the order service.yaml renders them:
+the primary port first (from servicePrimaryPort), then each extraPorts entry
+with its protocol from extraPortProtocol. The single home of that enumeration
+on the Service side, read by validateServicePorts and resolveBackend; the pod
+side, which deduplicates, is containerPorts.
+Usage: {{ $ports := include "global-chart.servicePorts" (dict "service" $svc "errCtx" (printf "%s.service" $errCtx)) | fromJsonArray }}
+Input: as servicePrimaryPort.
+Output: JSON list of {"name","port","protocol","index"}; index is the
+extraPorts position, -1 for the primary port. Numbers come back float64: see
+the file header.
+*/}}
+{{- define "global-chart.servicePorts" -}}
+{{- $primary := include "global-chart.servicePrimaryPort" . | fromJson -}}
+{{- $ports := list (dict "name" $primary.name "port" $primary.port "protocol" $primary.protocol "index" -1) -}}
+{{- range $i, $port := (default (list) .service.extraPorts) -}}
+  {{- $ports = append $ports (dict "name" $port.name "port" $port.port "protocol" (include "global-chart.extraPortProtocol" $port) "index" $i) -}}
+{{- end -}}
+{{- $ports | toJson -}}
 {{- end }}
 
 {{/*

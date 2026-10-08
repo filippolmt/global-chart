@@ -219,7 +219,7 @@ tests:
               - deployment: api
     asserts:
       - failedTemplate:
-          errorMessage: "Both .Values.ingress.enabled and .Values.httpRoute.enabled are true. The chart supports only one routing layer per release. Disable one (set enabled: false) to proceed."
+          errorMessage: "Both .Values.ingress.enabled and .Values.httpRoute.enabled are true. The chart supports only one HTTP routing layer per release. Disable one (set enabled: false) to proceed."
         template: templates/validate.yaml
 
   # ====== 11. ingress only — no fail, Ingress rendered ======

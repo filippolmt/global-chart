@@ -5,6 +5,50 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ---
 
+## [3.3.0] — 2026-10-08
+
+### Added
+
+- **`tcpRoutes` and `udpRoutes`: TCPRoute and UDPRoute** (issue #194). Each is a
+  map, one route per entry named `<fullname>-<key>`, so a release can expose
+  ports that are not HTTP on several Gateways and listeners. An entry present is
+  a route rendered. They coexist with `ingress` and `httpRoute`. The shape
+  follows Gateway API: `parentRefs` verbatim, `rules[].backendRefs[]` with
+  `deployment` (plus `portName`) or `service: {name, port}`, and an optional
+  `weight` and rule `name`. Only `gateway.networking.k8s.io/v1` is rendered:
+  both kinds are in the Gateway API experimental channel, and the render fails,
+  per kind, unless the cluster serves that version. An offline render needs
+  `--api-versions gateway.networking.k8s.io/v1/TCPRoute` (and/or `UDPRoute`).
+  Keys are DNS-1123 labels; two keys that truncate onto one name fail.
+- **`portName` on a `deployment:` backend** (issue #194), in `ingress.hosts[]`,
+  `httpRoute` backendRefs and the L4 routes: it picks a port of the deployment's
+  Service by name, `service.portName` or a `service.extraPorts[].name`, instead
+  of the primary port. The render fails on a name the Service lacks (listing
+  the ones it has) and on `portName` next to a `service:` that carries a
+  name or a port.
+
+### Changed
+
+- **A deployment backend must carry the protocol its route forwards** (issue
+  #194): TCP for ingress, `httpRoute` and `tcpRoutes`, UDP for `udpRoutes`. The
+  check covers the primary port too. Kubernetes accepts a TCP route to a UDP
+  port, and the traffic never arrives; now the render fails, naming the port.
+- The ingress/`httpRoute` conflict message reads "one HTTP routing layer": the
+  L4 routes are not a routing layer and do not take part in it.
+- The CRD presence check has one home, `requireCrd`, shared by KEDA and the L4
+  routes. The KEDA message is unchanged.
+
+### Migration guide from 3.2.0
+
+- Releases without `tcpRoutes` / `udpRoutes` render the same manifests.
+- An ingress host or `httpRoute` backendRef whose deployment's primary port is
+  UDP (or SCTP) now fails the render. It could not carry HTTP before either:
+  point it at a TCP port with `portName`.
+- A script or test matching "only one routing layer" needs the new wording,
+  "only one HTTP routing layer".
+
+---
+
 ## [3.2.0] — 2026-09-28
 
 ### Fixed

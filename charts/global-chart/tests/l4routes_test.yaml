@@ -1,0 +1,392 @@
+suite: l4routes template tests
+templates:
+  - templates/l4routes.yaml
+# The CRD-missing path lives in l4routes-crd-check_test.yaml: a suite-level
+# capabilities list cannot be cleared by a test.
+capabilities:
+  apiVersions:
+    - gateway.networking.k8s.io/v1/TCPRoute
+    - gateway.networking.k8s.io/v1/UDPRoute
+release:
+  name: myrel
+tests:
+  # ====== Rendering ======
+  - it: should render nothing when tcpRoutes and udpRoutes are empty
+    set:
+      deployments:
+        api:
+          image: nginx:1.25
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should render a TCPRoute to the primary port when portName is omitted
+    set:
+      deployments:
+        api:
+          image: nginx:1.25
+          service:
+            port: 8080
+      tcpRoutes:
+        db:
+          parentRefs:
+            - name: direct-gw
+              namespace: gateway-system
+              sectionName: tcp-8080
+          rules:
+            - backendRefs:
+                - deployment: api
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: TCPRoute
+      - equal:
+          path: apiVersion
+          value: gateway.networking.k8s.io/v1
+      - equal:
+          path: metadata.name
+          value: myrel-global-chart-db
+      - equal:
+          path: spec.parentRefs
+          value:
+            - name: direct-gw
+              namespace: gateway-system
+              sectionName: tcp-8080
+      - equal:
+          path: spec.rules
+          value:
+            - backendRefs:
+                - name: myrel-global-chart-api
+                  port: 8080
+
+  - it: should resolve portName to the number of a service.extraPorts entry
+    set:
+      deployments:
+        traccar:
+          image: traccar/traccar:6.6
+          service:
+            port: 8082
+            extraPorts:
+              - name: teltonika
+                port: 5027
+                targetPort: 5027
+      tcpRoutes:
+        gps:
+          parentRefs:
+            - name: direct-gw
+          rules:
+            - backendRefs:
+                - deployment: traccar
+                  portName: teltonika
+                  weight: 1000000
+    asserts:
+      - equal:
+          path: spec.rules[0].backendRefs[0]
+          value:
+            name: myrel-global-chart-traccar
+            port: 5027
+            weight: 1000000
+
+  - it: should resolve portName to the primary port by its name
+    set:
+      deployments:
+        api:
+          image: nginx:1.25
+          service:
+            port: 9000
+            portName: grpc
+            extraPorts:
+              - name: metrics
+                port: 9090
+                targetPort: 9090
+      tcpRoutes:
+        rpc:
+          parentRefs:
+            - name: direct-gw
+          rules:
+            - backendRefs:
+                - deployment: api
+                  portName: grpc
+    asserts:
+      - equal:
+          path: spec.rules[0].backendRefs[0].port
+          value: 9000
+
+  - it: should render a UDPRoute to a UDP extra port, with the rule name
+    set:
+      deployments:
+        traccar:
+          image: traccar/traccar:6.6
+          service:
+            extraPorts:
+              - name: osmand
+                port: 5055
+                targetPort: 5055
+                protocol: UDP
+      udpRoutes:
+        gps:
+          parentRefs:
+            - name: direct-gw
+          rules:
+            - name: osmand
+              backendRefs:
+                - deployment: traccar
+                  portName: osmand
+    asserts:
+      - isKind:
+          of: UDPRoute
+      - equal:
+          path: metadata.name
+          value: myrel-global-chart-gps
+      - equal:
+          path: spec.rules[0]
+          value:
+            name: osmand
+            backendRefs:
+              - name: myrel-global-chart-traccar
+                port: 5055
+
+  - it: should render one route per entry, and a TCPRoute and a UDPRoute may share a key
+    set:
+      deployments:
+        dns:
+          image: coredns/coredns:1.12.0
+          service:
+            port: 53
+            portName: dns-tcp
+            extraPorts:
+              - name: dns-udp
+                port: 53
+                targetPort: 53
+                protocol: UDP
+      tcpRoutes:
+        dns:
+          parentRefs: [{ name: gw-a }]
+          rules: [{ backendRefs: [{ deployment: dns }] }]
+        dns-b:
+          parentRefs: [{ name: gw-b }]
+          rules: [{ backendRefs: [{ deployment: dns }] }]
+      udpRoutes:
+        dns:
+          parentRefs: [{ name: gw-a }]
+          rules: [{ backendRefs: [{ deployment: dns, portName: dns-udp }] }]
+    asserts:
+      - hasDocuments:
+          count: 3
+      - isKind:
+          of: TCPRoute
+        documentIndex: 0
+      - equal:
+          path: metadata.name
+          value: myrel-global-chart-dns
+        documentIndex: 0
+      - equal:
+          path: metadata.name
+          value: myrel-global-chart-dns-b
+        documentIndex: 1
+      - isKind:
+          of: UDPRoute
+        documentIndex: 2
+      - equal:
+          path: metadata.name
+          value: myrel-global-chart-dns
+        documentIndex: 2
+
+  - it: should route to an explicit Service with its own port
+    set:
+      tcpRoutes:
+        ext:
+          parentRefs: [{ name: gw }]
+          rules:
+            - backendRefs:
+                - service:
+                    name: legacy-db
+                    port: 5432
+    asserts:
+      - equal:
+          path: spec.rules[0].backendRefs[0]
+          value:
+            name: legacy-db
+            port: 5432
+
+  - it: should merge the route annotations with global.commonAnnotations, the route's winning
+    set:
+      global:
+        commonAnnotations:
+          team: platform
+          owner: common
+      deployments:
+        api:
+          image: nginx:1.25
+      tcpRoutes:
+        db:
+          annotations:
+            owner: fleet
+          parentRefs: [{ name: gw }]
+          rules: [{ backendRefs: [{ deployment: api }] }]
+    asserts:
+      - equal:
+          path: metadata.annotations
+          value:
+            team: platform
+            owner: fleet
+
+  # ====== Backend resolution failures ======
+  - it: should fail on a portName the deployment's Service lacks, listing its ports
+    set:
+      deployments:
+        traccar:
+          image: traccar/traccar:6.6
+          service:
+            extraPorts:
+              - name: teltonika
+                port: 5027
+                targetPort: 5027
+      tcpRoutes:
+        gps:
+          parentRefs: [{ name: gw }]
+          rules: [{ backendRefs: [{ deployment: traccar, portName: osmand }] }]
+    asserts:
+      - failedTemplate:
+          errorMessage: "tcpRoutes.gps.rules[0].backendRefs[0].portName: 'osmand' names no port of the Service of deployment 'traccar' (ports: http, teltonika). Use the name of service.portName or of a service.extraPorts entry."
+
+  - it: should fail a UDPRoute that falls back on the TCP primary port
+    set:
+      deployments:
+        api:
+          image: nginx:1.25
+      udpRoutes:
+        gps:
+          parentRefs: [{ name: gw }]
+          rules: [{ backendRefs: [{ deployment: api }] }]
+    asserts:
+      - failedTemplate:
+          errorMessage: "udpRoutes.gps.rules[0].backendRefs[0]: resolves to the TCP port 'http' of deployment 'api', but this backend forwards UDP. Kubernetes accepts the route and the traffic never arrives. Pick a UDP port with portName."
+
+  - it: should fail a TCPRoute to a UDP extra port
+    set:
+      deployments:
+        traccar:
+          image: traccar/traccar:6.6
+          service:
+            extraPorts:
+              - name: osmand
+                port: 5055
+                targetPort: 5055
+                protocol: UDP
+      tcpRoutes:
+        gps:
+          parentRefs: [{ name: gw }]
+          rules: [{ backendRefs: [{ deployment: traccar, portName: osmand }] }]
+    asserts:
+      - failedTemplate:
+          errorPattern: "tcpRoutes\\.gps\\.rules\\[0\\]\\.backendRefs\\[0\\]\\.portName: resolves to the UDP port 'osmand' of deployment 'traccar', but this backend forwards TCP"
+
+  - it: should fail portName together with service
+    set:
+      deployments:
+        api:
+          image: nginx:1.25
+      tcpRoutes:
+        db:
+          parentRefs: [{ name: gw }]
+          rules:
+            - backendRefs:
+                - deployment: api
+                  portName: http
+                  service: { name: other, port: 80 }
+    asserts:
+      - failedTemplate:
+          errorMessage: "tcpRoutes.db.rules[0].backendRefs[0].portName: set together with service. portName picks a port of a deployment's Service; a service backend carries its own port. Drop one of them."
+
+  - it: should fail on an unknown deployment
+    set:
+      tcpRoutes:
+        db:
+          parentRefs: [{ name: gw }]
+          rules: [{ backendRefs: [{ deployment: ghost }] }]
+    asserts:
+      - failedTemplate:
+          errorMessage: "tcpRoutes.db.rules[0].backendRefs[0].deployment: references deployment 'ghost', which does not exist in .Values.deployments"
+
+  - it: should fail on a deployment whose Service is disabled
+    set:
+      deployments:
+        api:
+          image: nginx:1.25
+          service:
+            enabled: false
+      tcpRoutes:
+        db:
+          parentRefs: [{ name: gw }]
+          rules: [{ backendRefs: [{ deployment: api }] }]
+    asserts:
+      - failedTemplate:
+          errorPattern: "tcpRoutes\\.db\\.rules\\[0\\]\\.backendRefs\\[0\\]\\.deployment: references deployment 'api', which has service\\.enabled: false"
+
+  # ====== Schema ======
+  - it: should reject a route without parentRefs (schema)
+    set:
+      tcpRoutes:
+        db:
+          rules: [{ backendRefs: [{ service: { name: x } }] }]
+    asserts:
+      - failedTemplate: {}
+
+  - it: should reject an empty backendRefs (schema)
+    set:
+      tcpRoutes:
+        db:
+          parentRefs: [{ name: gw }]
+          rules: [{ backendRefs: [] }]
+    asserts:
+      - failedTemplate: {}
+
+  - it: should reject a key that is not a DNS-1123 label (schema)
+    set:
+      tcpRoutes:
+        Bad_Key:
+          parentRefs: [{ name: gw }]
+          rules: [{ backendRefs: [{ service: { name: x } }] }]
+    asserts:
+      - failedTemplate: {}
+
+  - it: should fail portName together with a service that sets only a port
+    set:
+      deployments:
+        api:
+          image: nginx:1.25
+      tcpRoutes:
+        db:
+          parentRefs: [{ name: gw }]
+          rules:
+            - backendRefs:
+                - deployment: api
+                  portName: http
+                  service: { port: 9000 }
+    asserts:
+      - failedTemplate:
+          errorPattern: "tcpRoutes\\.db\\.rules\\[0\\]\\.backendRefs\\[0\\]\\.portName: set together with service"
+
+  - it: should accept portName next to an empty service name (the absent service)
+    release:
+      name: myrel
+    set:
+      deployments:
+        api:
+          image: nginx:1.25
+      tcpRoutes:
+        db:
+          parentRefs: [{ name: gw }]
+          rules:
+            - backendRefs:
+                - deployment: api
+                  portName: http
+                  service: { name: "" }
+    asserts:
+      - equal:
+          path: spec.rules[0].backendRefs[0]
+          value:
+            name: myrel-global-chart-api
+            port: 80

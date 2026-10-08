@@ -19,6 +19,16 @@
     },
     "ingress": { "$ref": "#/$defs/ingress" },
     "httpRoute": { "$ref": "#/$defs/httpRoute" },
+    "tcpRoutes": {
+      "type": "object",
+      "propertyNames": { "$ref": "#/$defs/dns1123Label", "maxLength": 63 },
+      "additionalProperties": { "$ref": "#/$defs/l4Route" }
+    },
+    "udpRoutes": {
+      "type": "object",
+      "propertyNames": { "$ref": "#/$defs/dns1123Label", "maxLength": 63 },
+      "additionalProperties": { "$ref": "#/$defs/l4Route" }
+    },
     "cronJobs": {
       "type": "object",
       "propertyNames": { "$ref": "#/$defs/jobName" },
@@ -1131,14 +1141,8 @@
             "properties": {
               "host": { "type": "string" },
               "deployment": { "type": "string" },
-              "service": {
-                "type": "object",
-                "properties": {
-                  "name": { "type": "string" },
-                  "port": { "type": "integer", "minimum": 1, "maximum": 65535 }
-                },
-                "additionalProperties": false
-              },
+              "portName": { "$ref": "#/$defs/backendPortName" },
+              "service": { "$ref": "#/$defs/backendServiceRef" },
               "paths": {
                 "type": "array",
                 "minItems": 1,
@@ -1170,19 +1174,7 @@
         },
         "parentRefs": {
           "type": "array",
-          "items": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "name": { "type": "string" },
-              "namespace": { "type": "string" },
-              "sectionName": { "type": "string" },
-              "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
-              "kind": { "type": "string" },
-              "group": { "type": "string" }
-            },
-            "required": ["name"]
-          }
+          "items": { "$ref": "#/$defs/gatewayParentRef" }
         },
         "hostnames": {
           "type": "array",
@@ -1277,42 +1269,7 @@
         },
         "backendRefs": {
           "type": "array",
-          "items": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "deployment": { "type": "string" },
-              "service": {
-                "type": "object",
-                "additionalProperties": false,
-                "properties": {
-                  "name": { "type": "string" },
-                  "port": { "type": "integer", "minimum": 1, "maximum": 65535 }
-                }
-              },
-              "weight": { "type": "integer", "minimum": 0, "maximum": 1000000 },
-              "filters": {
-                "type": "array",
-                "items": {
-                  "type": "object",
-                  "properties": {
-                    "type": {
-                      "type": "string",
-                      "enum": [
-                        "RequestHeaderModifier",
-                        "ResponseHeaderModifier",
-                        "RequestRedirect",
-                        "URLRewrite",
-                        "RequestMirror",
-                        "ExtensionRef"
-                      ]
-                    }
-                  },
-                  "required": ["type"]
-                }
-              }
-            }
-          }
+          "items": { "$ref": "#/$defs/httpRouteBackendRef" }
         },
         "timeouts": {
           "type": "object",
@@ -1322,6 +1279,110 @@
             "backendRequest": { "type": "string" }
           }
         }
+      }
+    },
+    "gatewayParentRef": {
+      "description": "A Gateway API parentRef, rendered verbatim: the Gateway (and optionally its listener) a route attaches to. Shared by httpRoute and the L4 routes.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "namespace": { "type": "string" },
+        "sectionName": { "type": "string" },
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "kind": { "type": "string" },
+        "group": { "type": "string" }
+      },
+      "required": ["name"]
+    },
+    "backendServiceRef": {
+      "description": "An explicit Service backend, in place of a deployment: its name and port (default 80). Shared by ingress, httpRoute and the L4 routes.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535 }
+      }
+    },
+    "backendPortName": {
+      "description": "With deployment: the name of the port of the deployment's Service to route to, service.portName or a service.extraPorts[].name (issue #194). Omitted, the primary port. Its protocol must be the one the route forwards; rejected together with service, at render time.",
+      "$ref": "#/$defs/ianaSvcName"
+    },
+    "l4Route": {
+      "description": "A TCPRoute or UDPRoute (Gateway API v1, experimental channel), named <fullname>-<key>. An entry present is a route rendered.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["parentRefs", "rules"],
+      "properties": {
+        "annotations": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "parentRefs": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/gatewayParentRef" }
+        },
+        "rules": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/l4RouteRule" }
+        }
+      }
+    },
+    "l4RouteRule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["backendRefs"],
+      "properties": {
+        "name": { "$ref": "#/$defs/dns1123Subdomain", "maxLength": 253 },
+        "backendRefs": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/routeBackendRef" }
+        }
+      }
+    },
+    "httpRouteBackendRef": {
+      "description": "A backendRef of httpRoute: routeBackendRef's fields plus filters. Its own closed $defs rather than an extension, since a closed $defs cannot be extended through allOf.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "deployment": { "type": "string" },
+        "portName": { "$ref": "#/$defs/backendPortName" },
+        "service": { "$ref": "#/$defs/backendServiceRef" },
+        "weight": { "type": "integer", "minimum": 0, "maximum": 1000000 },
+        "filters": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "RequestHeaderModifier",
+                  "ResponseHeaderModifier",
+                  "RequestRedirect",
+                  "URLRewrite",
+                  "RequestMirror",
+                  "ExtensionRef"
+                ]
+              }
+            },
+            "required": ["type"]
+          }
+        }
+      }
+    },
+    "routeBackendRef": {
+      "description": "A backendRef of an L4 route: deployment (with an optional portName) or service, and an optional weight. Resolved by resolveBackend, like every backend of the chart.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "deployment": { "type": "string" },
+        "portName": { "$ref": "#/$defs/backendPortName" },
+        "service": { "$ref": "#/$defs/backendServiceRef" },
+        "weight": { "type": "integer", "minimum": 0, "maximum": 1000000 }
       }
     },
     "defaults": {

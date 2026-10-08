@@ -1,6 +1,6 @@
 # global-chart
 
-![Version: 3.2.0](https://img.shields.io/badge/Version-3.2.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square)
+![Version: 3.3.0](https://img.shields.io/badge/Version-3.3.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square)
 
 Reusable Helm chart for multi-deployment Kubernetes applications—Deployments, Services, Ingress, CronJobs, Hooks, ExternalSecrets, RBAC, HPA, PDB, NetworkPolicy, and more.
 
@@ -38,7 +38,7 @@ Kubernetes: `>=1.23.0-0`
 | ingress.annotations | object | `{}` | Annotations to add to the Ingress |
 | ingress.tls | list | `[]` | TLS configuration for secure hosts |
 | ingress.hosts | list | `[{"deployment":"","host":"chart-example.local","paths":[{"path":"/","pathType":"ImplementationSpecific"}],"service":{"name":""}}]` | Definitions for each host rule |
-| ingress.hosts[0].deployment | string | `""` | Name of the deployment to route traffic to (required unless service.name is set) |
+| ingress.hosts[0].deployment | string | `""` | Name of the deployment to route traffic to (required unless service.name is set). An optional `portName` next to it picks a TCP port of its Service by name (service.portName or a service.extraPorts[].name); omitted, the primary port |
 | ingress.hosts[0].service | object | `{"name":""}` | Service backend override (use instead of deployment for external services). Optional `port`, 1-65535: omitted, it is the deployment's service.port, or 80 for a service.name backend |
 | ingress.hosts[0].service.name | string | `""` | Explicit service name (overrides deployment reference) |
 | ingress.hosts[0].paths | list | `[{"path":"/","pathType":"ImplementationSpecific"}]` | HTTP path definitions for this host |
@@ -47,7 +47,9 @@ Kubernetes: `>=1.23.0-0`
 | httpRoute.annotations | object | `{}` | Annotations applied to the HTTPRoute resource. Like every annotations field, merged with global.commonAnnotations, this one winning |
 | httpRoute.parentRefs | list | `[]` | References to existing Gateway resources. At least one is required when enabled. Each entry: { name, namespace?, sectionName?, port?, kind?, group? } |
 | httpRoute.hostnames | list | `[]` | Hostnames the HTTPRoute responds to. Optional but typical for HTTP routing. |
-| httpRoute.rules | list | `[]` | Routing rules. Each rule may declare matches, filters, backendRefs, timeouts. backendRefs accept either `deployment: <name>` (resolves to the chart-managed Service) or `service: { name, port }` for an external Service. |
+| httpRoute.rules | list | `[]` | Routing rules. Each rule may declare matches, filters, backendRefs, timeouts. backendRefs accept either `deployment: <name>` (resolves to the chart-managed Service; an optional `portName` picks service.portName or a service.extraPorts[].name, which must be TCP — omitted, the primary port) or `service: { name, port }` for an external Service. |
+| tcpRoutes | object | `{}` | TCPRoutes (Gateway API v1, experimental channel), one per entry, named `<fullname>-<key>`: raw TCP ports on an existing Gateway listener, for the protocols that are not HTTP. An entry present is a route rendered. They coexist with `ingress` / `httpRoute`, and may attach to different Gateways. The render fails unless the cluster serves gateway.networking.k8s.io/v1 TCPRoute; an offline render needs `--api-versions gateway.networking.k8s.io/v1/TCPRoute`. Each entry: { annotations?, parentRefs (>= 1), rules (>= 1) }; each rule: { name?, backendRefs (>= 1) }; each backendRef: `deployment: <name>` with an optional `portName` (service.portName or a service.extraPorts[].name; omitted, the primary port), or `service: { name, port }`, plus an optional `weight`. The port picked must be TCP. |
+| udpRoutes | object | `{}` | UDPRoutes (Gateway API v1, experimental channel): the same shape as `tcpRoutes`, one per entry, named `<fullname>-<key>`. The port a backendRef picks must be UDP. An offline render needs `--api-versions gateway.networking.k8s.io/v1/UDPRoute`. |
 | cronJobs | object | `{}` | CronJobs configuration (map of named cronJobs). Can also be defined inside deployments to inherit image, configMap, secret, SA. |
 | hooks | object | `{}` | Hook jobs for chart lifecycle (install/upgrade). Can also be defined inside deployments to inherit image, configMap, secret, SA. |
 | externalSecrets | object | `{}` | ExternalSecrets definitions for secret management. Each entry renders one ExternalSecret. The `remote` map (single-key form) and each `data[].remote` accept `key`, `property` (a gjson path selecting one key out of a JSON payload), `version` (string or number, quoted on render), `conversionStrategy`, `decodingStrategy` and `metadataPolicy`. `dataFrom` is rendered verbatim. Jobs and deployments read the produced Secret through their own `externalSecrets: [{name: <key>}]` list; for every key a pre-* (pre-delete excepted) or post-delete hook reads, the chart also renders a hook-prerequisite copy producing `<target>-hook`. |

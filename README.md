@@ -13,6 +13,7 @@ The chart supports **multiple deployments** in a single release, each with indep
   Image can be a string (`nginx:1.25`) or a map (`repository/tag/digest`), held by the schema to the reference grammar the kubelet parses; `tag` is a string, so quote a numeric-looking one (`"1.20"`). Probes, resources, autoscaling (HPA), scheduling constraints, extra containers/init containers, pod recreation bumps, and ConfigMap/Secret `envFrom` are all configurable. `command`/`args` override the image entrypoint per deployment, so one image can back several workloads (web, worker, …); they are never inherited by the deployment's hooks/cronJobs.
 - **Networking**
   First-class Service configuration (with per-service annotations) plus optional Ingress with TLS, class annotations, and routes to specific deployments. DNS options and host aliases can be defined per-deployment.
+  HTTP reaches the deployments through one routing layer, Ingress or a Gateway API HTTPRoute (`httpRoute`), never both. Ports that are not HTTP go through TCPRoutes and UDPRoutes (`tcpRoutes`, `udpRoutes`), alongside either (see [Exposing a TCP or UDP port](#exposing-a-tcp-or-udp-port-through-a-gateway)). A `deployment:` backend picks a port of its Service by name with `portName`.
 - **Configuration distribution**
   Inline ConfigMap/Secret data, mounted config files (single file) or bundles (projected lists of files), and volume templates (configMap/secret/emptyDir/PVC or native K8s spec) are supported.
 - **Lifecycle and batch**
@@ -298,6 +299,61 @@ one that adds the entry.
 
 See [ADR 0010](docs/adr/0010-hook-prerequisite-rbac-copy.md).
 
+## Exposing a TCP or UDP port through a Gateway
+
+`tcpRoutes` and `udpRoutes` are maps: one TCPRoute (or UDPRoute) per entry,
+named `<fullname>-<key>`, so a release can attach to several Gateways and
+listeners. An entry present is a route rendered. They coexist with `ingress`
+and `httpRoute`; as with `httpRoute`, the chart does not create Gateways or
+listeners. Here the web UI of Traccar goes through `httpRoute` on a proxied
+Gateway, and the GPS trackers' binary protocol through a TCPRoute on another:
+
+```yaml
+deployments:
+  traccar:
+    service:
+      port: 8082          # web UI and API
+      portName: http
+      extraPorts:
+        - name: teltonika
+          port: 5027
+          targetPort: 5027
+
+httpRoute:
+  enabled: true
+  parentRefs: [{ name: shared-gateway, namespace: envoy-gateway-system }]
+  hostnames: [traccar.example.com]
+  rules:
+    - backendRefs: [{ deployment: traccar }]
+
+tcpRoutes:
+  gps:
+    parentRefs:
+      - name: direct-gateway
+        namespace: envoy-gateway-system
+        sectionName: gps-5027   # one TCP listener per port on the Gateway
+    rules:
+      - backendRefs:
+          - deployment: traccar
+            portName: teltonika
+```
+
+`portName` names a port of the deployment's Service, `service.portName` or a
+`service.extraPorts[].name`, and works the same in `ingress.hosts[]` and
+`httpRoute` backendRefs; omitted, the backend is the primary port. The render
+fails on a name the Service lacks, on `portName` next to `service:`, and on a
+port whose protocol is not the one the route forwards: TCP for ingress,
+`httpRoute` and `tcpRoutes`, UDP for `udpRoutes`. Kubernetes would accept the
+route, and the traffic would never arrive.
+
+Only `gateway.networking.k8s.io/v1` is rendered. TCPRoute and UDPRoute are in
+the Gateway API **experimental** channel, so the render fails unless the cluster
+serves that version of each kind the release uses. Check with
+`kubectl get crd tcproutes.gateway.networking.k8s.io -o jsonpath='{.spec.versions[*].name}'`.
+An offline render (`helm template`, a GitOps pre-render) needs
+`--api-versions gateway.networking.k8s.io/v1/TCPRoute` and/or
+`--api-versions gateway.networking.k8s.io/v1/UDPRoute`.
+
 ## Deprecated: the legacy `volumes[].type` format
 
 `volumes[]` accepts any Kubernetes volume source verbatim (the native form). It
@@ -401,6 +457,7 @@ The `tests/` directory is the list — `TEST_CASES` in the `Makefile` is what
 | `httproute-basic.yaml`           | Gateway API HTTPRoute, plain backend                                                      |
 | `httproute-canary.yaml`          | HTTPRoute with weighted backends                                                          |
 | `httproute-filters.yaml`         | HTTPRoute rule filters                                                                    |
+| `l4routes.yaml`                  | TCPRoute and UDPRoute to named extra ports, alongside an HTTPRoute                        |
 | `keda.yaml`                      | KEDA ScaledObject and TriggerAuthentication                                               |
 | `rbac.yaml`                      | RBAC with roles and service accounts                                                      |
 | `rbac-hooks.yaml`                | RBAC roles read by hooks (hook-prerequisite copy, ADR 0010)                               |

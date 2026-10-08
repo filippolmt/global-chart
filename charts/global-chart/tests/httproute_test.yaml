@@ -826,3 +826,47 @@ tests:
       - equal:
           path: spec.rules[0].backendRefs[0].port
           value: 80
+
+  # ====== portName (issue #194) ======
+  - it: should route a backendRef to a named extra port of the deployment's Service
+    release:
+      name: myrel
+    set:
+      deployments:
+        api:
+          image: nginx:1.25
+          service:
+            port: 8080
+            extraPorts:
+              - name: web
+                port: 3000
+                targetPort: 3000
+      httpRoute:
+        enabled: true
+        parentRefs: [{ name: gw }]
+        rules:
+          - backendRefs:
+              - deployment: api
+                portName: web
+    asserts:
+      - equal:
+          path: spec.rules[0].backendRefs[0]
+          value:
+            name: myrel-global-chart-api
+            port: 3000
+
+  - it: should fail a backendRef portName the Service lacks
+    set:
+      deployments:
+        api:
+          image: nginx:1.25
+      httpRoute:
+        enabled: true
+        parentRefs: [{ name: gw }]
+        rules:
+          - backendRefs:
+              - deployment: api
+                portName: web
+    asserts:
+      - failedTemplate:
+          errorMessage: "httpRoute.rules[0].backendRefs[0].portName: 'web' names no port of the Service of deployment 'api' (ports: http). Use the name of service.portName or of a service.extraPorts entry."

@@ -25,6 +25,7 @@ deployments.{{ . }}
 Validate that all generated resource names are unique after truncation.
 Checks within each resource kind: Deployments, CronJobs, Jobs (hooks),
 ServiceAccounts, ConfigMaps, Secrets, ExternalSecrets, TriggerAuthentications,
+TCPRoutes and UDPRoutes,
 Roles and RoleBindings, the hook-prerequisite copies included.
 A kind's accumulator holds every name of that kind whatever derived it, because
 collisions cross sources: $cmNames carries the deployment's own ConfigMap, its
@@ -222,6 +223,18 @@ Called from validate.yaml.
   {{- end -}}
 {{- end -}}
 
+{{- /* 5b. L4 routes (trunc 63, issue #194), one accumulator per kind: a
+       TCPRoute and a UDPRoute may share a name, two TCPRoutes may not, and
+       two keys sharing a long prefix truncate to one */ -}}
+{{- range (include "global-chart.l4RouteKinds" $root | fromJsonArray) -}}
+  {{- $routeNames := dict -}}
+  {{- $kind := .kind -}}
+  {{- $field := .field -}}
+  {{- range $key, $_ := (index $root.Values $field) -}}
+    {{- include "global-chart.registerName" (dict "names" $routeNames "kind" $kind "name" (include "global-chart.l4RouteName" (dict "root" $root "key" $key)) "owner" (printf "%s.%s" $field $key)) -}}
+  {{- end -}}
+{{- end -}}
+
 {{- /* 6. rbacs.roles (issue #122): the Role name is used verbatim, the RoleBinding
        drops a trailing -role, and the default <name>-sa is truncated — each can
        land on another entry's. The SA joins $saNames, against every other
@@ -371,9 +384,36 @@ Called from validate.yaml. Emits nothing on success.
 {{- end }}
 
 {{/*
+Fail unless a CRD the release renders is registered in the target cluster: the
+single home of the capability check every opt-in custom resource goes through
+(KEDA, the Gateway API L4 routes). Without it the failure surfaces at apply as
+the API server's "no matches for kind", which names neither the values key nor
+the remedy.
+.Capabilities.APIVersions carries the cluster's CRDs only during
+install/upgrade; `helm template` and `helm lint` see the built-in set alone, so
+an offline render needs `--api-versions <apiVersion>` (HELM_API_VERSIONS in the
+Makefile, `capabilities.apiVersions` in the unit-test suites).
+Params:
+  root       - the chart context
+  apiVersion - what .Capabilities.APIVersions.Has is asked: "group/version", or
+               "group/version/Kind" when one version serves kinds a cluster may
+               lack (the Gateway API experimental channel)
+  install    - the remedy, a sentence head ("Install KEDA")
+  errCtx     - values path of the resource; leads the message
+Usage: {{- include "global-chart.requireCrd" (dict "root" $root "apiVersion" "keda.sh/v1alpha1" "install" "Install KEDA" "errCtx" "deployments.foo.keda") -}}
+*/}}
+{{- define "global-chart.requireCrd" -}}
+{{- $apiVersion := required "requireCrd: apiVersion is required" .apiVersion -}}
+{{- if not (.root.Capabilities.APIVersions.Has $apiVersion) -}}
+{{- fail (printf "%s: needs the CRD %s, which is not registered in the cluster. %s before installing this release, or render offline with --api-versions %s." (required "requireCrd: errCtx is required (the values path of the resource)" .errCtx) $apiVersion (required "requireCrd: install is required" .install) $apiVersion) -}}
+{{- end -}}
+{{- end }}
+
+{{/*
 Validate that .Values.ingress and .Values.httpRoute are not both enabled.
-The chart supports only one routing layer per release; both being enabled
-would render conflicting top-level routing resources.
+The chart supports one HTTP routing layer per release; both being enabled
+would render conflicting top-level routing resources. The L4 routes
+(tcpRoutes, udpRoutes) are not a routing layer and coexist with either.
 Called from validate.yaml. Emits nothing on success.
 */}}
 {{- define "global-chart.validateRoutingConflict" -}}
@@ -382,7 +422,7 @@ Called from validate.yaml. Emits nothing on success.
 {{- $ingEnabled := default false $ing.enabled -}}
 {{- $rtEnabled := default false $rt.enabled -}}
 {{- if and $ingEnabled $rtEnabled -}}
-{{- fail "Both .Values.ingress.enabled and .Values.httpRoute.enabled are true. The chart supports only one routing layer per release. Disable one (set enabled: false) to proceed." -}}
+{{- fail "Both .Values.ingress.enabled and .Values.httpRoute.enabled are true. The chart supports only one HTTP routing layer per release. Disable one (set enabled: false) to proceed." -}}
 {{- end -}}
 {{- end }}
 
@@ -486,7 +526,8 @@ nodePort only on a NodePort or LoadBalancer Service.
 
 A template fail, not the schema: the primary port's defaults live in
 servicePrimaryPort, an extra port's protocol in extraPortProtocol and the type
-in serviceType, and the schema sees none of them. The pod side dedups in
+in serviceType, and the schema sees none of them. The ports come from
+servicePorts, the one enumeration of the Service side. The pod side dedups in
 containerPorts; the Service side has nothing to dedup into, since every port is
 rendered.
 Called from validate.yaml. Emits nothing on success.
@@ -498,14 +539,19 @@ Called from validate.yaml. Emits nothing on success.
     {{- $svc := default (dict) $deploy.service -}}
     {{- if eq (include "global-chart.serviceEnabled" $svc) "true" -}}
       {{- $errCtx := include "global-chart.deploymentValuesPath" $name -}}
-      {{- $primary := include "global-chart.servicePrimaryPort" (dict "service" $svc "errCtx" (printf "%s.service" $errCtx)) | fromJson -}}
       {{- $type := include "global-chart.serviceType" $svc -}}
-      {{- $portNames := dict $primary.name "service.portName" -}}
-      {{- $portNumbers := dict (printf "%s/%s" (include "global-chart.printScalar" $primary.port) $primary.protocol) "service.port" -}}
-      {{- range $i, $_ := (default (list) $svc.extraPorts) -}}
-        {{- $owner := printf "extraPorts[%d]" $i -}}
-        {{- $number := printf "%s/%s" (include "global-chart.printScalar" .port) (include "global-chart.extraPortProtocol" .) -}}
-        {{- if and (hasKey . "nodePort") (not (has $type (list "NodePort" "LoadBalancer"))) -}}
+      {{- $portNames := dict -}}
+      {{- $portNumbers := dict -}}
+      {{- range (include "global-chart.servicePorts" (dict "service" $svc "errCtx" (printf "%s.service" $errCtx)) | fromJsonArray) -}}
+        {{- $number := printf "%s/%s" (include "global-chart.printScalar" .port) .protocol -}}
+        {{- if lt (int .index) 0 -}}
+          {{- $_ := set $portNames .name "service.portName" -}}
+          {{- $_ := set $portNumbers $number "service.port" -}}
+          {{- continue -}}
+        {{- end -}}
+        {{- $owner := printf "extraPorts[%d]" (int .index) -}}
+        {{- $entry := index $svc.extraPorts (int .index) -}}
+        {{- if and (hasKey $entry "nodePort") (not (has $type (list "NodePort" "LoadBalancer"))) -}}
           {{- fail (printf "%s.service.%s.nodePort: set on a %s Service, which the API server rejects: only a NodePort or LoadBalancer Service takes a nodePort. Drop nodePort, or set service.type." $errCtx $owner $type) -}}
         {{- end -}}
         {{- if hasKey $portNames .name -}}

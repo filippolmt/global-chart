@@ -55,7 +55,7 @@ spec:
       backendRefs:
         {{- range $brIdx, $br := $rule.backendRefs }}
         {{- $brCtx := printf "httpRoute.rules[%d].backendRefs[%d]" $ruleIdx $brIdx }}
-        {{- $b := include "global-chart.resolveBackend" (dict "root" $root "ref" $br "errCtx" $brCtx) | fromJson }}
+        {{- $b := include "global-chart.resolveBackend" (dict "root" $root "ref" $br "errCtx" $brCtx "protocol" "TCP") | fromJson }}
         - name: {{ $b.name | quote }}
           port: {{ include "global-chart.printScalar" $b.port }}
           {{- if hasKey $br "weight" }}

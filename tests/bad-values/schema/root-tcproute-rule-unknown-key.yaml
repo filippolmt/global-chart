@@ -1,0 +1,12 @@
+# covers: l4RouteRule
+# An unknown key in a tcpRoutes rule (typo of backendRefs, next to the real
+# one). Without the closure the misspelled list is dropped in silence.
+tcpRoutes:
+  db:
+    parentRefs:
+      - name: gw
+    rules:
+      - backendRef:
+          - service: { name: other, port: 5432 }
+        backendRefs:
+          - service: { name: db, port: 5432 }
