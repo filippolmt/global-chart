@@ -32,6 +32,8 @@ The chart supports **multiple deployments** in a single release, each with indep
   `global.imageRegistry`, `global.imagePullSecrets`, `global.commonLabels`, `global.commonAnnotations` apply across all resources.
 - **Validation**
   JSON Schema Draft 2019-09 (`values.schema.json`) for input validation and IDE autocomplete. Name collision detection at render time, and a null `configMap` / `secret` value fails there, naming its values path.
+- **Out of scope**
+  The chart renders Deployments, CronJobs and hook Jobs, and only what its schema and templates can validate. There is no free-form manifest field (`extraObjects`, `rawResources`): an object the chart cannot validate belongs in another chart or in the application's own manifests. Keep `--skip-schema-validation` out of CI; it is a one-off way out for a Kubernetes field the chart does not list yet. See [ADR 0019](docs/adr/0019-the-chart-renders-only-what-it-can-validate.md).
 
 ## Prerequisites
 
@@ -459,7 +461,7 @@ The chart has multiple layers of testing:
 
 - **Lint scenarios** (`make lint-chart`): Runs `helm lint --strict` across every scenario in `tests/` (the `TEST_CASES` list in the `Makefile`).
 - **Unit tests** (`make unit-test`): helm-unittest suites in `charts/global-chart/tests/` (one `*_test.yaml` per template), including negative `failedTemplate` tests.
-- **Schema validation** (`make validate-bad-values`): Verifies every fixture in `tests/bad-values/` is rejected, and by the right mechanism. The directory is the declaration: a file in `schema/` must be rejected by `values.schema.json` (the target asserts Helm's schema error message), a file in `fail/` by a template `fail` and *not* by the schema. Without the split, a schema hole covered by a `fail` is invisible. `tests/bad-values/check-closure-coverage.py` then checks that every closed object in the schema has a fixture of its own, linked by a `# covers: <pointer>` line, and that the fixture stops being rejected once that closure is removed — so closing an object without testing it, or with a fixture that tests something else, fails here.
+- **Schema validation** (`make validate-bad-values`): Verifies every fixture in `tests/bad-values/` is rejected, and by the right mechanism. The directory is the declaration: a file in `schema/` must be rejected by `values.schema.json` (the target asserts Helm's schema error message), a file in `fail/` by a template `fail` and *not* by the schema, and a file in `skip-schema/` by the schema *and*, under `--skip-schema-validation`, by the template `fail` the schema shadows. Without the split, a schema hole covered by a `fail` is invisible. `tests/bad-values/check-closure-coverage.py` then checks that every closed object in the schema has a fixture of its own, linked by a `# covers: <pointer>` line, and that the fixture stops being rejected once that closure is removed — so closing an object without testing it, or with a fixture that tests something else, fails here.
 - **Manifest validation** (`make kubeconform`): Validates the generated resources against the Kubernetes schema pinned in the `Makefile`.
 - **Best practices** (`make kube-linter`): Lints manifests with `addAllBuiltIn: true` and the documented exclusions.
 - **End-to-end** (`make e2e`): Installs `tests/e2e/values.yaml` on a throwaway kind cluster, then upgrades and uninstalls it. This is the only layer that exercises the *runtime* half of the chart — hook ordering, hook weights and `hook-delete-policy` cleanup — which helm-unittest cannot see because it only renders YAML. It uses its own kubeconfig under `.bin/`, so it can never reach a real cluster. `make e2e-argocd` syncs the chart through Argo CD on the same cluster, where hooks follow Argo CD's lifecycle rather than Helm's.
@@ -518,3 +520,6 @@ See [CHANGELOG.md](CHANGELOG.md) for version history, breaking changes, and migr
 - Example scenarios: `tests/`
 - Make targets: `Makefile`
 - GitHub workflow: `.github/workflows/helm-ci.yml`
+- Domain terms: [`GLOSSARY.md`](GLOSSARY.md)
+- Design decisions: [`docs/adr/`](docs/adr/)
+- Contributing: [`CODING_STANDARDS.md`](CODING_STANDARDS.md) for templates and helpers, [`CLAUDE.md`](CLAUDE.md) for the commands and invariants
