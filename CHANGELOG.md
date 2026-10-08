@@ -21,6 +21,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   fails, per kind, unless the cluster serves that version. An offline render needs
   `--api-versions gateway.networking.k8s.io/v1/TCPRoute` (and/or `UDPRoute`).
   Keys are DNS-1123 labels; two keys that truncate onto one name fail.
+- **`httpRoutes`: one HTTPRoute per entry** (issue #195), named
+  `<fullname>-<key>`, for a release whose hostnames reach different
+  deployments or attach to different Gateways (a rule cannot match on
+  hostname, so the single `httpRoute` could not express it). An entry has the
+  fields of `httpRoute` without `enabled`: present is rendered, `parentRefs`
+  and `rules` required. `httpRoute` stays as the single-route shorthand and
+  coexists with the map; together they are the HTTP routing layer, so any
+  entry with `ingress.enabled` fails the render. A key that truncates onto
+  another route's name fails too.
 - **`portName` on a `deployment:` backend** (issue #194), in `ingress.hosts[]`,
   `httpRoute` backendRefs and the L4 routes: it picks a port of the deployment's
   Service by name, `service.portName` or a `service.extraPorts[].name`, instead
@@ -36,6 +45,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   expressed at all. Now a redirect rule carries none, and one that sets them
   fails the render naming the rule. Found by the new `make e2e` route check,
   which validates every rendered route against the real Gateway API CRDs.
+
+- **A null in values means one thing, everywhere** (issue #198). Under
+  `--skip-schema-validation` 166 single nulls across the lint scenarios ended
+  the render with a raw template error (`nil pointer evaluating …`) naming a
+  template line, or rendered `<nil>`, `- null` or an empty `name:`; and a null
+  `enabled`, `service.enabled` or `inheritDeployment*` read as false, so a
+  Deployment or a Service vanished in silence. Now a null map value is unset,
+  as Helm reads it — a defaulted key takes its default, a `httpRoutes` /
+  `tcpRoutes` / `udpRoutes` entry renders nothing; a null list item (in any
+  list, passthrough included) or a null required field fails as
+  `deployments.web.tolerations[0]: null, …`; a null number keeps failing as
+  before (#191). `make null-sweep` nulls every values node of every scenario
+  in CI; a fail must name the nulled key or the node holding it.
 
 ### Changed
 

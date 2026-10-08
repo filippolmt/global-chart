@@ -22,8 +22,8 @@ Hard-won. Violating them causes subtle bugs.
 ```yaml
 # WRONG: default true $var replaces false with true
 enabled: {{ default true $deploy.enabled }}
-# CORRECT:
-enabled: {{ hasKey $deploy "enabled" | ternary $deploy.enabled true }}
+# CORRECT: isSet is "present and not null" — a null is unset, the default applies
+enabled: {{ ternary $deploy.enabled true (eq (include "global-chart.isSet" (list $deploy "enabled")) "true") }}
 ```
 
 **Numbers from values — never print them bare, never `toString` / `%v` them:**
@@ -36,12 +36,14 @@ terminationGracePeriodSeconds: {{ include "global-chart.printScalar" $deploy.ter
 LIMIT: {{ include "global-chart.printScalar" $value | quote }}
 ```
 
-**Inheritance — use `hasKey` to distinguish "not set" from "empty":**
+**Inheritance — use `isSet` to distinguish "not set" from "empty":**
 ```yaml
 # WRONG: {} and [] are falsy, incorrectly inherits
 {{- if not $job.field }}{{ $deploy.field }}{{- end }}
-# CORRECT:
+# WRONG: hasKey takes a null for a value, and the job inherits nothing
 {{ hasKey $job "field" | ternary $job.field $deploy.field }}
+# CORRECT: {} and [] stop the inheritance, a null inherits
+{{ ternary $job.field $deploy.field (eq (include "global-chart.isSet" (list $job "field")) "true") }}
 ```
 
 **Never mutate `.Values`:**
@@ -115,11 +117,28 @@ one key picked the wrong value among several, the path ends on it
 
 **A guard the schema shadows is a fallback guard.** When the schema already
 rejects a value and a template `fail` repeats it, the `fail` is what a user on
-`--skip-schema-validation` sees: it gets a `tests/bad-values/skip-schema/`
-fixture, and a list the template ranges over takes `default (dict)` on its
-entries, so a `null` entry fails naming its path rather than a template line.
-`make null-sweep` covers the scenarios; a values node no scenario reaches is
-not swept, so a new map or list gets a scenario that sets it.
+`--skip-schema-validation` sees, and it gets a `tests/bad-values/skip-schema/`
+fixture. `make null-sweep` covers the scenarios; a values node no scenario
+reaches is not swept, so a new map or list gets a scenario that sets it.
+
+**A null means one thing per kind of node** (issue #198):
+
+- a null **map value** is unset, as Helm itself reads it: a key the chart
+  defaults takes its default (`enabled`, `create`, the `inherit*` toggles, a
+  job's inherited fields, the enums with a default), a map entry
+  (`httpRoutes.x`, like `deployments.x`) renders nothing. "Set" has one home,
+  `isSet`; `hasKey` alone hands the null on. Numbers are the exception: a null
+  number fails naming its key, through `printScalar` (issue #191);
+- a null **list item** fails, anywhere, passthrough lists included:
+  `rejectNullInLists`, run over all of `.Values` by `validateNullItems`;
+- a null in a **required field** of an item the chart reads fails:
+  `rejectNullItems` with its `required` fields — in `validateNullItems` for
+  the lists more than one template reads, in the template itself for a list
+  only it reads.
+
+A helper reading such a list skips the item it cannot read
+(`isNamedEntry`, `kindIs "map"`) instead of reading through it: the error is
+then the validator's, whatever order Helm renders the templates in.
 
 **A rule the API server enforces is checked against the API server.** A CEL
 rule of a CRD (Gateway API's `RequestRedirect` without `backendRefs`) is

@@ -43,9 +43,10 @@ An explicit, non-empty sa.name wins over both.
 */}}
 {{- define "global-chart.resolveServiceAccount" -}}
 {{- $sa := default (dict) .sa -}}
-{{- $create := hasKey $sa "create" | ternary $sa.create true -}}
+{{- /* A null create or automount is unset: the default applies (isSet) */ -}}
+{{- $create := ternary $sa.create true (eq (include "global-chart.isSet" (list $sa "create")) "true") -}}
 {{- $name := default (ternary .defaultName (default "" .nameIfBound) $create) $sa.name -}}
-{{- dict "create" $create "name" $name "automount" (hasKey $sa "automount" | ternary $sa.automount true) "annotations" $sa.annotations | toJson -}}
+{{- dict "create" $create "name" $name "automount" (ternary $sa.automount true (eq (include "global-chart.isSet" (list $sa "automount")) "true")) "annotations" $sa.annotations | toJson -}}
 {{- end }}
 
 {{/*
@@ -137,7 +138,7 @@ Resolution:
   {{- $saCreate = true -}}
 {{- end -}}
 {{- /* Override saCreate if explicitly set in job */ -}}
-{{- if hasKey $jobSAMap "create" -}}
+{{- if eq (include "global-chart.isSet" (list $jobSAMap "create")) "true" -}}
   {{- $saCreate = $jobSAMap.create -}}
   {{- if $saCreate -}}
     {{- /* Creating one: under the explicit name when given, else the job's own */ -}}
@@ -152,10 +153,10 @@ Resolution:
        defaults every scope shares: fold the fallback into a copy of the map and
        let resolveServiceAccount apply them */ -}}
 {{- $effective := deepCopy $jobSAMap -}}
-{{- if and (not (hasKey $effective "automount")) (hasKey $job "automountServiceAccountToken") -}}
+{{- if and (ne (include "global-chart.isSet" (list $effective "automount")) "true") (eq (include "global-chart.isSet" (list $job "automountServiceAccountToken")) "true") -}}
   {{- $_ := set $effective "automount" $job.automountServiceAccountToken -}}
 {{- end -}}
-{{- if not (hasKey $effective "annotations") -}}
+{{- if ne (include "global-chart.isSet" (list $effective "annotations")) "true" -}}
   {{- $_ := set $effective "annotations" $job.serviceAccountAnnotations -}}
 {{- end -}}
 {{- $shared := include "global-chart.resolveServiceAccount" (dict "sa" $effective "defaultName" "") | fromJson -}}
@@ -175,7 +176,7 @@ Usage: {{ $rbacSAs := include "global-chart.rbacServiceAccounts" $root | fromJso
 {{- $out := dict -}}
 {{- range $role := (default (dict) .Values.rbacs).roles -}}
   {{- $sa := include "global-chart.rbacServiceAccount" $role | fromJson -}}
-  {{- if $sa.name -}}
+  {{- if and (include "global-chart.isNamedEntry" $role) $sa.name -}}
     {{- $entry := default (dict "roles" (list)) (index $out $sa.name) -}}
     {{- $_ := set $out $sa.name (dict "roles" (append $entry.roles $role.name)) -}}
   {{- end -}}
@@ -227,7 +228,7 @@ Usage: {{ $releaseSAs := include "global-chart.releaseServiceAccounts" $root | f
 {{- end -}}
 {{- range $i, $role := (default (dict) $root.Values.rbacs).roles -}}
   {{- $sa := include "global-chart.rbacServiceAccount" $role | fromJson -}}
-  {{- if $sa.create -}}
+  {{- if and (include "global-chart.isNamedEntry" $role) $sa.create -}}
     {{- $_ := set $out $sa.name (dict "automount" $sa.automount "annotations" $sa.annotations "owner" (printf "rbacs.roles[%d] ('%s')" $i $role.name) "deploymentName" "") -}}
   {{- end -}}
 {{- end -}}

@@ -1,0 +1,11 @@
+# A mountedConfigFiles file whose name is null: it would name a ConfigMap and a
+# volume "<nil>". validateNullItems names the key instead (issue #198).
+# Expected fail substring: "deployments.web.mountedConfigFiles.files[0].name: null, a value nobody wrote"
+deployments:
+  web:
+    image: nginx:1.25
+    mountedConfigFiles:
+      files:
+        - name: null
+          mountPath: /etc/app/app.conf
+          content: "a = 1"

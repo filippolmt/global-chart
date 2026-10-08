@@ -1,0 +1,8 @@
+# An image map whose repository is null. imageString names the key, rather than
+# a job that inherits the image reporting "image is required" (issue #198).
+# Expected fail substring: "deployments.web.image.repository: null, a value nobody wrote"
+deployments:
+  web:
+    image:
+      repository: null
+      tag: "1.25"

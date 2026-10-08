@@ -24,10 +24,74 @@ deployments.{{ . }}
 {{- end }}
 
 {{/*
+Fail on a null item in any list under a values node, at any depth, naming its
+path (issue #198): the single home of "a null list item fails", passthrough
+surfaces included — a list the chart hands to a manifest verbatim (tolerations,
+extraContainers, a container's args) is no more valid with a null in it. A null
+map value is left alone: it is unset, for the chart as for the API server.
+Recursive: a map recurses into each value, a list into each item.
+Usage: {{- include "global-chart.rejectNullInLists" (dict "value" .Values.deployments "errCtx" "deployments") -}}
+*/}}
+{{- define "global-chart.rejectNullInLists" -}}
+{{- $errCtx := .errCtx -}}
+{{- if kindIs "slice" .value -}}
+  {{- range $i, $item := .value -}}
+    {{- $itemCtx := printf "%s[%d]" $errCtx $i -}}
+    {{- include "global-chart.rejectNull" (dict "value" $item "errCtx" $itemCtx) -}}
+    {{- include "global-chart.rejectNullInLists" (dict "value" $item "errCtx" $itemCtx) -}}
+  {{- end -}}
+{{- else if kindIs "map" .value -}}
+  {{- range $key, $item := .value -}}
+    {{- include "global-chart.rejectNullInLists" (dict "value" $item "errCtx" (ternary $key (printf "%s.%s" $errCtx $key) (eq $errCtx ""))) -}}
+  {{- end -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+Validate that no list in values carries a null item, and that no item of a list
+the chart reads carries a null in a field it needs (issue #198). Two parts:
+- rejectNullInLists over the whole of .Values: a null item fails anywhere,
+  passthrough lists included, naming its path;
+- the required fields of the items the pod-spec helpers read —
+  imagePullSecrets, volumes, volumeMounts, externalSecrets, dnsConfig.options,
+  a deployment's service.extraPorts and mountedConfigFiles — for every owner
+  podSpecOwners lists, plus global.imagePullSecrets and rbacs.roles.
+Those helpers skip a null item or field instead of reading through it, so this
+is the one error such a null reaches, whatever order Helm renders the templates
+in (isNamedEntry is their skip). Runs first in validate.yaml. A root-level list
+only one template reads (ingress, externalSecrets data, keda triggers, route
+rules) gets its required fields checked by that template, which has the path at
+hand.
+Called from validate.yaml. Emits nothing on success.
+*/}}
+{{- define "global-chart.validateNullItems" -}}
+{{- include "global-chart.rejectNullInLists" (dict "value" .Values "errCtx" "") -}}
+{{- include "global-chart.rejectNullItems" (dict "list" (default (dict) .Values.global).imagePullSecrets "errCtx" "global.imagePullSecrets" "required" (list "name")) -}}
+{{- include "global-chart.rejectNullItems" (dict "list" (default (dict) .Values.rbacs).roles "errCtx" "rbacs.roles" "required" (list "name")) -}}
+{{- range $owner := (include "global-chart.podSpecOwners" . | fromJsonArray) -}}
+  {{- $spec := $owner.spec -}}
+  {{- $path := $owner.path -}}
+  {{- range $field, $required := dict "imagePullSecrets" (list "name") "volumes" (list "name") "volumeMounts" (list "name" "mountPath") "externalSecrets" (list "name") -}}
+    {{- include "global-chart.rejectNullItems" (dict "list" (index $spec $field) "errCtx" (printf "%s.%s" $path $field) "required" $required) -}}
+  {{- end -}}
+  {{- include "global-chart.rejectNullItems" (dict "list" (default (dict) $spec.dnsConfig).options "errCtx" (printf "%s.dnsConfig.options" $path) "required" (list "name")) -}}
+  {{- if eq $owner.kind "deployment" -}}
+    {{- include "global-chart.rejectNullItems" (dict "list" (default (dict) $spec.service).extraPorts "errCtx" (printf "%s.service.extraPorts" $path) "required" (list "name" "port" "targetPort")) -}}
+    {{- $mcf := default (dict) $spec.mountedConfigFiles -}}
+    {{- include "global-chart.rejectNullItems" (dict "list" $mcf.files "errCtx" (printf "%s.mountedConfigFiles.files" $path) "required" (list "name")) -}}
+    {{- include "global-chart.rejectNullItems" (dict "list" $mcf.bundles "errCtx" (printf "%s.mountedConfigFiles.bundles" $path) "required" (list "name")) -}}
+    {{- range $bi, $b := (default (list) $mcf.bundles) -}}
+      {{- include "global-chart.rejectNullItems" (dict "list" (default (dict) $b).files "errCtx" (printf "%s.mountedConfigFiles.bundles[%d].files" $path $bi) "required" (list "name")) -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+{{- end }}
+
+{{/*
 Validate that all generated resource names are unique after truncation.
 Checks within each resource kind: Deployments, CronJobs, Jobs (hooks),
 ServiceAccounts, ConfigMaps, Secrets, ExternalSecrets, TriggerAuthentications,
-TCPRoutes and UDPRoutes,
+HTTPRoutes, TCPRoutes and UDPRoutes,
 Roles and RoleBindings, the hook-prerequisite copies included.
 A kind's accumulator holds every name of that kind whatever derived it, because
 collisions cross sources: $cmNames carries the deployment's own ConfigMap, its
@@ -124,14 +188,19 @@ Called from validate.yaml.
            truncating to the same $depFullname. */ -}}
     {{- $mcf := default (dict) $deploy.mountedConfigFiles -}}
     {{- $mcHint := ". Give one of the two entries a different 'name'." -}}
+    {{- /* A null file or bundle, or a null name, is validateNullItems' to report */ -}}
     {{- range $i, $f := (default (list) $mcf.files) -}}
+      {{- if include "global-chart.isNamedEntry" $f -}}
       {{- $owner := printf "%s.mountedConfigFiles.files[%d] ('%s')" (include "global-chart.deploymentValuesPath" $name) $i $f.name -}}
       {{- include "global-chart.registerName" (dict "names" $cmNames "kind" "ConfigMap" "name" (include "global-chart.mountedConfigMapName" (dict "deploymentFullname" $depFullname "fileName" $f.name)) "owner" $owner "hint" $mcHint) -}}
+      {{- end -}}
     {{- end -}}
     {{- range $bi, $b := (default (list) $mcf.bundles) -}}
-      {{- range $fi, $f := (default (list) $b.files) -}}
+      {{- range $fi, $f := (default (list) (default (dict) $b).files) -}}
+        {{- if include "global-chart.isNamedEntry" $f -}}
         {{- $owner := printf "%s.mountedConfigFiles.bundles[%d].files[%d] ('%s')" (include "global-chart.deploymentValuesPath" $name) $bi $fi $f.name -}}
         {{- include "global-chart.registerName" (dict "names" $cmNames "kind" "ConfigMap" "name" (include "global-chart.mountedConfigMapName" (dict "deploymentFullname" $depFullname "fileName" $f.name)) "owner" $owner "hint" $mcHint) -}}
+        {{- end -}}
       {{- end -}}
     {{- end -}}
 
@@ -225,15 +294,23 @@ Called from validate.yaml.
   {{- end -}}
 {{- end -}}
 
-{{- /* 5b. L4 routes (trunc 63, issue #194), one accumulator per kind: a
-       TCPRoute and a UDPRoute may share a name, two TCPRoutes may not, and
-       two keys sharing a long prefix truncate to one */ -}}
+{{- /* 5b. Gateway API routes (trunc 63, issues #194, #195), one accumulator
+       per kind: a TCPRoute and a UDPRoute may share a name, two TCPRoutes may
+       not, and two keys sharing a long prefix truncate to one. The HTTPRoutes:
+       the single httpRoute is the fullname itself, which an httpRoutes key can
+       truncate back onto */ -}}
+{{- $httpRouteNames := dict -}}
+{{- range (include "global-chart.httpRouteEntries" $root | fromJsonArray) -}}
+  {{- include "global-chart.registerName" (dict "names" $httpRouteNames "kind" "HTTPRoute" "name" .name "owner" .errCtx) -}}
+{{- end -}}
 {{- range (include "global-chart.l4RouteKinds" $root | fromJsonArray) -}}
   {{- $routeNames := dict -}}
   {{- $kind := .kind -}}
   {{- $field := .field -}}
-  {{- range $key, $_ := (index $root.Values $field) -}}
-    {{- include "global-chart.registerName" (dict "names" $routeNames "kind" $kind "name" (include "global-chart.l4RouteName" (dict "root" $root "key" $key)) "owner" (printf "%s.%s" $field $key)) -}}
+  {{- range $key, $route := (index $root.Values $field) -}}
+    {{- if not (kindIs "invalid" $route) -}}
+    {{- include "global-chart.registerName" (dict "names" $routeNames "kind" $kind "name" (include "global-chart.gatewayRouteName" (dict "root" $root "key" $key)) "owner" (printf "%s.%s" $field $key)) -}}
+    {{- end -}}
   {{- end -}}
 {{- end -}}
 
@@ -244,6 +321,8 @@ Called from validate.yaml.
 {{- $roleNames := dict -}}
 {{- $bindingNames := dict -}}
 {{- range $i, $role := (default (dict) .Values.rbacs).roles -}}
+  {{- /* A null role or name is rbac.yaml's and validateNullItems' to report */ -}}
+  {{- if include "global-chart.isNamedEntry" $role -}}
   {{- $owner := printf "rbacs.roles[%d] ('%s')" $i $role.name -}}
   {{- include "global-chart.registerName" (dict "names" $roleNames "kind" "Role" "name" $role.name "owner" $owner) -}}
   {{- /* SA before RoleBinding: the binding keeps fewer characters of the role
@@ -253,6 +332,7 @@ Called from validate.yaml.
   {{- include "global-chart.registerSAName" (dict "names" $saNames "sa" $sa "owner" $owner) -}}
   {{- if $sa.name -}}
     {{- include "global-chart.registerName" (dict "names" $bindingNames "kind" "RoleBinding" "name" (include "global-chart.rbacRoleBindingName" $role.name) "owner" $owner) -}}
+  {{- end -}}
   {{- end -}}
 {{- end -}}
 {{- /* 7. The hook-prerequisite copies of rbacs.roles (ADR 0010), after every
@@ -265,7 +345,7 @@ Called from validate.yaml.
        nor create: false is a way out: the name has to change */ -}}
 {{- $copyHint := ". A hook-prerequisite copy is named after its real resource plus '-hook', truncated to the same limit (ADR 0010): shorten the name so the copy fits, or rename the entry it lands on." -}}
 {{- range $i, $role := (default (dict) .Values.rbacs).roles -}}
-  {{- if hasKey $rbacConsumers $role.name -}}
+  {{- if and (include "global-chart.isNamedEntry" $role) (hasKey $rbacConsumers $role.name) -}}
     {{- $owner := printf "rbacs.roles[%d] ('%s') (hook prerequisite copy)" $i $role.name -}}
     {{- include "global-chart.registerName" (dict "names" $roleNames "kind" "Role" "name" (include "global-chart.rbacRoleHookName" $role.name) "owner" $owner "hint" $copyHint) -}}
     {{- include "global-chart.registerName" (dict "names" $bindingNames "kind" "RoleBinding" "name" (include "global-chart.rbacRoleBindingHookName" $role.name) "owner" $owner "hint" $copyHint) -}}
@@ -431,19 +511,24 @@ Usage: {{- include "global-chart.requireGatewayApiCrd" (dict "root" $root "kind"
 {{- end }}
 
 {{/*
-Validate that .Values.ingress and .Values.httpRoute are not both enabled.
-The chart supports one HTTP routing layer per release; both being enabled
-would render conflicting top-level routing resources. The L4 routes
-(tcpRoutes, udpRoutes) are not a routing layer and coexist with either.
+Validate that the Ingress and the HTTPRoutes are not both rendered.
+The chart supports one HTTP routing layer per release: the Ingress, or the
+HTTPRoutes (the single httpRoute and the httpRoutes entries alike, listed by
+httpRouteEntries — two forms of one layer, so they coexist). Both would answer
+the same hostnames from two places. The L4 routes (tcpRoutes, udpRoutes) are
+not a routing layer and coexist with either.
 Called from validate.yaml. Emits nothing on success.
 */}}
 {{- define "global-chart.validateRoutingConflict" -}}
 {{- $ing := default (dict) .Values.ingress -}}
-{{- $rt := default (dict) .Values.httpRoute -}}
-{{- $ingEnabled := default false $ing.enabled -}}
-{{- $rtEnabled := default false $rt.enabled -}}
-{{- if and $ingEnabled $rtEnabled -}}
-{{- fail "Both .Values.ingress.enabled and .Values.httpRoute.enabled are true. The chart supports only one HTTP routing layer per release. Disable one (set enabled: false) to proceed." -}}
+{{- if $ing.enabled -}}
+  {{- with (include "global-chart.httpRouteEntries" . | fromJsonArray) -}}
+    {{- $first := first . -}}
+    {{- if $first.single -}}
+      {{- fail "Both .Values.ingress.enabled and .Values.httpRoute.enabled are true. The chart supports only one HTTP routing layer per release. Disable one (set enabled: false) to proceed." -}}
+    {{- end -}}
+    {{- fail (printf "Both .Values.ingress.enabled and .Values.%s are set. The chart supports only one HTTP routing layer per release, and every httpRoutes entry is part of it. Disable the ingress, or drop the httpRoutes entries." $first.errCtx) -}}
+  {{- end -}}
 {{- end -}}
 {{- end }}
 
@@ -608,7 +693,8 @@ Params:
 {{- define "global-chart.validateMountPaths" -}}
 {{- $seen := dict -}}
 {{- range .mounts -}}
-  {{- $path := .mount.mountPath | default "" | toString -}}
+  {{- /* A null mount is validateNullItems' to report */ -}}
+  {{- $path := (default (dict) .mount).mountPath | default "" | toString -}}
   {{- if $path -}}
     {{- if hasKey $seen $path -}}
       {{- fail (printf "%s: %s mounts on '%s', which %s already mounts. The API server rejects two mounts on one path in a container: give each its own mountPath." $.errCtx .owner $path (get $seen $path)) -}}

@@ -19,6 +19,11 @@
     },
     "ingress": { "$ref": "#/$defs/ingress" },
     "httpRoute": { "$ref": "#/$defs/httpRoute" },
+    "httpRoutes": {
+      "type": "object",
+      "propertyNames": { "$ref": "#/$defs/dns1123Label", "maxLength": 63 },
+      "additionalProperties": { "$ref": "#/$defs/httpRouteEntry" }
+    },
     "tcpRoutes": {
       "type": "object",
       "propertyNames": { "$ref": "#/$defs/dns1123Label", "maxLength": 63 },
@@ -1164,10 +1169,18 @@
       "additionalProperties": false
     },
     "httpRoute": {
+      "description": "The single HTTPRoute, named <fullname>, rendered when enabled. Its fields are httpRouteFields', shared with an httpRoutes entry.",
       "type": "object",
-      "additionalProperties": false,
+      "allOf": [{ "$ref": "#/$defs/httpRouteFields" }],
       "properties": {
-        "enabled": { "type": "boolean" },
+        "enabled": { "type": "boolean" }
+      },
+      "unevaluatedProperties": false
+    },
+    "httpRouteFields": {
+      "description": "The fields of an HTTPRoute the chart renders, shared by httpRoute and an httpRoutes entry (issue #195). An allOf branch: never closed; the two that reference it are, through unevaluatedProperties (Helm >= 3.18.6).",
+      "type": "object",
+      "properties": {
         "annotations": {
           "type": "object",
           "additionalProperties": { "type": "string" }
@@ -1185,6 +1198,17 @@
           "items": { "$ref": "#/$defs/httpRouteRule" }
         }
       }
+    },
+    "httpRouteEntry": {
+      "description": "An httpRoutes entry: one HTTPRoute named <fullname>-<key> (issue #195), with httpRouteFields' fields. An entry present is a route rendered, so parentRefs and rules are required.",
+      "type": "object",
+      "allOf": [{ "$ref": "#/$defs/httpRouteFields" }],
+      "required": ["parentRefs", "rules"],
+      "properties": {
+        "parentRefs": { "minItems": 1 },
+        "rules": { "minItems": 1 }
+      },
+      "unevaluatedProperties": false
     },
     "httpRouteRule": {
       "type": "object",

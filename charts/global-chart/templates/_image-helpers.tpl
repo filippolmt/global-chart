@@ -29,6 +29,15 @@ tag before the @ has the same backstop.
 {{- $globalRegistry := default "" (default (dict) .global).imageRegistry -}}
 {{- $name := "" -}}
 {{- $suffix := "" -}}
+{{- /* A null repository names its key, not the job that finds no image
+       (issue #198); an inherited image's path carries "(inherited by …)" after
+       the key, so .repository goes before it */ -}}
+{{- if and (kindIs "map" $img) (hasKey $img "repository") -}}
+  {{- $parts := splitn " (inherited by " 2 $errCtx -}}
+  {{- $repoCtx := printf "%s.repository" $parts._0 -}}
+  {{- with $parts._1 -}}{{- $repoCtx = printf "%s (inherited by %s" $repoCtx . -}}{{- end -}}
+  {{- include "global-chart.rejectNull" (dict "value" $img.repository "errCtx" $repoCtx) -}}
+{{- end -}}
 {{- if kindIs "string" $img -}}
   {{- $name = $img -}}
 {{- else if and (kindIs "map" $img) $img.repository -}}
