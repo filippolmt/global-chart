@@ -236,6 +236,12 @@ is the source of truth, this table is only the routing.
     render needs `--api-versions gateway.networking.k8s.io/v1/<Kind>` for
     HTTPRoute, TCPRoute and UDPRoute (`HELM_API_VERSIONS`;
     `capabilities.apiVersions` in the suites)
+15. **The chart renders only what it can validate**: a workload enters when its
+    pod spec goes through the same helpers and validation as the Deployment's.
+    No free-form manifest field (`extraObjects`, `rawResources`), and
+    `--skip-schema-validation` is never in an application's CI — the values are
+    written by people and LLMs who learn the chart only from what it rejects.
+    See `docs/adr/0019-the-chart-renders-only-what-it-can-validate.md`
 
 ### Resource Naming Limits
 
@@ -258,10 +264,9 @@ before writing a template or helper. The mechanical rules are checked by
 
 ## Agent skills
 
-`CONTEXT.md` (glossario di dominio) e `docs/agents/` sono gitignorati: esistono
-solo sulla macchina di chi sviluppa, non nel repo. I riferimenti qui sotto
-funzionano in locale; se i file non ci sono, salta la sezione. `docs/adr/` invece
-è tracciato — è linkato da `CHANGELOG.md` e da `hook.yaml`.
+`CONTEXT.md` (glossario di dominio), `docs/agents/` e `docs/adr/` sono
+tracciati. Restano fuori dal pacchetto del chart, che contiene solo
+`charts/global-chart/`.
 
 - **Issue tracker** — issues e PRD su GitHub Issues (`filippolmt/global-chart`),
   via `gh` CLI. See `docs/agents/issue-tracker.md`
