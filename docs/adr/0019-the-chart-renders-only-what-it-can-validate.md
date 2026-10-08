@@ -4,9 +4,9 @@ status: accepted
 
 # The chart renders only what it can validate
 
-The chart serves about ten internal applications, deployed both by Argo CD and
-by GitLab pipelines that run `helm`. Today their values are written by the
-maintainer. The goal is that developers edit them with the help of an LLM: a
+The chart serves a small set of applications, deployed both by a GitOps
+controller and by CI pipelines that run `helm`. The goal is that the people who
+own those applications edit their values with the help of an LLM: a
 *values author* (see `GLOSSARY.md`) who does not know the chart's internal rules
 and learns them only from what the chart rejects and what it describes. That
 reader decides the chart's scope.

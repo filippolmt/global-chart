@@ -318,7 +318,7 @@ deployments:
               set_real_ip_from 2a06:98c0::/29;
               set_real_ip_from 2c0f:f248::/32;
 
-              # Limite upload (client)
+              # Upload limit (client)
               client_max_body_size 100m;
 
               # Timeout proxy
@@ -326,11 +326,11 @@ deployments:
               proxy_connect_timeout 720s;
               proxy_send_timeout   720s;
 
-              # --- Gestione pagina di manutenzione quando Odoo è down ---
+              # --- Maintenance page when Odoo is down ---
               proxy_intercept_errors on;
               error_page 502 503 504 /odoo-maintenance.html;
 
-              # WebSocket per chat
+              # WebSocket for chat
               location /websocket {
                 proxy_pass http://odoochat;
                 proxy_set_header Host              $host;
@@ -356,19 +356,19 @@ deployments:
                 proxy_redirect     http:// https://;
               }
 
-              # Pagina di manutenzione (statica, usata in caso di errore upstream)
+              # Maintenance page (static, served on upstream errors)
               location = /odoo-maintenance.html {
                 root     /usr/share/nginx/html;
                 internal;
               }
 
-              # Health check di Nginx (non proxato)
+              # Nginx health check (not proxied)
               location = /nginx-health {
                 add_header Content-Type text/plain;
                 return 200 "ok\n";
               }
 
-              # Gzip per asset statici
+              # Gzip for static assets
               gzip on;
               gzip_types text/css application/javascript application/json;
             }
@@ -378,11 +378,11 @@ deployments:
           targetPath: /usr/share/nginx/html/odoo-maintenance.html
           content: |
             <!DOCTYPE html>
-            <html lang="it">
+            <html lang="en">
             <head>
               <meta charset="UTF-8" />
               <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-              <title>Manutenzione in corso</title>
+              <title>Maintenance in progress</title>
               <style>
                 body {
                   margin: 0;
@@ -428,12 +428,12 @@ deployments:
             <body>
               <div class="container">
                 <div class="box">
-                  <h1>Sistema in manutenzione</h1>
-                  <p>Il servizio Odoo non è temporaneamente disponibile.</p>
-                  <p>Stiamo effettuando attività di manutenzione o il sistema si sta riavviando.</p>
-                  <p>Ti invitiamo a riprovare tra qualche minuto.</p>
+                  <h1>System under maintenance</h1>
+                  <p>The Odoo service is temporarily unavailable.</p>
+                  <p>We are performing maintenance or the system is restarting.</p>
+                  <p>Please try again in a few minutes.</p>
                   <div class="status">
-                    Stato: manutenzione temporanea
+                    Status: temporary maintenance
                   </div>
                 </div>
               </div>

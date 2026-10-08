@@ -50,6 +50,6 @@ deployments:
           filename: log.conf
           targetPath: /etc/nginx/conf.d/log.conf
           content: |
-            # esempio di log custom
+            # custom log example
             log_format minimal '$remote_addr - $status "$request"';
             access_log /var/log/nginx/access.log minimal;
