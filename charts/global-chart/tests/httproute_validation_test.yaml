@@ -3,6 +3,10 @@ templates:
   - templates/httproute.yaml
   - templates/validate.yaml
   - templates/ingress.yaml
+# The CRD-missing path lives in gateway-api-crd-check_test.yaml.
+capabilities:
+  apiVersions:
+    - gateway.networking.k8s.io/v1/HTTPRoute
 tests:
   # ====== 1. parentRefs missing (key absent) ======
   - it: should fail when httpRoute.enabled is true and parentRefs is missing

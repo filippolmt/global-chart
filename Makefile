@@ -16,6 +16,7 @@ GENERATED_DIR := generated-manifests
 # CRD presence check (requireCrd, _validate-helpers.tpl) fails. (`helm lint` does not evaluate
 # template `fail` and has no equivalent flag, so lint-chart needs nothing.)
 HELM_API_VERSIONS := --api-versions keda.sh/v1alpha1 \
+	--api-versions gateway.networking.k8s.io/v1/HTTPRoute \
 	--api-versions gateway.networking.k8s.io/v1/TCPRoute \
 	--api-versions gateway.networking.k8s.io/v1/UDPRoute
 

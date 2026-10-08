@@ -45,8 +45,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   port, and the traffic never arrives; now the render fails, naming the port.
 - The ingress/`httpRoute` conflict message reads "one HTTP routing layer": the
   L4 routes are not a routing layer and do not take part in it.
-- The CRD presence check has one home, `requireCrd`, shared by KEDA and the L4
-  routes. The KEDA message is unchanged.
+- The CRD presence check has one home, `requireCrd`, shared by KEDA and the
+  Gateway API routes. The KEDA message is unchanged.
+- **`httpRoute` checks its CRD** (issue #196): the render fails unless the
+  cluster serves `gateway.networking.k8s.io/v1` HTTPRoute (Gateway API v1.0.0
+  or later), as KEDA and the L4 routes do. Before, a cluster without Gateway API
+  got an HTTPRoute the API server rejected at apply, naming neither the values
+  key nor the remedy.
 - The root `README.md.gotmpl` is gone: no target rendered it since helm-docs
   runs inside the chart directory, and it had drifted from `README.md`.
 
@@ -56,6 +61,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 - An ingress host or `httpRoute` backendRef whose deployment's primary port is
   UDP (or SCTP) now fails the render. It could not carry HTTP before either:
   point it at a TCP port with `portName`.
+- **An offline render with `httpRoute` enabled needs
+  `--api-versions gateway.networking.k8s.io/v1/HTTPRoute`** (`helm template`,
+  a pre-render in CI). An install or upgrade sees the real cluster; Argo CD
+  passes the destination cluster's API versions with their kinds, so an Argo CD
+  Application needs nothing. A `helm lint` does not evaluate the check.
 - A script or test matching "only one routing layer" needs the new wording,
   "only one HTTP routing layer".
 

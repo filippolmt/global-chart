@@ -346,6 +346,12 @@ port whose protocol is not the one the route forwards: TCP for ingress,
 `httpRoute` and `tcpRoutes`, UDP for `udpRoutes`. Kubernetes would accept the
 route, and the traffic would never arrive.
 
+`httpRoute` is guarded the same way: the render fails unless the cluster serves
+`gateway.networking.k8s.io/v1` HTTPRoute (Gateway API v1.0.0 or later), and an
+offline render needs `--api-versions gateway.networking.k8s.io/v1/HTTPRoute`.
+Argo CD passes the destination cluster's API versions, kinds included, so a
+GitOps render needs nothing.
+
 Only `gateway.networking.k8s.io/v1` is rendered. TCPRoute and UDPRoute reach it
 in **Gateway API v1.6.0**, in the standard and experimental channels alike; up to
 v1.5 they are `v1alpha2`, experimental only. The render fails unless the cluster

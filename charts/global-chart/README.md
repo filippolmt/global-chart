@@ -43,7 +43,7 @@ Kubernetes: `>=1.23.0-0`
 | ingress.hosts[0].service.name | string | `""` | Explicit service name (overrides deployment reference) |
 | ingress.hosts[0].paths | list | `[{"path":"/","pathType":"ImplementationSpecific"}]` | HTTP path definitions for this host |
 | httpRoute | object | `{"annotations":{},"enabled":false,"hostnames":[],"parentRefs":[],"rules":[]}` | HTTPRoute (Gateway API v1) — alternative to Ingress. The chart renders only the HTTPRoute resource; the referenced Gateway must be managed externally (e.g. by your platform team or a separate infra chart). Mutually exclusive with `ingress.enabled` — enabling both fails template render. |
-| httpRoute.enabled | bool | `false` | Enable HTTPRoute rendering. Requires Gateway API v1 CRDs in the cluster. |
+| httpRoute.enabled | bool | `false` | Enable HTTPRoute rendering. The render fails unless the cluster serves gateway.networking.k8s.io/v1 HTTPRoute (Gateway API v1.0.0 or later); an offline render needs `--api-versions gateway.networking.k8s.io/v1/HTTPRoute`. |
 | httpRoute.annotations | object | `{}` | Annotations applied to the HTTPRoute resource. Like every annotations field, merged with global.commonAnnotations, this one winning |
 | httpRoute.parentRefs | list | `[]` | References to existing Gateway resources. At least one is required when enabled. Each entry: { name, namespace?, sectionName?, port?, kind?, group? } |
 | httpRoute.hostnames | list | `[]` | Hostnames the HTTPRoute responds to. Optional but typical for HTTP routing. |

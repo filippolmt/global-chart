@@ -1,6 +1,10 @@
 suite: httproute template tests
 templates:
   - templates/httproute.yaml
+# The CRD-missing path lives in gateway-api-crd-check_test.yaml.
+capabilities:
+  apiVersions:
+    - gateway.networking.k8s.io/v1/HTTPRoute
 tests:
   # ====== 1. Basic rendering ======
   - it: should render HTTPRoute with minimal valid input
