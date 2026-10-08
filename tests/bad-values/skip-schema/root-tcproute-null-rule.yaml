@@ -1,7 +1,7 @@
 # A tcpRoutes rule that is null. The schema wants an object; under
-# --skip-schema-validation the template fails on its missing backendRefs,
-# naming the rule, rather than with a raw template error.
-# Expected fail substring: "tcpRoutes.db.rules[0].backendRefs: empty"
+# --skip-schema-validation validateNullItems names it, as it does any null list
+# item (issue #198), rather than a raw template error.
+# Expected fail substring: "tcpRoutes.db.rules[0]: null, a value nobody wrote"
 tcpRoutes:
   db:
     parentRefs:

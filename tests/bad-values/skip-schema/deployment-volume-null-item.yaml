@@ -1,0 +1,9 @@
+# A null item in a deployment's volumes list (a YAML `-` with nothing after it).
+# The schema wants an object; under --skip-schema-validation validateNullItems
+# names it, before a pod-spec helper reads .name off it (issue #198).
+# Expected fail substring: "deployments.web.volumes[0]: null, a value nobody wrote"
+deployments:
+  web:
+    image: nginx:1.25
+    volumes:
+      - null

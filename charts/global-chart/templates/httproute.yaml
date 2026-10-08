@@ -57,6 +57,7 @@ spec:
     {{- /* A RequestRedirect answers the request itself: Gateway API rejects it
            together with backendRefs (a CEL rule of the CRD, which kubeconform
            does not evaluate), so such a rule is the one that has none */ -}}
+    {{- include "global-chart.rejectNullItems" (dict "list" $rule.filters "errCtx" (printf "%s.filters" $ruleCtx) "required" (list "type")) }}
     {{- $redirects := false }}
     {{- range $rule.filters }}
       {{- if eq (default (dict) .).type "RequestRedirect" }}{{- $redirects = true }}{{- end }}

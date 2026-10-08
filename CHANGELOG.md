@@ -46,6 +46,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   fails the render naming the rule. Found by the new `make e2e` route check,
   which validates every rendered route against the real Gateway API CRDs.
 
+- **A null in values means one thing, everywhere** (issue #198). Under
+  `--skip-schema-validation` 166 single nulls across the lint scenarios ended
+  the render with a raw template error (`nil pointer evaluating …`) naming a
+  template line, or rendered `<nil>`, `- null` or an empty `name:`; and a null
+  `enabled`, `service.enabled` or `inheritDeployment*` read as false, so a
+  Deployment or a Service vanished in silence. Now a null map value is unset,
+  as Helm reads it — a defaulted key takes its default, a `httpRoutes` /
+  `tcpRoutes` / `udpRoutes` entry renders nothing; a null list item (in any
+  list, passthrough included) or a null required field fails as
+  `deployments.web.tolerations[0]: null, …`; a null number keeps failing as
+  before (#191). `make null-sweep` nulls every values node of every scenario
+  in CI; a fail must name the nulled key or the node holding it.
+
 ### Changed
 
 - **A deployment backend must carry the protocol its route forwards** (issue

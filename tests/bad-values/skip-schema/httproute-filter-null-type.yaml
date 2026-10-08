@@ -1,0 +1,12 @@
+# An httpRoute filter whose type is null. Read as no filter it would hide a
+# redirect; httproute.yaml names the key (issue #198).
+# Expected fail substring: "httpRoute.rules[0].filters[0].type: null, a value nobody wrote"
+httpRoute:
+  enabled: true
+  parentRefs:
+    - name: gw
+  rules:
+    - filters:
+        - type: null
+      backendRefs:
+        - service: { name: web, port: 80 }

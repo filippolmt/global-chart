@@ -135,7 +135,7 @@ Input: the deployment map. The caller has already guarded it against nil —
 Returns the string "true" or "false".
 */}}
 {{- define "global-chart.deploymentEnabled" -}}
-{{- ternary .enabled true (hasKey . "enabled") -}}
+{{- ternary .enabled true (eq (include "global-chart.isSet" (list . "enabled")) "true") -}}
 {{- end }}
 
 {{/*
@@ -148,7 +148,7 @@ Input: the deployment's service map, already defaulted to (dict) by the caller.
 Returns the string "true" or "false".
 */}}
 {{- define "global-chart.serviceEnabled" -}}
-{{- ternary .enabled true (hasKey . "enabled") -}}
+{{- ternary .enabled true (eq (include "global-chart.isSet" (list . "enabled")) "true") -}}
 {{- end }}
 
 {{/*
@@ -342,7 +342,7 @@ secret (the externalSecrets.<key> map), whose target.name overrides the default.
 
 {{- define "global-chart.externalSecretTargetName" -}}
 {{- $target := default (dict) .secret.target -}}
-{{- ternary $target.name (include "global-chart.externalSecretName" .) (hasKey $target "name") -}}
+{{- ternary $target.name (include "global-chart.externalSecretName" .) (eq (include "global-chart.isSet" (list $target "name")) "true") -}}
 {{- end -}}
 
 {{- define "global-chart.externalSecretHookTargetName" -}}
