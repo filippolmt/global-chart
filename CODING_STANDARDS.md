@@ -9,9 +9,10 @@ Two kinds of rule:
   not. `make lint-templates` (`tests/lint-templates.py`, its docstring lists
   them): `default true` on a boolean, `set` on `.Values`, the shape of a
   `fail` message, a suite per template. `make null-sweep` nulls every values
-  node of every scenario. `make e2e-routes` sends every rendered route to a real
-  API server. The rules stay written below for their reason; the check is what
-  holds them.
+  node of every scenario. `make e2e-dryrun` sends every scenario to a real API
+  server. `lint-templates`' kind-fields rule holds the backstop guard's
+  `$kindOnly` to the schema's `if/then/else` on `kind`. The rules stay written
+  below for their reason; the check is what holds them.
 - **Judgement**: no pattern can see it — the review's job.
 
 ## Template rules
@@ -142,8 +143,10 @@ then the validator's, whatever order Helm renders the templates in.
 
 **A rule the API server enforces is checked against the API server.** A CEL
 rule of a CRD (Gateway API's `RequestRedirect` without `backendRefs`) is
-invisible to helm-unittest and kubeconform. When the chart renders a new route
-kind, or a new combination of route fields, a `TEST_CASES` scenario renders it
-(`make e2e-routes` sends every scenario carrying a route) and a new kind joins
-`GATEWAY_ROUTE_KINDS`; when the chart can tell the combination is invalid at
-render time, it fails there too, naming the key.
+invisible to helm-unittest and kubeconform, and so is a rule between fields of
+a core kind (a StatefulSet's `rollingUpdate` with `OnDelete`, two pod volumes
+of one name). When the chart renders a new kind, or a new combination of
+fields, a `TEST_CASES` scenario renders it (`make e2e-dryrun` sends every
+scenario) and a new route kind joins `GATEWAY_ROUTE_KINDS`; when the chart can
+tell the combination is invalid at render time, it fails there too, naming the
+key.

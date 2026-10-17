@@ -13,14 +13,20 @@ make check                  # the fast loop: lint-chart, lint-templates, lint-do
 make lint-chart             # lint every scenario in TEST_CASES
 make lint-templates         # the mechanical rules of CODING_STANDARDS.md
 make lint-docs              # every file a document or a comment points at exists
-make unit-test              # helm-unittest suites via Docker
+make unit-test              # helm-unittest suites via Docker; SUITE=tests/hpa_test.yaml runs one
+make lint-labels            # the triage labels of docs/agents/triage-labels.md exist on GitHub (needs gh)
 make null-sweep             # null every values node of every scenario: each must render or fail naming its path
 make generate-docs          # regenerate the helm-docs README
-make e2e                    # install/upgrade/rollback/uninstall on a throwaway kind cluster (runs e2e-routes first)
-make e2e-routes             # every rendered Gateway API route, server-side dry run against the real CRDs
+make e2e                    # install/upgrade/rollback/uninstall on a throwaway kind cluster (runs e2e-dryrun first)
+make e2e-dryrun             # every TEST_CASES scenario, server-side dry run against the real API server and CRDs
 make e2e-argocd             # the same cluster, synced by Argo CD (hook lifecycle under Argo)
 make render VALUES=tests/test01/values.01.yaml TEMPLATE=deployment.yaml
 ```
+
+Releases: chart-releaser publishes on every push to `main` whose `Chart.yaml`
+`version` is not yet released (`skip_existing`). A feature PR leaves the version
+as is and adds its CHANGELOG entry under `## [Unreleased]`; the bump is its own
+release PR.
 
 The Makefile carries the rest. Three rules about when to run what:
 

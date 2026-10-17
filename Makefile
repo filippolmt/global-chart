@@ -60,8 +60,9 @@ ESO_NAMESPACE := external-secrets
 # renovate: datasource=github-releases depName=kubernetes-sigs/gateway-api
 GATEWAY_API_VERSION := v1.6.3
 # The Gateway API kinds the chart renders: httproute.yaml and l4RouteKinds
-# (_render-helpers.tpl) are their source, mirrored here; change both. e2e-routes
-# waits for their CRDs and sends every TEST_CASES scenario rendering one of them.
+# (_render-helpers.tpl) are their source, mirrored here; change both.
+# kind-gateway-api waits for their CRDs, and e2e-dryrun asserts that some
+# TEST_CASES scenario renders one of them.
 GATEWAY_ROUTE_KINDS := HTTPRoute TCPRoute UDPRoute
 GATEWAY_ROUTE_CRDS := $(foreach k,$(GATEWAY_ROUTE_KINDS),crd/$(shell echo $(k) | tr A-Z a-z)s.gateway.networking.k8s.io)
 GATEWAY_ROUTE_KIND_RE := ^kind: ($(subst $(subst ,, ),|,$(GATEWAY_ROUTE_KINDS)))$$
@@ -116,10 +117,10 @@ TEST_CASES := \
 .DEFAULT_GOAL := help
 
 # All phony targets
-.PHONY: help all check lint-chart lint-templates lint-docs unit-test null-sweep validate-bad-values generate-templates \
+.PHONY: help all check lint-chart lint-templates lint-docs lint-labels unit-test null-sweep validate-bad-values generate-templates \
 	kubeconform kube-linter-manifests kube-linter generate-docs package \
 	install install-test01 render clean clean-all \
-	kind-install kind-cluster kind-keda kind-eso kind-gateway-api kind-argocd kind-delete e2e e2e-routes e2e-argocd check-helm-floor
+	kind-install kind-cluster kind-keda kind-eso kind-gateway-api kind-argocd kind-delete e2e e2e-dryrun e2e-routes e2e-argocd check-helm-floor
 
 # ============================================================================
 # Help
@@ -168,9 +169,13 @@ null-sweep: ## Null every values node of every scenario in turn: each must rende
 	@python3 tests/bad-values/null-sweep.py ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) \
 		$(foreach e,$(TEST_CASES),$(firstword $(subst :, ,$(e)))) -- $(HELM_API_VERSIONS)
 
-unit-test: ## Run helm-unittest via Docker
+lint-labels: ## Every triage label docs/agents/triage-labels.md names exists on GitHub (needs gh; not in check, which stays offline)
+	@echo "==> Checking triage labels..."
+	@python3 tests/lint-labels.py
+
+unit-test: ## Run helm-unittest via Docker; SUITE=tests/<name>_test.yaml (space-separated, relative to the chart) runs only those suites
 	@echo "==> Running helm unit tests..."
-	@docker run --rm -u $$(id -u):$$(id -g) -v $(CURDIR)/$(CHART_DIR)/$(GLOBAL_CHART_NAME):/apps -w /apps $(HELM_UNITTEST_IMAGE) .
+	@docker run --rm -u $$(id -u):$$(id -g) -v $(CURDIR)/$(CHART_DIR)/$(GLOBAL_CHART_NAME):/apps -w /apps $(HELM_UNITTEST_IMAGE) $(foreach f,$(SUITE),-f $(f)) .
 	@echo "==> All unit tests passed!"
 
 validate-bad-values: ## Verify bad-values are rejected: schema/ by values.schema.json, fail/ by the template fail each names, skip-schema/ by both (the fail under --skip-schema-validation)
@@ -334,6 +339,11 @@ install: ## Install a test scenario (usage: make install SCENARIO=test01)
 # End-to-end install tests (throwaway kind cluster)
 # ============================================================================
 
+# Three attempts five seconds apart, for a step that reaches a third-party host
+# and can fail on a transient DNS or network error. No comma in the command:
+# $(call) would split on it.
+RETRY3 = for i in 1 2 3; do $(1) && break; echo "    attempt $$i/3 failed"; [ "$$i" = 3 ] && exit 1; sleep 5; done
+
 # The download retries, and the recipe runs under `set -e` so a download that
 # never lands stops here. Without it the failure surfaced two lines down as
 # `chmod: cannot access .bin/kind`, which names the wrong thing: the file is
@@ -373,7 +383,7 @@ kind-cluster: kind-install ## Create the e2e kind cluster (isolated kubeconfig, 
 kind-keda: kind-cluster ## Install KEDA (operator + CRDs) into the e2e kind cluster
 	@echo "==> Installing KEDA $(KEDA_VERSION)..."
 	@mkdir -p $(KIND_BIN_DIR)
-	@$(HELM_REPO_ENV) helm repo add kedacore $(KEDA_REPO_URL) --force-update >/dev/null
+	@$(call RETRY3,$(HELM_REPO_ENV) helm repo add kedacore $(KEDA_REPO_URL) --force-update >/dev/null)
 	@KUBECONFIG=$(KIND_KUBECONFIG) $(HELM_REPO_ENV) helm upgrade --install keda kedacore/keda \
 		--version $(KEDA_VERSION) \
 		--namespace $(KEDA_NAMESPACE) --create-namespace \
@@ -385,7 +395,7 @@ kind-keda: kind-cluster ## Install KEDA (operator + CRDs) into the e2e kind clus
 kind-eso: kind-cluster ## Install External Secrets Operator (operator + CRDs) and the e2e fake store
 	@echo "==> Installing External Secrets Operator $(ESO_VERSION)..."
 	@mkdir -p $(KIND_BIN_DIR)
-	@$(HELM_REPO_ENV) helm repo add external-secrets $(ESO_REPO_URL) --force-update >/dev/null
+	@$(call RETRY3,$(HELM_REPO_ENV) helm repo add external-secrets $(ESO_REPO_URL) --force-update >/dev/null)
 	@KUBECONFIG=$(KIND_KUBECONFIG) $(HELM_REPO_ENV) helm upgrade --install external-secrets external-secrets/external-secrets \
 		--version $(ESO_VERSION) \
 		--namespace $(ESO_NAMESPACE) --create-namespace \
@@ -408,23 +418,27 @@ kind-gateway-api: kind-cluster ## Install the Gateway API CRDs (standard channel
 		$(GATEWAY_ROUTE_CRDS) --timeout=60s >/dev/null
 	@echo "    Gateway API CRDs established"
 
-e2e-routes: kind-cluster kind-gateway-api ## Validate every rendered Gateway API route against the real CRDs (server-side dry run)
-	@# A server-side dry run runs the API server's whole validation, the CRD's
-	@# OpenAPI schema and CEL rules included, and persists nothing. It needs no
-	@# controller and no Gateway: an unattached route is still a valid object.
-	@# Every TEST_CASES scenario is rendered, and the ones carrying a route are
-	@# sent: a new route scenario is checked without being listed anywhere.
-	@set -e; export KUBECONFIG=$(KIND_KUBECONFIG); checked=0; \
+e2e-dryrun: kind-cluster kind-keda kind-eso kind-gateway-api ## Send every TEST_CASES scenario to the API server as a server-side dry run (routes, StatefulSets, every kind)
+	@# A server-side dry run runs the API server's whole validation, the CRDs'
+	@# OpenAPI schemas and CEL rules included, and persists nothing. It sees what
+	@# kubeconform cannot: the rules between fields (a StatefulSet's rollingUpdate
+	@# with OnDelete, two pod volumes of one name). It needs no controller and no
+	@# Gateway: an unattached route is still a valid object. Every scenario is
+	@# sent, so a new one is checked without being listed anywhere. printf, not
+	@# echo: sh's echo turns a "\n" inside a manifest into a line break.
+	@set -e; export KUBECONFIG=$(KIND_KUBECONFIG); routes=0; accepted=' (server dry run)$$'; \
 	for entry in $(TEST_CASES); do \
 		values="$${entry%%:*}"; \
-		manifest=$$(helm template e2e-routes ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) -f "$$values" $(HELM_API_VERSIONS)); \
-		routes=$$(echo "$$manifest" | grep -cE '$(GATEWAY_ROUTE_KIND_RE)' || true); \
-		[ "$$routes" -gt 0 ] || continue; \
-		out=$$(echo "$$manifest" | kubectl apply --dry-run=server -n default -f - 2>&1) \
-			|| { echo "FAIL: $$values rejected by the API server:"; echo "$$out"; exit 1; }; \
-		echo "    $$values: $$routes route(s) accepted"; checked=$$((checked + 1)); \
+		manifest=$$(helm template e2e-dryrun ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) -f "$$values" $(HELM_API_VERSIONS)); \
+		n=$$(printf '%s\n' "$$manifest" | grep -cE '$(GATEWAY_ROUTE_KIND_RE)' || true); routes=$$((routes + n)); \
+		printf '%s\n' "$$manifest" | grep -q '^kind: ' || { echo "    $$values: renders no object"; continue; }; \
+		out=$$(printf '%s\n' "$$manifest" | kubectl apply --dry-run=server -n default -f - 2>&1) \
+			|| { echo "FAIL: $$values rejected by the API server:"; printf '%s\n' "$$out" | grep -v "$$accepted"; exit 1; }; \
+		echo "    $$values: $$(printf '%s\n' "$$out" | grep -c "$$accepted") object(s) accepted, $$n route(s)"; \
 	done; \
-	[ "$$checked" -gt 0 ] || { echo "FAIL: no TEST_CASES scenario renders a Gateway API route"; exit 1; }
+	[ "$$routes" -gt 0 ] || { echo "FAIL: no TEST_CASES scenario renders a Gateway API route"; exit 1; }
+
+e2e-routes: e2e-dryrun ## Alias of e2e-dryrun, which sends every route along with the rest
 
 kind-argocd: kind-cluster ## Install Argo CD (core) into the e2e kind cluster
 	@echo "==> Installing Argo CD $(ARGOCD_VERSION) (core)..."
@@ -455,7 +469,7 @@ check-helm-floor: kind-cluster ## Assert NOTES.txt warns on a Helm below 3.18.6
 		|| { echo "FAIL: NOTES.txt did not warn on $(HELM_FLOOR_IMAGE)"; exit 1; }
 	@echo "    warning shown below the floor"
 
-e2e: kind-cluster kind-keda kind-eso check-helm-floor e2e-routes ## Install/upgrade/rollback/uninstall tests/e2e/values.yaml on kind and assert the hook lifecycle
+e2e: kind-cluster kind-keda kind-eso check-helm-floor e2e-dryrun ## Install/upgrade/rollback/uninstall tests/e2e/values.yaml on kind and assert the hook lifecycle
 	@set -e; \
 	export KUBECONFIG=$(KIND_KUBECONFIG); \
 	ns=$(E2E_NAMESPACE); rel=$(E2E_RELEASE); \
@@ -560,9 +574,16 @@ e2e: kind-cluster kind-keda kind-eso check-helm-floor e2e-routes ## Install/upgr
 	echo "    cron trigger scaled the Deployment to 3 through the full KEDA chain"; \
 	echo "==> Upgrading (exercises the pre-upgrade hook)..."; \
 	sa_before=$$(kubectl -n $$ns get sa $$rel-$(GLOBAL_CHART_NAME)-app -o jsonpath='{.metadata.uid}'); \
-	helm upgrade $$rel ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) -f $(E2E_VALUES) \
+	echo "    upgrading to the same chart under another version: every helm.sh/chart label moves,"; \
+	echo "    so a version-bearing label in an immutable field (selector, volumeClaimTemplates) fails here"; \
+	upgrade_dir=$(KIND_BIN_DIR)/e2e-upgrade; rm -rf "$$upgrade_dir"; \
+	helm package ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) -d "$$upgrade_dir" \
+		--version "$$(helm show chart ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) | awk '/^version:/ {print $$2}')-e2e.upgrade" >/dev/null; \
+	helm upgrade $$rel "$$upgrade_dir"/$(GLOBAL_CHART_NAME)-*.tgz -f $(E2E_VALUES) \
 		--set-string deployments.store.podAnnotations.e2e-upgrade=1 \
 		--namespace $$ns --timeout 180s >/dev/null; \
+	case "$$(kubectl -n $$ns get sts $$sts -o jsonpath='{.metadata.labels.helm\.sh/chart}')" in *-e2e.upgrade) ;; \
+		*) echo "FAIL: the upgrade did not apply the other chart version"; exit 1 ;; esac; \
 	kubectl -n $$ns rollout status sts/$$sts --timeout=180s >/dev/null \
 		|| { echo "FAIL: the StatefulSet did not roll out after the upgrade"; exit 1; }; \
 	[ "$$(kubectl -n $$ns get pod $$sts-0 -o jsonpath='{.metadata.annotations.e2e-upgrade}')" = "1" ] \
