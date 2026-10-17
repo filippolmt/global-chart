@@ -1,6 +1,6 @@
 # StatefulSet scenario (issue #211, ADR 0020): one claim per pod, the headless
-# governing Service, an HPA targeting the StatefulSet, a sidecar mounting a
-# second claim, and a Deployment beside it. Every StatefulSet field is set so
+# governing Service, an HPA and a KEDA ScaledObject targeting StatefulSets, a
+# sidecar mounting a second claim, and a Deployment beside it. Every StatefulSet field is set so
 # that null-sweep reaches it.
 deployments:
   search:
@@ -70,6 +70,30 @@ deployments:
     volumeClaimTemplates:
       - name: jetstream
         size: 5Gi
+
+  # KEDA on a StatefulSet: scaleTargetRef.kind follows the workload
+  consumer:
+    kind: StatefulSet
+    image:
+      repository: busybox
+      tag: "1.36"
+    service:
+      enabled: false
+    keda:
+      enabled: true
+      minReplicaCount: 1
+      maxReplicaCount: 3
+      triggers:
+        - type: cron
+          metadata: { timezone: UTC, start: "0 8 * * *", end: "0 18 * * *", desiredReplicas: "2" }
+    updateStrategy:
+      type: OnDelete
+    volumeMounts:
+      - name: spool
+        mountPath: /spool
+    volumeClaimTemplates:
+      - name: spool
+        size: 1Gi
 
   web:
     image:

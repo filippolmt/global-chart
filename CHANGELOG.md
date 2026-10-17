@@ -17,12 +17,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   - `volumeClaimTemplates`: one claim per pod per entry (`name`, `size`,
     `accessModes`, `storageClassName`, `volumeMode`, `labels`,
     `annotations`). An entry no container mounts fails the render, and so
-    does one named after a `volumes` entry. A claim's metadata carries the
+    does one named after a pod volume (a `volumes` entry, or a volume
+    `mountedConfigFiles` generates). A claim's metadata carries the
     selector labels and its own, never `helm.sh/chart` or the common ones:
     the template is immutable.
   - `persistentVolumeClaimRetentionPolicy`, both `Retain` by default:
     uninstalling, pruning or scaling down keeps the data.
-  - `updateStrategy` (`RollingUpdate` with `partition`, or `OnDelete`) and
+  - `updateStrategy` (`RollingUpdate` with `partition`, or `OnDelete`, which
+    takes no `rollingUpdate`, as the API server requires) and
     `podManagementPolicy`.
   - A headless Service `<fullname>-<key>-headless`, rendered for every
     StatefulSet, even with `service.enabled: false`, with

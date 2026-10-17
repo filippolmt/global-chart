@@ -140,6 +140,54 @@ Usage: {{- include "global-chart.rejectNullItems" (dict "list" $hosts "errCtx" "
 {{- end }}
 
 {{/*
+The Kubernetes kind a deployments entry renders as (ADR 0020): its own kind, or
+Deployment. The one home of that default, read by deployment.yaml, hpa.yaml,
+scaledobject.yaml and, through isStatefulSet, by service.yaml and the validators.
+Usage: {{ include "global-chart.workloadKind" $deploy }}
+Input: the deployment map, guarded against nil like deploymentEnabled's.
+*/}}
+{{- define "global-chart.workloadKind" -}}
+{{- ternary .kind "Deployment" (eq (include "global-chart.isSet" (list . "kind")) "true") -}}
+{{- end }}
+
+{{/*
+Whether a deployments entry renders a StatefulSet: the one home of the
+comparison every StatefulSet-only branch makes. Returns "true" or "".
+Usage: {{- if include "global-chart.isStatefulSet" $deploy }}
+*/}}
+{{- define "global-chart.isStatefulSet" -}}
+{{- if eq (include "global-chart.workloadKind" .) "StatefulSet" -}}true{{- end -}}
+{{- end }}
+
+{{/*
+The names of the volumes a deployment's pod declares before its claim
+templates: every volumes entry, and the volumes its mountedConfigFiles
+generate. A claim template becomes a pod volume of its own name, so
+validateStatefulSets checks each against these. An unnamed volumes entry is
+skipped (isNamedEntry): its null is validateNullItems' to report.
+Usage: {{ $names := include "global-chart.podVolumeNames" $deploy | fromJson }}
+Output: JSON map of volume name to the values path that declares it.
+*/}}
+{{- define "global-chart.podVolumeNames" -}}
+{{- $names := dict -}}
+{{- range $i, $v := (default (list) .volumes) -}}
+  {{- if include "global-chart.isNamedEntry" $v -}}
+  {{- $_ := set $names $v.name (printf "volumes[%d]" $i) -}}
+  {{- end -}}
+{{- end -}}
+{{- $mcf := default (dict) .mountedConfigFiles -}}
+{{- range $i, $f := (default (list) $mcf.files) -}}
+  {{- if include "global-chart.isNamedEntry" $f -}}
+  {{- $_ := set $names (include "global-chart.mountedFileVolumeName" (dict "fileName" $f.name)) (printf "mountedConfigFiles.files[%d]" $i) -}}
+  {{- end -}}
+{{- end -}}
+{{- range $i, $b := (default (list) $mcf.bundles) -}}
+  {{- $_ := set $names (include "global-chart.mountedBundleVolumeName" (dict "bundleIndex" $i)) (printf "mountedConfigFiles.bundles[%d]" $i) -}}
+{{- end -}}
+{{- $names | toJson -}}
+{{- end }}
+
+{{/*
 Render a single volume entry. Supports both:
 - Legacy format: { name, type, secret/configMap/persistentVolumeClaim/emptyDir }
 - Native format: { name, <any-k8s-volume-source> } (no .type field)

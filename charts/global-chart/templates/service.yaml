@@ -17,7 +17,7 @@
 {{- if eq (include "global-chart.serviceEnabled" $svc) "true" }}
 {{- $services = append $services (dict "name" (include "global-chart.deploymentFullname" $labelCtx) "headless" false) }}
 {{- end }}
-{{- if eq (include "global-chart.workloadKind" $deploy) "StatefulSet" }}
+{{- if include "global-chart.isStatefulSet" $deploy }}
 {{- $services = append $services (dict "name" (include "global-chart.headlessServiceName" $labelCtx) "headless" true) }}
 {{- end }}
 {{- range $services }}

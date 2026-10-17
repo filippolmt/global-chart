@@ -11,7 +11,7 @@
 {{- $dnsConfig := default (dict) $deploy.dnsConfig }}
 {{- $svc := default (dict) $deploy.service }}
 {{- $kind := include "global-chart.workloadKind" $deploy }}
-{{- $sts := eq $kind "StatefulSet" }}
+{{- $sts := include "global-chart.isStatefulSet" $deploy }}
 {{- /* Backstop guard: the schema's if/then on kind rejects these first; this is
        the message under --skip-schema-validation (ADR 0020). */}}
 {{- $kindOnly := dict "Deployment" (list "strategy" "progressDeadlineSeconds") "StatefulSet" (list "updateStrategy" "podManagementPolicy" "volumeClaimTemplates" "persistentVolumeClaimRetentionPolicy") }}
@@ -24,40 +24,13 @@
 {{- end }}
 {{- end }}
 {{- end }}
-{{- if $sts }}
-{{- /* Every pod carries controller-revision-hash: <name>-<hash>, the hash a
-       decimal uint32 of up to 10 characters, and a label value holds 63. Past 52
-       a pod is created or not depending on the hash. Truncating only the
-       StatefulSet would split its name from its Service and HPA (ADR 0020). */}}
-{{- $stsName := printf "%s-%s" (include "global-chart.fullname" $root) $name }}
-{{- if gt (len $stsName) 52 }}
-{{- fail (printf "%s: a StatefulSet name is at most 52 characters, and '%s' has %d. The pods' controller-revision-hash label appends up to 11 to it, within the 63 of a label value. Shorten the key, or the fullname with fullnameOverride." $errCtx $stsName (len $stsName)) }}
-{{- end }}
-{{- end }}
-{{- /* Each claim template becomes a pod volume of its name: it must not clash
-       with a volumes entry or a generated volume, and some container must mount
-       it, or the claim is storage paid for and never used (ADR 0020). */}}
-{{- $volumeNames := dict }}
-{{- range (default (list) $deploy.volumes) }}{{- if kindIs "map" . }}{{- $_ := set $volumeNames (toString .name) true }}{{- end }}{{- end }}
-{{- /* A mount with no name could be any claim's: the null is validateNullItems'
-       to report, so the "mounted by nobody" check stands down */}}
-{{- $mountNames := dict }}
-{{- $unnamedMount := false }}
-{{- range $c := concat (list $deploy) (default (list) $deploy.extraContainers) (default (list) $deploy.extraInitContainers) }}
-{{- range (default (list) (default (dict) $c).volumeMounts) }}
-{{- if include "global-chart.isNamedEntry" . }}{{- $_ := set $mountNames (toString .name) true }}{{- else }}{{- $unnamedMount = true }}{{- end }}
-{{- end }}
-{{- end }}
+{{- /* Each claim template becomes a pod volume of its name, which an
+       externalSecrets volume must not take either. The other rules on claims
+       are validateStatefulSets' (ADR 0020). */}}
 {{- $claimVolumes := list }}
-{{- range $i, $claim := (default (list) $deploy.volumeClaimTemplates) }}
-{{- if include "global-chart.isNamedEntry" $claim }}
-{{- if hasKey $volumeNames (toString $claim.name) }}
-{{- fail (printf "%s.volumeClaimTemplates[%d]: '%s' is also the name of a volumes entry, and the claim becomes a pod volume of that name. Rename one of them." $errCtx $i $claim.name) }}
-{{- end }}
-{{- if not (or $unnamedMount (hasKey $mountNames (toString $claim.name))) }}
-{{- fail (printf "%s.volumeClaimTemplates[%d]: '%s' is mounted by no volumeMounts item of the pod's containers. Mount it, or drop the entry." $errCtx $i $claim.name) }}
-{{- end }}
-{{- $claimVolumes = append $claimVolumes (dict "name" $claim.name) }}
+{{- range (default (list) $deploy.volumeClaimTemplates) }}
+{{- if include "global-chart.isNamedEntry" . }}
+{{- $claimVolumes = append $claimVolumes (dict "name" .name) }}
 {{- end }}
 {{- end }}
 {{- /* externalSecrets: the Deployment always reads the real Secret, never the
@@ -92,10 +65,18 @@ spec:
   strategy:
     {{- toYaml . | nindent 4 }}
   {{- end }}
-  {{- with $deploy.updateStrategy }}
+  {{- $updateStrategy := default (dict) $deploy.updateStrategy }}
+  {{- $updateType := eq (include "global-chart.isSet" (list $updateStrategy "type")) "true" }}
+  {{- with $updateStrategy }}
+  {{- /* Backstop guard: the schema rejects it first. The API server accepts
+         rollingUpdate only with type RollingUpdate. */}}
+  {{- if and (eq (toString .type) "OnDelete") .rollingUpdate }}
+  {{- fail (printf "%s.updateStrategy.rollingUpdate: only allowed with type RollingUpdate, and the type is OnDelete. Drop rollingUpdate, or set type: RollingUpdate." $errCtx) }}
+  {{- end }}
+  {{- if or $updateType .rollingUpdate }}
   updateStrategy:
-    {{- with .type }}
-    type: {{ . }}
+    {{- if $updateType }}
+    type: {{ .type }}
     {{- end }}
     {{- with .rollingUpdate }}
     rollingUpdate:
@@ -103,6 +84,7 @@ spec:
       partition: {{ include "global-chart.printScalar" (dict "value" .partition "errCtx" (printf "%s.updateStrategy.rollingUpdate.partition" $errCtx)) }}
       {{- end }}
     {{- end }}
+  {{- end }}
   {{- end }}
   {{- with $deploy.podManagementPolicy }}
   podManagementPolicy: {{ . }}

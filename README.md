@@ -134,7 +134,11 @@ deployments:
   (`clusterIP: None`, `publishNotReadyAddresses: true`), even with
   `service.enabled: false`: the pods resolve as
   `<pod>.<fullname>-<key>-headless`, for peer discovery. Routes and the
-  Ingress keep pointing to the normal Service.
+  Ingress keep pointing to the normal Service. It carries the `service` ports,
+  which only name its SRV records: with `service.enabled: false` they are the
+  primary port's defaults (80, `http`) unless `service` declares others, and
+  it takes the common annotations only, never `service.annotations`, which
+  target the normal Service (external-dns, a cloud load balancer).
 - **The claims outlive the release.** `persistentVolumeClaimRetentionPolicy`
   defaults to `Retain` on deletion and on scale-down, and the claims are not
   in the manifest: neither `helm uninstall` nor an Argo CD prune deletes them.
@@ -574,7 +578,7 @@ The `tests/` directory is the list — `TEST_CASES` in the `Makefile` is what
 | `service-disabled.yaml`          | Deployment with service disabled                                                          |
 | `service-extra-ports.yaml`       | Service with extraPorts, and the container ports derived from them                        |
 | `common-annotations.yaml`        | `global.commonAnnotations` colliding with per-resource ones — catches a duplicate YAML key                |
-| `statefulset.yaml`               | StatefulSets with claim templates, headless Service, HPA target, a sidecar-mounted claim |
+| `statefulset.yaml`               | StatefulSets with claim templates, headless Service, HPA and KEDA targets, a sidecar-mounted claim |
 | `raw-deployment.yaml`            | Deployment with raw image string                                                          |
 | `name-collision.yaml`            | Name collision detection test                                                             |
 | `bad-values/schema/*.yaml`       | Values the schema must reject                                                             |

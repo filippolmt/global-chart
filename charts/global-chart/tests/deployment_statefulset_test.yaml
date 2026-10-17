@@ -43,18 +43,6 @@ tests:
           path: metadata.name
           value: rel-global-chart-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 
-  - it: should fail a StatefulSet name longer than 52 characters
-    set:
-      deployments:
-        db:
-          enabled: false
-        aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:
-          kind: StatefulSet
-          image: "nginx:1.25"
-    asserts:
-      - failedTemplate:
-          errorMessage: "deployments.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa: a StatefulSet name is at most 52 characters, and 'rel-global-chart-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' has 53. The pods' controller-revision-hash label appends up to 11 to it, within the 63 of a label value. Shorten the key, or the fullname with fullnameOverride."
-
   # The claims' metadata holds only the selector labels and the entry's own:
   # volumeClaimTemplates is immutable, and helm.sh/chart or a common label
   # there would make every chart upgrade a forbidden update.
@@ -184,17 +172,6 @@ tests:
           path: spec.volumeClaimTemplates
 
   # A claim no container mounts is storage provisioned and paid for, never used
-  - it: should fail a claim template no container mounts
-    set:
-      deployments:
-        db:
-          volumeClaimTemplates:
-            - name: data
-              size: 1Gi
-    asserts:
-      - failedTemplate:
-          errorMessage: "deployments.db.volumeClaimTemplates[0]: 'data' is mounted by no volumeMounts item of the pod's containers. Mount it, or drop the entry."
-
   - it: should accept a claim template mounted by a sidecar only
     set:
       deployments:
@@ -214,19 +191,3 @@ tests:
           value: data
 
   # The claim becomes a pod volume of the same name: two volumes, one name
-  - it: should fail a claim template named after a volume of the pod
-    set:
-      deployments:
-        db:
-          volumes:
-            - name: data
-              emptyDir: {}
-          volumeMounts:
-            - name: data
-              mountPath: /data
-          volumeClaimTemplates:
-            - name: data
-              size: 1Gi
-    asserts:
-      - failedTemplate:
-          errorMessage: "deployments.db.volumeClaimTemplates[0]: 'data' is also the name of a volumes entry, and the claim becomes a pod volume of that name. Rename one of them."

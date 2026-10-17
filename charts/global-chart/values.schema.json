@@ -887,7 +887,7 @@
       }
     },
     "statefulSetUpdateStrategy": {
-      "description": "StatefulSet only. Closed: a small, fixed shape (ADR 0017). rollingUpdate.maxUnavailable is left out: it is alpha.",
+      "description": "StatefulSet only. Closed: a small, fixed shape (ADR 0017). rollingUpdate.maxUnavailable is left out: it is alpha. rollingUpdate is rejected with type OnDelete, as the API server does.",
       "type": "object",
       "properties": {
         "type": { "type": "string", "enum": ["RollingUpdate", "OnDelete"] },
@@ -899,7 +899,9 @@
           "additionalProperties": false
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "if": { "properties": { "type": { "const": "OnDelete" } }, "required": ["type"] },
+      "then": { "properties": { "rollingUpdate": false } }
     },
     "persistentVolumeClaimRetentionPolicy": {
       "description": "StatefulSet only: what happens to the claims when the StatefulSet is deleted or scaled down. Both default to Retain, so an uninstall, a prune or a scale-down keeps the data. Delete removes the claim, and with a Delete reclaim policy its volume.",

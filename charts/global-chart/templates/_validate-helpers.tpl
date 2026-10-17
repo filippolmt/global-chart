@@ -125,7 +125,7 @@ Called from validate.yaml.
     {{- /* A StatefulSet's headless Service, <name>-headless, is a name another
            entry's own name can reach. It goes in $deployNames, which stands for
            every kind sharing the entry's name, the Service among them. */ -}}
-    {{- if eq (include "global-chart.workloadKind" $deploy) "StatefulSet" -}}
+    {{- if include "global-chart.isStatefulSet" $deploy -}}
       {{- include "global-chart.registerName" (dict "names" $deployNames "kind" "Service" "name" (include "global-chart.headlessServiceName" (dict "root" $root "deploymentName" $name)) "owner" (printf "%s (its headless Service)" (include "global-chart.deploymentValuesPath" $name))) -}}
     {{- end -}}
 
@@ -425,6 +425,60 @@ SA is registered, so callers pass the result whatever its create.
     {{- fail (printf "Name collision: ServiceAccount '%s' created for %s conflicts with the one created for %s%s" $sa.name .owner (index $names $sa.name) (default ". Give one of them an explicit serviceAccount.name, or set serviceAccount.create: false to bind the existing one." .hint)) -}}
   {{- end -}}
   {{- $_ := set $names $sa.name .owner -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+The rules of a StatefulSet's name and claim templates (ADR 0020), for every
+enabled entry with kind: StatefulSet:
+- <fullname>-<key> is at most 52 characters, checked before the 63-character
+  cut. Every pod carries controller-revision-hash: <name>-<hash>, the hash a
+  decimal uint32 of up to 10 characters, and a label value holds 63: past 52 a
+  pod is created or not depending on the hash. Truncating only the StatefulSet
+  would split its name from its Service and HPA, so it fails instead;
+- a claim template becomes a pod volume of its own name, so it must not take a
+  name podVolumeNames lists (an externalSecrets volume is resolveExternalSecretRefs'
+  to check, in deployment.yaml);
+- some container mounts it (the main one, extraContainers, extraInitContainers),
+  or the claim is storage provisioned and never used. A mount with no name could
+  be any claim's: its null is validateNullItems', and this check stands down.
+Unnamed claim templates are skipped (isNamedEntry), as validateNullItems names them.
+Called from validate.yaml. Emits nothing on success.
+*/}}
+{{- define "global-chart.validateStatefulSets" -}}
+{{- $root := . -}}
+{{- range $name, $deploy := .Values.deployments -}}
+  {{- if $deploy -}}
+  {{- if and (eq (include "global-chart.deploymentEnabled" $deploy) "true") (include "global-chart.isStatefulSet" $deploy) -}}
+    {{- $errCtx := include "global-chart.deploymentValuesPath" $name -}}
+    {{- $stsName := include "global-chart.deploymentUntruncatedName" (dict "root" $root "deploymentName" $name) -}}
+    {{- if gt (len $stsName) 52 -}}
+      {{- fail (printf "%s: a StatefulSet name is at most 52 characters, and '%s' has %d. The pods' controller-revision-hash label appends up to 11 to it, within the 63 of a label value. Shorten the key, or the fullname with fullnameOverride." $errCtx $stsName (len $stsName)) -}}
+    {{- end -}}
+    {{- $volumeNames := include "global-chart.podVolumeNames" $deploy | fromJson -}}
+    {{- $mountNames := dict -}}
+    {{- $unnamedMount := false -}}
+    {{- range $c := concat (list $deploy) (default (list) $deploy.extraContainers) (default (list) $deploy.extraInitContainers) -}}
+      {{- range (default (list) (default (dict) $c).volumeMounts) -}}
+        {{- if include "global-chart.isNamedEntry" . -}}
+          {{- $_ := set $mountNames .name true -}}
+        {{- else -}}
+          {{- $unnamedMount = true -}}
+        {{- end -}}
+      {{- end -}}
+    {{- end -}}
+    {{- range $i, $claim := (default (list) $deploy.volumeClaimTemplates) -}}
+      {{- if include "global-chart.isNamedEntry" $claim -}}
+        {{- if hasKey $volumeNames $claim.name -}}
+          {{- fail (printf "%s.volumeClaimTemplates[%d]: '%s' is also the name of the pod volume of %s.%s, and the claim becomes a pod volume of that name. Rename one of them." $errCtx $i $claim.name $errCtx (index $volumeNames $claim.name)) -}}
+        {{- end -}}
+        {{- if not (or $unnamedMount (hasKey $mountNames $claim.name)) -}}
+          {{- fail (printf "%s.volumeClaimTemplates[%d]: '%s' is mounted by no volumeMounts item of the pod's containers. Mount it, or drop the entry." $errCtx $i $claim.name) -}}
+        {{- end -}}
+      {{- end -}}
+    {{- end -}}
+  {{- end -}}
+  {{- end -}}
 {{- end -}}
 {{- end }}
 

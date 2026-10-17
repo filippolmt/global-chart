@@ -65,9 +65,9 @@ is the source of truth, this table is only the routing.
 | `_job-helpers.tpl` | The one pod spec of every hook and cronjob, both scopes: image resolution, CronJob and Job spec fields, `jobValuesPath` |
 | `_serviceaccount-helpers.tpl` | Every ServiceAccount rendered or bound (`resolveServiceAccount`, the job resolver) and the SA side of the hook copies (ADR 0010, 0011) |
 | `_hook-helpers.tpl` | The `helm.sh/hook*` annotations from the role table, the phase cut `hookReadsPrereqCopy`, the hook-copy consumer scans |
-| `_render-helpers.tpl` | `printScalar`, `isSet`, null checks (`rejectNull`, `rejectNullItems`, `isNamedEntry`), render blocks, ports, `resolveBackend`, `podSpecOwners`, route lists |
+| `_render-helpers.tpl` | `workloadKind` / `isStatefulSet`, `podVolumeNames`, `printScalar`, `isSet`, null checks (`rejectNull`, `rejectNullItems`, `isNamedEntry`), render blocks, ports, `resolveBackend`, `podSpecOwners`, route lists |
 | `_keda-helpers.tpl` | KEDA names, trigger and `authenticationRef` resolution |
-| `_validate-helpers.tpl` | Values paths, the `fail` shape, cross-resource validators, `validateNullItems` / `rejectNullInLists`, `hpaActiveTargets`, `requireCrd` / `requireGatewayApiCrd` |
+| `_validate-helpers.tpl` | Values paths, the `fail` shape, cross-resource validators, `validateStatefulSets`, `validateNullItems` / `rejectNullInLists`, `hpaActiveTargets`, `requireCrd` / `requireGatewayApiCrd` |
 
 ### Invariants
 
@@ -122,12 +122,12 @@ Read the pointer before changing the domain it names.
 
 Kubernetes caps a name at 63 characters, so most resources truncate there. Four
 exceptions, each owned by a name helper in `_helpers.tpl` (the StatefulSet's by
-its template):
+`validateStatefulSets`):
 
 | Resource | Limit |
 |----------|-------|
 | CronJobs | 52 — Kubernetes appends an 11-char timestamp to the Job it creates |
-| StatefulSets | 52, a render `fail` in `deployment.yaml`, not a truncation: each pod's `controller-revision-hash` label is `<name>-<hash>`, the hash up to 10 chars. Truncating would split the StatefulSet's name from its Service and HPA |
+| StatefulSets | 52, a render `fail` in `validateStatefulSets`, not a truncation: each pod's `controller-revision-hash` label is `<name>-<hash>`, the hash up to 10 chars. Truncating would split the StatefulSet's name from its Service and HPA |
 | `mountedConfigFiles` `name` | 52, DNS-1123 label, enforced by `values.schema.json` — it feeds the pod volume name, and a volume name is a DNS-1123 *label* |
 | Mounted config file ConfigMap | Not truncated at all: a ConfigMap name is a DNS *subdomain*, so it has room the volume does not. Truncating would manufacture the collision `validateNameCollisions` exists to catch |
 

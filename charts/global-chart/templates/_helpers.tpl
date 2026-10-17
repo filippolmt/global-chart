@@ -92,10 +92,16 @@ Create a deployment-specific fully qualified name.
 Usage: {{ include "global-chart.deploymentFullname" (dict "root" . "deploymentName" $name) }}
 */}}
 {{- define "global-chart.deploymentFullname" -}}
-{{- $root := .root -}}
-{{- $name := .deploymentName -}}
-{{- $baseName := include "global-chart.fullname" $root -}}
-{{- include "global-chart.truncName" (list (printf "%s-%s" $baseName $name) 63) -}}
+{{- include "global-chart.truncName" (list (include "global-chart.deploymentUntruncatedName" .) 63) -}}
+{{- end }}
+
+{{/*
+<fullname>-<deployment key> before the 63-character cut: what deploymentFullname
+truncates, and what validateStatefulSets holds to 52 for a StatefulSet (ADR 0020).
+Usage: {{ include "global-chart.deploymentUntruncatedName" (dict "root" . "deploymentName" $name) }}
+*/}}
+{{- define "global-chart.deploymentUntruncatedName" -}}
+{{- printf "%s-%s" (include "global-chart.fullname" .root) .deploymentName -}}
 {{- end }}
 
 {{/*
@@ -152,20 +158,9 @@ Returns the string "true" or "false".
 {{- end }}
 
 {{/*
-The Kubernetes kind a deployments entry renders as (ADR 0020): its own kind, or
-Deployment. The one home of that default, read by deployment.yaml, service.yaml,
-hpa.yaml, scaledobject.yaml and the validators.
-Usage: {{ include "global-chart.workloadKind" $deploy }}
-Input: the deployment map, guarded against nil like deploymentEnabled's.
-*/}}
-{{- define "global-chart.workloadKind" -}}
-{{- ternary .kind "Deployment" (eq (include "global-chart.isSet" (list . "kind")) "true") -}}
-{{- end }}
-
-{{/*
 Name of a StatefulSet's governing headless Service, <deploymentFullname>-headless
 (ADR 0020). Not truncated: a StatefulSet's fullname is held to 52 characters by
-deployment.yaml, so the name stays within the 63 of a DNS-1035 label.
+validateStatefulSets, so the name stays within the 63 of a DNS-1035 label.
 Usage: {{ include "global-chart.headlessServiceName" (dict "root" $root "deploymentName" $name) }}
 */}}
 {{- define "global-chart.headlessServiceName" -}}
