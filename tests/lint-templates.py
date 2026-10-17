@@ -104,9 +104,16 @@ def kind_fields(chart, schema):
         return ["templates/deployment.yaml: kind-fields: no `$kindOnly := dict …` to compare with the schema"]
     guard = {kind: set(re.findall(r'"(\w+)"', fields)) for kind, fields in KIND_LIST.findall(m.group(1))}
     dep = schema["$defs"]["deployment"]
-    rejected = lambda branch: {k for k, v in dep.get(branch, {}).get("properties", {}).items() if v is False}
+
+    def rejected(branch):
+        return {k for k, v in dep.get(branch, {}).get("properties", {}).items() if v is False}
+
     kind = dep.get("if", {}).get("properties", {}).get("kind", {}).get("const")
+    if kind is None:
+        return ["values.schema.json: kind-fields: $defs/deployment has no if/then/else on kind to compare with $kindOnly"]
     other = next((k for k in guard if k != kind), None)
+    if other is None or len(guard) != 2:
+        return [f"templates/deployment.yaml: kind-fields: $kindOnly must name two kinds, one of them {kind}; read {sorted(guard)}"]
     schema_side = {other: rejected("then"), kind: rejected("else")}
     problems = []
     for k in sorted(set(guard) | set(schema_side)):

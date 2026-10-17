@@ -13,6 +13,7 @@ Usage: lint-labels.py
 """
 import pathlib
 import re
+import shlex
 import subprocess
 import sys
 
@@ -26,12 +27,21 @@ def main():
     if not wanted:
         print(f"    FAIL: {DOC.relative_to(ROOT)} lists no label; the table format changed")
         return 1
-    out = subprocess.run(["gh", "label", "list", "--limit", "500", "--json", "name", "--jq", ".[].name"],
-                         cwd=ROOT, capture_output=True, text=True, check=True).stdout
+    # shortcut: reads the first 500 labels, so past 500 an existing one reads as
+    # missing; page through `gh api` when the repository gets there
+    try:
+        out = subprocess.run(["gh", "label", "list", "--limit", "500", "--json", "name", "--jq", ".[].name"],
+                             cwd=ROOT, capture_output=True, text=True, check=True).stdout
+    except FileNotFoundError:
+        print("    FAIL: gh is not installed; lint-labels reads the labels through it")
+        return 1
+    except subprocess.CalledProcessError as e:
+        print(f"    FAIL: gh label list failed (authenticated? GH_TOKEN in CI): {' '.join(e.stderr.split())[:200]}")
+        return 1
     missing = sorted(set(wanted) - set(out.split("\n")))
     if missing:
         for label in missing:
-            print(f"    FAIL: label `{label}` is in {DOC.relative_to(ROOT)} but not in the repository: gh label create {label}")
+            print(f"    FAIL: label `{label}` is in {DOC.relative_to(ROOT)} but not in the repository: gh label create {shlex.quote(label)}")
         return 1
     print(f"    OK: the {len(wanted)} triage labels exist in the repository")
     return 0

@@ -54,8 +54,9 @@ CRDs' own schemas and CEL rules included, which kubeconform, reading a
 third-party copy of each schema field by field, does not: a RequestRedirect
 rule carrying backendRefs passed every other check, and so would a
 StatefulSet's `rollingUpdate` beside `OnDelete`. Nothing routes: an unattached
-route is still a valid object. A new route kind goes in `GATEWAY_ROUTE_KINDS` too, which
-mirrors the kinds the templates render.
+route is still a valid object. A scenario that renders nothing is skipped. A
+new route kind goes in `GATEWAY_ROUTE_KINDS` too, which mirrors the kinds the
+templates render.
 
 It also runs in CI as its own job in `.github/workflows/helm-ci.yml`.
 

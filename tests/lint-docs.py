@@ -52,18 +52,28 @@ CODE_REF = re.compile(r"(?<![\w/.-])((?:[\w.-]+/)*[\w.-]+\.md|docs/adr/[\w.-]+)"
 SECTION_REF = re.compile(r"CLAUDE\.md,? (?:pattern|section|rule) \d+")
 
 
-def tracked(*flags):
+def git_files(*flags):
     out = subprocess.run(["git", "ls-files", *flags], cwd=ROOT, capture_output=True, text=True, check=True).stdout
     return out.split()
 
 
-def unresolved(token, untracked):
-    """The error for a token that does not resolve. A basename match is resolved
-    against tracked files only, so a new file nobody has added yet reads as
-    missing: say so, rather than send the reader looking for a typo."""
-    if untracked and resolves(token, ROOT / "x", untracked, []):
+def unresolved(token, source, untracked):
+    """The error for a token that does not resolve. Resolution counts tracked
+    files only, so a file nobody has added yet passes nowhere but on this disk,
+    and fails in CI's checkout: say so, rather than send the reader looking for
+    a typo. Resolved the same way, against the untracked files."""
+    if untracked and resolves(token, source, untracked, []):
         return f"`{token}` exists but is not tracked by git: `git add` it"
     return f"`{token}` does not exist"
+
+
+def listed(path, files):
+    """Whether path (a file or a directory) is one of files, or holds one."""
+    try:
+        rel = str(path.resolve().relative_to(ROOT))
+    except ValueError:
+        return True  # outside the repository: not the repository's to check
+    return rel in files or any(f.startswith(rel + "/") for f in files)
 
 
 def ignored_prefixes():
@@ -79,7 +89,7 @@ def resolves(token, source, files, ignored):
     token = token.rstrip("/")
     if not token or token.startswith(("http:", "https:", "mailto:")):
         return True
-    if (ROOT / token).exists() or (source.parent / token).exists():
+    if any(p.exists() and listed(p, files) for p in (ROOT / token, source.parent / token)):
         return True
     if any(("/" + f + "/").find("/" + token + "/") >= 0 or ("/" + f).endswith("/" + token) for f in files):
         return True
@@ -87,8 +97,8 @@ def resolves(token, source, files, ignored):
 
 
 def main():
-    files = tracked()
-    untracked = tracked("--others", "--exclude-standard")
+    files = git_files()
+    untracked = git_files("--others", "--exclude-standard")
     ignored = ignored_prefixes()
     errors = []
 
@@ -102,7 +112,7 @@ def main():
             tokens += MD_LINK.findall(line)
             for t in tokens:
                 if not resolves(t, doc, files, ignored):
-                    errors.append(f"{rel}:{n}: {unresolved(t, untracked)}")
+                    errors.append(f"{rel}:{n}: {unresolved(t, doc, untracked)}")
             if rel.name != "CLAUDE.md" and SECTION_REF.search(line):
                 errors.append(f"{rel}:{n}: points at a numbered CLAUDE.md section; point at the rule's home")
 
@@ -118,7 +128,7 @@ def main():
                 errors.append(f"{rel}:{n}: points at a numbered CLAUDE.md section; point at the rule's home")
             for t in CODE_REF.findall(line):
                 if not resolves(t, path, files, ignored):
-                    errors.append(f"{rel}:{n}: {unresolved(t, untracked)}")
+                    errors.append(f"{rel}:{n}: {unresolved(t, path, untracked)}")
 
     if errors:
         print("\n".join(f"    FAIL: {e}" for e in errors))

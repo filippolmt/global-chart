@@ -339,15 +339,15 @@ install: ## Install a test scenario (usage: make install SCENARIO=test01)
 # End-to-end install tests (throwaway kind cluster)
 # ============================================================================
 
-# The download retries, and the recipe runs under `set -e` so a download that
-# never lands stops here. Without it the failure surfaced two lines down as
-# `chmod: cannot access .bin/kind`, which names the wrong thing: the file is
-# missing because curl wrote nothing, not because of a permission problem.
 # Three attempts five seconds apart, for a step that reaches a third-party host
 # and can fail on a transient DNS or network error. No comma in the command:
 # $(call) would split on it.
 RETRY3 = for i in 1 2 3; do $(1) && break; echo "    attempt $$i/3 failed"; [ "$$i" = 3 ] && exit 1; sleep 5; done
 
+# The download retries, and the recipe runs under `set -e` so a download that
+# never lands stops here. Without it the failure surfaced two lines down as
+# `chmod: cannot access .bin/kind`, which names the wrong thing: the file is
+# missing because curl wrote nothing, not because of a permission problem.
 kind-install: ## Download the kind binary into .bin/ (no-op if already there)
 	@set -e; if [ ! -x "$(KIND)" ]; then \
 		mkdir -p $(KIND_BIN_DIR); \
@@ -424,15 +424,17 @@ e2e-dryrun: kind-cluster kind-keda kind-eso kind-gateway-api ## Send every TEST_
 	@# kubeconform cannot: the rules between fields (a StatefulSet's rollingUpdate
 	@# with OnDelete, two pod volumes of one name). It needs no controller and no
 	@# Gateway: an unattached route is still a valid object. Every scenario is
-	@# sent, so a new one is checked without being listed anywhere.
-	@set -e; export KUBECONFIG=$(KIND_KUBECONFIG); routes=0; \
+	@# sent, so a new one is checked without being listed anywhere. printf, not
+	@# echo: sh's echo turns a "\n" inside a manifest into a line break.
+	@set -e; export KUBECONFIG=$(KIND_KUBECONFIG); routes=0; accepted=' (server dry run)$$'; \
 	for entry in $(TEST_CASES); do \
 		values="$${entry%%:*}"; \
 		manifest=$$(helm template e2e-dryrun ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) -f "$$values" $(HELM_API_VERSIONS)); \
-		n=$$(echo "$$manifest" | grep -cE '$(GATEWAY_ROUTE_KIND_RE)' || true); routes=$$((routes + n)); \
-		out=$$(echo "$$manifest" | kubectl apply --dry-run=server -n default -f - 2>&1) \
-			|| { echo "FAIL: $$values rejected by the API server:"; echo "$$out" | grep -v ' (server dry run)$$'; exit 1; }; \
-		echo "    $$values: $$(echo "$$out" | grep -c ' (server dry run)$$') object(s) accepted, $$n route(s)"; \
+		n=$$(printf '%s\n' "$$manifest" | grep -cE '$(GATEWAY_ROUTE_KIND_RE)' || true); routes=$$((routes + n)); \
+		printf '%s\n' "$$manifest" | grep -q '^kind: ' || { echo "    $$values: renders no object"; continue; }; \
+		out=$$(printf '%s\n' "$$manifest" | kubectl apply --dry-run=server -n default -f - 2>&1) \
+			|| { echo "FAIL: $$values rejected by the API server:"; printf '%s\n' "$$out" | grep -v "$$accepted"; exit 1; }; \
+		echo "    $$values: $$(printf '%s\n' "$$out" | grep -c "$$accepted") object(s) accepted, $$n route(s)"; \
 	done; \
 	[ "$$routes" -gt 0 ] || { echo "FAIL: no TEST_CASES scenario renders a Gateway API route"; exit 1; }
 

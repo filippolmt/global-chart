@@ -11,8 +11,8 @@ Two kinds of rule:
   `fail` message, a suite per template. `make null-sweep` nulls every values
   node of every scenario. `make e2e-dryrun` sends every scenario to a real API
   server. `lint-templates`' kind-fields rule holds the backstop guard's
-  `$kindOnly` to the schema's `if/then/else` on `kind`. The rules stay written below for their reason; the check is what
-  holds them.
+  `$kindOnly` to the schema's `if/then/else` on `kind`. The rules stay written
+  below for their reason; the check is what holds them.
 - **Judgement**: no pattern can see it — the review's job.
 
 ## Template rules
