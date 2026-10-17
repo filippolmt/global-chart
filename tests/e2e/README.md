@@ -90,6 +90,10 @@ operations; the kubeconfig pinning is the Makefile's, as for `make e2e`.
 - Hook bodies **assert** their environment instead of echoing it — `echo` exits
   0 whatever the prereq copies contain, which would make the "hook Job
   succeeded" assertion vacuous.
+- A sync that ends `Error` on a **`ComparisonError` runs once more**: the
+  repo-server never rendered the manifests (a timeout or a DNS miss inside
+  kind), so nothing of the chart was judged. A sync the chart breaks ends
+  `Failed` and is never retried, or the failing-hook step would pass.
 - The Argo CD claim check first waits for the **StatefulSet to be deleted**.
   Without the resources finalizer, deleting the Application deletes nothing,
   and the claim survives for the wrong reason.

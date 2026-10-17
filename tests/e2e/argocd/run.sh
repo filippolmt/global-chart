@@ -23,9 +23,9 @@ fail() {
 	exit 1
 }
 
-# Starts one sync operation and waits for it to end with the phase in $1. The
-# controller removes .operation when the operation ends, retries included.
-sync() {
+# Starts one sync operation and waits for it to end. The controller removes
+# .operation when the operation ends, retries included.
+run_sync() {
 	kubectl -n $argo patch application e2e --type merge \
 		-p '{"operation":{"initiatedBy":{"username":"e2e"},"sync":{"revision":"'"$version"'"}}}' >/dev/null
 	i=0
@@ -33,7 +33,21 @@ sync() {
 		i=$((i + 1)); [ $i -le 300 ] || fail "sync still running after 300s"
 		sleep 1
 	done
+}
+
+# Runs a sync that must end with the phase in $1. An operation that ends Error
+# on a ComparisonError never got its manifests from the repo-server (a timeout
+# or a DNS miss inside kind), so nothing of the chart was judged: it runs once
+# more. A chart the sync rejects ends Failed, never retried.
+sync() {
+	run_sync
 	phase=$(kubectl -n $argo get application e2e -o jsonpath='{.status.operationState.phase}')
+	if [ "$phase" = Error ] && kubectl -n $argo get application e2e \
+		-o jsonpath='{.status.operationState.message}' | grep -q '^ComparisonError'; then
+		echo "    the repo-server did not render the manifests (ComparisonError): syncing once more"
+		run_sync
+		phase=$(kubectl -n $argo get application e2e -o jsonpath='{.status.operationState.phase}')
+	fi
 	[ "$phase" = "$1" ] || fail "sync ended $phase, expected $1"
 }
 
