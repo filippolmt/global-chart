@@ -336,7 +336,8 @@ spec:
     - metadata:
         name: {{ .name }}
         labels:
-          {{- toYaml (mergeOverwrite (include "global-chart.deploymentSelectorLabels" $labelCtx | fromYaml) (default (dict) .labels)) | nindent 10 }}
+          {{- /* The selector labels win, as in mergeLabels: they tie the claim to its workload */}}
+          {{- toYaml (mergeOverwrite (deepCopy (default (dict) .labels)) (include "global-chart.deploymentSelectorLabels" $labelCtx | fromYaml)) | nindent 10 }}
         {{- with .annotations }}
         annotations:
           {{- toYaml . | nindent 10 }}
@@ -344,7 +345,7 @@ spec:
       spec:
         accessModes:
           {{- toYaml (default (list "ReadWriteOnce") .accessModes) | nindent 10 }}
-        {{- if hasKey . "storageClassName" }}
+        {{- if eq (include "global-chart.isSet" (list . "storageClassName")) "true" }}
         storageClassName: {{ .storageClassName | quote }}
         {{- end }}
         {{- /* Kubernetes' own default, written out: the API server fills it in,

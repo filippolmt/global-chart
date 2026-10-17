@@ -76,6 +76,7 @@ tests:
               storageClassName: standard-rwo
               labels:
                 tier: data
+                app.kubernetes.io/component: other
               annotations:
                 backup: daily
     asserts:

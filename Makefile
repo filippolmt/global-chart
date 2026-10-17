@@ -561,7 +561,15 @@ e2e: kind-cluster kind-keda kind-eso check-helm-floor e2e-routes ## Install/upgr
 	echo "==> Upgrading (exercises the pre-upgrade hook)..."; \
 	sa_before=$$(kubectl -n $$ns get sa $$rel-$(GLOBAL_CHART_NAME)-app -o jsonpath='{.metadata.uid}'); \
 	helm upgrade $$rel ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) -f $(E2E_VALUES) \
+		--set-string deployments.store.podAnnotations.e2e-upgrade=1 \
 		--namespace $$ns --timeout 180s >/dev/null; \
+	kubectl -n $$ns rollout status sts/$$sts --timeout=180s >/dev/null \
+		|| { echo "FAIL: the StatefulSet did not roll out after the upgrade"; exit 1; }; \
+	[ "$$(kubectl -n $$ns get pod $$sts-0 -o jsonpath='{.metadata.annotations.e2e-upgrade}')" = "1" ] \
+		|| { echo "FAIL: the upgrade did not replace the StatefulSet's pod: the data check below would prove nothing"; exit 1; }; \
+	[ "$$(kubectl -n $$ns exec $$sts-0 -- cat /data/marker)" = "e2e" ] \
+		|| { echo "FAIL: the file written on the claim did not survive the upgrade (issue #211)"; exit 1; }; \
+	echo "    the upgrade replaced the StatefulSet's pod, and its claim kept the data"; \
 	[ "$$sa_before" = "$$(kubectl -n $$ns get sa $$rel-$(GLOBAL_CHART_NAME)-app -o jsonpath='{.metadata.uid}')" ] \
 		|| { echo "FAIL: the ServiceAccount was recreated, bound tokens would be invalidated"; exit 1; }; \
 	echo "    upgrade kept the ServiceAccount identity"; \

@@ -444,3 +444,32 @@ tests:
           count: 1
       - notExists:
           path: spec.clusterIP
+
+  # service.annotations aim at the normal Service: on the headless one
+  # external-dns would publish the pod IPs under the same hostname
+  - it: should give the headless Service the common annotations only
+    release:
+      name: rel
+    set:
+      global:
+        commonAnnotations:
+          team: search
+      deployments:
+        db:
+          kind: StatefulSet
+          image: nginx:1.25
+          service:
+            annotations:
+              external-dns.alpha.kubernetes.io/hostname: db.example.com
+    asserts:
+      - equal:
+          path: metadata.annotations
+          value:
+            team: search
+            external-dns.alpha.kubernetes.io/hostname: db.example.com
+        documentIndex: 0
+      - equal:
+          path: metadata.annotations
+          value:
+            team: search
+        documentIndex: 1

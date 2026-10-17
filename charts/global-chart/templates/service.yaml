@@ -9,7 +9,10 @@
        false: spec.serviceName must name a Service that exists, or the pods' DNS
        names never resolve (ADR 0020). It carries the same ports, which only feed
        its SRV records, and publishes not-ready pods so peers find each other
-       before they are ready. */ -}}
+       before they are ready. It takes only the common annotations: service.annotations
+       aims at the normal Service (external-dns, a cloud load balancer), and on a
+       headless one external-dns would publish the pod IPs under the same name. */ -}}
+{{- $primary := include "global-chart.servicePrimaryPort" (dict "service" $svc "errCtx" (printf "%s.service" $errCtx)) | fromJson }}
 {{- $services := list }}
 {{- if eq (include "global-chart.serviceEnabled" $svc) "true" }}
 {{- $services = append $services (dict "name" (include "global-chart.deploymentFullname" $labelCtx) "headless" false) }}
@@ -19,7 +22,6 @@
 {{- end }}
 {{- range $services }}
 {{- $headless := .headless }}
-{{- $primary := include "global-chart.servicePrimaryPort" (dict "service" $svc "errCtx" (printf "%s.service" $errCtx)) | fromJson }}
 ---
 apiVersion: v1
 kind: Service
@@ -27,7 +29,7 @@ metadata:
   name: {{ .name }}
   labels:
     {{- include "global-chart.deploymentLabels" $labelCtx | nindent 4 }}
-  {{- with (include "global-chart.renderAnnotations" (dict "root" $root "own" $svc.annotations)) }}
+  {{- with (include "global-chart.renderAnnotations" (dict "root" $root "own" (ternary (dict) $svc.annotations $headless))) }}
   annotations:
     {{- . | nindent 4 }}
   {{- end }}
