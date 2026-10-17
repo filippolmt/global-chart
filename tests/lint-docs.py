@@ -52,9 +52,18 @@ CODE_REF = re.compile(r"(?<![\w/.-])((?:[\w.-]+/)*[\w.-]+\.md|docs/adr/[\w.-]+)"
 SECTION_REF = re.compile(r"CLAUDE\.md,? (?:pattern|section|rule) \d+")
 
 
-def tracked():
-    out = subprocess.run(["git", "ls-files"], cwd=ROOT, capture_output=True, text=True, check=True).stdout
+def tracked(*flags):
+    out = subprocess.run(["git", "ls-files", *flags], cwd=ROOT, capture_output=True, text=True, check=True).stdout
     return out.split()
+
+
+def unresolved(token, untracked):
+    """The error for a token that does not resolve. A basename match is resolved
+    against tracked files only, so a new file nobody has added yet reads as
+    missing: say so, rather than send the reader looking for a typo."""
+    if untracked and resolves(token, ROOT / "x", untracked, []):
+        return f"`{token}` exists but is not tracked by git: `git add` it"
+    return f"`{token}` does not exist"
 
 
 def ignored_prefixes():
@@ -79,6 +88,7 @@ def resolves(token, source, files, ignored):
 
 def main():
     files = tracked()
+    untracked = tracked("--others", "--exclude-standard")
     ignored = ignored_prefixes()
     errors = []
 
@@ -92,7 +102,7 @@ def main():
             tokens += MD_LINK.findall(line)
             for t in tokens:
                 if not resolves(t, doc, files, ignored):
-                    errors.append(f"{rel}:{n}: `{t}` does not exist")
+                    errors.append(f"{rel}:{n}: {unresolved(t, untracked)}")
             if rel.name != "CLAUDE.md" and SECTION_REF.search(line):
                 errors.append(f"{rel}:{n}: points at a numbered CLAUDE.md section; point at the rule's home")
 
@@ -108,7 +118,7 @@ def main():
                 errors.append(f"{rel}:{n}: points at a numbered CLAUDE.md section; point at the rule's home")
             for t in CODE_REF.findall(line):
                 if not resolves(t, path, files, ignored):
-                    errors.append(f"{rel}:{n}: `{t}` does not exist")
+                    errors.append(f"{rel}:{n}: {unresolved(t, untracked)}")
 
     if errors:
         print("\n".join(f"    FAIL: {e}" for e in errors))

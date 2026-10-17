@@ -24,6 +24,11 @@ a rule below cannot recognise: a check that sees nothing is not a pass.
   `fail (print …)`) cannot be checked and is reported as such.
 - template-suite: every template has a `tests/<name>_test.yaml` suite
   (`notes_test.yaml` for NOTES.txt).
+- kind-fields: the backstop guard's `$kindOnly` in deployment.yaml lists, per
+  kind, the fields the other kind rejects, and the `if/then/else` on `kind` of
+  `$defs/deployment` rejects the same ones with `false` (ADR 0020). The two are
+  one partition written twice, the guard being what --skip-schema-validation
+  leaves: a field added to one and not the other is the bug.
 
 Comments (`{{/* … */}}`) are stripped before matching, so a rule may be named in
 prose. Matching runs over the whole file, so an expression split across lines
@@ -46,6 +51,8 @@ DEFINE = re.compile(r"\{\{-?\s*define\s")
 FAIL = re.compile(r"\bfail\s+(\(\s*printf\s+\"|\")((?:[^\"\\]|\\.)*)\"", re.S)
 FAIL_ANY = re.compile(r"\bfail\s+(?!\(\s*printf\s+\"|\")(\S+)")
 EXCEPTIONS = ("Name collision: ", "The fullname ", "Both .Values.ingress")
+KIND_ONLY = re.compile(r'\$kindOnly\s*:=\s*dict\s+(.*?)\}\}', re.S)
+KIND_LIST = re.compile(r'"(\w+)"\s*\(list\s+([^)]*)\)')
 
 
 def blank_comments(text):
@@ -88,6 +95,26 @@ def fail_shape(message, top_keys, helpers):
     return sep == ": " and word in helpers
 
 
+def kind_fields(chart, schema):
+    """The kind-fields rule. shortcut: reads one if/then/else, which holds two
+    kinds; the DaemonSet (issue #215) turns it into one branch per kind."""
+    text = blank_comments((chart / "templates" / "deployment.yaml").read_text())
+    m = KIND_ONLY.search(text)
+    if not m:
+        return ["templates/deployment.yaml: kind-fields: no `$kindOnly := dict …` to compare with the schema"]
+    guard = {kind: set(re.findall(r'"(\w+)"', fields)) for kind, fields in KIND_LIST.findall(m.group(1))}
+    dep = schema["$defs"]["deployment"]
+    rejected = lambda branch: {k for k, v in dep.get(branch, {}).get("properties", {}).items() if v is False}
+    kind = dep.get("if", {}).get("properties", {}).get("kind", {}).get("const")
+    other = next((k for k in guard if k != kind), None)
+    schema_side = {other: rejected("then"), kind: rejected("else")}
+    problems = []
+    for k in sorted(set(guard) | set(schema_side)):
+        if guard.get(k, set()) != schema_side.get(k, set()):
+            problems.append(f"templates/deployment.yaml: kind-fields: {k}-only fields differ: $kindOnly {sorted(guard.get(k, set()))}, schema {sorted(schema_side.get(k, set()))}")
+    return problems
+
+
 def main(chart):
     chart = pathlib.Path(chart)
     templates = chart / "templates"
@@ -123,6 +150,7 @@ def main(chart):
             name = "notes" if path.name == "NOTES.txt" else path.stem
             if not (chart / "tests" / f"{name}_test.yaml").exists():
                 problems.append(f"{rel}: template-suite: no tests/{name}_test.yaml")
+    problems += kind_fields(chart, schema)
     if problems:
         print("    FAIL: templates break a mechanical rule of CODING_STANDARDS.md:")
         for p in problems:

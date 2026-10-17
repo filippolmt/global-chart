@@ -27,7 +27,10 @@ with the `authenticationRef` resolved → KEDA marked the ScaledObject `Ready` a
 created the derived HPA with the rendered bounds → the `cron` trigger actually
 scaled the Deployment to its `desiredReplicas` → upgrade ran the pre-upgrade hook as `<sa>-hook` and kept the real SA's UID
 (issue #141) →
-upgrade did **not** reset `spec.replicas` on the KEDA-scaled Deployment →
+upgrade did **not** reset `spec.replicas` on the KEDA-scaled Deployment → the
+upgrade installs the same chart packaged under another version, so every
+`helm.sh/chart` label moves: one in an immutable field (a selector,
+`volumeClaimTemplates`) fails it →
 rollback ran the pre-rollback hook as the `rbacs.roles` SA copy, reading the
 ExternalSecret copy, the copies are gone and both real SAs kept their UID
 (issue #143) →
@@ -43,13 +46,15 @@ even on a client dry-run; nothing is applied. It reaches the API server on the
 `kind` Docker network by the control-plane container's name, through its own
 copy of the kubeconfig, so it never touches `~/.kube/config` either.
 
-Also before it, `e2e-routes` installs the Gateway API CRDs (standard channel,
-version pinned in the Makefile, no controller) and sends every `TEST_CASES`
-scenario that renders a route to the API server as a server-side dry run.
-That runs the CRD's own schema and CEL rules, which kubeconform, reading a
-third-party copy of the schema, does not: a RequestRedirect rule carrying
-backendRefs passed every other check. Nothing routes: an unattached route is
-still a valid object. A new route kind goes in `GATEWAY_ROUTE_KINDS` too, which
+Also before it, `e2e-dryrun` (`e2e-routes` is its alias) installs the Gateway
+API CRDs (standard channel, version pinned in the Makefile, no controller)
+beside KEDA and ESO, and sends every `TEST_CASES` scenario to the API server
+as a server-side dry run. That runs the API server's whole validation, the
+CRDs' own schemas and CEL rules included, which kubeconform, reading a
+third-party copy of each schema field by field, does not: a RequestRedirect
+rule carrying backendRefs passed every other check, and so would a
+StatefulSet's `rollingUpdate` beside `OnDelete`. Nothing routes: an unattached
+route is still a valid object. A new route kind goes in `GATEWAY_ROUTE_KINDS` too, which
 mirrors the kinds the templates render.
 
 It also runs in CI as its own job in `.github/workflows/helm-ci.yml`.

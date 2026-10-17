@@ -38,6 +38,11 @@ jobs:
       - name: Check documentation pointers
         run: make lint-docs
 
+      - name: Check triage labels exist
+        run: make lint-labels
+        env:
+          GH_TOKEN: ${{ github.token }}
+
       - name: Run unit tests
         run: make unit-test
 

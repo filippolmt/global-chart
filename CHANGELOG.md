@@ -43,6 +43,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   Clusters on 1.23–1.26 are past their end of life, and Helm refuses to install
   the chart there.
 
+### Tests
+
+- `make e2e-dryrun` replaces `make e2e-routes`, which stays as an alias. It
+  sends every `TEST_CASES` scenario to the kind API server as a server-side dry
+  run, not only those that render a route, so the rules between fields of a
+  core kind are checked too.
+- The `make e2e` upgrade installs the chart packaged under another version, so
+  a version-bearing label in an immutable field fails the run.
+- `make unit-test SUITE=tests/<name>_test.yaml` runs only the named suites.
+- `make lint-labels`, run in CI, checks that the labels of
+  `docs/agents/triage-labels.md` exist on GitHub.
+- `lint-templates` gains the kind-fields rule. `lint-docs` tells an untracked
+  file from a missing one. The Helm repository steps of `kind-keda` and
+  `kind-eso` retry three times.
+
 ## [3.3.0] — 2026-10-08
 
 ### Added
