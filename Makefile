@@ -109,7 +109,8 @@ TEST_CASES := \
 	tests/l4routes.yaml:l4routes:l4routes \
 	tests/httproutes.yaml:httproutes:httproutes \
 	tests/keda.yaml:keda:keda \
-	tests/common-annotations.yaml:common-annotations:common-annotations
+	tests/common-annotations.yaml:common-annotations:common-annotations \
+	tests/statefulset.yaml:statefulset:statefulset
 
 # Default target
 .DEFAULT_GOAL := help
@@ -521,6 +522,20 @@ e2e: kind-cluster kind-keda kind-eso check-helm-floor e2e-routes ## Install/upgr
 			     kubectl -n $$ns get endpointslice -l kubernetes.io/service-name=$$rel-$(GLOBAL_CHART_NAME)-$$d -o yaml; exit 1; }; \
 	done; \
 	echo "    every Service targetPort resolved to a container port and got endpoints"; \
+	sts=$$rel-$(GLOBAL_CHART_NAME)-store; \
+	kubectl -n $$ns rollout status sts/$$sts --timeout=180s >/dev/null \
+		|| { echo "FAIL: StatefulSet 'store' never became ready (issue #211)"; kubectl -n $$ns get sts,pod,pvc; exit 1; }; \
+	kubectl -n $$ns get svc $$sts-headless -o jsonpath='{.spec.clusterIP}' | grep -qx None \
+		|| { echo "FAIL: the StatefulSet's headless Service is missing"; exit 1; }; \
+	[ "$$(kubectl -n $$ns get pvc data-$$sts-0 -o jsonpath='{.status.phase}')" = "Bound" ] \
+		|| { echo "FAIL: the claim data-$$sts-0 is not Bound"; kubectl -n $$ns get pvc; exit 1; }; \
+	kubectl -n $$ns exec $$sts-0 -- sh -c 'echo e2e > /data/marker'; \
+	kubectl -n $$ns delete pod $$sts-0 --wait=true >/dev/null; \
+	kubectl -n $$ns wait --for=condition=Ready pod/$$sts-0 --timeout=180s >/dev/null \
+		|| { echo "FAIL: the StatefulSet did not recreate its pod"; exit 1; }; \
+	[ "$$(kubectl -n $$ns exec $$sts-0 -- cat /data/marker)" = "e2e" ] \
+		|| { echo "FAIL: the file written on the claim did not survive the pod's replacement"; exit 1; }; \
+	echo "    StatefulSet ready behind its headless Service; its claim kept the data across a pod replacement"; \
 	[ "$$(kubectl -n $$ns get scaledobject $$rel-$(GLOBAL_CHART_NAME)-worker -o jsonpath='{.spec.maxReplicaCount}')" = "10" ] \
 		|| { echo "FAIL: ScaledObject missing or maxReplicaCount not rendered"; exit 1; }; \
 	[ "$$(kubectl -n $$ns get scaledobject $$rel-$(GLOBAL_CHART_NAME)-worker -o jsonpath='{.spec.scaleTargetRef.name}')" = "$$rel-$(GLOBAL_CHART_NAME)-worker" ] \
@@ -597,6 +612,9 @@ e2e: kind-cluster kind-keda kind-eso check-helm-floor e2e-routes ## Install/upgr
 	keda_orphans=$$(kubectl -n $$ns get scaledobject,triggerauthentication,hpa,externalsecret --no-headers 2>/dev/null || true); \
 	if [ -n "$$keda_orphans" ]; then echo "FAIL: KEDA resources orphaned after uninstall:"; echo "$$keda_orphans"; exit 1; fi; \
 	echo "    no orphaned ScaledObject/TriggerAuthentication/ExternalSecret, derived HPA garbage-collected"; \
+	kubectl -n $$ns get pvc data-$$rel-$(GLOBAL_CHART_NAME)-store-0 >/dev/null 2>&1 \
+		|| { echo "FAIL: helm uninstall deleted the StatefulSet's claim (ADR 0020)"; exit 1; }; \
+	echo "    the StatefulSet's claim survived the uninstall (persistentVolumeClaimRetentionPolicy Retain)"; \
 	echo "==> e2e passed"
 
 e2e-argocd: kind-cluster kind-eso kind-argocd ## Sync tests/e2e/argocd through Argo CD on kind and assert the hook copies (issues #149, #164)

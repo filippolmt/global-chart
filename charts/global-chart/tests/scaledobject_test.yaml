@@ -409,3 +409,25 @@ tests:
     asserts:
       - failedTemplate:
           errorPattern: "kedaTriggerAuthentications\\.sqs-auth: empty, but a keda trigger's authenticationRef names it"
+
+  # ====== StatefulSet target (issue #211, ADR 0020) ======
+  - it: should target the workload by its kind
+    release:
+      name: rel
+    set:
+      deployments:
+        db:
+          kind: StatefulSet
+          image: nginx:1.25
+          keda:
+            enabled: true
+            triggers:
+              - type: cron
+                metadata: { timezone: UTC, start: "0 0 * * *", end: "59 23 * * *", desiredReplicas: "3" }
+    asserts:
+      - equal:
+          path: spec.scaleTargetRef
+          value:
+            apiVersion: apps/v1
+            kind: StatefulSet
+            name: rel-global-chart-db

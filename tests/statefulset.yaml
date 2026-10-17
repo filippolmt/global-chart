@@ -1,0 +1,77 @@
+# StatefulSet scenario (issue #211, ADR 0020): one claim per pod, the headless
+# governing Service, an HPA targeting the StatefulSet, a sidecar mounting a
+# second claim, and a Deployment beside it. Every StatefulSet field is set so
+# that null-sweep reaches it.
+deployments:
+  search:
+    kind: StatefulSet
+    image:
+      repository: docker.elastic.co/elasticsearch/elasticsearch
+      tag: "8.15.0"
+    replicaCount: 1
+    service:
+      port: 9200
+      targetPort: 9200
+      portName: http
+      extraPorts:
+        - name: transport
+          port: 9300
+          targetPort: 9300
+    podManagementPolicy: Parallel
+    updateStrategy:
+      type: RollingUpdate
+      rollingUpdate:
+        partition: 0
+    persistentVolumeClaimRetentionPolicy:
+      whenDeleted: Retain
+      whenScaled: Retain
+    volumeMounts:
+      - name: data
+        mountPath: /usr/share/elasticsearch/data
+    extraContainers:
+      - name: snapshot
+        image: busybox:1.36
+        command: ["sleep", "infinity"]
+        volumeMounts:
+          - name: snapshots
+            mountPath: /snapshots
+    volumeClaimTemplates:
+      - name: data
+        size: 10Gi
+        accessModes: [ReadWriteOnce]
+        storageClassName: standard-rwo
+        volumeMode: Filesystem
+        labels:
+          tier: data
+        annotations:
+          backup: daily
+      - name: snapshots
+        size: "0.5Gi"
+        storageClassName: ""
+    pdb:
+      enabled: true
+      maxUnavailable: 1
+
+  queue:
+    kind: StatefulSet
+    image:
+      repository: nats
+      tag: "2.10"
+    service:
+      enabled: false
+    autoscaling:
+      enabled: true
+      minReplicas: 1
+      maxReplicas: 3
+      targetCPUUtilizationPercentage: 80
+    volumeMounts:
+      - name: jetstream
+        mountPath: /data
+    volumeClaimTemplates:
+      - name: jetstream
+        size: 5Gi
+
+  web:
+    image:
+      repository: nginx
+      tag: "1.25"

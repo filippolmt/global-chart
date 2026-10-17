@@ -10,12 +10,62 @@
 {{- $podRecreation := default (dict) $deploy.podRecreation }}
 {{- $dnsConfig := default (dict) $deploy.dnsConfig }}
 {{- $svc := default (dict) $deploy.service }}
+{{- $kind := include "global-chart.workloadKind" $deploy }}
+{{- $sts := eq $kind "StatefulSet" }}
+{{- /* Backstop guard: the schema's if/then on kind rejects these first; this is
+       the message under --skip-schema-validation (ADR 0020). */}}
+{{- $kindOnly := dict "Deployment" (list "strategy" "progressDeadlineSeconds") "StatefulSet" (list "updateStrategy" "podManagementPolicy" "volumeClaimTemplates" "persistentVolumeClaimRetentionPolicy") }}
+{{- range $owner, $fields := $kindOnly }}
+{{- if ne $owner $kind }}
+{{- range $fields }}
+{{- if eq (include "global-chart.isSet" (list $deploy .)) "true" }}
+{{- fail (printf "%s.%s: a %s field, and this entry renders a %s. Drop it, or set kind: %s." $errCtx . $owner $kind $owner) }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- if $sts }}
+{{- /* Every pod carries controller-revision-hash: <name>-<hash>, the hash a
+       decimal uint32 of up to 10 characters, and a label value holds 63. Past 52
+       a pod is created or not depending on the hash. Truncating only the
+       StatefulSet would split its name from its Service and HPA (ADR 0020). */}}
+{{- $stsName := printf "%s-%s" (include "global-chart.fullname" $root) $name }}
+{{- if gt (len $stsName) 52 }}
+{{- fail (printf "%s: a StatefulSet name is at most 52 characters, and '%s' has %d. The pods' controller-revision-hash label appends up to 11 to it, within the 63 of a label value. Shorten the key, or the fullname with fullnameOverride." $errCtx $stsName (len $stsName)) }}
+{{- end }}
+{{- end }}
+{{- /* Each claim template becomes a pod volume of its name: it must not clash
+       with a volumes entry or a generated volume, and some container must mount
+       it, or the claim is storage paid for and never used (ADR 0020). */}}
+{{- $volumeNames := dict }}
+{{- range (default (list) $deploy.volumes) }}{{- if kindIs "map" . }}{{- $_ := set $volumeNames (toString .name) true }}{{- end }}{{- end }}
+{{- /* A mount with no name could be any claim's: the null is validateNullItems'
+       to report, so the "mounted by nobody" check stands down */}}
+{{- $mountNames := dict }}
+{{- $unnamedMount := false }}
+{{- range $c := concat (list $deploy) (default (list) $deploy.extraContainers) (default (list) $deploy.extraInitContainers) }}
+{{- range (default (list) (default (dict) $c).volumeMounts) }}
+{{- if include "global-chart.isNamedEntry" . }}{{- $_ := set $mountNames (toString .name) true }}{{- else }}{{- $unnamedMount = true }}{{- end }}
+{{- end }}
+{{- end }}
+{{- $claimVolumes := list }}
+{{- range $i, $claim := (default (list) $deploy.volumeClaimTemplates) }}
+{{- if include "global-chart.isNamedEntry" $claim }}
+{{- if hasKey $volumeNames (toString $claim.name) }}
+{{- fail (printf "%s.volumeClaimTemplates[%d]: '%s' is also the name of a volumes entry, and the claim becomes a pod volume of that name. Rename one of them." $errCtx $i $claim.name) }}
+{{- end }}
+{{- if not (or $unnamedMount (hasKey $mountNames (toString $claim.name))) }}
+{{- fail (printf "%s.volumeClaimTemplates[%d]: '%s' is mounted by no volumeMounts item of the pod's containers. Mount it, or drop the entry." $errCtx $i $claim.name) }}
+{{- end }}
+{{- $claimVolumes = append $claimVolumes (dict "name" $claim.name) }}
+{{- end }}
+{{- end }}
 {{- /* externalSecrets: the Deployment always reads the real Secret, never the
        hook copy (ADR 0007). Resolved once, for the pod's checksum and its env/volumes */ -}}
-{{- $es := include "global-chart.resolveExternalSecretRefs" (dict "root" $root "refs" $deploy.externalSecrets "hook" false "volumes" $deploy.volumes "errCtx" $errCtx) | fromJson }}
+{{- $es := include "global-chart.resolveExternalSecretRefs" (dict "root" $root "refs" $deploy.externalSecrets "hook" false "volumes" (concat (default (list) $deploy.volumes) $claimVolumes) "errCtx" $errCtx) | fromJson }}
 ---
 apiVersion: apps/v1
-kind: Deployment
+kind: {{ $kind }}
 metadata:
   name: {{ $depFullname }}
   labels:
@@ -28,6 +78,9 @@ metadata:
     {{- . | nindent 4 }}
   {{- end }}
 spec:
+  {{- if $sts }}
+  serviceName: {{ include "global-chart.headlessServiceName" $labelCtx }}
+  {{- end }}
   {{- /* An autoscaler owns spec.replicas: emitting it here makes every upgrade
          snap the Deployment back to this value before the autoscaler corrects
          it — and with KEDA minReplicaCount: 0 it wakes a workload that was
@@ -38,6 +91,27 @@ spec:
   {{- with $deploy.strategy }}
   strategy:
     {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with $deploy.updateStrategy }}
+  updateStrategy:
+    {{- with .type }}
+    type: {{ . }}
+    {{- end }}
+    {{- with .rollingUpdate }}
+    rollingUpdate:
+      {{- if hasKey . "partition" }}
+      partition: {{ include "global-chart.printScalar" (dict "value" .partition "errCtx" (printf "%s.updateStrategy.rollingUpdate.partition" $errCtx)) }}
+      {{- end }}
+    {{- end }}
+  {{- end }}
+  {{- with $deploy.podManagementPolicy }}
+  podManagementPolicy: {{ . }}
+  {{- end }}
+  {{- if $sts }}
+  {{- $retention := default (dict) $deploy.persistentVolumeClaimRetentionPolicy }}
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: {{ ternary $retention.whenDeleted "Retain" (eq (include "global-chart.isSet" (list $retention "whenDeleted")) "true") }}
+    whenScaled: {{ ternary $retention.whenScaled "Retain" (eq (include "global-chart.isSet" (list $retention "whenScaled")) "true") }}
   {{- end }}
   {{- if hasKey $deploy "revisionHistoryLimit" }}
   revisionHistoryLimit: {{ include "global-chart.printScalar" (dict "value" $deploy.revisionHistoryLimit "errCtx" (printf "%s.revisionHistoryLimit" $errCtx)) }}
@@ -251,6 +325,38 @@ spec:
       topologySpreadConstraints:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+  {{- /* The claims' metadata carries the selector labels and the entry's own,
+         never helm.sh/chart or the common labels and annotations:
+         volumeClaimTemplates is immutable, so a label that moves with the chart
+         version would make every upgrade a forbidden update (ADR 0020). */}}
+  {{- with $deploy.volumeClaimTemplates }}
+  volumeClaimTemplates:
+    {{- range . }}
+    {{- if kindIs "map" . }}
+    - metadata:
+        name: {{ .name }}
+        labels:
+          {{- toYaml (mergeOverwrite (include "global-chart.deploymentSelectorLabels" $labelCtx | fromYaml) (default (dict) .labels)) | nindent 10 }}
+        {{- with .annotations }}
+        annotations:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+      spec:
+        accessModes:
+          {{- toYaml (default (list "ReadWriteOnce") .accessModes) | nindent 10 }}
+        {{- if hasKey . "storageClassName" }}
+        storageClassName: {{ .storageClassName | quote }}
+        {{- end }}
+        {{- /* Kubernetes' own default, written out: the API server fills it in,
+               and a field the manifest omits is a standing diff for a GitOps
+               controller on an immutable template */}}
+        volumeMode: {{ default "Filesystem" .volumeMode }}
+        resources:
+          requests:
+            storage: {{ .size | quote }}
+    {{- end }}
+    {{- end }}
+  {{- end }}
 {{- end }}
 {{- end }}
 {{- end }}

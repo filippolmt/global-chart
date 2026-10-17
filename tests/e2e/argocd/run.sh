@@ -97,4 +97,20 @@ sync Succeeded
 [ "$uid" = "$(sa_uid)" ] || fail "the real SA was recreated by the retry"
 copies_gone "the retry"
 echo "    the next sync passed"
+
+echo "==> StatefulSet claims under Argo CD (issue #211, ADR 0020)..."
+kubectl -n $ns rollout status sts/$fn-store --timeout=180s >/dev/null || fail "StatefulSet 'store' never became ready"
+# An immutable volumeClaimTemplates the API server fills in would be a standing diff
+[ "$(kubectl -n $argo get application e2e -o jsonpath='{.status.sync.status}')" = "Synced" ] \
+	|| fail "the Application is not Synced with a StatefulSet in it (volumeClaimTemplates drift?)"
+kubectl -n $ns get pvc data-$fn-store-0 >/dev/null || fail "the claim data-$fn-store-0 was not created"
+# The finalizer makes the deletion cascade to every resource Argo CD tracks: the
+# claim must not be one of them
+kubectl -n $argo patch application e2e --type merge \
+	-p '{"metadata":{"finalizers":["resources-finalizer.argocd.argoproj.io"]}}' >/dev/null
+kubectl -n $argo delete application e2e --timeout=180s >/dev/null
+kubectl -n $ns wait --for=delete sts/$fn-store --timeout=120s >/dev/null 2>&1 \
+	|| fail "the cascading deletion left the StatefulSet: the claim check below would prove nothing"
+kubectl -n $ns get pvc data-$fn-store-0 >/dev/null 2>&1 || fail "deleting the Application deleted the StatefulSet's claim"
+echo "    Synced with the StatefulSet; its claim survived the Application's cascading deletion"
 echo "==> e2e-argocd passed"

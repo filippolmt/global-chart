@@ -71,7 +71,7 @@ Called from validate.yaml. Emits nothing on success.
 {{- range $owner := (include "global-chart.podSpecOwners" . | fromJsonArray) -}}
   {{- $spec := $owner.spec -}}
   {{- $path := $owner.path -}}
-  {{- range $field, $required := dict "imagePullSecrets" (list "name") "volumes" (list "name") "volumeMounts" (list "name" "mountPath") "externalSecrets" (list "name") -}}
+  {{- range $field, $required := dict "imagePullSecrets" (list "name") "volumes" (list "name") "volumeMounts" (list "name" "mountPath") "externalSecrets" (list "name") "volumeClaimTemplates" (list "name" "size") -}}
     {{- include "global-chart.rejectNullItems" (dict "list" (index $spec $field) "errCtx" (printf "%s.%s" $path $field) "required" $required) -}}
   {{- end -}}
   {{- include "global-chart.rejectNullItems" (dict "list" (default (dict) $spec.dnsConfig).options "errCtx" (printf "%s.dnsConfig.options" $path) "required" (list "name")) -}}
@@ -100,8 +100,9 @@ deployment named `<other>-md-cm-<file>` renders a ConfigMap under the very name
 another deployment's mounted file does — two manifests, one name, neither
 invalid on its own.
 Note: the remaining per-deployment resources (Service, SA, HPA, ScaledObject,
-PDB, NetworkPolicy) share the Deployment's own name and no other kind derives a
-name that can reach them, so the deployment name check covers them.
+PDB, NetworkPolicy) share the Deployment's own name, so the deployment name
+check covers them. The one other name that can reach them is a StatefulSet's
+headless Service, registered beside it.
 Called from validate.yaml.
 */}}
 {{- define "global-chart.validateNameCollisions" -}}
@@ -121,6 +122,12 @@ Called from validate.yaml.
   {{- if eq (include "global-chart.deploymentEnabled" $deploy) "true" -}}
     {{- $depFullname := include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $name) -}}
     {{- include "global-chart.registerName" (dict "names" $deployNames "kind" "Deployment" "name" $depFullname "owner" (include "global-chart.deploymentValuesPath" $name)) -}}
+    {{- /* A StatefulSet's headless Service, <name>-headless, is a name another
+           entry's own name can reach. It goes in $deployNames, which stands for
+           every kind sharing the entry's name, the Service among them. */ -}}
+    {{- if eq (include "global-chart.workloadKind" $deploy) "StatefulSet" -}}
+      {{- include "global-chart.registerName" (dict "names" $deployNames "kind" "Service" "name" (include "global-chart.headlessServiceName" (dict "root" $root "deploymentName" $name)) "owner" (printf "%s (its headless Service)" (include "global-chart.deploymentValuesPath" $name))) -}}
+    {{- end -}}
 
     {{- /* The deployment's own ConfigMap and Secret both carry $depFullname. They
            cannot clash with each other or with another deployment's — the name

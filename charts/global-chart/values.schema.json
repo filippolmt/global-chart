@@ -762,8 +762,14 @@
     },
     "deployment": {
       "type": "object",
+      "description": "A workload of the release (ADR 0020). strategy and progressDeadlineSeconds apply to a Deployment only; updateStrategy, podManagementPolicy, volumeClaimTemplates and persistentVolumeClaimRetentionPolicy to a StatefulSet only.",
       "properties": {
         "enabled": { "type": "boolean" },
+        "kind": {
+          "description": "The workload kind this entry renders as (ADR 0020): Deployment (the default) for interchangeable pods, StatefulSet for pods with a stable identity and claims of their own. Changing it on an installed entry replaces the workload.",
+          "type": "string",
+          "enum": ["Deployment", "StatefulSet"]
+        },
         "replicaCount": { "type": "integer", "minimum": 0 },
         "image": { "$ref": "#/$defs/image" },
         "command": { "type": "array", "items": { "type": "string" } },
@@ -799,6 +805,18 @@
         "strategy": { "type": "object" },
         "revisionHistoryLimit": { "type": "integer", "minimum": 0 },
         "progressDeadlineSeconds": { "type": "integer", "minimum": 0 },
+        "updateStrategy": { "$ref": "#/$defs/statefulSetUpdateStrategy" },
+        "podManagementPolicy": {
+          "description": "StatefulSet only: OrderedReady (the Kubernetes default) starts and stops the pods one at a time, in ordinal order; Parallel does not wait. Immutable once the StatefulSet exists.",
+          "type": "string",
+          "enum": ["OrderedReady", "Parallel"]
+        },
+        "volumeClaimTemplates": {
+          "description": "StatefulSet only: one claim per pod for each entry, named <name>-<statefulset>-<ordinal>, which follows the pod across restarts. Every entry must be mounted by a volumeMounts item. Immutable once the StatefulSet exists (ADR 0020).",
+          "type": "array",
+          "items": { "$ref": "#/$defs/volumeClaimTemplate" }
+        },
+        "persistentVolumeClaimRetentionPolicy": { "$ref": "#/$defs/persistentVolumeClaimRetentionPolicy" },
         "topologySpreadConstraints": { "type": "array" },
         "pdb": { "$ref": "#/$defs/pdb" },
         "networkPolicy": { "$ref": "#/$defs/networkPolicy" },
@@ -855,6 +873,68 @@
           "propertyNames": { "$ref": "#/$defs/jobName" },
           "additionalProperties": { "$ref": "#/$defs/deploymentCronJob" }
         }
+      },
+      "additionalProperties": false,
+      "if": { "properties": { "kind": { "const": "StatefulSet" } }, "required": ["kind"] },
+      "then": { "properties": { "strategy": false, "progressDeadlineSeconds": false } },
+      "else": {
+        "properties": {
+          "updateStrategy": false,
+          "podManagementPolicy": false,
+          "volumeClaimTemplates": false,
+          "persistentVolumeClaimRetentionPolicy": false
+        }
+      }
+    },
+    "statefulSetUpdateStrategy": {
+      "description": "StatefulSet only. Closed: a small, fixed shape (ADR 0017). rollingUpdate.maxUnavailable is left out: it is alpha.",
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "enum": ["RollingUpdate", "OnDelete"] },
+        "rollingUpdate": {
+          "type": "object",
+          "properties": {
+            "partition": { "description": "Only the pods with an ordinal at or above it are updated.", "type": "integer", "minimum": 0 }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "persistentVolumeClaimRetentionPolicy": {
+      "description": "StatefulSet only: what happens to the claims when the StatefulSet is deleted or scaled down. Both default to Retain, so an uninstall, a prune or a scale-down keeps the data. Delete removes the claim, and with a Delete reclaim policy its volume.",
+      "type": "object",
+      "properties": {
+        "whenDeleted": { "type": "string", "enum": ["Retain", "Delete"] },
+        "whenScaled": { "type": "string", "enum": ["Retain", "Delete"] }
+      },
+      "additionalProperties": false
+    },
+    "volumeClaimTemplate": {
+      "description": "One StatefulSet claim template. Closed: a small, fixed shape (ADR 0017). Its metadata carries the selector labels and its own labels and annotations only, never the chart's or the common ones: the template is immutable, and a label that changes with the chart version would make every upgrade a forbidden update.",
+      "type": "object",
+      "required": ["name", "size"],
+      "properties": {
+        "name": { "description": "The pod volume name a volumeMounts item mounts, and the head of each claim's name.", "$ref": "#/$defs/dns1123Label", "maxLength": 63 },
+        "size": {
+          "description": "Requested storage: a positive Kubernetes quantity, such as 10Gi.",
+          "type": "string",
+          "pattern": "^([0-9]*[1-9][0-9]*(\\.[0-9]+)?|[0-9]+\\.[0-9]*[1-9][0-9]*)(Ki|Mi|Gi|Ti|Pi|Ei|k|M|G|T|P|E)?$"
+        },
+        "accessModes": {
+          "description": "Defaults to [ReadWriteOnce].",
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "enum": ["ReadWriteOnce", "ReadOnlyMany", "ReadWriteMany", "ReadWriteOncePod"] }
+        },
+        "storageClassName": {
+          "description": "Absent takes the cluster's default StorageClass; \"\" asks for no dynamic provisioning. A cloud block disk lives in one zone: a class with volumeBindingMode: WaitForFirstConsumer creates it in the zone of the pod's node.",
+          "type": "string"
+        },
+        "volumeMode": { "description": "Defaults to Filesystem.", "type": "string", "enum": ["Filesystem", "Block"] },
+        "labels": { "type": "object", "additionalProperties": { "type": "string" } },
+        "annotations": { "type": "object", "additionalProperties": { "type": "string" } }
       },
       "additionalProperties": false
     },

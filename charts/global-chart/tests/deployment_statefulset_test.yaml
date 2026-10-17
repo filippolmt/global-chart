@@ -1,0 +1,231 @@
+suite: deployment kind StatefulSet (issue #211, ADR 0020)
+templates:
+  - templates/deployment.yaml
+release:
+  name: rel
+set:
+  deployments:
+    db:
+      kind: StatefulSet
+      image: "nginx:1.25"
+      replicaCount: 1
+tests:
+  - it: should render a StatefulSet governed by its headless Service
+    asserts:
+      - isKind:
+          of: StatefulSet
+      - equal:
+          path: apiVersion
+          value: apps/v1
+      - equal:
+          path: metadata.name
+          value: rel-global-chart-db
+      - equal:
+          path: spec.serviceName
+          value: rel-global-chart-db-headless
+      - equal:
+          path: spec.replicas
+          value: 1
+
+  # The controller labels each pod controller-revision-hash: <name>-<hash>, the
+  # hash up to 10 characters, and a label value holds 63: past 52 a pod is
+  # created or not depending on the hash. Fail, never truncate.
+  - it: should accept a StatefulSet name of 52 characters
+    set:
+      deployments:
+        db:
+          enabled: false
+        aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:
+          kind: StatefulSet
+          image: "nginx:1.25"
+    asserts:
+      - equal:
+          path: metadata.name
+          value: rel-global-chart-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+
+  - it: should fail a StatefulSet name longer than 52 characters
+    set:
+      deployments:
+        db:
+          enabled: false
+        aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:
+          kind: StatefulSet
+          image: "nginx:1.25"
+    asserts:
+      - failedTemplate:
+          errorMessage: "deployments.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa: a StatefulSet name is at most 52 characters, and 'rel-global-chart-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' has 53. The pods' controller-revision-hash label appends up to 11 to it, within the 63 of a label value. Shorten the key, or the fullname with fullnameOverride."
+
+  # The claims' metadata holds only the selector labels and the entry's own:
+  # volumeClaimTemplates is immutable, and helm.sh/chart or a common label
+  # there would make every chart upgrade a forbidden update.
+  - it: should render the claim templates with stable metadata
+    set:
+      global:
+        commonLabels:
+          team: search
+        commonAnnotations:
+          owner: search
+      deployments:
+        db:
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          volumeClaimTemplates:
+            - name: data
+              size: 10Gi
+              storageClassName: standard-rwo
+              labels:
+                tier: data
+              annotations:
+                backup: daily
+    asserts:
+      - equal:
+          path: spec.volumeClaimTemplates
+          value:
+            - metadata:
+                name: data
+                labels:
+                  app.kubernetes.io/name: global-chart
+                  app.kubernetes.io/instance: rel
+                  app.kubernetes.io/component: db
+                  tier: data
+                annotations:
+                  backup: daily
+              spec:
+                accessModes: [ReadWriteOnce]
+                storageClassName: standard-rwo
+                volumeMode: Filesystem
+                resources:
+                  requests:
+                    storage: 10Gi
+
+  # "" asks for no dynamic provisioning; absent takes the default class
+  - it: should tell an empty storageClassName from an absent one
+    set:
+      deployments:
+        db:
+          volumeMounts:
+            - { name: a, mountPath: /a }
+            - { name: b, mountPath: /b }
+          volumeClaimTemplates:
+            - { name: a, size: 1Gi, storageClassName: "" }
+            - { name: b, size: 1Gi, accessModes: [ReadWriteOncePod], volumeMode: Block }
+    asserts:
+      - equal:
+          path: spec.volumeClaimTemplates[0].spec.storageClassName
+          value: ""
+      - notExists:
+          path: spec.volumeClaimTemplates[1].spec.storageClassName
+      - equal:
+          path: spec.volumeClaimTemplates[1].spec.accessModes
+          value: [ReadWriteOncePod]
+      - equal:
+          path: spec.volumeClaimTemplates[1].spec.volumeMode
+          value: Block
+
+  - it: should retain the claims on deletion and on scale-down by default
+    asserts:
+      - equal:
+          path: spec.persistentVolumeClaimRetentionPolicy
+          value:
+            whenDeleted: Retain
+            whenScaled: Retain
+
+  - it: should take the retention policy, the update strategy and the pod management policy from the values
+    set:
+      deployments:
+        db:
+          persistentVolumeClaimRetentionPolicy:
+            whenScaled: Delete
+          updateStrategy:
+            type: RollingUpdate
+            rollingUpdate:
+              partition: 2
+          podManagementPolicy: Parallel
+    asserts:
+      - equal:
+          path: spec.persistentVolumeClaimRetentionPolicy
+          value:
+            whenDeleted: Retain
+            whenScaled: Delete
+      - equal:
+          path: spec.updateStrategy
+          value:
+            type: RollingUpdate
+            rollingUpdate:
+              partition: 2
+      - equal:
+          path: spec.podManagementPolicy
+          value: Parallel
+
+  - it: should render no Deployment-only field on a StatefulSet
+    asserts:
+      - notExists:
+          path: spec.strategy
+      - notExists:
+          path: spec.progressDeadlineSeconds
+      - notExists:
+          path: spec.updateStrategy
+      - notExists:
+          path: spec.podManagementPolicy
+
+  - it: should render no StatefulSet field on a Deployment
+    set:
+      deployments.db.kind: Deployment
+    asserts:
+      - isKind:
+          of: Deployment
+      - notExists:
+          path: spec.serviceName
+      - notExists:
+          path: spec.persistentVolumeClaimRetentionPolicy
+      - notExists:
+          path: spec.volumeClaimTemplates
+
+  # A claim no container mounts is storage provisioned and paid for, never used
+  - it: should fail a claim template no container mounts
+    set:
+      deployments:
+        db:
+          volumeClaimTemplates:
+            - name: data
+              size: 1Gi
+    asserts:
+      - failedTemplate:
+          errorMessage: "deployments.db.volumeClaimTemplates[0]: 'data' is mounted by no volumeMounts item of the pod's containers. Mount it, or drop the entry."
+
+  - it: should accept a claim template mounted by a sidecar only
+    set:
+      deployments:
+        db:
+          extraContainers:
+            - name: backup
+              image: busybox:1.36
+              volumeMounts:
+                - name: data
+                  mountPath: /backup
+          volumeClaimTemplates:
+            - name: data
+              size: 1Gi
+    asserts:
+      - equal:
+          path: spec.volumeClaimTemplates[0].metadata.name
+          value: data
+
+  # The claim becomes a pod volume of the same name: two volumes, one name
+  - it: should fail a claim template named after a volume of the pod
+    set:
+      deployments:
+        db:
+          volumes:
+            - name: data
+              emptyDir: {}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          volumeClaimTemplates:
+            - name: data
+              size: 1Gi
+    asserts:
+      - failedTemplate:
+          errorMessage: "deployments.db.volumeClaimTemplates[0]: 'data' is also the name of a volumes entry, and the claim becomes a pod volume of that name. Rename one of them."

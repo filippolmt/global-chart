@@ -1,0 +1,11 @@
+# A StatefulSet field on a Deployment: the else of the if/then on kind rejects
+# volumeClaimTemplates (ADR 0020). A Deployment has no claims of its own.
+deployments:
+  web:
+    image: nginx:1.25
+    volumeMounts:
+      - name: data
+        mountPath: /data
+    volumeClaimTemplates:
+      - name: data
+        size: 1Gi

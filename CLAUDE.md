@@ -74,13 +74,15 @@ is the source of truth, this table is only the routing.
 Each line is the rule; the pointer is where its reasons and edge cases live.
 Read the pointer before changing the domain it names.
 
-1. **Deployments**: each `deployments.<name>` renders its own Deployment,
+1. **Workloads**: each `deployments.<name>` renders its own workload,
    Service, ServiceAccount, ConfigMap, Secret, HPA, PDB and NetworkPolicy,
-   named `{release}-{chart}-{name}`. The selector label
+   named `{release}-{chart}-{name}`. The workload is a Deployment, or a
+   StatefulSet with `kind: StatefulSet` (ADR 0020), which adds a headless
+   Service and its claim templates. The selector label
    `app.kubernetes.io/component: {name}` keeps their pods apart, and a
    selector is immutable: README, *Decide before the first install*.
 2. **Job scopes**: deployment-scope hooks and cronjobs inherit from their
-   deployment, root-scope ones inherit nothing (*Root scope / deployment
+   deployment, root-scope ones inherit nothing (*Root scope / workload
    scope* in `GLOSSARY.md`). `command` / `args` and `mountedConfigFiles` stay
    with the Deployment, and the `envFrom` lists add up. What is inherited, the
    opt-out toggles and the `envFrom` order: the *Inheritance* block of the
@@ -118,12 +120,14 @@ Read the pointer before changing the domain it names.
 
 ### Resource Naming Limits
 
-Kubernetes caps a name at 63 characters, so most resources truncate there. Three
-exceptions, each owned by a name helper in `_helpers.tpl`:
+Kubernetes caps a name at 63 characters, so most resources truncate there. Four
+exceptions, each owned by a name helper in `_helpers.tpl` (the StatefulSet's by
+its template):
 
 | Resource | Limit |
 |----------|-------|
 | CronJobs | 52 — Kubernetes appends an 11-char timestamp to the Job it creates |
+| StatefulSets | 52, a render `fail` in `deployment.yaml`, not a truncation: each pod's `controller-revision-hash` label is `<name>-<hash>`, the hash up to 10 chars. Truncating would split the StatefulSet's name from its Service and HPA |
 | `mountedConfigFiles` `name` | 52, DNS-1123 label, enforced by `values.schema.json` — it feeds the pod volume name, and a volume name is a DNS-1123 *label* |
 | Mounted config file ConfigMap | Not truncated at all: a ConfigMap name is a DNS *subdomain*, so it has room the volume does not. Truncating would manufacture the collision `validateNameCollisions` exists to catch |
 

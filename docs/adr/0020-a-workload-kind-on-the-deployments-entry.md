@@ -60,6 +60,14 @@ the field drops it without a word. So the chart's `kubeVersion` floor rises to
 **A `volumeClaimTemplates` entry that no `volumeMounts` item mounts fails the
 render.**
 
+**A claim template carries only what never changes on its own.** Its metadata
+has the selector labels plus the entry's own `labels` and `annotations`, never
+`helm.sh/chart` or the common labels and annotations. Its spec has `volumeMode`
+written out, `Filesystem` by default. `volumeClaimTemplates` is immutable, so a
+chart label that moves with every chart version would make every upgrade a
+forbidden update. A field the API server fills in would be a standing diff for
+a GitOps controller.
+
 **HPA and KEDA work on a StatefulSet** under the same one-replica-owner rule
 (ADR 0003, ADR 0012).
 

@@ -5,6 +5,42 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ---
 
+## [3.4.0] — 2026-10-17
+
+### Added
+
+- **`deployments.<name>.kind: StatefulSet`** (issue #211, [ADR 0020](docs/adr/0020-a-workload-kind-on-the-deployments-entry.md)).
+  An entry renders a StatefulSet instead of a Deployment. Everything else about
+  it stays the same: image, config, Service, HPA/KEDA (`scaleTargetRef.kind`
+  follows), PDB, NetworkPolicy, and the hooks and cronJobs that inherit from
+  it. `kind` defaults to `Deployment`, so existing values render unchanged.
+  - `volumeClaimTemplates`: one claim per pod per entry (`name`, `size`,
+    `accessModes`, `storageClassName`, `volumeMode`, `labels`,
+    `annotations`). An entry no container mounts fails the render, and so
+    does one named after a `volumes` entry. A claim's metadata carries the
+    selector labels and its own, never `helm.sh/chart` or the common ones:
+    the template is immutable.
+  - `persistentVolumeClaimRetentionPolicy`, both `Retain` by default:
+    uninstalling, pruning or scaling down keeps the data.
+  - `updateStrategy` (`RollingUpdate` with `partition`, or `OnDelete`) and
+    `podManagementPolicy`.
+  - A headless Service `<fullname>-<key>-headless`, rendered for every
+    StatefulSet, even with `service.enabled: false`, with
+    `publishNotReadyAddresses: true`.
+  - The schema rejects a field of the other kind: `strategy` and
+    `progressDeadlineSeconds` on a StatefulSet, the StatefulSet fields on a
+    Deployment.
+  - A StatefulSet whose `<fullname>-<key>` is longer than 52 characters fails
+    the render: the pods' `controller-revision-hash` label would exceed 63.
+
+### Changed
+
+- **Breaking: `kubeVersion` is now `>=1.27.0-0`** (was `>=1.23.0-0`). 1.27 is
+  the first Kubernetes version that applies `persistentVolumeClaimRetentionPolicy`
+  by default. Below it the API server drops the field without a word.
+  Clusters on 1.23–1.26 are past their end of life, and Helm refuses to install
+  the chart there.
+
 ## [3.3.0] — 2026-10-08
 
 ### Added
