@@ -48,7 +48,7 @@ The chart supports **multiple workloads** in a single release, each with indepen
 ## Quick start
 
 Writing values for an application, alone or with an LLM: start from
-[`docs/consumers/`](docs/consumers/README.md), the short guide and its examples.
+[`docs/values-authors/`](docs/values-authors/README.md), the short guide and its examples.
 
 ```bash
 # Add the chart repository
@@ -506,7 +506,7 @@ make render-diff BASE=main
 
 The chart has multiple layers of testing:
 
-- **Lint scenarios** (`make lint-chart`): Runs `helm lint --strict` across every scenario in `tests/` and every example in `docs/consumers/examples/` (the `TEST_CASES` list in the `Makefile`).
+- **Lint scenarios** (`make lint-chart`): Runs `helm lint --strict` across every scenario in `tests/` and every example in `docs/values-authors/examples/` (the `TEST_CASES` list in the `Makefile`).
 - **Unit tests** (`make unit-test`): helm-unittest suites in `charts/global-chart/tests/` (one `*_test.yaml` per template), including negative `failedTemplate` tests.
 - **Schema validation** (`make validate-bad-values`): Verifies every fixture in `tests/bad-values/` is rejected, and by the right mechanism. The directory is the declaration: a file in `schema/` must be rejected by `values.schema.json` (the target asserts Helm's schema error message), a file in `fail/` by a template `fail` and *not* by the schema, and a file in `skip-schema/` by the schema *and*, under `--skip-schema-validation`, by the template `fail` the schema shadows (a *backstop guard*: the only protection left on that way out). Without the split, a schema hole covered by a `fail` is invisible. Every `fail/` and `skip-schema/` fixture carries one or more `# Expected fail substring: "…"` lines, and each must appear in the error, so a fixture rejected by the wrong `fail` does not pass. helm-unittest cannot skip the schema, so a backstop guard is tested in `skip-schema/`, never in a suite. `tests/bad-values/check-closure-coverage.py` then checks that every closed object in the schema has a fixture of its own, linked by a `# covers: <pointer>` line, and that the fixture stops being rejected once that closure is removed — so closing an object without testing it, or with a fixture that tests something else, fails here.
 - **Scenario coverage** (`make scenario-coverage`): Every map or list node `values.schema.json` declares is set by a `TEST_CASES` scenario, and every type a node accepts beside another (an `imagePullSecrets` item, a map or a string) is used by one, so the checks that run over the scenarios see it. The gaps of the day the check arrived sit in `tests/scenario-coverage-baseline.txt`: a new one fails, and the file only shrinks.
@@ -567,7 +567,7 @@ See [CHANGELOG.md](CHANGELOG.md) for version history, breaking changes, and migr
 - Core values: `charts/global-chart/values.yaml`
 - JSON Schema: `charts/global-chart/values.schema.json`
 - Example scenarios: `tests/`
-- Writing values for an application (the guide for values authors and their LLM): [`docs/consumers/`](docs/consumers/README.md)
+- Writing values for an application (the guide for values authors and their LLM): [`docs/values-authors/`](docs/values-authors/README.md)
 - Make targets: `Makefile`
 - GitHub workflow: `.github/workflows/helm-ci.yml`
 - Domain terms: [`GLOSSARY.md`](GLOSSARY.md)

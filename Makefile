@@ -112,11 +112,11 @@ TEST_CASES := \
 	tests/keda.yaml:keda:keda \
 	tests/common-annotations.yaml:common-annotations:common-annotations \
 	tests/statefulset.yaml:statefulset:statefulset \
-	docs/consumers/examples/web.yaml:consumer-web:consumer-web \
-	docs/consumers/examples/worker.yaml:consumer-worker:consumer-worker \
-	docs/consumers/examples/cronjob.yaml:consumer-cronjob:consumer-cronjob \
-	docs/consumers/examples/migration-hook.yaml:consumer-migration-hook:consumer-migration-hook \
-	docs/consumers/examples/externalsecret.yaml:consumer-externalsecret:consumer-externalsecret
+	docs/values-authors/examples/web.yaml:example-web:example-web \
+	docs/values-authors/examples/worker.yaml:example-worker:example-worker \
+	docs/values-authors/examples/cronjob.yaml:example-cronjob:example-cronjob \
+	docs/values-authors/examples/migration-hook.yaml:example-migration-hook:example-migration-hook \
+	docs/values-authors/examples/externalsecret.yaml:example-externalsecret:example-externalsecret
 
 # Default target
 .DEFAULT_GOAL := help

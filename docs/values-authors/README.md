@@ -152,7 +152,7 @@ version the application pins:
 The values files in this repository configure global-chart <version>
 (https://github.com/filippolmt/global-chart). Before editing them, read the
 guide for that version:
-https://github.com/filippolmt/global-chart/blob/global-chart-<version>/docs/consumers/README.md
+https://github.com/filippolmt/global-chart/blob/global-chart-<version>/docs/values-authors/README.md
 Every field and its description: charts/global-chart/values.schema.json at the
 same tag. Do not work around a schema error or a render fail by moving values
 to another field: fix the values path the error names. When you bump the chart

@@ -10,8 +10,8 @@ replaced it by hand.
 "deployment" in lower case, for a workload of any kind, joined them when issue
 #221 removed the values key `deployments`: three review rounds of that PR found
 more of it. The Kubernetes kind is written Deployment. The word is checked in
-the chart, the test scenarios, the Makefile and docs/consumers/ only: in the
-README a "zero-downtime deployment" is a release, an English reading the
+the chart, the test scenarios, the Makefile and docs/values-authors/ only: in
+the README a "zero-downtime deployment" is a release, an English reading the
 chart's own files do not use. There it stays right in three places, which
 deployment_ok lets through: after `kubectl` on the line (`kubectl get deployment`), as a list
 item that is the bare word (a Chart.yaml keyword, a command's argument), and
@@ -46,7 +46,7 @@ AVOID = {
     re.compile(r"\bdeployment[- ]scope\b", re.I): (SCOPE, None, None),
     re.compile(r"(?<![\w.\"'`$/-])deployments?(?:'s)?(?![\w/\"'`:]|\.\w)"): (
         "workload (GLOSSARY *Workload*), or Deployment for the kind",
-        ("charts/global-chart/", "tests/", "Makefile", "docs/consumers/"), deployment_ok),
+        ("charts/global-chart/", "tests/", "Makefile", "docs/values-authors/"), deployment_ok),
 }
 # What the lower-case rule flags (True) and lets through (False), run first:
 # a widened lookaround or exemption would otherwise stop catching the word
