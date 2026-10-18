@@ -284,8 +284,9 @@ spec:
               - configMap:
                   name: {{ include "global-chart.mountedConfigMapName" (dict "deploymentFullname" $depFullname "fileName" $f.name) }}
                   items:
-                    - key: {{ include "global-chart.mountedBundleRelPath" (dict "file" $f "errCtx" $errCtx "bundleIndex" $bi "fileIndex" $fi) | base | quote }}
-                      path: {{ include "global-chart.mountedBundleRelPath" (dict "file" $f "errCtx" $errCtx "bundleIndex" $bi "fileIndex" $fi) | quote }}
+                    {{- $relPath := include "global-chart.mountedBundleRelPath" (dict "file" $f "errCtx" $errCtx "bundleIndex" $bi "fileIndex" $fi) }}
+                    - key: {{ $relPath | base | quote }}
+                      path: {{ $relPath | quote }}
             {{- end }}
         {{- end }}
         {{- end }}

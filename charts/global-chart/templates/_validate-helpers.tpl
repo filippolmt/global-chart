@@ -34,8 +34,8 @@ stays declared in the schema with no constraint, so any value reaches its fail
 the wrong type is skipped: the schema, or the template that reads it, rejects
 it.
   deployments                                   → workloads, with the migration guide (issue #221)
-  <root hook or cronjob>.fromDeployment         → fromWorkload (issue #221)
-  <workload-scope job>.inheritDeployment*       → inheritWorkload* (issue #221)
+  <hook or cronjob>.fromDeployment              → fromWorkload (issue #221)
+  <hook or cronjob>.inheritDeployment*          → inheritWorkload* (issue #221)
   <ingress host or route backendRef>.deployment → workload (issue #221)
   <pod spec>.volumes[<i>].type, .secret.name, .persistentVolumeClaim.name
                                                 → the native volume source (issue #230)
@@ -49,12 +49,15 @@ Usage: {{- include "global-chart.validateRemovedKeys" . -}}
 {{- $from := dict "fromDeployment" "fromWorkload" -}}
 {{- $inherit := dict "inheritDeploymentConfigMap" "inheritWorkloadConfigMap" "inheritDeploymentSecret" "inheritWorkloadSecret" "inheritDeploymentEnvFromConfigMaps" "inheritWorkloadEnvFromConfigMaps" "inheritDeploymentEnvFromSecrets" "inheritWorkloadEnvFromSecrets" -}}
 {{- $backend := dict "deployment" "workload" -}}
-{{- include "global-chart.rejectRemovedJobKeys" (dict "cronJobs" $v.cronJobs "hooks" $v.hooks "in" $in "see" $see "keys" $from) -}}
+{{- /* Both job key families at both scopes: the schema rejects one at the
+       wrong scope, and --skip-schema-validation would let it pass in silence */ -}}
+{{- $jobKeys := merge (dict) $from $inherit -}}
+{{- include "global-chart.rejectRemovedJobKeys" (dict "cronJobs" $v.cronJobs "hooks" $v.hooks "in" $in "see" $see "keys" $jobKeys) -}}
 {{- if kindIs "map" $v.workloads -}}
   {{- range $name, $w := $v.workloads -}}
     {{- if kindIs "map" $w -}}
       {{- include "global-chart.rejectRemovedVolumeKeys" (dict "volumes" $w.volumes "errCtx" (include "global-chart.deploymentValuesPath" $name) "in" $in "see" $see) -}}
-      {{- include "global-chart.rejectRemovedJobKeys" (dict "cronJobs" $w.cronJobs "hooks" $w.hooks "deploymentName" $name "in" $in "see" $see "keys" $inherit) -}}
+      {{- include "global-chart.rejectRemovedJobKeys" (dict "cronJobs" $w.cronJobs "hooks" $w.hooks "deploymentName" $name "in" $in "see" $see "keys" $jobKeys) -}}
     {{- end -}}
   {{- end -}}
 {{- end -}}
@@ -97,7 +100,7 @@ Usage: {{- include "global-chart.validateRemovedKeys" . -}}
 {{/*
 validateRemovedKeys over the hooks and cronJobs of one scope: deploymentName
 empty at root scope, the workload's key at workload scope (jobValuesPath).
-keys are the job keys removed at that scope; the volume keys apply to both.
+keys are the removed job keys; the volume keys apply too.
 */}}
 {{- define "global-chart.rejectRemovedJobKeys" -}}
 {{- $args := . -}}
@@ -215,7 +218,7 @@ Called from validate.yaml. Emits nothing on success.
     {{- include "global-chart.rejectNullItems" (dict "list" (index $spec $field) "errCtx" (printf "%s.%s" $path $field) "required" $required) -}}
   {{- end -}}
   {{- include "global-chart.rejectNullItems" (dict "list" (default (dict) $spec.dnsConfig).options "errCtx" (printf "%s.dnsConfig.options" $path) "required" (list "name")) -}}
-  {{- if eq $owner.kind "deployment" -}}
+  {{- if eq $owner.kind "workload" -}}
     {{- include "global-chart.rejectNullItems" (dict "list" (default (dict) $spec.service).extraPorts "errCtx" (printf "%s.service.extraPorts" $path) "required" (list "name" "port" "targetPort")) -}}
     {{- $mcf := default (dict) $spec.mountedConfigFiles -}}
     {{- include "global-chart.rejectNullItems" (dict "list" $mcf.files "errCtx" (printf "%s.mountedConfigFiles.files" $path) "required" (list "name")) -}}

@@ -25,7 +25,7 @@ The pod spec, the labels, the checksums, Reloader, the PDB, the NetworkPolicy
 and the workload-scope jobs read only the values, never the kind. So one entry
 with a kind keeps every one of them as it is. The map keeps the name
 `deployments`: `GLOSSARY.md` defines its entries as *workloads*.
-*Amended by ADR 0023:* since 4.0.0 the map is `workloads`, and the job and backend
+*Amended by issue #221 (ADR 0023):* since 4.0.0 the map is `workloads`, and the job and backend
 keys say *workload* too.
 
 ## Decisions
@@ -86,7 +86,7 @@ pod.
   `deployments.es` and `statefulSets.es` would collide on one fullname, and
   route backends and hook references would need a type of their own.
 - **Rename the map to `workloads.<name>.kind`.** Rejected: a major release for
-  every existing values file, with no functional gain. *Superseded by ADR 0023:*
+  every existing values file, with no functional gain. *Superseded by issue #221 (ADR 0023):*
   4.0.0 is a major already, and the key is wrong for every kind but
   Deployment.
 

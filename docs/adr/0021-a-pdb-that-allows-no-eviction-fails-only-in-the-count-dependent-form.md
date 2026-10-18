@@ -19,7 +19,7 @@ means it: they render. They are also the way to block drains on purpose, so
 no opt-out field is needed.
 
 **N is the replica owner's floor** (ADR 0003, ADR 0012), resolved in one
-helper, `replicaFloor`, which also decides whether `deployment.yaml` emits
+helper, `replicaFloor`, which also decides whether `deployment.yaml` (now `workload.yaml`) emits
 `spec.replicas`:
 
 - `replicaCount`, or 2 when absent;

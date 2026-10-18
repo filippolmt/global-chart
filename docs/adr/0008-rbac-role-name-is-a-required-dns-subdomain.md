@@ -46,7 +46,7 @@ breaking every external reference to the SA.
 - **An explicit `serviceAccount.name`** has the same defect (`Reader_SA`), but
   `$defs/serviceAccount` is shared with `deployments.<name>.serviceAccount`.
   Constraining it touches deployments too, and it is a name given as a value,
-  not a *naming key*. *Amended by ADR 0023:* since 4.0.0 the map is `workloads`.
+  not a *naming key*. *Amended by issue #221 (ADR 0023):* since 4.0.0 the map is `workloads`.
 
 ## Implementation
 

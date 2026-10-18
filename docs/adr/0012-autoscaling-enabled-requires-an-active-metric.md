@@ -4,7 +4,7 @@ status: accepted
 
 # `autoscaling.enabled` without an active metric is a render failure
 
-`deployment.yaml` drops `spec.replicas` whenever `autoscaling.enabled` is true,
+`deployment.yaml` (now `workload.yaml`) drops `spec.replicas` whenever `autoscaling.enabled` is true,
 while `hpa.yaml` renders only when a CPU or memory target is positive (issue
 #151). With `enabled: true` and no positive target neither side owns the replica
 count: no HPA renders, and Kubernetes defaults the Deployment to **one** pod,

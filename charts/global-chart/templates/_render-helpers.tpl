@@ -237,7 +237,9 @@ for the name. $defs/volumes stays open (ADR 0017) and requires a non-empty
 name, so the required below fires only under --skip-schema-validation, where a
 fixture in tests/bad-values/skip-schema/ holds it. errCtx is the values path of
 the entry, <owner>.volumes[<i>], which leads every fail message (issue #190).
-The keys removed in 4.0.0 (issue #230) fail earlier, in validateRemovedKeys.
+The keys removed in 4.0.0 (issue #230) are validateRemovedKeys' to reject:
+this helper renders them as written and the error is the validator's,
+whatever order Helm renders the templates in (CODING_STANDARDS.md).
 Usage: {{ include "global-chart.renderVolume" (dict "volume" $v "errCtx" (printf "%s.volumes[%d]" $errCtx $i)) }}
 */}}
 {{- define "global-chart.renderVolume" -}}
@@ -249,7 +251,7 @@ Usage: {{ include "global-chart.renderVolume" (dict "volume" $v "errCtx" (printf
 
 {{/*
 Every owner of a pod spec the release renders, in both scopes, as a JSON list
-of {path, kind, spec}: each enabled workload (kind "deployment"), then every
+of {path, kind, spec}: each enabled workload (kind "workload"), then every
 non-empty hook and cronjob — root-level, and those of each enabled workload —
 with their values path from deploymentValuesPath / jobValuesPath. The single
 home of that enumeration, read by validateNullItems: a
@@ -262,7 +264,7 @@ Usage: {{- range (include "global-chart.podSpecOwners" . | fromJsonArray) }}
 {{- $out := list -}}
 {{- range $name, $deploy := (default (dict) .Values.workloads) -}}
   {{- if and (kindIs "map" $deploy) $deploy (eq (include "global-chart.deploymentEnabled" $deploy) "true") -}}
-    {{- $out = append $out (dict "path" (include "global-chart.deploymentValuesPath" $name) "kind" "deployment" "spec" $deploy) -}}
+    {{- $out = append $out (dict "path" (include "global-chart.deploymentValuesPath" $name) "kind" "workload" "spec" $deploy) -}}
     {{- $scopes = append $scopes (dict "hooks" $deploy.hooks "cronJobs" $deploy.cronJobs "deployName" $name) -}}
   {{- end -}}
 {{- end -}}
@@ -1089,8 +1091,9 @@ Usage: {{ include "global-chart.externalSecretRewritesTarget" $secret }}
 {{/*
 The relPath of a mountedConfigFiles bundle file, required (issue #157): the
 ConfigMap key (its base) and the projected path both come from it. The one
-home of that check, read by mounted-configmap.yaml and workload.yaml, since
-either may render first.
+home of that check, read by mounted-configmap.yaml and workload.yaml: no
+validator covers it, so each reader fails with the same message and the
+render order does not matter.
 Usage: {{ include "global-chart.mountedBundleRelPath" (dict "file" $f "errCtx" $errCtx "bundleIndex" $bi "fileIndex" $fi) }}
 */}}
 {{- define "global-chart.mountedBundleRelPath" -}}

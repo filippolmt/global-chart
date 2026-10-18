@@ -39,7 +39,7 @@ creates and owns its own HorizontalPodAutoscaler for every ScaledObject — the
 
 ## The Deployment stops emitting `spec.replicas` when an autoscaler owns it
 
-`deployment.yaml` already suppressed `replicas` under `autoscaling.enabled`. The
+`deployment.yaml` (now `workload.yaml`) already suppressed `replicas` under `autoscaling.enabled`. The
 guard is now expressed over *any* autoscaler rather than the HPA specifically, so
 KEDA gets the same treatment: emitting `spec.replicas` would make every
 `helm upgrade` overwrite the live replica count, and with `minReplicaCount: 0` it
@@ -59,10 +59,10 @@ existing `autoscaling` users.
 
 - `deployments.<name>.autoscaling` and `deployments.<name>.keda` both exist;
   neither is deprecated. Enabling both on one deployment is a template `fail`.
-  *Amended by ADR 0023:* since 4.0.0 the map is `workloads`.
+  *Amended by issue #221 (ADR 0023):* since 4.0.0 the map is `workloads`.
 - Deployments under either autoscaler have no `spec.replicas` in the rendered
   manifest. `replicaCount` is silently inert there — the schema cannot express
-  the dependency, so `deployment_test.yaml` locks the behaviour for both.
+  the dependency, so `deployment_test.yaml` (now `workload_test.yaml`) locks the behaviour for both.
 - The KEDA templates require the `keda.sh/v1alpha1` CRDs. Offline rendering
   needs `--api-versions keda.sh/v1alpha1`; see `_keda-helpers.tpl` and the
   `HELM_API_VERSIONS` variable in the Makefile.
