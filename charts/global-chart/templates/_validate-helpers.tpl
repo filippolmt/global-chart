@@ -15,6 +15,16 @@ checks every fail against them: change both.
 */}}
 
 {{/*
+The values path of a map entry: "<map path>.<key>", the key alone at the
+root (an empty map path). The single home of that join, read by the walks
+over values maps: rejectRemovedKeys, checkValueType, rejectNullInLists.
+Usage: {{ include "global-chart.childValuesPath" (list $errCtx $key) }}
+*/}}
+{{- define "global-chart.childValuesPath" -}}
+{{- if eq (index . 0) "" -}}{{ index . 1 }}{{- else -}}{{ index . 0 }}.{{ index . 1 }}{{- end -}}
+{{- end }}
+
+{{/*
 The values path of a workload, "workloads.<name>": its single home, as
 jobValuesPath is a job's (and leads a workload-scope job's with it).
 Usage: {{ include "global-chart.deploymentValuesPath" $name }}
@@ -167,7 +177,7 @@ helpers above.
 {{- if kindIs "map" .map -}}
   {{- range $old, $new := .keys -}}
     {{- if hasKey $args.map $old -}}
-      {{- $path := ternary $old (printf "%s.%s" $args.errCtx $old) (eq $args.errCtx "") -}}
+      {{- $path := include "global-chart.childValuesPath" (list $args.errCtx $old) -}}
       {{- fail (printf "%s: removed in %s, use %s%s" $path $args.in $new (ternary (printf "; see %s" $args.see) "" (hasKey $args "see"))) -}}
     {{- end -}}
   {{- end -}}
@@ -210,7 +220,8 @@ one-item list for a list whose items are read, the item its shape; a leaf
 naming the types read, `|` between two (an image is a map or a string). A
 node under a leaf is not read as a container. The pod-spec owners (a workload,
 its hooks and cronjobs, the root ones) mirror podSpecOwners: an owner added
-there joins this tree too. Read only by validateValueTypes.
+there joins this tree too, or `make null-sweep` fails each one a scenario
+reaches. Read only by validateValueTypes.
 */}}
 {{- define "global-chart.valuesShape" -}}
 global:
@@ -303,7 +314,7 @@ shape names. Read only by validateValueTypes.
     {{- range $key, $item := $args.value -}}
       {{- $child := ternary (index $args.shape $key) (index $args.shape "*") (hasKey $args.shape $key) -}}
       {{- if $child -}}
-        {{- include "global-chart.checkValueType" (dict "value" $item "shape" $child "errCtx" (ternary $key (printf "%s.%s" $args.errCtx $key) (eq $args.errCtx ""))) -}}
+        {{- include "global-chart.checkValueType" (dict "value" $item "shape" $child "errCtx" (include "global-chart.childValuesPath" (list $args.errCtx $key))) -}}
       {{- end -}}
     {{- end -}}
   {{- else if kindIs "slice" .shape -}}
@@ -347,7 +358,7 @@ Usage: {{- include "global-chart.rejectNullInLists" (dict "value" .Values.worklo
   {{- end -}}
 {{- else if kindIs "map" .value -}}
   {{- range $key, $item := .value -}}
-    {{- include "global-chart.rejectNullInLists" (dict "value" $item "errCtx" (ternary $key (printf "%s.%s" $errCtx $key) (eq $errCtx ""))) -}}
+    {{- include "global-chart.rejectNullInLists" (dict "value" $item "errCtx" (include "global-chart.childValuesPath" (list $errCtx $key))) -}}
   {{- end -}}
 {{- end -}}
 {{- end }}

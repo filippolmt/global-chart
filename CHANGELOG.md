@@ -145,7 +145,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   each scenario is given a number and the other container in turn, and must
   render or fail naming its path; a node `valuesShape` names must fail with
   its message. The sweep first holds every `valuesShape` node to the types the
-  schema accepts there, so a valid value cannot fail it. A Go fmt error (`%!`)
+  schema accepts there, so a valid value cannot fail it (a schema branch with
+  no type is a finding), and checks that every pod-spec owner
+  `podSpecOwners` lists has a pod spec in `valuesShape`. A Go fmt error (`%!`)
   in a message counts as a raw error.
 - `make e2e-dryrun` replaces `make e2e-routes`, which stays as an alias. It
   sends every `TEST_CASES` scenario to the kind API server as a server-side dry

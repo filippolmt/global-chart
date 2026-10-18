@@ -37,14 +37,14 @@ in turn: the number 3, and the opposite container (a map becomes [3], a list
 read back as JSON through a second scratch chart holding the chart's helpers, so
 the sweep keeps no copy of it. Each node of valuesShape must read exactly the
 types values.schema.json accepts there, null aside: a valid value must never
-fail it (an imagePullSecrets item is a map or a string). A node valuesShape
-names must fail with validateValueTypes' message naming its path; any other
-node must render or fail naming its path, as a null must. That last rule keeps
-valuesShape whole: a node a template reads and valuesShape misses ends on a raw
-error. A wrong type
-that renders in silence, outside valuesShape, passes: no sweep can tell it from
-a passthrough node the API server will reject, so such a node joins valuesShape
-by hand, with its fixture.
+fail it (an imagePullSecrets item is a map or a string). Each pod-spec owner
+podSpecOwners lists in a scenario must have a pod spec in valuesShape. A node
+valuesShape names must fail with validateValueTypes' message naming its path;
+any other node must render or fail naming its path, as a null must. That last
+rule keeps valuesShape whole: a node a template reads and valuesShape misses
+ends on a raw error. A wrong type that renders in silence, outside valuesShape,
+passes: no sweep can tell it from a passthrough node the API server will
+reject, so such a node joins valuesShape by hand, with its fixture.
 
 Usage: null-sweep.py <chart dir> <values file>... [-- <helm flags>...]
 """
@@ -56,6 +56,7 @@ import re
 import subprocess
 import sys
 import tempfile
+from typing import NamedTuple
 
 # `%!` is a Go fmt error: a value of the wrong type printed into a message
 RAW = re.compile(r"nil pointer|error calling|wrong type for value|can't evaluate|"
@@ -109,6 +110,15 @@ def nulled(values, path):
     return set_at(values, path, None)
 
 
+class Case(NamedTuple):
+    """One render of a scenario with one node changed: to null, or to a wrong type."""
+    file: str
+    path: tuple
+    value: object       # what the node became: None, or the wrong type
+    values: dict        # the scenario with the node changed
+    unset: dict = None  # the scenario with the node removed, for a null read through isSet
+
+
 def wrong_types(node):
     """The wrong types the type pass gives a map or list node: a number, the other container."""
     if isinstance(node, dict):
@@ -140,11 +150,18 @@ SCHEMA_TYPES = {"object": "map", "array": "list", "string": "string", "boolean":
                 "integer": "number", "number": "number"}
 
 
-# shortcut: the schema walk reads type, $ref, oneOf, anyOf, allOf (as a union),
-# properties, additionalProperties, patternProperties and items; it ignores $ref
-# siblings, if/then/else, not, and a branch with no type (read as no type, not
-# any type). None changes a valuesShape node's types today; when one does, teach
-# the walk that construct, or make it a finding.
+# The schema walk reads type, $ref, oneOf, anyOf, allOf and the child keywords.
+# What it skips (if/then/else, not, a $ref's siblings, allOf read as a union)
+# can only narrow what a node accepts: the types it computes are then a
+# superset, and valuesShape matching them still fails no valid value. The one
+# construct that widens is a branch with no type, which accepts any: that is a
+# finding, never read as no type.
+def untyped_branch(schema, node):
+    """Whether node accepts any type: a branch declaring no type whose allOf parts all accept any."""
+    return any("type" not in a and all(untyped_branch(schema, n) for n in a.get("allOf", []))
+               for a in schema_alternatives(schema, node))
+
+
 def schema_alternatives(schema, node):
     """The schema nodes a value at node may match: $ref followed, oneOf and anyOf spread."""
     while "$ref" in node:
@@ -169,11 +186,19 @@ def schema_types(schema, node):
     return types
 
 
+def schema_parts(schema, node):
+    """node and every schema its allOf applies with it, at any depth."""
+    return [node] + [p for n in node.get("allOf", []) for a in schema_alternatives(schema, n)
+                     for p in schema_parts(schema, a)]
+
+
 def schema_child(schema, node, key):
-    """The schema of node's entry key ("*" for any entry, "[]" for an item); None if undeclared."""
-    found = []
+    """The schema of node's entry key ("*" for any entry, "[]" for an item); None if undeclared.
+    One branch's own declaration and its allOf parts' all apply (allOf); two branches are alternatives (anyOf)."""
+    branches = []
     for a in schema_alternatives(schema, node):
-        for part in [a] + [b for n in a.get("allOf", []) for b in schema_alternatives(schema, n)]:
+        found = []
+        for part in schema_parts(schema, a):
             if key == "[]":
                 found += [part["items"]] if "items" in part else []
             elif key == "*":
@@ -181,7 +206,9 @@ def schema_child(schema, node, key):
                 found += part.get("patternProperties", {}).values()
             elif key in part.get("properties", {}):
                 found.append(part["properties"][key])
-    return {"anyOf": found} if found else None
+        if found:
+            branches.append({"allOf": found})
+    return {"anyOf": branches} if branches else None
 
 
 def shape_findings(shape, schema, node, path=""):
@@ -189,6 +216,9 @@ def shape_findings(shape, schema, node, path=""):
     want = {"map"} if isinstance(shape, dict) else {"list"} if isinstance(shape, list) else set(shape.split("|"))
     if node is None:
         return [f"valuesShape: {path}: the schema declares no such node"]
+    if untyped_branch(schema, node):
+        return [f"valuesShape: {path}: the schema accepts any type there through a branch with no type; "
+                "give the branch one, or teach schema_types what it means"]
     got = schema_types(schema, node)
     out = [] if got == want else [f"valuesShape: {path}: reads {'|'.join(sorted(want))}, "
                                   f"the schema accepts {'|'.join(sorted(got)) or 'any type'}"]
@@ -207,13 +237,34 @@ def values_shape(chart, tmp):
     for helper in (chart / "templates").glob("_*.tpl"):
         (scratch / "templates" / helper.name).write_text(helper.read_text())
     (scratch / "templates" / "shape.json").write_text('{{ include "global-chart.valuesShape" . | fromYaml | toJson }}\n')
-    out = subprocess.run(["helm", "template", "x", str(scratch)], capture_output=True, text=True)
+    (scratch / "templates" / "owners.json").write_text('{"owners": {{ include "global-chart.podSpecOwners" . }}}\n')
+    out = subprocess.run(["helm", "template", "x", str(scratch), "-s", "templates/shape.json"],
+                         capture_output=True, text=True)
     try:
         return json.loads(out.stdout.split("\n", 2)[2])
     except (IndexError, ValueError):
         print("    FAIL: valuesShape in _validate-helpers.tpl does not render as a JSON object behind a `# Source:` "
               "header: " + (" ".join(out.stderr.split())[:240] or out.stdout[:240]))
         sys.exit(1)
+
+
+def owner_findings(values, tmp, shape):
+    """Every pod-spec owner podSpecOwners finds in values that valuesShape gives no pod spec."""
+    fd, name = tempfile.mkstemp(suffix=".json", dir=tmp)
+    with os.fdopen(fd, "w") as f:
+        json.dump(values, f)
+    out = subprocess.run(["helm", "template", "x", str(pathlib.Path(tmp) / "values-shape"),
+                          "-s", "templates/owners.json", "-f", name], capture_output=True, text=True)
+    os.unlink(name)
+    try:
+        owners = json.loads(out.stdout.split("\n", 2)[2])["owners"]
+    except (IndexError, KeyError, ValueError):
+        return ["podSpecOwners does not render as a JSON list behind a `# Source:` header: "
+                + (" ".join(out.stderr.split())[:240] or out.stdout[:240])]
+    # Workload, hook and job names are DNS labels: a dot only joins keys
+    specs = {o["path"]: shape_at(shape, tuple(o["path"].split("."))) for o in owners}
+    return [f"valuesShape: {path}: a pod-spec owner podSpecOwners lists, with no pod spec in valuesShape"
+            for path, spec in specs.items() if not (isinstance(spec, dict) and "volumes" in spec)]
 
 
 def type_verdict(out, path):
@@ -294,27 +345,27 @@ def main(argv):
         wrongs = []
         for f in files:
             values = to_json(f, scratch)
+            findings += [f"{f}: {line}" for line in owner_findings(values, tmp, shape)]
             bases[f] = render(chart, flags, values, tmp).stdout
-            jobs += [(f, p, nulled(values, p),
-                      removed(values, p) if p[-1] in is_set and p not in defaults else None)
+            jobs += [Case(f, p, None, nulled(values, p),
+                          removed(values, p) if p[-1] in is_set and p not in defaults else None)
                      for p in paths(values)]
-            wrongs += [(f, p, wrong, set_at(values, p, wrong))
+            wrongs += [Case(f, p, wrong, set_at(values, p, wrong))
                        for p in paths(values) for wrong in wrong_types(value_at(values, p))]
-        def null_job(j):
-            f, p, values, unset = j
-            return verdict(render(chart, flags, values, tmp), bases[f], p,
-                           render(chart, flags, unset, tmp) if unset is not None else None)
 
-        def type_job(j):
-            f, p, _, values = j
-            out = render(chart, flags, values, tmp)
-            return type_verdict(out, p) if shape_at(shape, p) is not None else verdict(out, bases[f], p)
+        def null_job(c):
+            return verdict(render(chart, flags, c.values, tmp), bases[c.file], c.path,
+                           render(chart, flags, c.unset, tmp) if c.unset is not None else None)
+
+        def type_job(c):
+            out = render(chart, flags, c.values, tmp)
+            return type_verdict(out, c.path) if shape_at(shape, c.path) is not None else verdict(out, bases[c.file], c.path)
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=os.cpu_count() or 4) as pool:
             # map submits every job at once: both passes share the pool
             nulls, typed = pool.map(null_job, jobs), pool.map(type_job, wrongs)
-            findings += [f"{f}: {'.'.join(map(str, p))} = null → {v}" for (f, p, *_), v in zip(jobs, nulls) if v]
-            findings += [f"{f}: {'.'.join(map(str, p))} = {json.dumps(w)} → {v}" for (f, p, w, _), v in zip(wrongs, typed) if v]
+            findings += [f"{c.file}: {'.'.join(map(str, c.path))} = {json.dumps(c.value)} → {v}"
+                         for c, v in zip(jobs + wrongs, list(nulls) + list(typed)) if v]
     if findings:
         print("    FAIL: a null or a wrong type under --skip-schema-validation does not fail naming its values path:")
         for line in sorted(findings):
