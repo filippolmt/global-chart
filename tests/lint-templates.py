@@ -37,6 +37,10 @@ a rule below cannot recognise: a check that sees nothing is not a pass.
   which holds for one kind and is wrong for the others: validateNameCollisions
   named every entry "Deployment" until issue #217. Read the kind from
   global-chart.workloadKind.
+- chart-home: the `home` URL of Chart.yaml is never written in a template: a
+  link (the migration guide a removal `fail` names, NOTES) reads `.Chart.Home`,
+  so it follows Chart.yaml. A helper called with a dict gets it as `chartHome`
+  from the caller's root (renderVolume, issue #230).
 
 Comments (`{{/* … */}}`) are stripped before matching, so a rule may be named in
 prose. Matching runs over the whole file, so an expression split across lines
@@ -158,6 +162,7 @@ def main(chart):
     helpers = set()
     for path in templates.rglob("*.tpl"):
         helpers |= set(re.findall(r'define\s+"global-chart\.([\w-]+)"', path.read_text()))
+    home = re.search(r"^home:\s*(\S+)", (chart / "Chart.yaml").read_text(), re.M).group(1)
     problems = []
     for path in sorted(templates.rglob("*")):
         if path.suffix not in {".yaml", ".tpl", ".txt"}:
@@ -181,6 +186,8 @@ def main(chart):
                 problems.append(f"{rel}:{lineno(text, m.start())}: fail-shape: \"{m.group(2)[:60]}\" leads with neither a values path nor a documented exception")
         for m in FAIL_ANY.finditer(text):
             problems.append(f"{rel}:{lineno(text, m.start())}: fail-shape: the message ({m.group(1)[:40]}) is not a literal and cannot be checked; write it as fail \"…\" or fail (printf \"…\" …)")
+        if home in text:
+            problems.append(f"{rel}:{lineno(text, text.index(home))}: chart-home: {home} written by hand; read .Chart.Home")
         if path.suffix != ".tpl":
             name = "notes" if path.name == "NOTES.txt" else path.stem
             if not (chart / "tests" / f"{name}_test.yaml").exists():

@@ -27,8 +27,9 @@ make render VALUES=tests/test01/values.01.yaml TEMPLATE=deployment.yaml
 
 Releases: chart-releaser publishes on every push to `main` whose `Chart.yaml`
 `version` is not yet released (`skip_existing`). A feature PR leaves the version
-as is and adds its CHANGELOG entry under `## [Unreleased]`; the bump is its own
-release PR.
+as is and adds its CHANGELOG entry under `## [Unreleased]`; a Breaking entry
+also adds its bullet to the *Migration guide from <previous release>* there.
+The bump is its own release PR.
 
 The Makefile carries the rest. Three rules about when to run what:
 

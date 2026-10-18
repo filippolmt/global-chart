@@ -100,6 +100,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 - `lint-templates`' template-suite rule fails a file in
   `charts/global-chart/tests/` that is not a `*_test.yaml` suite:
   helm-unittest never runs it.
+- `lint-templates` gains the chart-home rule: a template reads `.Chart.Home`,
+  never the URL of Chart.yaml `home` written by hand. `lint-docs` no longer
+  reads `%s/…/CHANGELOG.md` in a format string as a path.
+  `validate-bad-values` prints its failures and one summary line, not one
+  line per fixture.
 - `lint-templates` gains the kind-fields rule. `lint-docs` tells an untracked
   file from a missing one. The Helm repository steps of `kind-keda` and
   `kind-eso` retry three times.

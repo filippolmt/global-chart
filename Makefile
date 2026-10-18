@@ -199,9 +199,7 @@ validate-bad-values: ## Verify bad-values are rejected: schema/ by values.schema
 	@echo "==> Validating bad-values are correctly rejected..."
 	@set -e; for f in tests/bad-values/schema/*.yaml; do \
 		[ -e "$$f" ] || { echo "    FAIL: tests/bad-values/schema/ holds no fixture; green here would be vacuous"; exit 1; }; \
-		if helm lint $(STRICT) -f "$$f" ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) 2>&1 | grep -qF "$(SCHEMA_REJECTION)"; then \
-			echo "    OK: $$f rejected by values.schema.json"; \
-		else \
+		if ! helm lint $(STRICT) -f "$$f" ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) 2>&1 | grep -qF "$(SCHEMA_REJECTION)"; then \
 			echo "    FAIL: $$f was not rejected by values.schema.json"; \
 			echo "          (if every file here fails, check whether Helm reworded: $(SCHEMA_REJECTION))"; \
 			exit 1; \
@@ -221,7 +219,6 @@ validate-bad-values: ## Verify bad-values are rejected: schema/ by values.schema
 			printf '%s\n' "$$subs" | while IFS= read -r sub; do \
 				printf '%s' "$$out" | grep -qF -- "$$sub" || { echo "    FAIL: $$f was rejected, but not by the fail it expects: missing \"$$sub\""; echo "          got: $$out"; exit 1; }; \
 			done; \
-			echo "    OK: $$f rejected by the expected template fail"; \
 		fi; \
 	done
 	@set -e; for f in tests/bad-values/skip-schema/*.yaml; do \
@@ -238,10 +235,10 @@ validate-bad-values: ## Verify bad-values are rejected: schema/ by values.schema
 			printf '%s\n' "$$subs" | while IFS= read -r sub; do \
 				printf '%s' "$$out" | grep -qF -- "$$sub" || { echo "    FAIL: $$f was rejected, but not by the fail it expects: missing \"$$sub\""; echo "          got: $$out"; exit 1; }; \
 			done; \
-			echo "    OK: $$f rejected by the schema, and by the expected template fail without it"; \
 		fi; \
 	done
 	@python3 tests/bad-values/check-closure-coverage.py "$(SCHEMA_REJECTION)" $(STRICT)
+	@echo "    OK: $(words $(wildcard tests/bad-values/*/*.yaml)) fixtures rejected, each by the mechanism its directory names"
 	@echo "==> All bad-values correctly rejected!"
 
 # Internal: generate templates to a given directory
