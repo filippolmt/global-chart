@@ -8,8 +8,8 @@ rules below.
 ## Commands
 
 ```bash
-make all                    # check + generate + kubeconform + kube-linter
-make check                  # the fast loop: lint-chart, lint-templates, lint-docs, lint-shell, lint-glossary, unit-test, bad-values, scenario-coverage, null-sweep
+make all                    # check + null-sweep + generate + kubeconform + kube-linter
+make check                  # the fast loop: lint-chart, lint-templates, lint-docs, lint-shell, lint-glossary, unit-test, bad-values, scenario-coverage (not null-sweep: make all and CI run it)
 make lint-chart             # lint every scenario in TEST_CASES
 make lint-templates         # the mechanical rules of CODING_STANDARDS.md
 make lint-docs              # every file a document or a comment points at exists
@@ -35,7 +35,9 @@ The bump is its own release PR.
 
 The Makefile carries the rest. Three rules about when to run what:
 
-- Templates or values changed → `make lint-chart` and `make unit-test`.
+- Templates or values changed → `make lint-chart` and `make unit-test`;
+  `valuesShape`, a type in `values.schema.json`, or a new map or list a
+  template reads → also `make null-sweep`.
 - Schema or user-visible values changed (new fields, defaults, descriptions) →
   also `make generate-docs`, to refresh `charts/global-chart/README.md`.
 - Runtime behaviour touched — `hook.yaml`, hook weights, delete policies,
@@ -151,7 +153,8 @@ exceptions, each owned by a name helper in `_helpers.tpl` (the StatefulSet's by
 booleans, `printScalar` for numbers, `hasKey` for inheritance, the
 `<values path>: <problem>` shape of a `fail`, one home per enumeration. Read it
 before writing a template or helper. The mechanical rules are checked by
-`make lint-templates` and `make null-sweep`; `make check` runs the fast loop.
+`make lint-templates` and `make null-sweep`; `make check` runs the fast loop,
+which leaves `null-sweep` out.
 
 ## Agent skills
 

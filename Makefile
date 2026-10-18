@@ -146,7 +146,7 @@ help: ## Show this help message
 all: lint-chart lint-templates lint-docs lint-shell lint-glossary unit-test validate-bad-values scenario-coverage null-sweep generate-templates kubeconform kube-linter ## Lint, template rules, doc pointers, unit tests, bad-values, scenario coverage, null sweep, then generate, validate and lint the manifests
 	@echo "==> make all: every check passed"
 
-check: lint-chart lint-templates lint-docs lint-shell lint-glossary unit-test validate-bad-values scenario-coverage null-sweep ## The development loop: lint, template rules, doc pointers, unit tests, bad-values, scenario coverage, null sweep (no manifest validation)
+check: lint-chart lint-templates lint-docs lint-shell lint-glossary unit-test validate-bad-values scenario-coverage ## The development loop: lint, template rules, doc pointers, unit tests, bad-values, scenario coverage (no null sweep, no manifest validation: make all and CI run them)
 
 lint-chart: ## Lint chart with all test values files
 	@echo "==> Linting chart with all test cases..."
