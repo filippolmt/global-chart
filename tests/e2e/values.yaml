@@ -11,7 +11,7 @@
 #   runs as it. Its own name, so the pre-upgrade copy lives beside the real SA
 #   and its deletion leaves it alone (issue #141): the SA UID survives the upgrade
 # - the prereq ConfigMap/Secret copies feeding the hook's env
-# - deployment-level command/args (issue #72)
+# - workload-scope command/args (issue #72)
 # - a root-level hook, which creates its own ServiceAccount
 # - a root-level cronJob with no serviceAccount at all: same class of bug as
 #   issue #82 — the manifest is valid, kubeconform passes, and the pod simply

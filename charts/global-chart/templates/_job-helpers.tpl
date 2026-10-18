@@ -172,7 +172,7 @@ containers:
   {{- /* Only one of the two lists is ever non-empty (a job's own replaces the
          inherited one), so checking each against the job's volumes alone is
          enough to catch every volume-name collision */ -}}
-  {{- /* Only a deployment-level job inherits: at root level the path is never read */ -}}
+  {{- /* Only a workload-scope job inherits: at root level the path is never read */ -}}
   {{- $inheritedCtx := "" -}}
   {{- with .deployName -}}{{- $inheritedCtx = include "global-chart.deploymentValuesPath" . -}}{{- end -}}
   {{- /* Only volumes: a job renders no mountedConfigFiles, so none may count (issue #214) */ -}}
@@ -314,8 +314,8 @@ site used to rebuild it with its own printf, and a job reported by two paths —
 resolver, render and validator — could be named two ways.
   hooks.<type>.<name>                      root-level hook
   cronJobs.<name>                          root-level cronjob
-  deployments.<d>.hooks.<type>.<name>      deployment-level hook
-  deployments.<d>.cronJobs.<name>          deployment-level cronjob
+  deployments.<d>.hooks.<type>.<name>      workload-scope hook
+  deployments.<d>.cronJobs.<name>          workload-scope cronjob
 Bind it once per job (`$errCtx`) and reuse it; never printf the path inline.
 Params: kind ("hook" | "cronjob") · deploymentName (omit or "" at root level) ·
 hookType (hooks only) · jobName (the job's key) — the same names as
@@ -352,8 +352,8 @@ Accepts a dict with:
 
 Resolution order:
   1. explicit job.image
-  2. deployments[deployName].image (deployment-level: inherit parent; takes precedence
-                              so a deployment-level job's fromDeployment is ignored,
+  2. deployments[deployName].image (workload-scope: inherit parent; takes precedence
+                              so a workload-scope job's fromDeployment is ignored,
                               matching prior behavior)
   3. job.fromDeployment      (root-level only: lookup + fail if missing)
 */}}
@@ -407,7 +407,7 @@ by <job>)" (issues #188, #190).
 
 {{/*
 The CronJob spec fields between schedule/timeZone and jobTemplate, for both
-scopes: one home, so the root and deployment-level CronJobs cannot drift apart.
+scopes: one home, so the root and workload-scope CronJobs cannot drift apart.
 These are CronJob spec fields, not Job spec fields — jobSpecVerbatimFields
 below owns the Job template's. Rendered in this order, each from the job when
 it sets the key (hasKey, so 0 and false are kept), else from its default, else

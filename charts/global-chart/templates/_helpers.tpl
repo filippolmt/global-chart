@@ -229,7 +229,7 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 
 {{/*
 Hook labels plus the component, for both hook scopes.
-Params: root, and deploymentName for a deployment-level hook — omit it for a
+Params: root, and deploymentName for a workload-scope hook — omit it for a
 root-level one, whose component is just "hook".
 Usage: {{ include "global-chart.hookLabelsWithComponent" (dict "root" $root "deploymentName" $deployName) }}
 */}}

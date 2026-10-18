@@ -16,7 +16,7 @@ checks every fail against them: change both.
 
 {{/*
 The values path of a deployment, "deployments.<name>": its single home, as
-jobValuesPath is a job's (and leads a deployment-level job's with it).
+jobValuesPath is a job's (and leads a workload-scope job's with it).
 Usage: {{ include "global-chart.deploymentValuesPath" $name }}
 */}}
 {{- define "global-chart.deploymentValuesPath" -}}

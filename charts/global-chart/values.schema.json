@@ -660,12 +660,12 @@
       "maxLength": 58
     },
     "jobName": {
-      "description": "Key of a cronJobs or hooks.<type> map, at either scope. At deployment scope it becomes the container name raw, a DNS-1123 label; the root scope goes through a truncated fullname, but one rule holds for both.",
+      "description": "Key of a cronJobs or hooks.<type> map, at either scope. At workload scope it becomes the container name raw, a DNS-1123 label; the root scope goes through a truncated fullname, but one rule holds for both.",
       "$ref": "#/$defs/dns1123Label",
       "maxLength": 63
     },
     "hookType": {
-      "description": "Key of a hooks map: a Helm hook type, lowercase. An unknown type renders and Helm drops the resource with an INFO log and exit 0; at deployment scope it also drops the shared prereq ConfigMap/Secret, whose helm.sh/hook joins every type. Helm accepts an uppercase type, but the chart's checks are case-sensitive. 'test-success' is Helm's alias of 'test'.",
+      "description": "Key of a hooks map: a Helm hook type, lowercase. An unknown type renders and Helm drops the resource with an INFO log and exit 0; at workload scope it also drops the shared prereq ConfigMap/Secret, whose helm.sh/hook joins every type. Helm accepts an uppercase type, but the chart's checks are case-sensitive. 'test-success' is Helm's alias of 'test'.",
       "type": "string",
       "enum": [
         "pre-install",

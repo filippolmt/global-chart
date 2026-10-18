@@ -150,9 +150,9 @@ tests:
       - hasDocuments:
           count: 0
 
-  # ====== deployment-level CronJob collision ======
+  # ====== workload-scope CronJob collision ======
   # Both deployments: 27-char names + cronJob "m" = 29-char suffix, trunc to 26 = identical
-  - it: should fail when deployment-level cronjob names collide after truncation
+  - it: should fail when workload-scope cronjob names collide after truncation
     set:
       deployments:
         abcdefghijklmnopqrstuvwxyz1:

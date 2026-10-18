@@ -142,7 +142,7 @@ spec:
       labels:
         {{- include "global-chart.deploymentLabels" (dict "root" $root "deploymentName" $name "own" $deploy.podLabels) | nindent 8 }}
     spec:
-      {{- /* ImagePullSecrets: deployment-level > global (hasKey distinguishes unset from empty) */ -}}
+      {{- /* ImagePullSecrets: deployment > global (hasKey distinguishes unset from empty) */ -}}
       {{- $imagePullSecrets := list -}}
       {{- if hasKey $deploy "imagePullSecrets" -}}
         {{- $imagePullSecrets = $deploy.imagePullSecrets -}}

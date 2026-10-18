@@ -350,7 +350,7 @@ tests:
 
   # A Job pod takes OnFailure or Never only: Always passed lint and was
   # rejected at apply (issue #158).
-  - it: should reject restartPolicy Always on a deployment-level hook
+  - it: should reject restartPolicy Always on a workload-scope hook
     set:
       deployments:
         main:
@@ -634,7 +634,7 @@ tests:
           count: 4
 
   # ====== Workload enabled flag ======
-  - it: should not render deployment-level hook when deployment enabled is false
+  - it: should not render workload-scope hook when deployment enabled is false
     set:
       deployments:
         backend:
@@ -653,7 +653,7 @@ tests:
   # the hook inherits the SA and only produces 1 document (Job at index 0).
   # When deployment has no SA config, the hook creates its own SA (SA=0, Job=1).
 
-  - it: should render deployment-level hook inheriting image
+  - it: should render workload-scope hook inheriting image
     set:
       deployments:
         backend:
@@ -694,7 +694,7 @@ tests:
           value: "myapp:main@sha256:e0646c006c037b0bde03dd897029ab5cde600437969802848a63c474903cb2c8"
         documentIndex: 0
 
-  - it: should name a deployment-level hook image by its values path (issue #188)
+  - it: should name a workload-scope hook image by its values path (issue #188)
     set:
       deployments:
         backend:
@@ -738,7 +738,7 @@ tests:
       - failedTemplate:
           errorMessage: "deployments.api.image (inherited by hooks.pre-install.migrate): sets a digest without a repository (expected repository@digest)"
 
-  - it: should name deployment-level hook with deployment name included
+  - it: should name workload-scope hook with deployment name included
     set:
       deployments:
         backend:
@@ -755,11 +755,11 @@ tests:
           value: RELEASE-NAME-global-chart-backend-post-upgrade-migrate
         documentIndex: 0
 
-  # Locks the canonical name shape: deployment-level hook name is a SINGLE
+  # Locks the canonical name shape: workload-scope hook name is a SINGLE
   # trunc 63 over the full 4-part name (deploymentHookName helper, shared with
   # validateNameCollisions). Guards against a future revert to a per-site
   # printf|trunc that could re-introduce the validator/template decomposition split.
-  - it: should truncate deployment-level hook name to 63 chars via single trunc
+  - it: should truncate workload-scope hook name to 63 chars via single trunc
     release:
       name: rel-abcdefghijklmnop
     set:
@@ -783,7 +783,7 @@ tests:
           value: rel-abcdefghijklmnop-global-chart-backend-service-worker-compon
         documentIndex: 1
 
-  - it: should set component label for deployment-level hook
+  - it: should set component label for workload-scope hook
     set:
       deployments:
         backend:
@@ -801,7 +801,7 @@ tests:
         documentIndex: 0
 
   # ====== Workload-scope hook can override image ======
-  - it: should allow deployment-level hook to override image
+  - it: should allow workload-scope hook to override image
     set:
       deployments:
         backend:
@@ -880,7 +880,7 @@ tests:
           of: Job
         documentIndex: 1
 
-  - it: should allow explicit serviceAccountName override in deployment-level hook
+  - it: should allow explicit serviceAccountName override in workload-scope hook
     set:
       deployments:
         backend:
@@ -900,7 +900,7 @@ tests:
           value: "custom-hook-sa"
         documentIndex: 0
 
-  - it: should fail when a deployment-level hook names its ServiceAccount twice with different names
+  - it: should fail when a workload-scope hook names its ServiceAccount twice with different names
     set:
       deployments:
         backend:
@@ -1328,7 +1328,7 @@ tests:
           value: report-sa-hook
         documentIndex: 1
 
-  # A deployment-level cronjob's own SA: the copy takes the deployment's
+  # A workload-scope cronjob's own SA: the copy takes the deployment's
   # component label
   - it: should copy a deployment cronjob's own SA for a pre-upgrade hook naming it
     set:
@@ -1514,7 +1514,7 @@ tests:
         documentIndex: 0
 
   # ====== Workload-scope hook securityContext inheritance ======
-  - it: should inherit podSecurityContext from deployment in deployment-level hook
+  - it: should inherit podSecurityContext from deployment in workload-scope hook
     set:
       deployments:
         backend:
@@ -1538,7 +1538,7 @@ tests:
           value: 2000
         documentIndex: 0
 
-  - it: should inherit container securityContext from deployment in deployment-level hook
+  - it: should inherit container securityContext from deployment in workload-scope hook
     set:
       deployments:
         backend:
@@ -1559,7 +1559,7 @@ tests:
 
   # command/args are deliberately NOT inheritable: a migration hook must never
   # pick up the deployment's entrypoint (see issue #72).
-  - it: should not inherit command or args from deployment in deployment-level hook
+  - it: should not inherit command or args from deployment in workload-scope hook
     set:
       deployments:
         backend:
@@ -1581,7 +1581,7 @@ tests:
           value: ["--check"]
         documentIndex: 0
 
-  - it: should allow deployment-level hook to override podSecurityContext
+  - it: should allow workload-scope hook to override podSecurityContext
     set:
       deployments:
         backend:
@@ -1602,7 +1602,7 @@ tests:
           value: 2000
         documentIndex: 0
 
-  - it: should allow deployment-level hook to override container securityContext
+  - it: should allow workload-scope hook to override container securityContext
     set:
       deployments:
         backend:
@@ -1624,7 +1624,7 @@ tests:
         documentIndex: 0
 
   # ====== Workload-scope hook hostAliases inheritance ======
-  - it: should inherit hostAliases from deployment in deployment-level hook
+  - it: should inherit hostAliases from deployment in workload-scope hook
     set:
       deployments:
         backend:
@@ -1649,7 +1649,7 @@ tests:
           value: "db.local"
         documentIndex: 0
 
-  - it: should allow deployment-level hook to override hostAliases
+  - it: should allow workload-scope hook to override hostAliases
     set:
       deployments:
         backend:
@@ -1909,7 +1909,7 @@ tests:
           value: backend
         documentIndex: 0
 
-  - it: should allow deployment-level hook to override nodeSelector
+  - it: should allow workload-scope hook to override nodeSelector
     set:
       deployments:
         backend:
@@ -1957,7 +1957,7 @@ tests:
             effect: "NoSchedule"
         documentIndex: 0
 
-  - it: should allow deployment-level hook to override tolerations
+  - it: should allow workload-scope hook to override tolerations
     set:
       deployments:
         backend:
@@ -2011,7 +2011,7 @@ tests:
           path: spec.template.spec.affinity.nodeAffinity
         documentIndex: 0
 
-  - it: should allow deployment-level hook to override affinity
+  - it: should allow workload-scope hook to override affinity
     set:
       deployments:
         backend:
@@ -2064,7 +2064,7 @@ tests:
             name: "registry-secret"
         documentIndex: 0
 
-  - it: should allow deployment-level hook to override imagePullSecrets
+  - it: should allow workload-scope hook to override imagePullSecrets
     set:
       deployments:
         backend:
@@ -2087,7 +2087,7 @@ tests:
         documentIndex: 0
 
   # ====== Workload-scope hook default resources ======
-  - it: should use default resources on deployment-level hook when not specified
+  - it: should use default resources on workload-scope hook when not specified
     set:
       deployments:
         backend:
@@ -2108,7 +2108,7 @@ tests:
           value: 128Mi
         documentIndex: 0
 
-  - it: should use custom resources on deployment-level hook when specified
+  - it: should use custom resources on workload-scope hook when specified
     set:
       deployments:
         backend:
@@ -2130,7 +2130,7 @@ tests:
         documentIndex: 0
 
   # ====== Workload-scope hook default annotations ======
-  - it: should set correct annotations on deployment-level hook
+  - it: should set correct annotations on workload-scope hook
     set:
       deployments:
         backend:
@@ -2155,7 +2155,7 @@ tests:
           value: before-hook-creation
         documentIndex: 0
 
-  - it: should use custom weight and deletePolicy on deployment-level hook
+  - it: should use custom weight and deletePolicy on workload-scope hook
     set:
       deployments:
         backend:
@@ -2179,7 +2179,7 @@ tests:
         documentIndex: 1
 
   # ====== Workload-scope hook restartPolicy ======
-  - it: should default restartPolicy to Never on deployment-level hook
+  - it: should default restartPolicy to Never on workload-scope hook
     set:
       deployments:
         backend:
@@ -2196,8 +2196,8 @@ tests:
           value: "Never"
         documentIndex: 0
 
-  # ====== Container name for deployment-level hook ======
-  - it: should use job name as container name for deployment-level hook
+  # ====== Container name for workload-scope hook ======
+  - it: should use job name as container name for workload-scope hook
     set:
       deployments:
         backend:
@@ -2214,8 +2214,8 @@ tests:
           value: migrate
         documentIndex: 0
 
-  # ====== Mixed: root-level and deployment-level hooks ======
-  - it: should render both root-level and deployment-level hooks
+  # ====== Mixed: root-level and workload-scope hooks ======
+  - it: should render both root-level and workload-scope hooks
     set:
       deployments:
         backend:
@@ -2236,7 +2236,7 @@ tests:
           count: 3
 
   # ====== hook weight ordering ======
-  - it: should set weight 3 on prerequisite ConfigMap for deployment-level hook
+  - it: should set weight 3 on prerequisite ConfigMap for workload-scope hook
     set:
       deployments:
         backend:
@@ -2256,7 +2256,7 @@ tests:
           value: "3"
         documentIndex: 1
 
-  - it: should set weight 3 on prerequisite Secret for deployment-level hook
+  - it: should set weight 3 on prerequisite Secret for workload-scope hook
     set:
       deployments:
         backend:
@@ -2276,7 +2276,7 @@ tests:
           value: "3"
         documentIndex: 1
 
-  - it: should set weight 5 on SA for deployment-level hook
+  - it: should set weight 5 on SA for workload-scope hook
     set:
       deployments:
         backend:
@@ -2296,7 +2296,7 @@ tests:
           value: "5"
         documentIndex: 0
 
-  - it: should set weight 10 on Job for deployment-level hook
+  - it: should set weight 10 on Job for workload-scope hook
     set:
       deployments:
         backend:
@@ -2690,8 +2690,8 @@ tests:
 
   # ====== Negative tests: fail/required paths ======
 
-  # ====== dnsConfig NOT inherited in deployment-level hooks ======
-  - it: should not inherit dnsConfig from deployment in deployment-level hook
+  # ====== dnsConfig NOT inherited in workload-scope hooks ======
+  - it: should not inherit dnsConfig from deployment in workload-scope hook
     set:
       deployments:
         backend:
@@ -2851,7 +2851,7 @@ tests:
           path: kind
           value: Job
 
-  - it: should create the deployment-level hook SA under an explicit serviceAccountName
+  - it: should create the workload-scope hook SA under an explicit serviceAccountName
     set:
       deployments:
         backend:
@@ -3126,7 +3126,7 @@ tests:
           value: post-install
         documentIndex: 1
 
-  - it: should render annotations of a deployment-level hook on its Job
+  - it: should render annotations of a workload-scope hook on its Job
     set:
       global:
         commonAnnotations:
@@ -3494,7 +3494,7 @@ tests:
           path: kind
           value: Job
 
-  - it: should render activeDeadlineSeconds on a deployment-level hook Job, and omit it when unset
+  - it: should render activeDeadlineSeconds on a workload-scope hook Job, and omit it when unset
     set:
       deployments:
         app:
@@ -3535,7 +3535,7 @@ tests:
           path: kind
           value: Job
 
-  - it: should render backoffLimit on a deployment-level hook Job, and omit it when unset
+  - it: should render backoffLimit on a workload-scope hook Job, and omit it when unset
     set:
       deployments:
         app:
@@ -3781,7 +3781,7 @@ tests:
 
   # ====== Pod-level automountServiceAccountToken (issue #154, ADR 0014) ======
   # The pod field wins over the ServiceAccount's at admission. Chain: the job's
-  # own value > (deployment scope only) the deployment's pod-level value > omit.
+  # own value > (workload scope only) the deployment's pod-level value > omit.
   - it: should render pod-level automountServiceAccountToken false from a root hook's own field
     documentSelector:
       path: kind
@@ -3893,8 +3893,8 @@ tests:
           path: metadata.annotations["helm.sh/hook-weight"]
           value: "-10"
 
-  # A deployment-level hook opts out of one list and keeps the other (issue #159)
-  - it: should opt a deployment-level hook out of the deployment's envFromSecrets only
+  # A workload-scope hook opts out of one list and keeps the other (issue #159)
+  - it: should opt a workload-scope hook out of the deployment's envFromSecrets only
     set:
       deployments:
         main:
@@ -3935,7 +3935,7 @@ tests:
           path: spec.template.spec.priorityClassName
           value: prod-high
 
-  - it: should let a deployment-level hook override priorityClassName
+  - it: should let a workload-scope hook override priorityClassName
     documentSelector:
       path: kind
       value: Job

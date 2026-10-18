@@ -1,4 +1,4 @@
-# A deployment-level cronjob inherits the deployment's mounted externalSecrets:
+# A workload-scope cronjob inherits the deployment's mounted externalSecrets:
 # its own volumeMounts may not land on the same path (issue #182).
 # Expected fail substring: "deployments.main.cronJobs.report: externalSecrets 'app-conf' (inherited from deployments.main) mounts on '/etc/app', which volumeMounts[0] already mounts"
 externalSecrets:
