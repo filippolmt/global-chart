@@ -48,7 +48,7 @@ PATH_EXT = r"(?:md|tpl|yaml|yml|json|py|txt|html)"
 PATH_TOKEN = re.compile(r"^[A-Za-z0-9_.\-/]+(?:/|\." + PATH_EXT + r")$")
 BACKTICK = re.compile(r"`([^`\n]+)`")
 MD_LINK = re.compile(r"\]\(([^)\s#]+)(?:#[^)]*)?\)")
-CODE_REF = re.compile(r"(?<![\w/.-])((?:[\w.-]+/)*[\w.-]+\.md|docs/adr/[\w.-]+)")
+CODE_REF = re.compile(r"(?<![\w/.%-])((?:[\w.-]+/)*[\w.-]+\.md|docs/adr/[\w.-]+)")
 SECTION_REF = re.compile(r"CLAUDE\.md,? (?:pattern|section|rule) \d+")
 
 

@@ -195,11 +195,14 @@ deprecation.
 2. **Removed** in the major: a template `fail`, leading with the path of the
    removed key itself: `<values path>: removed in X.0.0, use <replacement>`.
    When the replacement does not fit one line, the message names it and links
-   the release's *Migration guide* in `CHANGELOG.md`. The schema keeps the key
-   declared with no constraint, only a description saying `removed in X.0.0,
-   issue #N`: a schema rejection prints the path but never the replacement,
-   so any value, of any type, must reach the `fail`. The `NOTES.txt` warning
-   and the deprecation wording go. A `tests/bad-values/fail/` fixture asserts
-   the message.
+   the release's *Migration guide* in `CHANGELOG.md`, built from
+   `.Chart.Home`. The schema keeps the key declared with no constraint, only a
+   description saying `removed in X.0.0, issue #N`, where `#N` is the
+   deprecation issue, as in phase 1: a schema rejection prints the path but
+   never the replacement, so any value, of any type, must reach the `fail`.
+   The `NOTES.txt` warning and the deprecation wording go, and so does every
+   other mention of the key as current: README, `values.yaml`, `GLOSSARY.md`,
+   and an ADR, amended inline (`*Amended by issue #N:*`). A
+   `tests/bad-values/fail/` fixture asserts the message.
 3. **Gone** at the next major: the `fail`, the schema declaration and the
    fixture go together.
