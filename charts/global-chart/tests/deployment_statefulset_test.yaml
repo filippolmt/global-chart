@@ -191,3 +191,27 @@ tests:
           value: data
 
   # The claim becomes a pod volume of the same name: two volumes, one name
+
+  - it: should fail when an externalSecrets volume takes the name of a claim template
+    set:
+      externalSecrets:
+        app-conf:
+          secretstore: { kind: ClusterSecretStore, name: store }
+          secretkey: KEY
+          remote: { key: app }
+      deployments:
+        db:
+          kind: StatefulSet
+          image: nginx:1.25
+          externalSecrets:
+            - name: app-conf
+              mountPath: /etc/app
+          volumeMounts:
+            - name: es-app-conf
+              mountPath: /data
+          volumeClaimTemplates:
+            - name: es-app-conf
+              size: 1Gi
+    asserts:
+      - failedTemplate:
+          errorMessage: "deployments.db.externalSecrets[0]: the volume 'es-app-conf' generated for 'app-conf' is already declared by deployments.db.volumeClaimTemplates[0]. Mount a key once, and do not name your own volumes after it."

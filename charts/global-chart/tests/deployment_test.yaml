@@ -834,19 +834,6 @@ tests:
       - failedTemplate:
           errorMessage: "deployments.main.volumes[0]: declares the pod volume 'md-cm-bundle-0', which deployments.main.mountedConfigFiles.bundles[0] already declares, and a pod holds one volume per name. Rename the volumes entry."
 
-  - it: should fail when two mounted config files generate one volume name
-    set:
-      deployments:
-        main:
-          image: nginx:1.25
-          mountedConfigFiles:
-            files:
-              - { name: app, filename: a.yaml, targetPath: /etc/a.yaml, content: "a: 1" }
-              - { name: app, filename: b.yaml, targetPath: /etc/b.yaml, content: "b: 1" }
-    asserts:
-      - failedTemplate:
-          errorMessage: "deployments.main.mountedConfigFiles.files[1]: declares the pod volume 'md-cm-file-app', which deployments.main.mountedConfigFiles.files[0] already declares, and a pod holds one volume per name. Give each file its own name."
-
   - it: should fail when two volumes entries share a name
     set:
       deployments:
