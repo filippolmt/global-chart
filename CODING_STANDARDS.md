@@ -39,6 +39,9 @@ LIMIT: {{ toString $value | quote }}
 terminationGracePeriodSeconds: {{ include "global-chart.printScalar" $deploy.terminationGracePeriodSeconds }}
 LIMIT: {{ include "global-chart.printScalar" $value | quote }}
 ```
+A number that went through `toJson | fromJson` is a float64 too, whatever
+`--set` made of it: a guard on `kindIs "float64"` after `fromJson` sees every
+number (the `_render-helpers.tpl` header).
 
 **Inheritance — use `isSet` to distinguish "not set" from "empty":**
 ```yaml
@@ -130,6 +133,12 @@ a `deployments` entry says *workload* (GLOSSARY); *Deployment* or
 headless Service). The kind in a message comes from `workloadKind`. The
 `deployments` key and the helper names (`deploymentFullname`) keep their name
 (ADR 0020, issue #221).
+
+**A rule that holds for every kind is tested on every kind.** A check or a
+render path that reads a `deployments` entry whatever its kind gets a suite
+case with `kind: StatefulSet` beside the Deployment one: the kind changes the
+template's branches, and a rule tested on one kind alone is assumed on the other
+(issue #216).
 
 **The path names the key that chose.** A `fail` leads with the values path
 "as precise as the caller knows it" (the `_validate-helpers.tpl` header): when

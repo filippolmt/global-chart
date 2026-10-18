@@ -23,7 +23,9 @@ a rule below cannot recognise: a check that sees nothing is not a pass.
   defines, then `: `. A message that is not a literal (`fail $msg`,
   `fail (print …)`) cannot be checked and is reported as such.
 - template-suite: every template has a `tests/<name>_test.yaml` suite
-  (`notes_test.yaml` for NOTES.txt).
+  (`notes_test.yaml` for NOTES.txt), and every file in `tests/` but
+  `__snapshot__/` is a `*_test.yaml` suite: helm-unittest skips any other name
+  without a word, so a misnamed suite (`pdb_tests.yaml`) never runs.
 - kind-fields: the backstop guard's `$kindOnly` in deployment.yaml lists, per
   kind, the fields the other kind rejects, and the `if/then/else` on `kind` of
   `$defs/deployment` rejects the same ones with `false` (ADR 0020). The two are
@@ -183,6 +185,9 @@ def main(chart):
             name = "notes" if path.name == "NOTES.txt" else path.stem
             if not (chart / "tests" / f"{name}_test.yaml").exists():
                 problems.append(f"{rel}: template-suite: no tests/{name}_test.yaml")
+    for path in sorted((chart / "tests").iterdir()):
+        if path.name != "__snapshot__" and not path.name.endswith("_test.yaml"):
+            problems.append(f"{path.relative_to(chart)}: template-suite: not a *_test.yaml suite, so helm-unittest never runs it")
     problems += kind_fields(chart, schema)
     problems += workload_kind(chart)
     if problems:

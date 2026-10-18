@@ -45,7 +45,8 @@ Offline renders: `.Capabilities.APIVersions` carries CRDs only during a real
 install, so `helm template` of a KEDA or Gateway API scenario needs the
 `--api-versions` in `HELM_API_VERSIONS` (`capabilities.apiVersions` in the
 suites). `helm lint` evaluates no template `fail`: it logs it at INFO and
-passes, so a `fail` is proven by `tests/bad-values/` and the suites.
+passes, so a `fail` is proven by `tests/bad-values/` and the suites;
+`make lint-chart` turns any INFO fail but the CRD check into a FAIL.
 
 ## Architecture
 
