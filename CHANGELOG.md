@@ -47,13 +47,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   descriptions of `annotations`, `reloader.externalSecrets` and
   `priorityClassName`, the `values.yaml` comments and NOTES.txt
   (`Workloads created:`, was `Deployments created:`) no longer name a
-  Deployment for a StatefulSet entry. A name collision now names the entry's
-  own kind: `Name collision: StatefulSet '…'`, where it always said
-  `Deployment`. Only the text changes: a check matching the old NOTES heading
-  or the old failure text needs updating.
+  Deployment for a StatefulSet entry. A workload name collision names the
+  entry's own kind instead of always `Deployment`. Only the text changes: a
+  check matching the old NOTES heading or the old failure text needs updating.
 
 ### Fixed
 
+- **A StatefulSet's headless Service collides only with a Service** (issue
+  #222). An entry named `<name>-headless` beside a StatefulSet `<name>` failed
+  the render even with `service.enabled: false`, when no two manifests share a
+  kind and a name, and the message named the entry's workload, not the Service
+  that clashes. The headless name is now checked against the rendered
+  Services only, and the failure reads `Name collision: Service '…' generated
+  by deployments.<entry>.service conflicts with deployments.<name> (its
+  headless Service)`.
 - **Two pod volumes of one name fail the render** (issue #214). A `volumes`
   entry named like a volume `mountedConfigFiles` generates (`md-cm-file-<name>`,
   `md-cm-bundle-<i>`), or like another `volumes` entry, rendered a pod the API
