@@ -180,3 +180,26 @@ fields, a `TEST_CASES` scenario renders it (`make e2e-dryrun` sends every
 scenario) and a new route kind joins `GATEWAY_ROUTE_KINDS`; when the chart can
 tell the combination is invalid at render time, it fails there too, naming the
 key.
+
+**A key is deprecated for a minor, then removed in a major with a `fail`
+naming its replacement** (ADR 0022, issue #205). The rule covers the keys and
+formats a values author writes; a new `fail` on values that never worked, or
+a raised version floor, is a Breaking change with a migration guide and no
+deprecation.
+
+1. **Deprecated**, for at least one released minor: the key keeps working.
+   `NOTES.txt` lists every values path that uses it and names the
+   replacement; the schema description of the key, or of the surface
+   declaring it, says `deprecated, removed in X.0.0, issue #N`; the CHANGELOG
+   lists it under *Deprecated* with an **Action:**.
+2. **Removed** in the major: a template `fail`, leading with the path of the
+   removed key itself: `<values path>: removed in X.0.0, use <replacement>`.
+   When the replacement does not fit one line, the message names it and links
+   the release's *Migration guide* in `CHANGELOG.md`. The schema keeps the key
+   declared with no constraint, only a description saying `removed in X.0.0,
+   issue #N`: a schema rejection prints the path but never the replacement,
+   so any value, of any type, must reach the `fail`. The `NOTES.txt` warning
+   and the deprecation wording go. A `tests/bad-values/fail/` fixture asserts
+   the message.
+3. **Gone** at the next major: the `fail`, the schema declaration and the
+   fixture go together.
