@@ -123,6 +123,8 @@ server warnings too.
 **Never run `helm install` against whatever `kubectl` context happens to be
 selected** — it can be production. `make e2e` pins `KUBECONFIG` to
 `.bin/kind-kubeconfig` and can only ever reach its own kind cluster; keep it
-that way. The target also repoints the API server at the control-plane
+that way. A one-off probe of the e2e cluster (a `kubectl` server-side dry run,
+a `helm get`) names it the same way, never through the default context:
+`kubectl --kubeconfig .bin/kind-kubeconfig --context kind-global-chart-e2e …`. The target also repoints the API server at the control-plane
 container's address when it runs inside a container, where the kubeconfig's
 `127.0.0.1` is the Docker host rather than the caller.

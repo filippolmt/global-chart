@@ -38,7 +38,7 @@ The Makefile carries the rest. Three rules about when to run what:
 - Runtime behaviour touched — `hook.yaml`, hook weights, delete policies,
   ServiceAccount lifecycle → `make e2e`. It is the only thing that sees the
   runtime half of the chart; `helm-unittest` only renders YAML. What it asserts,
-  what in it is deliberate, and why a hand-rolled `helm install` is forbidden:
+  what in it is deliberate, and why a hand-rolled `helm install` is forbidden and how to probe the e2e cluster by hand:
   `tests/e2e/README.md`.
 
 Offline renders: `.Capabilities.APIVersions` carries CRDs only during a real
