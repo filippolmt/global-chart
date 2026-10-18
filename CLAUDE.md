@@ -8,8 +8,8 @@ rules below.
 ## Commands
 
 ```bash
-make all                    # check + generate + kubeconform + kube-linter
-make check                  # the fast loop: lint-chart, lint-templates, lint-docs, lint-shell, lint-glossary, unit-test, bad-values, scenario-coverage, null-sweep
+make all                    # check + null-sweep + generate + kubeconform + kube-linter
+make check                  # the fast loop: lint-chart, lint-templates, lint-docs, lint-shell, lint-glossary, unit-test, bad-values, scenario-coverage (not null-sweep: make all and CI run it)
 make lint-chart             # lint every scenario in TEST_CASES
 make lint-templates         # the mechanical rules of CODING_STANDARDS.md
 make lint-docs              # every file a document or a comment points at exists
@@ -35,7 +35,9 @@ The bump is its own release PR.
 
 The Makefile carries the rest. Three rules about when to run what:
 
-- Templates or values changed → `make lint-chart` and `make unit-test`.
+- Templates or values changed → `make lint-chart` and `make unit-test`; a map
+  or list a template reads, `valuesShape`, the schema or a scenario changed →
+  also `make null-sweep`, which `make check` leaves out.
 - Schema or user-visible values changed (new fields, defaults, descriptions) →
   also `make generate-docs`, to refresh `charts/global-chart/README.md`.
 - Runtime behaviour touched — `hook.yaml`, hook weights, delete policies,

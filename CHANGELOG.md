@@ -156,6 +156,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   no type is a finding), and checks that every pod-spec owner
   `podSpecOwners` lists has a pod spec in `valuesShape`. A Go fmt error (`%!`)
   in a message counts as a raw error.
+- `make null-sweep` leaves `make check`; `make all` and CI run it (issue
+  #239): its type pass made the fast loop take about 3.5 minutes.
 - `make e2e-dryrun` replaces `make e2e-routes`, which stays as an alias. It
   sends every `TEST_CASES` scenario to the kind API server as a server-side dry
   run, not only those that render a route, so the rules between fields of a
