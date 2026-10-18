@@ -85,8 +85,8 @@ tests:
           path: spec.jobTemplate.spec.template.spec.containers[0].image
           value: "myapp/backup:main@sha256:e0646c006c037b0bde03dd897029ab5cde600437969802848a63c474903cb2c8"
 
-  # ====== Deployment enabled flag ======
-  - it: should not render deployment-level cronjob when deployment enabled is false
+  # ====== Workload enabled flag ======
+  - it: should not render workload-scope cronjob when deployment enabled is false
     set:
       deployments:
         backend:
@@ -131,7 +131,7 @@ tests:
       - failedTemplate:
           errorMessage: "cronJobs.cleanup.image: sets a digest without a repository (expected repository@digest)"
 
-  - it: should name a deployment-level cronjob image by its values path (issue #188)
+  - it: should name a workload-scope cronjob image by its values path (issue #188)
     set:
       deployments:
         backend:
@@ -146,7 +146,7 @@ tests:
       - failedTemplate:
           errorMessage: "deployments.backend.cronJobs.db-backup.image: sets a digest without a repository (expected repository@digest)"
 
-  # ====== Deployment-level CronJob inheritance ======
+  # ====== Workload-scope CronJob inheritance ======
   - it: should inherit image from parent deployment
     set:
       deployments:
@@ -182,7 +182,7 @@ tests:
           path: spec.jobTemplate.spec.template.spec.nodeSelector.tier
           value: backend
 
-  # ====== Deployment-level CronJob SA inheritance ======
+  # ====== Workload-scope CronJob SA inheritance ======
   - it: should inherit serviceAccount from parent deployment
     release:
       name: myrel
@@ -224,7 +224,7 @@ tests:
           value: 128Mi
 
   # ====== CronJob labels ======
-  - it: should include component label on deployment-level cronjob
+  - it: should include component label on workload-scope cronjob
     set:
       deployments:
         worker:
@@ -247,8 +247,8 @@ tests:
             app.kubernetes.io/component: worker
         documentIndex: 0
 
-  # ====== Deployment-level CronJob hostAliases inheritance ======
-  - it: should inherit hostAliases from deployment in deployment-level cronjob
+  # ====== Workload-scope CronJob hostAliases inheritance ======
+  - it: should inherit hostAliases from the workload in workload-scope cronjob
     set:
       deployments:
         backend:
@@ -298,7 +298,7 @@ tests:
           value: "10.0.0.1"
         documentIndex: 0
 
-  # ====== Deployment-level CronJob: explicit empty should NOT inherit ======
+  # ====== Workload-scope CronJob: explicit empty should NOT inherit ======
   - it: should not inherit hostAliases when cronjob sets empty list
     set:
       deployments:
@@ -361,7 +361,7 @@ tests:
           path: spec.jobTemplate.spec.template.spec.containers[0].securityContext
         documentIndex: 0
 
-  # ====== Deployment-level CronJob: explicit empty should NOT inherit (nodeSelector, affinity, tolerations, imagePullSecrets) ======
+  # ====== Workload-scope CronJob: explicit empty should NOT inherit (nodeSelector, affinity, tolerations, imagePullSecrets) ======
   - it: should allow cronjob to override nodeSelector with empty map
     set:
       deployments:
@@ -494,8 +494,8 @@ tests:
           path: spec.jobTemplate.spec.template.spec.containers[0].securityContext.runAsNonRoot
           value: true
 
-  # ====== Deployment-level CronJob securityContext inheritance ======
-  - it: should inherit podSecurityContext from deployment in deployment-level cronjob
+  # ====== Workload-scope CronJob securityContext inheritance ======
+  - it: should inherit podSecurityContext from the workload in workload-scope cronjob
     set:
       deployments:
         backend:
@@ -516,7 +516,7 @@ tests:
           value: 1000
         documentIndex: 0
 
-  - it: should inherit container securityContext from deployment in deployment-level cronjob
+  - it: should inherit container securityContext from the workload in workload-scope cronjob
     set:
       deployments:
         backend:
@@ -535,7 +535,7 @@ tests:
 
   # command/args are deliberately NOT inheritable: a cronjob must never pick up
   # the deployment's entrypoint (see issue #72).
-  - it: should not inherit command or args from deployment in deployment-level cronjob
+  - it: should not inherit command or args from the workload in workload-scope cronjob
     set:
       deployments:
         backend:
@@ -555,8 +555,8 @@ tests:
           value: ["--dry-run"]
         documentIndex: 0
 
-  # ====== Deployment-level CronJob dnsConfig inheritance ======
-  - it: should inherit dnsConfig from deployment in deployment-level cronjob
+  # ====== Workload-scope CronJob dnsConfig inheritance ======
+  - it: should inherit dnsConfig from the workload in workload-scope cronjob
     set:
       deployments:
         backend:
@@ -585,7 +585,7 @@ tests:
 
   # ndots: 0 disables search-domain expansion; a truthiness test dropped the
   # value and the resolver fell back to ndots:5 (issue #136).
-  - it: should keep an inherited dnsConfig option value of 0 in a deployment-level cronjob
+  - it: should keep an inherited dnsConfig option value of 0 in a workload-scope cronjob
     set:
       deployments:
         backend:
@@ -693,7 +693,7 @@ tests:
           value: false
         documentIndex: 0
 
-  - it: should honor serviceAccount.automount on created deployment-level cronjob SA
+  - it: should honor serviceAccount.automount on created workload-scope cronjob SA
     release:
       name: myrel
     set:
@@ -716,7 +716,7 @@ tests:
           value: false
         documentIndex: 0
 
-  - it: should render successfulJobsHistoryLimit 0 on deployment-level cronjob
+  - it: should render successfulJobsHistoryLimit 0 on workload-scope cronjob
     set:
       deployments:
         backend:
@@ -735,7 +735,7 @@ tests:
           value: 0
         documentIndex: 0
 
-  - it: should render failedJobsHistoryLimit 0 on deployment-level cronjob
+  - it: should render failedJobsHistoryLimit 0 on workload-scope cronjob
     set:
       deployments:
         backend:
@@ -801,7 +801,7 @@ tests:
 
   # ====== Seven-category inheritance gaps ======
 
-  - it: should inherit affinity from deployment in deployment-level cronjob
+  - it: should inherit affinity from the workload in workload-scope cronjob
     set:
       deployments:
         backend:
@@ -878,7 +878,7 @@ tests:
           path: spec.jobTemplate.spec.template.spec.containers[0].securityContext.runAsNonRoot
         documentIndex: 0
 
-  - it: should inherit imagePullSecrets from deployment in deployment-level cronjob
+  - it: should inherit imagePullSecrets from the workload in workload-scope cronjob
     set:
       deployments:
         backend:
@@ -950,7 +950,7 @@ tests:
       - failedTemplate:
           errorPattern: "cronJobs\\.cleanup\\.fromDeployment: references deployment 'ghost', which does not exist in \\.Values\\.deployments"
 
-  - it: should fail when two volumes entries of a deployment-level cronjob share a name
+  - it: should fail when two volumes entries of a workload-scope cronjob share a name
     set:
       deployments:
         web:
@@ -994,7 +994,7 @@ tests:
           path: metadata.labels.team
           value: platform
 
-  # ====== Deployment-level CronJob SA inheritance (existing SA) ======
+  # ====== Workload-scope CronJob SA inheritance (existing SA) ======
   - it: should inherit existing SA name from deployment when create=false
     set:
       deployments:
@@ -1100,8 +1100,8 @@ tests:
           path: spec.jobTemplate.spec.template.metadata.annotations.owner
           value: platform
 
-  # ====== issue #48: empty metadata blocks (deployment-level) ======
-  - it: should NOT render empty jobTemplate.metadata for deployment-level cronjob
+  # ====== issue #48: empty metadata blocks (workload-scope) ======
+  - it: should NOT render empty jobTemplate.metadata for workload-scope cronjob
     set:
       deployments:
         backend:
@@ -1217,8 +1217,8 @@ tests:
           path: spec.suspend
           value: false
 
-  # ====== issue #48: CronJob spec hardening fields (deployment-level) ======
-  - it: should render hardening fields on deployment-level cronjob
+  # ====== issue #48: CronJob spec hardening fields (workload-scope) ======
+  - it: should render hardening fields on workload-scope cronjob
     set:
       deployments:
         backend:
@@ -1262,7 +1262,7 @@ tests:
           path: spec.jobTemplate.spec.completions
           value: 1
 
-  # ====== issue #48: secret/configmap inheritance opt-out (deployment-level cronjob) ======
+  # ====== issue #48: secret/configmap inheritance opt-out (workload-scope cronjob) ======
   - it: should auto-inherit deployment configMap and secret in env (default)
     set:
       deployments:
@@ -1294,8 +1294,8 @@ tests:
   # The twin of "should order envFrom by type" in deployment_test.yaml, on the
   # same four sources. A job orders **by proximity**: everything the deployment
   # hands it first, then everything it declares itself, so the nearest declarer
-  # wins. That is not the Deployment's order and is not meant to be — a job has
-  # one level the Deployment does not, its own, and ordering by type would make
+  # wins. That is not the workload's order and is not meant to be — a job has
+  # one level the workload does not, its own, and ordering by type would make
   # it lose to a source that is not its. The two orders differ on exactly one
   # pair, the deployment's generated Secret against its envFromConfigMaps.
   - it: should order envFrom by proximity, the deployment's sources before its own
@@ -1575,7 +1575,7 @@ tests:
           path: kind
           value: CronJob
 
-  - it: should create the deployment-level cronjob SA under an explicit serviceAccountName
+  - it: should create the workload-scope cronjob SA under an explicit serviceAccountName
     set:
       deployments:
         backend:
@@ -1616,7 +1616,7 @@ tests:
       - failedTemplate:
           errorMessage: "cronJobs.cleanup: names its ServiceAccount twice, with different names: serviceAccountName \"runner\" and serviceAccount.name \"migrator\". Keep only one of the two fields (or set the same name in both)."
 
-  - it: should fail when a deployment-level cronjob names its ServiceAccount twice with different names
+  - it: should fail when a workload-scope cronjob names its ServiceAccount twice with different names
     set:
       deployments:
         backend:
@@ -1632,7 +1632,7 @@ tests:
       - failedTemplate:
           errorMessage: "deployments.backend.cronJobs.backup: names its ServiceAccount twice, with different names: serviceAccountName \"runner\" and serviceAccount.name \"migrator\". Keep only one of the two fields (or set the same name in both)."
 
-  - it: should accept a deployment-level cronjob naming the same ServiceAccount in both fields
+  - it: should accept a workload-scope cronjob naming the same ServiceAccount in both fields
     set:
       deployments:
         backend:
@@ -1907,7 +1907,7 @@ tests:
           path: kind
           value: CronJob
 
-  - it: should render large deployment-level cronjob integers in plain digits
+  - it: should render large workload-scope cronjob integers in plain digits
     set:
       deployments:
         app:
@@ -1958,7 +1958,7 @@ tests:
 
   # ====== Pod-level automountServiceAccountToken (issue #154, ADR 0014) ======
   # The pod field wins over the ServiceAccount's at admission. Chain: the job's
-  # own value > (deployment scope only) the deployment's pod-level value > omit.
+  # own value > (workload scope only) the deployment's pod-level value > omit.
   - it: should render pod-level automountServiceAccountToken false from a root cronjob's own field
     documentSelector:
       path: kind
@@ -2094,7 +2094,7 @@ tests:
           path: spec.jobTemplate.spec.template.spec.priorityClassName
           value: prod-high
 
-  - it: should let a deployment-level cronjob override priorityClassName
+  - it: should let a workload-scope cronjob override priorityClassName
     documentSelector:
       path: kind
       value: CronJob
@@ -2181,7 +2181,7 @@ tests:
       - notExists:
           path: spec.jobTemplate.spec.template.spec.priorityClassName
 
-  # ====== reloader.externalSecrets stays on the Deployment (ADR 0016) ======
+  # ====== reloader.externalSecrets stays on the workload (ADR 0016) ======
   # Every run creates fresh pods, so a Reloader annotation on a job is noise.
   - it: should not inherit the deployment's Reloader annotation
     set:

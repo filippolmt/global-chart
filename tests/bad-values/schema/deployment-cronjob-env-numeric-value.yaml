@@ -1,5 +1,5 @@
-# EnvVar.value is a string (issue #137), in a deployment job's env: the
-# deployment scope of jobCommon's $ref.
+# EnvVar.value is a string (issue #137), in a workload-scope job's env:
+# the jobCommon $ref of the workload scope.
 deployments:
   app:
     image: nginx:1.25

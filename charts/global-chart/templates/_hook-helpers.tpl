@@ -57,7 +57,7 @@ Params:
   hookType - value of "helm.sh/hook" (a single type, or a comma-joined list for
              the prereq copies)
   role     - job | sa | prereq; orthogonal to scope: root-level and
-             deployment-level hooks share the roles they have
+             workload-scope hooks share the roles they have
   command  - the hook's own map, for the roles a hook owns (job, sa)
   weight   - the Job weight to derive from, for the plumbing role (prereq),
              whose weight is a minimum across several hooks

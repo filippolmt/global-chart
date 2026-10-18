@@ -162,7 +162,7 @@ Usage: {{- if include "global-chart.isStatefulSet" $deploy }}
 {{/*
 The names of the volumes a pod declares before its claim templates and its
 externalSecrets volumes: every volumes entry, and the volumes its
-mountedConfigFiles generate (a Deployment's only: a job has none). Fails when
+mountedConfigFiles generate (a workload's only: a job has none). Fails when
 a volumes entry takes the name of another or of a generated volume (issue
 #214): the API server would reject the pod at apply time. Two files of one
 name are validateNameCollisions' to report. A claim template becomes a pod
@@ -279,7 +279,7 @@ Usage: {{- range (include "global-chart.podSpecOwners" . | fromJsonArray) }}
 
 {{/*
 The values path of every volume in the legacy format (one carrying `type`), in
-the Deployment and in the hooks and cronjobs of both scopes, as a JSON list of
+the workloads and in the hooks and cronjobs of both scopes, as a JSON list of
 "<path>.volumes[<i>] (<name>)". Disabled deployments render nothing and are
 skipped. Read by NOTES.txt for the deprecation line (issue #183); it goes with
 the format in 4.0.0.
@@ -607,7 +607,7 @@ Inputs (dict):
 
 Resolution priority (mirrors the historical inline ingress logic):
   1. Explicit service override: ref.service.name set      → {name=ref.service.name, port=ref.service.port|80}
-  2. Deployment reference:      ref.deployment set        → {name=deploymentFullname, port=the Service port named
+  2. Workload reference:        ref.deployment set        → {name=deploymentFullname, port=the Service port named
                                                              ref.portName, or the primary port}
                                 with validations: deployment exists, enabled, service.enabled != false
   3. Otherwise: fail with actionable message.
@@ -654,7 +654,7 @@ Numbers come back float64: see the file header.
     {{- include "global-chart.rejectNull" (dict "value" $ref.service.port "errCtx" (printf "%s.service.port" $path)) -}}
   {{- end -}}
   {{- $svcPort = ternary $ref.service.port 80 (hasKey $ref.service "port") -}}
-{{- /* Priority 2: Deployment reference */ -}}
+{{- /* Priority 2: workload reference */ -}}
 {{- else if $ref.deployment -}}
   {{- $depName := $ref.deployment -}}
   {{- $deploy := index (default (dict) $root.Values.deployments) $depName -}}
@@ -963,9 +963,9 @@ consumes, split by form: `env` holds the Secret names to inject as envFrom
 sources, `mounted` the {key, secretName, volumeName, mountPath} of the entries that
 carry a mountPath. `specs` holds the real ExternalSecret spec of every entry,
 in list order, rendered by renderExternalSecretSpec whatever `hook` says: the
-input of the Deployment's checksum/external-secrets (issue #174), ignored by the
+input of the workload's checksum/external-secrets (issue #174), ignored by the
 jobs. `targets` holds every Secret name the pod reads, env and mounted, in list
-order, each once: the input of the Deployment's Reloader annotation (ADR 0016).
+order, each once: the input of the workload's Reloader annotation (ADR 0016).
 Returns JSON {env: [...], mounted: [...], specs: [...], targets: [...]}; callers do
 `include ... | fromJson` and render `mounted` through
 containerVolumeMounts / renderExternalSecretVolumes.
@@ -1023,7 +1023,7 @@ Params:
 {{/*
 The volumeMounts of a pod's main container, in render order, as a JSON list of
 volumeMount maps: the user's volumeMounts, the mountedConfigFiles files and
-bundles (a Deployment's only), then the mounted externalSecrets entries, the
+bundles (a workload's only), then the mounted externalSecrets entries, the
 inherited before the own. The single home of which mounts land on the
 container: deployment.yaml and jobPodSpec render this list, and
 validateMountPaths checks it for a repeated mountPath (issue #182), so a new
@@ -1032,7 +1032,7 @@ Callers do `include ... | fromJsonArray` and toYaml the result.
 Params:
   errCtx             - values path of the container's owner (a job's from jobValuesPath)
   volumeMounts       - the container's own volumeMounts, rendered verbatim
-  mountedConfigFiles - the Deployment's mountedConfigFiles (optional)
+  mountedConfigFiles - the workload's mountedConfigFiles (optional)
   inherited          - the resolveExternalSecretRefs `mounted` list a job inherits (optional)
   inheritedCtx       - values path it is inherited from
   externalSecrets    - the container's own resolveExternalSecretRefs `mounted` list

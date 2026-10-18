@@ -2,7 +2,7 @@
 
 [![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/global-chart)](https://artifacthub.io/packages/search?repo=global-chart)
 
-Reusable Helm chart providing configurable building blocks—Deployments, Services, Ingress, Jobs, ExternalSecrets, and more—for broadly adaptable Kubernetes applications.
+Reusable Helm chart providing configurable building blocks—Deployments, StatefulSets, Services, Ingress, Jobs, ExternalSecrets, and more—for broadly adaptable Kubernetes applications.
 The chart supports **multiple deployments** in a single release, each with independent configuration. CronJobs and Hooks can be defined at root level or inside deployments to inherit their configuration.
 
 ## Chart scope at a glance
@@ -11,7 +11,7 @@ The chart supports **multiple deployments** in a single release, each with indep
   Define multiple independent deployments under `deployments.*`. Each gets its own Service, ConfigMap, Secret, ServiceAccount, HPA, PDB, and NetworkPolicy.
 - **StatefulSets**
   `kind: StatefulSet` on a `deployments` entry renders a StatefulSet instead of a Deployment, with one claim per pod from `volumeClaimTemplates` and a headless governing Service (see [Stateful workloads](#stateful-workloads-kind-statefulset)). Everything else about the entry stays the same.
-- **Deployment primitives**
+- **Workload primitives**
   Image can be a string (`nginx:1.25`) or a map (`repository/tag/digest`), held by the schema to the reference grammar the kubelet parses; `tag` is a string, so quote a numeric-looking one (`"1.20"`). Probes, resources, autoscaling (HPA), scheduling constraints, extra containers/init containers, pod recreation bumps, and ConfigMap/Secret `envFrom` are all configurable. `command`/`args` override the image entrypoint per deployment, so one image can back several workloads (web, worker, …); they are never inherited by the deployment's hooks/cronJobs.
 - **Networking**
   First-class Service configuration (with per-service annotations) plus optional Ingress with TLS, class annotations, and routes to specific deployments. DNS options and host aliases can be defined per-deployment.
@@ -23,7 +23,7 @@ The chart supports **multiple deployments** in a single release, each with indep
   - **Root level** (`hooks.*`, `cronJobs.*`): Standalone, use `fromDeployment` to copy image and its `pullPolicy` from a deployment
   - **Inside deployments** (`deployments.*.hooks`, `deployments.*.cronJobs`): Inherit image, configMap, secret, serviceAccount, hostAliases, podSecurityContext, securityContext, dnsConfig (cronJobs), nodeSelector, tolerations, affinity, priorityClassName, and more from the parent deployment
   - `priorityClassName` is inherited too: a cronjob of a deployment with a preempting PriorityClass can evict other pods on every run. Set `priorityClassName: ""` on the job (or a lower class) to stop it
-  - A deployment-level job's `envFrom` adds its own `envFromConfigMaps` / `envFromSecrets` after the deployment's, never replacing them. To drop what it inherits, set `false` on `inheritDeploymentConfigMap` / `inheritDeploymentSecret` (the generated ConfigMap/Secret) or `inheritDeploymentEnvFromConfigMaps` / `inheritDeploymentEnvFromSecrets` (the deployment's lists)
+  - A workload-scope job's `envFrom` adds its own `envFromConfigMaps` / `envFromSecrets` after the workload's, never replacing them. To drop what it inherits, set `false` on `inheritDeploymentConfigMap` / `inheritDeploymentSecret` (the generated ConfigMap/Secret) or `inheritDeploymentEnvFromConfigMaps` / `inheritDeploymentEnvFromSecrets` (the workload's lists)
   - Hook prerequisite ConfigMap/Secret are created automatically with correct weight ordering
   - A `pre-*` or `post-delete` hook can read a Secret produced by the release's own `externalSecrets`: reference it by key (see [Reading an ExternalSecret from a hook](#reading-an-externalsecret-from-a-hook))
 - **Secret management**
@@ -61,7 +61,7 @@ helm upgrade --install my-release global-chart/global-chart \
 
 ## Decide before the first install: the immutable selector
 
-A Deployment's `spec.selector` is immutable in Kubernetes. This chart builds it
+A workload's `spec.selector` is immutable in Kubernetes, for a Deployment and a StatefulSet alike. This chart builds it
 from three labels, and two of them are worth a decision *before* the release
 exists, because changing them later fails the upgrade:
 
@@ -87,10 +87,10 @@ Setting or changing it on a release that already exists produces:
 Deployment.apps "dify-api" is invalid: spec.selector: ... field is immutable
 ```
 
-The only way through is to delete the Deployment and let Helm recreate it
+The only way through is to delete the workload and let Helm recreate it
 (safe for stateless workloads, a real outage window for everything else). The
 same applies to renaming a key under `deployments`: `web` → `frontend` orphans
-the old Deployment and creates a new one.
+the old workload and creates a new one.
 
 Adopting a workload that another chart already manages hits the same wall
 whenever the two selectors differ — no chart can adopt an arbitrary selector.
@@ -258,7 +258,7 @@ deployments:
 For every key a `pre-*` or `post-delete` hook references, the chart renders a
 hook-prerequisite copy of the ExternalSecret — same spec, its own Secret
 `<target>-hook`, owned by the copy and gone with it — and the hook reads that
-one. The Deployment, its cronjobs and every other hook read the real Secret, a
+one. The workload, its cronjobs and every other hook read the real Secret, a
 `pre-delete` hook included: it runs before Helm deletes anything. A deployment's hooks and
 cronjobs inherit its list; a job's own `externalSecrets` (`[]` included)
 replaces it. Root-level hooks and cronjobs declare their own.
@@ -311,7 +311,7 @@ deployments:
       externalSecrets: true
 ```
 
-The Deployment's metadata gets `secret.reloader.stakater.com/reload` with the
+The workload's metadata gets `secret.reloader.stakater.com/reload` with the
 target of every referenced entry, env and mounted alike, read from the same
 resolver as the pod wiring — never hardcode a generated name. A reload list you
 set yourself, in `annotations`, `global.commonAnnotations` or both, is merged
@@ -443,7 +443,7 @@ tcpRoutes:
             portName: teltonika
 ```
 
-`portName` names a port of the deployment's Service, `service.portName` or a
+`portName` names a port of the workload's Service, `service.portName` or a
 `service.extraPorts[].name`, and works the same in `ingress.hosts[]` and
 `httpRoute` backendRefs; omitted, the backend is the primary port. The render
 fails on a name the Service lacks, on `portName` next to `service:`, and on a
@@ -561,8 +561,8 @@ The `tests/` directory is the list — `TEST_CASES` in the `Makefile` is what
 | `deployment-hooks-cronjobs.yaml` | Hooks/CronJobs inside deployments (inheritance test)                                      |
 | `hooks-sa-inheritance.yaml`      | Hooks SA inheritance (existing SA, explicit override)                                     |
 | `mountedcm*.yaml`                | Mounted config file scenarios                                                             |
-| `cron-only.yaml`                 | CronJobs without Deployment                                                               |
-| `hook-only.yaml`                 | Hooks without Deployment                                                                  |
+| `cron-only.yaml`                 | CronJobs without a workload                                                               |
+| `hook-only.yaml`                 | Hooks without a workload                                                                  |
 | `externalsecret-only.yaml`       | ExternalSecrets only                                                                      |
 | `externalsecret-hooks.yaml`      | ExternalSecrets read by hooks (hook-prerequisite copy) and cronjobs                       |
 | `ingress-custom.yaml`            | Ingress with deployment reference                                                         |

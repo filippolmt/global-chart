@@ -2,7 +2,7 @@ suite: hpa template tests
 templates:
   - templates/hpa.yaml
 tests:
-  # ====== Deployment enabled flag ======
+  # ====== Workload enabled flag ======
   - it: should not render HPA when deployment enabled is false
     set:
       deployments:
@@ -167,8 +167,8 @@ tests:
       - failedTemplate:
           errorMessage: "deployments.main.autoscaling.maxReplicas: required when HPA is enabled"
 
-  # ====== Deployment annotations stay on the Deployment (issue #112) ======
-  - it: should not propagate the Deployment's own annotations to its HPA
+  # ====== Workload annotations stay on the workload (issue #112) ======
+  - it: should not propagate the workload's own annotations to its HPA
     set:
       deployments:
         web:

@@ -39,7 +39,7 @@ kind; it changes name only together with the map (issue #215).
 {{- $_ := set $podVolumes $claim.name (printf "%s.volumeClaimTemplates[%d]" $errCtx $i) }}
 {{- end }}
 {{- end }}
-{{- /* externalSecrets: the Deployment always reads the real Secret, never the
+{{- /* externalSecrets: the workload always reads the real Secret, never the
        hook copy (ADR 0007). Resolved once, for the pod's checksum and its env/volumes */ -}}
 {{- $es := include "global-chart.resolveExternalSecretRefs" (dict "root" $root "refs" $deploy.externalSecrets "hook" false "taken" $podVolumes "errCtx" $errCtx) | fromJson }}
 ---
@@ -49,7 +49,7 @@ metadata:
   name: {{ $depFullname }}
   labels:
     {{- include "global-chart.deploymentLabels" $labelCtx | nindent 4 }}
-  {{- /* reloader.externalSecrets (ADR 0016): on the Deployment's metadata, where
+  {{- /* reloader.externalSecrets (ADR 0016): on the workload's metadata, where
          Reloader reads it, not on the pod template */ -}}
   {{- $ownAnnotations := include "global-chart.deploymentOwnAnnotations" (dict "root" $root "deploy" $deploy "name" $name "es" $es) | fromJson }}
   {{- with (include "global-chart.renderAnnotations" (dict "root" $root "own" $ownAnnotations)) }}
@@ -61,7 +61,7 @@ spec:
   serviceName: {{ include "global-chart.headlessServiceName" $labelCtx }}
   {{- end }}
   {{- /* An autoscaler owns spec.replicas: emitting it here makes every upgrade
-         snap the Deployment back to this value before the autoscaler corrects
+         snap the workload back to this value before the autoscaler corrects
          it — and with KEDA minReplicaCount: 0 it wakes a workload that was
          deliberately scaled to zero. */}}
   {{- if not (or $autoscaling.enabled $keda.enabled) }}
@@ -142,7 +142,7 @@ spec:
       labels:
         {{- include "global-chart.deploymentLabels" (dict "root" $root "deploymentName" $name "own" $deploy.podLabels) | nindent 8 }}
     spec:
-      {{- /* ImagePullSecrets: deployment-level > global (hasKey distinguishes unset from empty) */ -}}
+      {{- /* ImagePullSecrets: deployment > global (hasKey distinguishes unset from empty) */ -}}
       {{- $imagePullSecrets := list -}}
       {{- if hasKey $deploy "imagePullSecrets" -}}
         {{- $imagePullSecrets = $deploy.imagePullSecrets -}}

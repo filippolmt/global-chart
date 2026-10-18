@@ -88,10 +88,10 @@ Read the pointer before changing the domain it names.
    Service and its claim templates. The selector label
    `app.kubernetes.io/component: {name}` keeps their pods apart, and a
    selector is immutable: README, *Decide before the first install*.
-2. **Job scopes**: deployment-scope hooks and cronjobs inherit from their
-   deployment, root-scope ones inherit nothing (*Root scope / workload
+2. **Job scopes**: workload-scope hooks and cronjobs inherit from their
+   workload, root-scope ones inherit nothing (*Root scope / workload
    scope* in `GLOSSARY.md`). `command` / `args` and `mountedConfigFiles` stay
-   with the Deployment, and the `envFrom` lists add up. What is inherited, the
+   with the workload, and the `envFrom` lists add up. What is inherited, the
    opt-out toggles and the `envFrom` order: the *Inheritance* block of the
    `jobPodSpec` header in `_job-helpers.tpl`.
 3. **Fallback chains**: job > deployment > global, `hasKey` at every level; an

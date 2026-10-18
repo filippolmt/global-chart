@@ -1,4 +1,4 @@
-# A cronjob key is part of the CronJob name and, at deployment scope, the
+# A cronjob key is part of the CronJob name and, at workload scope, the
 # container name raw: a DNS-1123 label. `_` is not in it.
 cronJobs:
   nightly_report:

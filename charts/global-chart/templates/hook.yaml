@@ -112,12 +112,12 @@ spec:
 {{- end }}
 {{- end }}
 
-{{/* ====== PART 2: Deployment-level hooks (inherit from deployment) ====== */}}
+{{/* ====== PART 2: workload-scope hooks (inherit from the workload) ====== */}}
 {{- range $deployName, $deploy := .Values.deployments }}
 {{- if $deploy }}
 {{- if and (eq (include "global-chart.deploymentEnabled" $deploy) "true") $deploy.hooks }}
 
-{{- /* Compute deployment-level values ONCE per deployment (before hookType/command loops) */ -}}
+{{- /* Compute the workload's values ONCE per deployment (before hookType/command loops) */ -}}
 {{- $deployFullname := include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $deployName) -}}
 {{- $hasDeployConfigMap := and $deploy.configMap (gt (len $deploy.configMap) 0) -}}
 {{- $hasDeploySecret := and $deploy.secret (gt (len $deploy.secret) 0) -}}

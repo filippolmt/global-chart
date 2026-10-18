@@ -345,7 +345,7 @@
       "properties": {
         "externalSecrets": {
           "type": "boolean",
-          "description": "Render secret.reloader.stakater.com/reload on the Deployment with the target Secret of every externalSecrets entry it references, env and mounted, so Reloader rolls the pods when ESO rewrites one (value rotation, rollout race). Merged with a reload list set in annotations or global.commonAnnotations. Requires at least one referenced externalSecrets entry."
+          "description": "Render secret.reloader.stakater.com/reload on the workload with the target Secret of every externalSecrets entry it references, env and mounted, so Reloader rolls the pods when ESO rewrites one (value rotation, rollout race). Merged with a reload list set in annotations or global.commonAnnotations. Requires at least one referenced externalSecrets entry."
         }
       },
       "additionalProperties": false
@@ -660,12 +660,12 @@
       "maxLength": 58
     },
     "jobName": {
-      "description": "Key of a cronJobs or hooks.<type> map, at either scope. At deployment scope it becomes the container name raw, a DNS-1123 label; the root scope goes through a truncated fullname, but one rule holds for both.",
+      "description": "Key of a cronJobs or hooks.<type> map, at either scope. At workload scope it becomes the container name raw, a DNS-1123 label; the root scope goes through a truncated fullname, but one rule holds for both.",
       "$ref": "#/$defs/dns1123Label",
       "maxLength": 63
     },
     "hookType": {
-      "description": "Key of a hooks map: a Helm hook type, lowercase. An unknown type renders and Helm drops the resource with an INFO log and exit 0; at deployment scope it also drops the shared prereq ConfigMap/Secret, whose helm.sh/hook joins every type. Helm accepts an uppercase type, but the chart's checks are case-sensitive. 'test-success' is Helm's alias of 'test'.",
+      "description": "Key of a hooks map: a Helm hook type, lowercase. An unknown type renders and Helm drops the resource with an INFO log and exit 0; at workload scope it also drops the shared prereq ConfigMap/Secret, whose helm.sh/hook joins every type. Helm accepts an uppercase type, but the chart's checks are case-sensitive. 'test-success' is Helm's alias of 'test'.",
       "type": "string",
       "enum": [
         "pre-install",
@@ -777,7 +777,7 @@
         "imagePullSecrets": { "type": "array", "items": { "$ref": "#/$defs/imagePullSecret" } },
         "serviceAccount": { "$ref": "#/$defs/serviceAccount" },
         "annotations": {
-          "description": "Annotations on the Deployment's own metadata, merged over global.commonAnnotations. Not podAnnotations, and not propagated to the Service, ServiceAccount, HPA or any other resource of the deployment.",
+          "description": "Annotations on the workload's own metadata, merged over global.commonAnnotations. Not podAnnotations, and not propagated to the Service, ServiceAccount, HPA or any other resource of the workload.",
           "type": "object",
           "additionalProperties": { "type": "string" }
         },
@@ -827,7 +827,7 @@
           "additionalProperties": { "type": "string" }
         },
         "priorityClassName": {
-          "description": "Name of an existing PriorityClass for the pod (a DNS-1123 subdomain, at most 253 characters). The PriorityClass itself is cluster-scoped and not rendered by the chart. Deployment-level hooks and cronjobs inherit it; null or \"\" means unset.",
+          "description": "Name of an existing PriorityClass for the pod (a DNS-1123 subdomain, at most 253 characters). The PriorityClass itself is cluster-scoped and not rendered by the chart. Workload-scope hooks and cronjobs inherit it; null or \"\" means unset.",
           "$ref": "#/$defs/optionalObjectName"
         },
         "tolerations": { "type": "array", "items": { "$ref": "#/$defs/toleration" } },
@@ -966,7 +966,7 @@
           "additionalProperties": { "type": "string" }
         },
         "priorityClassName": {
-          "description": "Name of an existing PriorityClass for the job pod. Deployment-level: explicit > inherited from the deployment. Explicit null or \"\" stops the inheritance. Root-level: only this value.",
+          "description": "Name of an existing PriorityClass for the job pod. Workload scope: explicit > inherited from the workload. Explicit null or \"\" stops the inheritance. Root scope: only this value.",
           "$ref": "#/$defs/optionalObjectName"
         },
         "tolerations": { "type": "array", "items": { "$ref": "#/$defs/toleration" } },
