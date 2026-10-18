@@ -78,7 +78,7 @@ A chart check that rejects a value the schema already rejects, and that therefor
 _Avoid_: dead guard, redundant guard, duplicate check
 
 **Removed key**:
-A key or format the chart read until a major release took it away. For that one major the chart still recognises it, only to reject it with a message naming what replaced it; from the next major on it is an unknown key like any other. Before a key is removed it is deprecated for at least one minor release: it still works, and the chart warns and names the replacement.
+A key or format the chart read until a major release took it away. For that one major the chart still recognises it, only to reject it with a message naming what replaced it; from the next major on it is an unknown key like any other. Before that it is deprecated: it still works, and the chart warns and names the replacement.
 _Avoid_: dropped key, obsolete key
 
 **Values author**:
