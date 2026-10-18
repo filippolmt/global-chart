@@ -1,7 +1,7 @@
 # fromDeployment at workload scope, where it never applied: the schema rejects
 # it, and under --skip-schema-validation global-chart.validateRemovedKeys
 # does too, since it checks every removed job key at both scopes (issue #221).
-# Expected fail substring: "workloads.web.cronJobs.sync.fromDeployment: removed in 4.0.0, use fromWorkload"
+# Expected fail substring: "workloads.web.cronJobs.sync.fromDeployment: removed in 4.0.0, use fromWorkload on a root-scope job; a workload-scope job takes its workload's image"
 workloads:
   web:
     image: nginx:1.25

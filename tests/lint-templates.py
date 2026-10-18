@@ -43,11 +43,12 @@ a rule below cannot recognise: a check that sees nothing is not a pass.
   caller's root (validateRemovedKeys passes it as `see`, issue #221).
 - render-order: templates/validate/validate.yaml is the first template Helm
   renders. Helm sorts by depth, deepest first, then in reverse lexical order
-  (sortTemplates in pkg/engine), and stops at the first error, so every helper
-  that skips what a validator rejects relies on this: a template renamed or
-  moved ahead of it reports a crash in place of the validator's message (issue
-  #221, the deployment.yaml -> workload.yaml rename). Partials (`_*`) render
-  nothing and are left out.
+  (sortTemplates in pkg/engine), and stops at the first error. A helper that
+  skips what a validator rejects needs no order (CODING_STANDARDS.md); one
+  that reads through it does, and the deployment.yaml -> workload.yaml rename
+  of issue #221 surfaced about fifteen: renamed ahead of the validators, each
+  crashed with no values path. This keeps the validators first while such a
+  helper exists. Partials (`_*`) render nothing and are left out.
 
 Comments (`{{/* … */}}`) are stripped before matching, so a rule may be named in
 prose. Matching runs over the whole file, so an expression split across lines
@@ -170,6 +171,7 @@ def render_order(chart):
     if not names or names[0] != first:
         return [f"templates: render-order: Helm renders {names[0] if names else 'nothing'} first, not {first}; move it so the validators run before every template"]
     return []
+
 
 def main(chart):
     chart = pathlib.Path(chart)

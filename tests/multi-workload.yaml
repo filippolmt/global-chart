@@ -1,4 +1,4 @@
-# Comprehensive multi-deployment test
+# Comprehensive multi-workload test
 # Tests all features with multiple independent workloads
 
 workloads:

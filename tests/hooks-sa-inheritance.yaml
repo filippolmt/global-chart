@@ -1,4 +1,4 @@
-# Test: Multi-deployment with hooks inheriting ServiceAccount
+# Test: Multi-workload with hooks inheriting ServiceAccount
 # Tests workload-scope hooks with:
 # - Hook inheriting existing SA from workload (serviceAccount.create=false, name=xxx)
 # - Hook with explicit serviceAccountName override

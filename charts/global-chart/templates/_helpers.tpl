@@ -64,7 +64,7 @@ empty-string reason given there.
 {{- end }}
 
 {{/*
-Common labels (for non-deployment resources like Ingress)
+Common labels (for resources that belong to no workload, like Ingress)
 */}}
 {{- define "global-chart.labels" -}}
 {{- include "global-chart.mergeLabels" (dict "root" . "owned" (include "global-chart.chartOwnedLabels" .)) -}}

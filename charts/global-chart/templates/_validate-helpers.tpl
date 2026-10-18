@@ -33,9 +33,10 @@ stays declared in the schema with no constraint, so any value reaches its fail
 (ADR 0022); the walk, the declarations and the fixtures go in 5.0.0. A node of
 the wrong type is skipped: the schema, or the template that reads it, rejects
 it.
-  `deployments`                                   → workloads, with the migration guide (issue #221)
+  `deployments`                                 → workloads, with the migration guide (issue #221)
   <hook or cronjob>.fromDeployment              → fromWorkload (issue #221)
   <hook or cronjob>.inheritDeployment*          → inheritWorkload* (issue #221)
+    at the scope a job key never had, the replacement names the scope it belongs to
   <ingress host or route backendRef>.deployment → workload (issue #221)
   <pod spec>.volumes[<i>].type, .secret.name, .persistentVolumeClaim.name
                                                 → the native volume source (issue #230)
@@ -50,14 +51,21 @@ Usage: {{- include "global-chart.validateRemovedKeys" . -}}
 {{- $inherit := dict "inheritDeploymentConfigMap" "inheritWorkloadConfigMap" "inheritDeploymentSecret" "inheritWorkloadSecret" "inheritDeploymentEnvFromConfigMaps" "inheritWorkloadEnvFromConfigMaps" "inheritDeploymentEnvFromSecrets" "inheritWorkloadEnvFromSecrets" -}}
 {{- $backend := dict "deployment" "workload" -}}
 {{- /* Both job key families at both scopes: the schema rejects one at the
-       wrong scope, and --skip-schema-validation would let it pass in silence */ -}}
-{{- $jobKeys := merge (dict) $from $inherit -}}
-{{- include "global-chart.rejectRemovedJobKeys" (dict "cronJobs" $v.cronJobs "hooks" $v.hooks "in" $in "see" $see "keys" $jobKeys) -}}
+       wrong scope, and --skip-schema-validation would let it pass in silence.
+       There the replacement names the scope it belongs to, since it is no
+       more valid where the old key sat */ -}}
+{{- $inheritAtRoot := dict -}}
+{{- range $old, $new := $inherit -}}
+  {{- $_ := set $inheritAtRoot $old (printf "%s on a workload-scope job; a root-scope job inherits nothing" $new) -}}
+{{- end -}}
+{{- $rootJobKeys := merge (dict) $from $inheritAtRoot -}}
+{{- $workloadJobKeys := merge (dict "fromDeployment" "fromWorkload on a root-scope job; a workload-scope job takes its workload's image") $inherit -}}
+{{- include "global-chart.rejectRemovedJobKeys" (dict "cronJobs" $v.cronJobs "hooks" $v.hooks "in" $in "see" $see "keys" $rootJobKeys) -}}
 {{- if kindIs "map" $v.workloads -}}
   {{- range $name, $w := $v.workloads -}}
     {{- if kindIs "map" $w -}}
       {{- include "global-chart.rejectRemovedVolumeKeys" (dict "volumes" $w.volumes "errCtx" (include "global-chart.deploymentValuesPath" $name) "in" $in "see" $see) -}}
-      {{- include "global-chart.rejectRemovedJobKeys" (dict "cronJobs" $w.cronJobs "hooks" $w.hooks "deploymentName" $name "in" $in "see" $see "keys" $jobKeys) -}}
+      {{- include "global-chart.rejectRemovedJobKeys" (dict "cronJobs" $w.cronJobs "hooks" $w.hooks "deploymentName" $name "in" $in "see" $see "keys" $workloadJobKeys) -}}
     {{- end -}}
   {{- end -}}
 {{- end -}}

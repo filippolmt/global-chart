@@ -148,9 +148,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   `validate-bad-values` prints its failures and one summary line, not one
   line per fixture.
 - `make render-diff BASE=<ref>` (default `main`) renders every `TEST_CASES`
-  scenario on the base and on the working tree and diffs them, pairing
-  scenarios by namespace so a renamed file still matches: the proof that a
-  rename or a refactor changes no manifest (issue #221).
+  scenario on the base and on the working tree and diffs them: the proof that
+  a rename or a refactor changes no manifest (issue #221). Scenarios pair by
+  values file, a renamed one by namespace; the chart version and the
+  clock-derived `timestamp` annotation are masked.
 - `lint-templates` gains the render-order rule: `templates/validate/validate.yaml`
   is the first template Helm renders. `lint-glossary` flags "deployment" in
   lower case for a workload, with a self-check of what it flags and lets
