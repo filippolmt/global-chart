@@ -2,7 +2,7 @@
 
 [![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/global-chart)](https://artifacthub.io/packages/search?repo=global-chart)
 
-Reusable Helm chart providing configurable building blocks—Deployments, Services, Ingress, Jobs, ExternalSecrets, and more—for broadly adaptable Kubernetes applications.
+Reusable Helm chart providing configurable building blocks—Deployments, StatefulSets, Services, Ingress, Jobs, ExternalSecrets, and more—for broadly adaptable Kubernetes applications.
 The chart supports **multiple deployments** in a single release, each with independent configuration. CronJobs and Hooks can be defined at root level or inside deployments to inherit their configuration.
 
 ## Chart scope at a glance
@@ -23,7 +23,7 @@ The chart supports **multiple deployments** in a single release, each with indep
   - **Root level** (`hooks.*`, `cronJobs.*`): Standalone, use `fromDeployment` to copy image and its `pullPolicy` from a deployment
   - **Inside deployments** (`deployments.*.hooks`, `deployments.*.cronJobs`): Inherit image, configMap, secret, serviceAccount, hostAliases, podSecurityContext, securityContext, dnsConfig (cronJobs), nodeSelector, tolerations, affinity, priorityClassName, and more from the parent deployment
   - `priorityClassName` is inherited too: a cronjob of a deployment with a preempting PriorityClass can evict other pods on every run. Set `priorityClassName: ""` on the job (or a lower class) to stop it
-  - A workload-scope job's `envFrom` adds its own `envFromConfigMaps` / `envFromSecrets` after the deployment's, never replacing them. To drop what it inherits, set `false` on `inheritDeploymentConfigMap` / `inheritDeploymentSecret` (the generated ConfigMap/Secret) or `inheritDeploymentEnvFromConfigMaps` / `inheritDeploymentEnvFromSecrets` (the deployment's lists)
+  - A workload-scope job's `envFrom` adds its own `envFromConfigMaps` / `envFromSecrets` after the workload's, never replacing them. To drop what it inherits, set `false` on `inheritDeploymentConfigMap` / `inheritDeploymentSecret` (the generated ConfigMap/Secret) or `inheritDeploymentEnvFromConfigMaps` / `inheritDeploymentEnvFromSecrets` (the workload's lists)
   - Hook prerequisite ConfigMap/Secret are created automatically with correct weight ordering
   - A `pre-*` or `post-delete` hook can read a Secret produced by the release's own `externalSecrets`: reference it by key (see [Reading an ExternalSecret from a hook](#reading-an-externalsecret-from-a-hook))
 - **Secret management**
@@ -443,7 +443,7 @@ tcpRoutes:
             portName: teltonika
 ```
 
-`portName` names a port of the deployment's Service, `service.portName` or a
+`portName` names a port of the workload's Service, `service.portName` or a
 `service.extraPorts[].name`, and works the same in `ingress.hosts[]` and
 `httpRoute` backendRefs; omitted, the backend is the primary port. The render
 fails on a name the Service lacks, on `portName` next to `service:`, and on a
@@ -561,8 +561,8 @@ The `tests/` directory is the list — `TEST_CASES` in the `Makefile` is what
 | `deployment-hooks-cronjobs.yaml` | Hooks/CronJobs inside deployments (inheritance test)                                      |
 | `hooks-sa-inheritance.yaml`      | Hooks SA inheritance (existing SA, explicit override)                                     |
 | `mountedcm*.yaml`                | Mounted config file scenarios                                                             |
-| `cron-only.yaml`                 | CronJobs without Deployment                                                               |
-| `hook-only.yaml`                 | Hooks without Deployment                                                                  |
+| `cron-only.yaml`                 | CronJobs without a workload                                                               |
+| `hook-only.yaml`                 | Hooks without a workload                                                                  |
 | `externalsecret-only.yaml`       | ExternalSecrets only                                                                      |
 | `externalsecret-hooks.yaml`      | ExternalSecrets read by hooks (hook-prerequisite copy) and cronjobs                       |
 | `ingress-custom.yaml`            | Ingress with deployment reference                                                         |

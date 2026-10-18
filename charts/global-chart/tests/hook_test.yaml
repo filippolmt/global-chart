@@ -1514,7 +1514,7 @@ tests:
         documentIndex: 0
 
   # ====== Workload-scope hook securityContext inheritance ======
-  - it: should inherit podSecurityContext from deployment in workload-scope hook
+  - it: should inherit podSecurityContext from the workload in workload-scope hook
     set:
       deployments:
         backend:
@@ -1538,7 +1538,7 @@ tests:
           value: 2000
         documentIndex: 0
 
-  - it: should inherit container securityContext from deployment in workload-scope hook
+  - it: should inherit container securityContext from the workload in workload-scope hook
     set:
       deployments:
         backend:
@@ -1559,7 +1559,7 @@ tests:
 
   # command/args are deliberately NOT inheritable: a migration hook must never
   # pick up the deployment's entrypoint (see issue #72).
-  - it: should not inherit command or args from deployment in workload-scope hook
+  - it: should not inherit command or args from the workload in workload-scope hook
     set:
       deployments:
         backend:
@@ -1624,7 +1624,7 @@ tests:
         documentIndex: 0
 
   # ====== Workload-scope hook hostAliases inheritance ======
-  - it: should inherit hostAliases from deployment in workload-scope hook
+  - it: should inherit hostAliases from the workload in workload-scope hook
     set:
       deployments:
         backend:
@@ -2691,7 +2691,7 @@ tests:
   # ====== Negative tests: fail/required paths ======
 
   # ====== dnsConfig NOT inherited in workload-scope hooks ======
-  - it: should not inherit dnsConfig from deployment in workload-scope hook
+  - it: should not inherit dnsConfig from the workload in workload-scope hook
     set:
       deployments:
         backend:

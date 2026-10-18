@@ -99,8 +99,8 @@ mounted config file ConfigMaps and its hook-prerequisite copy alike. A
 deployment named `<other>-md-cm-<file>` renders a ConfigMap under the very name
 another deployment's mounted file does — two manifests, one name, neither
 invalid on its own.
-Note: the remaining per-deployment resources (Service, SA, HPA, ScaledObject,
-PDB, NetworkPolicy) share the workload's own name, so the deployment name
+Note: the remaining per-workload resources (Service, SA, HPA, ScaledObject,
+PDB, NetworkPolicy) share the workload's own name, so the workload name
 check covers them. The one other name that can reach them is a StatefulSet's
 headless Service, registered beside it.
 Called from validate.yaml.
@@ -490,7 +490,7 @@ let through. Two kinds of name are stricter, and only some releases render them:
 - a container name is a DNS-1123 label, so no dot. The fullname heads the
   container name of every enabled workload and of every root-level hook;
 - a Service name is a DNS-1035 label, so it also starts with a letter. The
-  fullname heads the name of every enabled deployment's Service.
+  fullname heads the name of every enabled workload's Service.
 The constraint therefore depends on what the release renders — see
 docs/adr/0009-the-fullname-constraint-follows-what-the-release-renders.md. A
 cronjob-only release with a dotted name renders valid names today and keeps

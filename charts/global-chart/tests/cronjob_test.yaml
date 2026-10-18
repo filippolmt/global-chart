@@ -248,7 +248,7 @@ tests:
         documentIndex: 0
 
   # ====== Workload-scope CronJob hostAliases inheritance ======
-  - it: should inherit hostAliases from deployment in workload-scope cronjob
+  - it: should inherit hostAliases from the workload in workload-scope cronjob
     set:
       deployments:
         backend:
@@ -495,7 +495,7 @@ tests:
           value: true
 
   # ====== Workload-scope CronJob securityContext inheritance ======
-  - it: should inherit podSecurityContext from deployment in workload-scope cronjob
+  - it: should inherit podSecurityContext from the workload in workload-scope cronjob
     set:
       deployments:
         backend:
@@ -516,7 +516,7 @@ tests:
           value: 1000
         documentIndex: 0
 
-  - it: should inherit container securityContext from deployment in workload-scope cronjob
+  - it: should inherit container securityContext from the workload in workload-scope cronjob
     set:
       deployments:
         backend:
@@ -535,7 +535,7 @@ tests:
 
   # command/args are deliberately NOT inheritable: a cronjob must never pick up
   # the deployment's entrypoint (see issue #72).
-  - it: should not inherit command or args from deployment in workload-scope cronjob
+  - it: should not inherit command or args from the workload in workload-scope cronjob
     set:
       deployments:
         backend:
@@ -556,7 +556,7 @@ tests:
         documentIndex: 0
 
   # ====== Workload-scope CronJob dnsConfig inheritance ======
-  - it: should inherit dnsConfig from deployment in workload-scope cronjob
+  - it: should inherit dnsConfig from the workload in workload-scope cronjob
     set:
       deployments:
         backend:
@@ -801,7 +801,7 @@ tests:
 
   # ====== Seven-category inheritance gaps ======
 
-  - it: should inherit affinity from deployment in workload-scope cronjob
+  - it: should inherit affinity from the workload in workload-scope cronjob
     set:
       deployments:
         backend:
@@ -878,7 +878,7 @@ tests:
           path: spec.jobTemplate.spec.template.spec.containers[0].securityContext.runAsNonRoot
         documentIndex: 0
 
-  - it: should inherit imagePullSecrets from deployment in workload-scope cronjob
+  - it: should inherit imagePullSecrets from the workload in workload-scope cronjob
     set:
       deployments:
         backend:
