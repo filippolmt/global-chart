@@ -1,0 +1,29 @@
+# A nightly job of a workload: it inherits the workload's image, configuration,
+# ServiceAccount and scheduling, but not its command, args or mounted config files.
+workloads:
+  web:
+    image:
+      repository: ghcr.io/example/shop
+      tag: "1.4.2"
+    configMap:
+      LOG_LEVEL: info
+    envFromSecrets:
+      - shop-credentials
+    cronJobs:
+      cleanup:
+        schedule: "0 3 * * *"
+        timeZone: Europe/Rome
+        concurrencyPolicy: Forbid
+        command: ["python", "-m", "shop.cleanup"]   # never inherited: always set it
+        resources:                                  # never inherited either
+          requests: { cpu: 50m, memory: 128Mi }
+
+# A job that belongs to no workload goes at the root: it inherits nothing.
+# fromWorkload copies only the image (and its pullPolicy).
+cronJobs:
+  report:
+    schedule: "30 6 * * 1"
+    fromWorkload: web
+    command: ["python", "-m", "shop.weekly_report"]
+    envFromSecrets:
+      - shop-credentials

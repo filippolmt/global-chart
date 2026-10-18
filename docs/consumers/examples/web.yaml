@@ -1,0 +1,42 @@
+# A web application: one workload behind an Ingress, scaled by an HPA.
+# The key `web` is part of the immutable selector: pick it before the first install.
+workloads:
+  web:
+    image:
+      repository: ghcr.io/example/shop
+      tag: "1.4.2"                    # a string: quote a numeric-looking tag
+    service:
+      port: 80                        # the Service port
+      targetPort: 8080                # the container port; named `http`
+    configMap:                        # rendered as a ConfigMap, read through envFrom
+      LOG_LEVEL: info
+    envFromSecrets:                   # a Secret created outside the chart
+      - shop-credentials
+    readinessProbe:
+      httpGet: { path: /healthz, port: http }
+    livenessProbe:
+      httpGet: { path: /healthz, port: http }
+    resources:
+      requests: { cpu: 100m, memory: 128Mi }
+      limits: { memory: 256Mi }
+    autoscaling:                      # the HPA owns the replica count: no replicaCount
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 6
+      targetCPUUtilizationPercentage: 70
+    pdb:
+      enabled: true
+      maxUnavailable: 1
+
+ingress:
+  enabled: true
+  className: nginx
+  hosts:
+    - host: shop.example.com
+      workload: web                   # the key under workloads, not a Service name
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: shop-tls
+      hosts: [shop.example.com]

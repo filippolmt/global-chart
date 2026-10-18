@@ -6,8 +6,8 @@ it finds nothing, and nothing else in the pipeline notices. Two shapes are
 checked:
 
 - In the Markdown documents (CLAUDE.md, GLOSSARY.md, README.md,
-  CODING_STANDARDS.md, docs/agents/, tests/e2e/README.md), every path-like
-  token in backticks and every relative Markdown link.
+  CODING_STANDARDS.md, docs/agents/, docs/consumers/, tests/e2e/README.md),
+  every path-like token in backticks and every relative Markdown link.
 - In the comments of templates, suites, values, Makefile and test scripts,
   every reference to a Markdown document (`*.md`) or to an ADR.
 
@@ -33,12 +33,13 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 
 DOCS = ["CLAUDE.md", "GLOSSARY.md", "README.md", "CODING_STANDARDS.md", "tests/e2e/README.md"]
-DOC_GLOBS = ["docs/agents/*.md"]
+DOC_GLOBS = ["docs/agents/*.md", "docs/consumers/*.md"]
 CODE_GLOBS = [
     "charts/global-chart/templates/**/*",
     "charts/global-chart/tests/*.yaml",
     "charts/global-chart/values.yaml",
     "tests/**/*.yaml",
+    "docs/consumers/examples/*.yaml",
     "tests/**/*.py",
     "Makefile",
 ]

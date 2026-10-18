@@ -63,6 +63,8 @@ passes, so a `fail` is proven by `tests/bad-values/` and the suites;
 - `tests/` — lint scenario values + `bad-values/` for rejection tests. Before
   adding a fixture, read *Schema validation* in the README's *Testing & CI*:
   the subdirectory declares which mechanism must reject it
+- `docs/consumers/` — the guide for values authors and its examples, which are
+  `TEST_CASES` scenarios: a change to a rule it states updates it
 
 ### Helper Files
 

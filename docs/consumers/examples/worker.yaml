@@ -1,0 +1,18 @@
+# A queue worker: the same image as the web workload, another entrypoint, no Service.
+workloads:
+  worker:
+    image:
+      repository: ghcr.io/example/shop
+      tag: "1.4.2"
+    command: ["python", "-m", "shop.worker"]
+    args: ["--concurrency", "4"]
+    replicaCount: 2
+    service:
+      enabled: false                  # nothing connects to a worker
+    configMap:
+      QUEUE_URL: redis://redis.shop.svc:6379/0
+    envFromSecrets:
+      - shop-credentials
+    resources:
+      requests: { cpu: 200m, memory: 256Mi }
+      limits: { memory: 512Mi }

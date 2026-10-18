@@ -29,7 +29,7 @@ import tempfile
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 CHART = "charts/global-chart"
-ENTRY = re.compile(r"^\s*(tests/[^\s:]+):([^\s:]+):([^\s:\\]+)", re.M)
+ENTRY = re.compile(r"^\s*((?:tests|docs/consumers/examples)/[^\s:]+):([^\s:]+):([^\s:\\]+)", re.M)
 MASKS = (
     (re.compile(r'(\btimestamp: )"\d{14}"'), r'\1"<now>"'),
     (re.compile(r"(helm\.sh/chart: \S+?-)\d+\.\d+\.\d+\S*"), r"\1<version>"),

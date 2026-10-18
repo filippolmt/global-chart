@@ -34,6 +34,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
     Deployment.
   - A StatefulSet whose `<fullname>-<key>` is longer than 52 characters fails
     the render: the pods' `controller-revision-hash` label would exceed 63.
+- **A guide for values authors, versioned with the chart** (issue #204):
+  [`docs/consumers/README.md`](docs/consumers/README.md), short enough for an
+  LLM's context. It covers the rules that are easy to get wrong (the immutable
+  selector, what a hook or cronjob inherits, the `envFrom` order, no free-form
+  manifest field), how to read a `<values path>: <problem>` failure, and an
+  `AGENTS.md` snippet that points an application repository at the guide of
+  the chart version it pins. Five complete examples (web, worker, cronjob,
+  migration hook, ExternalSecret) in `docs/consumers/examples/` are
+  `TEST_CASES` scenarios, so CI renders them.
 
 ### Changed
 
