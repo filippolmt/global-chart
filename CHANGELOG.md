@@ -141,6 +141,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Tests
 
+- New `make scenario-coverage`, in `make check` and CI: every map or list node
+  the schema declares is set by a `TEST_CASES` scenario, and every type a node
+  accepts beside another is used by one, so the checks over the scenarios see
+  it. The day's 129 gaps sit in `tests/scenario-coverage-baseline.txt`, which
+  only shrinks; `tests/workload-hooks-cronjobs.yaml` now sets `imagePullSecrets`
+  in the string form (the gap behind the #235 review). `make render` takes
+  `TEMPLATE` as optional and `SKIP_SCHEMA=1`.
 - `make null-sweep` gains a type pass (issue #235): each map and list node of
   each scenario is given a number and the other container in turn, and must
   render or fail naming its path; a node `valuesShape` names must fail with

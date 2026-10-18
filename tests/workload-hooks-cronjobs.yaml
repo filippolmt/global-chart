@@ -7,6 +7,12 @@
 # - nodeSelector, tolerations, affinity
 # - imagePullSecrets, hostAliases
 # - envFromConfigMaps, envFromSecrets, additionalEnvs
+# - global.imagePullSecrets, in both forms
+
+global:
+  imagePullSecrets:
+    - global-registry
+    - name: global-mirror
 
 workloads:
   # Backend workload with hooks and cronJobs inside
@@ -19,6 +25,8 @@ workloads:
 
     imagePullSecrets:
       - name: registry-secret
+      # The string form, which the schema accepts beside the map (issue #235)
+      - mirror-secret
 
     serviceAccount:
       create: true

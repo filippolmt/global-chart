@@ -237,6 +237,8 @@ def values_shape(chart, tmp):
     for helper in (chart / "templates").glob("_*.tpl"):
         (scratch / "templates" / helper.name).write_text(helper.read_text())
     (scratch / "templates" / "shape.json").write_text('{{ include "global-chart.valuesShape" . | fromYaml | toJson }}\n')
+    # Wrapped in an object: helm template fails a template whose output is a
+    # top-level JSON array ("cannot unmarshal array"), even one -s leaves out
     (scratch / "templates" / "owners.json").write_text('{"owners": {{ include "global-chart.podSpecOwners" . }}}\n')
     out = subprocess.run(["helm", "template", "x", str(scratch), "-s", "templates/shape.json"],
                          capture_output=True, text=True)
