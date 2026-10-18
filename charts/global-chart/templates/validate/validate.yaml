@@ -8,7 +8,7 @@
   helpers those read may rely on what these checks reject.
 */ -}}
 {{- include "global-chart.validateRemovedKeys" . -}}
-{{- include "global-chart.validateValueKinds" . -}}
+{{- include "global-chart.validateValueTypes" . -}}
 {{- include "global-chart.validateNullItems" . -}}
 {{- include "global-chart.validateFullname" . -}}
 {{- include "global-chart.validateNameCollisions" . -}}

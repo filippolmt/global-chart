@@ -31,14 +31,16 @@ When it arrived the sweep found 166 such nulls (issue #198), all fixed; a
 finding now fails CI. The rule it holds is in CODING_STANDARDS.md (fallback
 guards and nulls).
 
-The type pass (issue #235). Every map and list node is then given the wrong kind
+The type pass (issue #235). Every map and list node is then given the wrong type
 in turn: the number 3, and the opposite container (a map becomes [3], a list
-{"x": 3}). The kinds the templates read are valuesShape in _validate-helpers.tpl,
+{"x": 3}). The types the templates read are valuesShape in _validate-helpers.tpl,
 read back as JSON through a second scratch chart holding the chart's helpers, so
-the sweep keeps no copy of it. A node valuesShape names must fail with
-validateValueKinds' message naming its path; any other node must render or fail
-naming its path, as a null must. The second rule is what keeps valuesShape whole:
-a node a template reads and valuesShape misses ends on a raw error. A wrong kind
+the sweep keeps no copy of it. Each node of valuesShape must read exactly the
+types values.schema.json accepts there, null aside: a valid value must never
+fail it (an imagePullSecrets item is a map or a string). A node valuesShape
+names must fail with validateValueTypes' message naming its path; any other
+node must render or fail naming its path, as a null must. The second rule is what keeps valuesShape whole:
+a node a template reads and valuesShape misses ends on a raw error. A wrong type
 that renders in silence, outside valuesShape, passes: no sweep can tell it from
 a passthrough node the API server will reject, so such a node joins valuesShape
 by hand, with its fixture.
@@ -54,7 +56,7 @@ import subprocess
 import sys
 import tempfile
 
-# `%!` is a Go fmt error: a value of the wrong kind printed into a message
+# `%!` is a Go fmt error: a value of the wrong type printed into a message
 RAW = re.compile(r"nil pointer|error calling|wrong type for value|can't evaluate|"
                  r"executing \"|invalid value; expected|incompatible types|error converting YAML|%!")
 FAIL = re.compile(r"execution error at \([^)]*\): ")
@@ -106,8 +108,8 @@ def nulled(values, path):
     return set_at(values, path, None)
 
 
-def wrong_kinds(node):
-    """The wrong kinds the type pass gives a map or list node: a number, the other container."""
+def wrong_types(node):
+    """The wrong types the type pass gives a map or list node: a number, the other container."""
     if isinstance(node, dict):
         return [3, [3]]
     if isinstance(node, list):
@@ -133,6 +135,65 @@ def shape_at(shape, path):
     return shape
 
 
+SCHEMA_TYPES = {"object": "map", "array": "list", "string": "string", "boolean": "boolean",
+                "integer": "number", "number": "number"}
+
+
+def schema_alternatives(schema, node):
+    """The schema nodes a value at node may match: $ref followed, oneOf and anyOf spread."""
+    while "$ref" in node:
+        target = schema
+        for part in node["$ref"].lstrip("#/").split("/"):
+            target = target[part]
+        node = target
+    alternatives = [node]
+    for key in ("oneOf", "anyOf"):
+        if key in node:
+            alternatives = [a for n in node[key] for a in schema_alternatives(schema, n)]
+    return alternatives
+
+
+def schema_types(schema, node):
+    types = set()
+    for a in schema_alternatives(schema, node):
+        t = a.get("type")
+        types |= {SCHEMA_TYPES[x] for x in ([t] if isinstance(t, str) else t or []) if x != "null"}
+        for n in a.get("allOf", []):
+            types |= schema_types(schema, n)
+    return types
+
+
+def schema_child(schema, node, key):
+    """The schema of node's entry key ("*" for any entry, "[]" for an item); None if undeclared."""
+    found = []
+    for a in schema_alternatives(schema, node):
+        for part in [a] + [b for n in a.get("allOf", []) for b in schema_alternatives(schema, n)]:
+            if key == "[]":
+                found += [part["items"]] if "items" in part else []
+            elif key == "*":
+                found += [part["additionalProperties"]] if isinstance(part.get("additionalProperties"), dict) else []
+                found += part.get("patternProperties", {}).values()
+            elif key in part.get("properties", {}):
+                found.append(part["properties"][key])
+    return {"anyOf": found} if found else None
+
+
+def shape_findings(shape, schema, node, path=""):
+    """Every node where valuesShape reads other types than the schema accepts."""
+    want = {"map"} if isinstance(shape, dict) else {"list"} if isinstance(shape, list) else set(shape.split("|"))
+    if node is None:
+        return [f"valuesShape: {path}: the schema declares no such node"]
+    got = schema_types(schema, node)
+    out = [] if got == want else [f"valuesShape: {path}: reads {'|'.join(sorted(want))}, "
+                                  f"the schema accepts {'|'.join(sorted(got)) or 'any type'}"]
+    if isinstance(shape, dict):
+        for key, child in shape.items():
+            out += shape_findings(child, schema, schema_child(schema, node, key), f"{path}.{key}" if path else key)
+    elif isinstance(shape, list):
+        out += shape_findings(shape[0], schema, schema_child(schema, node, "[]"), path + "[]")
+    return out
+
+
 def values_shape(chart, tmp):
     scratch = pathlib.Path(tmp) / "values-shape"
     (scratch / "templates").mkdir(parents=True)
@@ -140,17 +201,22 @@ def values_shape(chart, tmp):
     for helper in (chart / "templates").glob("_*.tpl"):
         (scratch / "templates" / helper.name).write_text(helper.read_text())
     (scratch / "templates" / "shape.json").write_text('{{ include "global-chart.valuesShape" . | fromYaml | toJson }}\n')
-    out = subprocess.run(["helm", "template", "x", str(scratch)], capture_output=True, text=True, check=True).stdout
-    return json.loads(out.split("\n", 2)[2])
+    out = subprocess.run(["helm", "template", "x", str(scratch)], capture_output=True, text=True)
+    try:
+        return json.loads(out.stdout.split("\n", 2)[2])
+    except (IndexError, ValueError):
+        print("    FAIL: valuesShape in _validate-helpers.tpl does not render as a JSON object behind a `# Source:` "
+              "header: " + (" ".join(out.stderr.split())[:240] or out.stdout[:240]))
+        sys.exit(1)
 
 
-def kind_verdict(out, path):
-    """A node valuesShape names: the render fails with validateValueKinds' message naming it."""
+def type_verdict(out, path):
+    """A node valuesShape names: the render fails with validateValueTypes' message naming it."""
     err = " ".join(out.stderr.split())
     m = FAIL.search(err)
     if m and err[m.end():].startswith(f"{dotted(path)}: a ") and "where the chart reads" in err:
         return None
-    return "not rejected by validateValueKinds naming it: " + \
+    return "not rejected by validateValueTypes naming it: " + \
         (err.replace("Use --debug flag to render out invalid YAML", "").strip()[:240] or "renders")
 
 
@@ -217,36 +283,38 @@ def main(argv):
                   for k in IS_SET.findall(t.read_text())} - {"name"}
         defaults = set(paths(to_json(chart / "values.yaml", scratch)))
         shape = values_shape(chart, tmp)
-        kinds = []
+        schema = json.loads((chart / "values.schema.json").read_text())
+        findings += shape_findings(shape, schema, schema)
+        wrongs = []
         for f in files:
             values = to_json(f, scratch)
             bases[f] = render(chart, flags, values, tmp).stdout
             jobs += [(f, p, nulled(values, p),
                       removed(values, p) if p[-1] in is_set and p not in defaults else None)
                      for p in paths(values)]
-            kinds += [(f, p, wrong, set_at(values, p, wrong))
-                      for p in paths(values) for wrong in wrong_kinds(value_at(values, p))]
+            wrongs += [(f, p, wrong, set_at(values, p, wrong))
+                       for p in paths(values) for wrong in wrong_types(value_at(values, p))]
         def null_job(j):
             f, p, values, unset = j
             return verdict(render(chart, flags, values, tmp), bases[f], p,
                            render(chart, flags, unset, tmp) if unset is not None else None)
 
-        def kind_job(j):
+        def type_job(j):
             f, p, _, values = j
             out = render(chart, flags, values, tmp)
-            return kind_verdict(out, p) if shape_at(shape, p) is not None else verdict(out, bases[f], p)
+            return type_verdict(out, p) if shape_at(shape, p) is not None else verdict(out, bases[f], p)
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=os.cpu_count() or 4) as pool:
             # map submits every job at once: both passes share the pool
-            nulls, wrongs = pool.map(null_job, jobs), pool.map(kind_job, kinds)
+            nulls, typed = pool.map(null_job, jobs), pool.map(type_job, wrongs)
             findings += [f"{f}: {'.'.join(map(str, p))} = null → {v}" for (f, p, *_), v in zip(jobs, nulls) if v]
-            findings += [f"{f}: {'.'.join(map(str, p))} = {json.dumps(w)} → {v}" for (f, p, w, _), v in zip(kinds, wrongs) if v]
+            findings += [f"{f}: {'.'.join(map(str, p))} = {json.dumps(w)} → {v}" for (f, p, w, _), v in zip(wrongs, typed) if v]
     if findings:
-        print("    FAIL: a null or a wrong kind under --skip-schema-validation does not fail naming its values path:")
+        print("    FAIL: a null or a wrong type under --skip-schema-validation does not fail naming its values path:")
         for line in sorted(findings):
             print(f"          - {line}")
         sys.exit(1)
-    print(f"    OK: {len(jobs)} nulls and {len(kinds)} wrong kinds across {len(files)} scenarios render or fail naming their path")
+    print(f"    OK: {len(jobs)} nulls and {len(wrongs)} wrong types across {len(files)} scenarios render or fail naming their path")
 
 
 if __name__ == "__main__":

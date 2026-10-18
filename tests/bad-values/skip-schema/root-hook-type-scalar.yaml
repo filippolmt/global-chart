@@ -1,5 +1,5 @@
 # A hook type that is a number, where the chart reads a map of jobs. The schema
-# wants an object; under --skip-schema-validation validateValueKinds names it
+# wants an object; under --skip-schema-validation validateValueTypes names it
 # (issue #235), rather than a raw template error in the first validator that
 # ranges over it.
 # Expected fail substring: "hooks.pre-install: a number, where the chart reads a map"

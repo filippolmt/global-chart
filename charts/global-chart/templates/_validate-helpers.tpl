@@ -31,7 +31,7 @@ message, called first from validate/validate.yaml, the first template Helm
 renders (see its header). Each key
 stays declared in the schema with no constraint, so any value reaches its fail
 (ADR 0022); the walk, the declarations and the fixtures go in 5.0.0. A node of
-the wrong type is skipped: the schema, or validateValueKinds right after,
+the wrong type is skipped: the schema, or validateValueTypes right after,
 rejects it.
   `deployments`                                 → workloads, with the migration guide (issue #221)
   <hook or cronjob>.fromDeployment              → fromWorkload (issue #221)
@@ -175,43 +175,46 @@ helpers above.
 {{- end }}
 
 {{/*
-Fail on a values node of the wrong kind where a template reads into it, naming
-its path (issue #235): `<values path>: a number, where the chart reads a map`.
-The schema rejects every such node; under --skip-schema-validation a template
-that ranges over a number, or reads a field off a list, dies on a raw Go error
-naming a template line, and a map given as a list can render in silence
-(`envFromConfigMaps: {x: 3}` became a configMapRef named "3").
+Fail on a values node of the wrong type where a template reads into it,
+naming its path (issue #235): `<values path>: a number, where the chart reads
+a map`. The schema rejects every such node; under --skip-schema-validation a
+template that ranges over a number, or reads a field off a list, dies on a raw
+Go error naming a template line, and a map given as a list can render in
+silence (`envFromConfigMaps: {x: 3}` became a configMapRef named "3").
 valuesShape below is the single home of which nodes are read and as what. A
-node is in it if and only if its wrong kind ends on a raw error or a silent
-wrong render: a passthrough node the chart hands to toYaml unread (tolerations,
-resources, a container list) stays out, as its wrong kind renders and the API
-server rejects it. Called second from validate/validate.yaml, after
+node is in it if and only if its wrong type ends on a raw error or a silent
+wrong render: a passthrough node the chart hands to toYaml unread
+(tolerations, resources, a container list) stays out, as its wrong type
+renders and the API server rejects it. Each node reads exactly the types the
+schema accepts there, null aside, or a valid value fails (an imagePullSecrets
+item is a map or a string). Called second from validate/validate.yaml, after
 validateRemovedKeys, so the helpers every later check and template reads may
-take these kinds for granted; they stay unguarded. A null is skipped: a null
+take these types for granted; they stay unguarded. A null is skipped: a null
 map value is unset (issue #198), a null list item validateNullItems'.
-`make null-sweep` gives each map and list node of each scenario the wrong kind:
-a node in valuesShape must fail here, one outside it must render or fail
-naming its path. A silent wrong render outside it is invisible to any sweep:
-such a node joins valuesShape by hand, with a skip-schema/ fixture.
-Usage: {{- include "global-chart.validateValueKinds" . -}}
+`make null-sweep` holds valuesShape to the schema, then gives each map and
+list node of each scenario the wrong type: a node in valuesShape must fail
+here, one outside it must render or fail naming its path. A silent wrong
+render outside it is invisible to any sweep: such a node joins valuesShape by
+hand, with a skip-schema/ fixture.
+Usage: {{- include "global-chart.validateValueTypes" . -}}
 */}}
-{{- define "global-chart.validateValueKinds" -}}
+{{- define "global-chart.validateValueTypes" -}}
 {{- $shape := include "global-chart.valuesShape" . | fromYaml -}}
-{{- include "global-chart.checkValueKind" (dict "value" .Values "shape" $shape "errCtx" "") -}}
+{{- include "global-chart.checkValueType" (dict "value" .Values "shape" $shape "errCtx" "") -}}
 {{- end }}
 
 {{/*
-The kinds the templates read the values as, mirroring the values: a map of
+The types the templates read the values as, mirroring the values: a map of
 the keys read, `*` standing for every key of a map of named entries; a
 one-item list for a list whose items are read, the item its shape; a leaf
-naming the kinds read, `|` between two (an image is a map or a string). A
-node under a leaf is not read as a container. Read only by validateValueKinds.
+naming the types read, `|` between two (an image is a map or a string). A
+node under a leaf is not read as a container. Read only by validateValueTypes.
 */}}
 {{- define "global-chart.valuesShape" -}}
 global:
   commonAnnotations: map
   commonLabels: map
-  imagePullSecrets: [map]
+  imagePullSecrets: [map|string]
 workloads:
   "*":
     # the fields a workload shares with its jobs; a job adds env below
@@ -222,15 +225,15 @@ workloads:
       envFromSecrets: list
       externalSecrets: [map]
       image: map|string
-      imagePullSecrets: [map]
+      imagePullSecrets: [map|string]
       serviceAccount: {annotations: map}
       volumeMounts: [map]
       volumes: [map]
     additionalEnvs: list
     autoscaling: {behavior: map}
     configMap: map
-    extraContainers: [{volumeMounts: [map]}]
-    extraInitContainers: [{volumeMounts: [map]}]
+    extraContainers: [{volumeMounts: list}]
+    extraInitContainers: [{volumeMounts: list}]
     keda: {annotations: map, triggers: [{authenticationRef: map}]}
     mountedConfigFiles: {files: [map], bundles: [{files: [map]}]}
     networkPolicy: map
@@ -279,9 +282,9 @@ httpRoutes: {"*": *httpRoute}
 
 {{/*
 Check one values node against its shape, then recurse into the entries the
-shape names. Read only by validateValueKinds.
+shape names. Read only by validateValueTypes.
 */}}
-{{- define "global-chart.checkValueKind" -}}
+{{- define "global-chart.checkValueType" -}}
 {{- $args := . -}}
 {{- if not (kindIs "invalid" .value) -}}
   {{- $want := list "map" -}}
@@ -290,7 +293,7 @@ shape names. Read only by validateValueKinds.
   {{- else if kindIs "string" .shape -}}
     {{- $want = splitList "|" .shape -}}
   {{- end -}}
-  {{- $got := include "global-chart.valueKind" .value -}}
+  {{- $got := include "global-chart.valueType" .value -}}
   {{- if not (has $got $want) -}}
     {{- fail (printf "%s: a %s, where the chart reads a %s" .errCtx $got (join " or a " $want)) -}}
   {{- end -}}
@@ -298,23 +301,23 @@ shape names. Read only by validateValueKinds.
     {{- range $key, $item := $args.value -}}
       {{- $child := ternary (index $args.shape $key) (index $args.shape "*") (hasKey $args.shape $key) -}}
       {{- if $child -}}
-        {{- include "global-chart.checkValueKind" (dict "value" $item "shape" $child "errCtx" (ternary $key (printf "%s.%s" $args.errCtx $key) (eq $args.errCtx ""))) -}}
+        {{- include "global-chart.checkValueType" (dict "value" $item "shape" $child "errCtx" (ternary $key (printf "%s.%s" $args.errCtx $key) (eq $args.errCtx ""))) -}}
       {{- end -}}
     {{- end -}}
   {{- else if kindIs "slice" .shape -}}
     {{- range $i, $item := $args.value -}}
-      {{- include "global-chart.checkValueKind" (dict "value" $item "shape" (first $args.shape) "errCtx" (printf "%s[%d]" $args.errCtx $i)) -}}
+      {{- include "global-chart.checkValueType" (dict "value" $item "shape" (first $args.shape) "errCtx" (printf "%s[%d]" $args.errCtx $i)) -}}
     {{- end -}}
   {{- end -}}
 {{- end -}}
 {{- end }}
 
 {{/*
-The kind of a values node in the words of the values author, not Go's
+The type of a values node in the words of the values author, not Go's
 (`float64`): map, list, string, boolean or number. Read only by
-checkValueKind.
+checkValueType.
 */}}
-{{- define "global-chart.valueKind" -}}
+{{- define "global-chart.valueType" -}}
 {{- if kindIs "map" . -}}map
 {{- else if kindIs "slice" . -}}list
 {{- else if kindIs "string" . -}}string
@@ -359,8 +362,8 @@ the chart reads carries a null in a field it needs (issue #198). Two parts:
 Those helpers skip a null item or field instead of reading through it, so this
 is the one error such a null reaches, whatever order Helm renders the templates
 in (isNamedEntry is their skip). Runs in validate.yaml right after
-validateValueKinds, which leaves it lists and maps of the kind it reads. A root-level list
-only one template reads (ingress, externalSecrets data, keda triggers, route
+validateValueTypes, which leaves it lists and maps of the type it reads. A
+root-level list only one template reads (ingress, externalSecrets data, keda triggers, route
 rules) gets its required fields checked by that template, which has the path at
 hand.
 Called from validate.yaml. Emits nothing on success.

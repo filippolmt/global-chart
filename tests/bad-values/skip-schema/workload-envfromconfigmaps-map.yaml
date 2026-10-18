@@ -1,6 +1,6 @@
 # envFromConfigMaps written as a map. The schema wants an array; under
 # --skip-schema-validation it rendered in silence, a configMapRef named after
-# each map value ("3"), until validateValueKinds named it (issue #235). No sweep
+# each map value ("3"), until validateValueTypes named it (issue #235). No sweep
 # sees a silent render: this fixture is its only guard.
 # Expected fail substring: "workloads.web.envFromConfigMaps: a map, where the chart reads a list"
 workloads:

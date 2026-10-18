@@ -1,5 +1,5 @@
 # workloads written as a list, the opposite container. The schema wants an
-# object; under --skip-schema-validation validateValueKinds names it (issue
+# object; under --skip-schema-validation validateValueTypes names it (issue
 # #235): a range over the list would hand the validators an index for a name.
 # Expected fail substring: "workloads: a list, where the chart reads a map"
 workloads:

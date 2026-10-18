@@ -181,8 +181,8 @@ lint-glossary: ## The phrases GLOSSARY.md avoids with one reading only stay out 
 	@echo "==> Checking glossary terms..."
 	@python3 tests/lint-glossary.py
 
-null-sweep: ## Null every values node of every scenario in turn, then give each map and list the wrong kind: each must render or fail naming its path
-	@echo "==> Sweeping nulls and wrong kinds under --skip-schema-validation..."
+null-sweep: ## Null every values node of every scenario in turn, then give each map and list the wrong type: each must render or fail naming its path
+	@echo "==> Sweeping nulls and wrong types under --skip-schema-validation..."
 	@python3 tests/bad-values/null-sweep.py ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) \
 		$(foreach e,$(TEST_CASES),$(firstword $(subst :, ,$(e)))) -- $(HELM_API_VERSIONS)
 

@@ -1,5 +1,5 @@
 # ingress.hosts that is a number, where the chart reads a list. The schema wants
-# an array; under --skip-schema-validation validateValueKinds names it (issue
+# an array; under --skip-schema-validation validateValueTypes names it (issue
 # #235), rather than a raw "range can't iterate over 5" in ingress.yaml.
 # Expected fail substring: "ingress.hosts: a number, where the chart reads a list"
 ingress:

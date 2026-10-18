@@ -1,5 +1,5 @@
 # An ingress host that is a number, where the chart reads a map. The schema
-# wants an object; under --skip-schema-validation validateValueKinds names the
+# wants an object; under --skip-schema-validation validateValueTypes names the
 # item (issue #235), rather than a raw error reading its paths.
 # Expected fail substring: "ingress.hosts[0]: a number, where the chart reads a map"
 ingress:
