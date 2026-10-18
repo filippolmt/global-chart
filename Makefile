@@ -117,7 +117,7 @@ TEST_CASES := \
 .DEFAULT_GOAL := help
 
 # All phony targets
-.PHONY: help all check lint-chart lint-templates lint-docs lint-shell lint-labels unit-test null-sweep validate-bad-values generate-templates \
+.PHONY: help all check lint-chart lint-templates lint-docs lint-shell lint-glossary lint-labels unit-test null-sweep validate-bad-values generate-templates \
 	kubeconform kube-linter-manifests kube-linter generate-docs package \
 	install install-test01 render clean clean-all \
 	kind-install kind-cluster kind-keda kind-eso kind-gateway-api kind-argocd kind-delete e2e e2e-dryrun e2e-routes e2e-argocd check-helm-floor
@@ -143,9 +143,10 @@ help: ## Show this help message
 # Main targets
 # ============================================================================
 
-all: lint-chart lint-templates lint-docs lint-shell unit-test validate-bad-values null-sweep generate-templates kubeconform kube-linter ## Lint, template rules, doc pointers, unit tests, bad-values, null sweep, then generate, validate and lint the manifests
+all: lint-chart lint-templates lint-docs lint-shell lint-glossary unit-test validate-bad-values null-sweep generate-templates kubeconform kube-linter ## Lint, template rules, doc pointers, unit tests, bad-values, null sweep, then generate, validate and lint the manifests
+	@echo "==> make all: every check passed"
 
-check: lint-chart lint-templates lint-docs lint-shell unit-test validate-bad-values null-sweep ## The development loop: lint, template rules, doc pointers, unit tests, bad-values, null sweep (no manifest validation)
+check: lint-chart lint-templates lint-docs lint-shell lint-glossary unit-test validate-bad-values null-sweep ## The development loop: lint, template rules, doc pointers, unit tests, bad-values, null sweep (no manifest validation)
 
 lint-chart: ## Lint chart with all test values files
 	@echo "==> Linting chart with all test cases..."
@@ -167,6 +168,10 @@ lint-docs: ## Check that every file a document or a comment points at exists
 lint-shell: ## A value piped onward in the Makefile or a script goes through printf, not echo
 	@echo "==> Checking shell pipes..."
 	@python3 tests/lint-shell.py
+
+lint-glossary: ## The phrases GLOSSARY.md avoids with one reading only stay out of the tracked files
+	@echo "==> Checking glossary terms..."
+	@python3 tests/lint-glossary.py
 
 null-sweep: ## Null every values node of every scenario in turn: each must render or fail naming its path
 	@echo "==> Sweeping nulls under --skip-schema-validation..."
@@ -243,7 +248,7 @@ define _helm_generate
 			$(HELM_API_VERSIONS) \
 			--namespace "$${namespace}" \
 			--output-dir "$${out_dir}" \
-			--include-crds; \
+			--include-crds >/dev/null; \
 	done
 endef
 
