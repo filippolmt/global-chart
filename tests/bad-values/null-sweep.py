@@ -39,8 +39,9 @@ the sweep keeps no copy of it. Each node of valuesShape must read exactly the
 types values.schema.json accepts there, null aside: a valid value must never
 fail it (an imagePullSecrets item is a map or a string). A node valuesShape
 names must fail with validateValueTypes' message naming its path; any other
-node must render or fail naming its path, as a null must. The second rule is what keeps valuesShape whole:
-a node a template reads and valuesShape misses ends on a raw error. A wrong type
+node must render or fail naming its path, as a null must. That last rule keeps
+valuesShape whole: a node a template reads and valuesShape misses ends on a raw
+error. A wrong type
 that renders in silence, outside valuesShape, passes: no sweep can tell it from
 a passthrough node the API server will reject, so such a node joins valuesShape
 by hand, with its fixture.
@@ -124,7 +125,7 @@ def value_at(values, path):
 
 
 def shape_at(shape, path):
-    """The shape valuesShape gives the node at path, as validateValueKinds walks it; None outside it."""
+    """The shape valuesShape gives the node at path, as validateValueTypes walks it; None outside it."""
     for key in path:
         if isinstance(shape, list) and isinstance(key, int):
             shape = shape[0]
@@ -139,6 +140,11 @@ SCHEMA_TYPES = {"object": "map", "array": "list", "string": "string", "boolean":
                 "integer": "number", "number": "number"}
 
 
+# shortcut: the schema walk reads type, $ref, oneOf, anyOf, allOf (as a union),
+# properties, additionalProperties, patternProperties and items; it ignores $ref
+# siblings, if/then/else, not, and a branch with no type (read as no type, not
+# any type). None changes a valuesShape node's types today; when one does, teach
+# the walk that construct, or make it a finding.
 def schema_alternatives(schema, node):
     """The schema nodes a value at node may match: $ref followed, oneOf and anyOf spread."""
     while "$ref" in node:

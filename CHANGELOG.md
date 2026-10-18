@@ -115,8 +115,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   means unset, and a passthrough node the chart hands on unread (tolerations,
   resources) is left to the API server, as before. The schema now declares
   `volumeMounts` of an `extraContainers` or `extraInitContainers` item an
-  array, since the StatefulSet check reads it: any other value was rejected
-  by the API server at apply.
+  array or null, since the StatefulSet check reads it: any other value was
+  rejected by the API server at apply. An `envFromConfigMaps` or
+  `envFromSecrets` item that is not a string fails too: a map rendered a
+  ConfigMap name such as `map[a:1]`.
 - **A PDB percentage above 100% is rejected by the schema.** `pdb.minAvailable`
   and `pdb.maxUnavailable` accepted any `"<digits>%"`, so `"150%"` rendered
   and the API server refused it at apply. They now take `0%` to `100%`, without

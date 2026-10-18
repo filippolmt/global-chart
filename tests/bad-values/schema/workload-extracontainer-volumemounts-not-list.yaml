@@ -1,0 +1,10 @@
+# An extraContainers item whose volumeMounts is not a list (issue #235). The
+# StatefulSet check reads it, so the schema declares it an array; any other
+# value was rejected by the API server at apply.
+workloads:
+  app:
+    image: nginx:1.25
+    extraContainers:
+      - name: sidecar
+        image: busybox:1.36
+        volumeMounts: 3

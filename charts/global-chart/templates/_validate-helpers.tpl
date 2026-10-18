@@ -208,7 +208,9 @@ The types the templates read the values as, mirroring the values: a map of
 the keys read, `*` standing for every key of a map of named entries; a
 one-item list for a list whose items are read, the item its shape; a leaf
 naming the types read, `|` between two (an image is a map or a string). A
-node under a leaf is not read as a container. Read only by validateValueTypes.
+node under a leaf is not read as a container. The pod-spec owners (a workload,
+its hooks and cronjobs, the root ones) mirror podSpecOwners: an owner added
+there joins this tree too. Read only by validateValueTypes.
 */}}
 {{- define "global-chart.valuesShape" -}}
 global:
@@ -221,8 +223,8 @@ workloads:
     <<: &podSpec
       annotations: map
       dnsConfig: {nameservers: list, searches: list, options: [map]}
-      envFromConfigMaps: list
-      envFromSecrets: list
+      envFromConfigMaps: [string]
+      envFromSecrets: [string]
       externalSecrets: [map]
       image: map|string
       imagePullSecrets: [map|string]
@@ -363,9 +365,9 @@ Those helpers skip a null item or field instead of reading through it, so this
 is the one error such a null reaches, whatever order Helm renders the templates
 in (isNamedEntry is their skip). Runs in validate.yaml right after
 validateValueTypes, which leaves it lists and maps of the type it reads. A
-root-level list only one template reads (ingress, externalSecrets data, keda triggers, route
-rules) gets its required fields checked by that template, which has the path at
-hand.
+root-level list only one template reads (ingress, externalSecrets data, keda
+triggers, route rules) gets its required fields checked by that template,
+which has the path at hand.
 Called from validate.yaml. Emits nothing on success.
 */}}
 {{- define "global-chart.validateNullItems" -}}
