@@ -800,7 +800,7 @@ tests:
               mountPath: /etc/app
     asserts:
       - failedTemplate:
-          errorPattern: "deployments.main.externalSecrets: the volume 'es-app-conf' generated for 'app-conf' is already declared"
+          errorMessage: "deployments.main.externalSecrets[0]: the volume 'es-app-conf' generated for 'app-conf' is already declared by deployments.main.volumes[0]. Mount a key once, and do not name your own volumes after it."
 
   - it: should fail when a volumes entry takes the name of a mounted config file volume
     set:
@@ -815,7 +815,7 @@ tests:
               emptyDir: {}
     asserts:
       - failedTemplate:
-          errorMessage: "deployments.main.mountedConfigFiles.files[0]: declares the pod volume 'md-cm-file-app', which deployments.main.volumes[0] already declares, and a pod holds one volume per name. Rename the volumes entry."
+          errorMessage: "deployments.main.volumes[0]: declares the pod volume 'md-cm-file-app', which deployments.main.mountedConfigFiles.files[0] already declares, and a pod holds one volume per name. Rename the volumes entry."
 
   - it: should fail when a volumes entry takes the name of a mounted config bundle volume
     set:
@@ -832,7 +832,20 @@ tests:
               emptyDir: {}
     asserts:
       - failedTemplate:
-          errorMessage: "deployments.main.mountedConfigFiles.bundles[0]: declares the pod volume 'md-cm-bundle-0', which deployments.main.volumes[0] already declares, and a pod holds one volume per name. Rename the volumes entry."
+          errorMessage: "deployments.main.volumes[0]: declares the pod volume 'md-cm-bundle-0', which deployments.main.mountedConfigFiles.bundles[0] already declares, and a pod holds one volume per name. Rename the volumes entry."
+
+  - it: should fail when two mounted config files generate one volume name
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          mountedConfigFiles:
+            files:
+              - { name: app, filename: a.yaml, targetPath: /etc/a.yaml, content: "a: 1" }
+              - { name: app, filename: b.yaml, targetPath: /etc/b.yaml, content: "b: 1" }
+    asserts:
+      - failedTemplate:
+          errorMessage: "deployments.main.mountedConfigFiles.files[1]: declares the pod volume 'md-cm-file-app', which deployments.main.mountedConfigFiles.files[0] already declares, and a pod holds one volume per name. Give each file its own name."
 
   - it: should fail when two volumes entries share a name
     set:

@@ -49,7 +49,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   entry named like a volume `mountedConfigFiles` generates (`md-cm-file-<name>`,
   `md-cm-bundle-<i>`), or like another `volumes` entry, rendered a pod the API
   server rejected at apply time. Now the render fails naming both values paths,
-  for a deployment and for a hook or cronjob.
+  for a deployment and for a hook or cronjob. The `externalSecrets` volume
+  collision check reads the same names, and its message now names the volume
+  it collides with.
 
 ### Tests
 

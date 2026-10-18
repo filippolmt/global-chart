@@ -3436,7 +3436,7 @@ tests:
                 mountPath: /etc/app
     asserts:
       - failedTemplate:
-          errorPattern: "hooks.pre-install.migrate.externalSecrets: the volume 'es-app-conf' generated for 'app-conf' is already declared"
+          errorMessage: "hooks.pre-install.migrate.externalSecrets[0]: the volume 'es-app-conf' generated for 'app-conf' is already declared by hooks.pre-install.migrate.volumes[0]. Mount a key once, and do not name your own volumes after it."
 
   - it: should fail when the same key is mounted twice
     set:
@@ -3456,7 +3456,7 @@ tests:
                 mountPath: /etc/b
     asserts:
       - failedTemplate:
-          errorPattern: "hooks.pre-install.migrate.externalSecrets: the volume 'es-app-conf' generated for 'app-conf' is already declared"
+          errorMessage: "hooks.pre-install.migrate.externalSecrets[1]: the volume 'es-app-conf' generated for 'app-conf' is already declared by hooks.pre-install.migrate.externalSecrets[0]. Mount a key once, and do not name your own volumes after it."
 
   - it: should fail when a mounted key is not a DNS-1123 label
     set:
