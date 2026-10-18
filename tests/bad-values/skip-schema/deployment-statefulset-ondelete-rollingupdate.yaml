@@ -1,0 +1,11 @@
+# rollingUpdate with type OnDelete, under --skip-schema-validation: the backstop
+# guard in deployment.yaml names it.
+# Expected fail substring: "deployments.db.updateStrategy.rollingUpdate: only allowed with type RollingUpdate, and the type is OnDelete."
+deployments:
+  db:
+    kind: StatefulSet
+    image: nginx:1.25
+    updateStrategy:
+      type: OnDelete
+      rollingUpdate:
+        partition: 1

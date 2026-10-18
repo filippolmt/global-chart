@@ -1,0 +1,9 @@
+# covers: persistentVolumeClaimRetentionPolicy
+# An unknown key under persistentVolumeClaimRetentionPolicy (typo of whenScaled).
+# Without the constraint the default Retain applies in silence.
+deployments:
+  db:
+    kind: StatefulSet
+    image: nginx:1.25
+    persistentVolumeClaimRetentionPolicy:
+      whenScale: Delete

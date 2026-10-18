@@ -9,6 +9,8 @@ The chart supports **multiple deployments** in a single release, each with indep
 
 - **Multi-deployment support**
   Define multiple independent deployments under `deployments.*`. Each gets its own Service, ConfigMap, Secret, ServiceAccount, HPA, PDB, and NetworkPolicy.
+- **StatefulSets**
+  `kind: StatefulSet` on a `deployments` entry renders a StatefulSet instead of a Deployment, with one claim per pod from `volumeClaimTemplates` and a headless governing Service (see [Stateful workloads](#stateful-workloads-kind-statefulset)). Everything else about the entry stays the same.
 - **Deployment primitives**
   Image can be a string (`nginx:1.25`) or a map (`repository/tag/digest`), held by the schema to the reference grammar the kubelet parses; `tag` is a string, so quote a numeric-looking one (`"1.20"`). Probes, resources, autoscaling (HPA), scheduling constraints, extra containers/init containers, pod recreation bumps, and ConfigMap/Secret `envFrom` are all configurable. `command`/`args` override the image entrypoint per deployment, so one image can back several workloads (web, worker, …); they are never inherited by the deployment's hooks/cronJobs.
 - **Networking**
@@ -33,14 +35,14 @@ The chart supports **multiple deployments** in a single release, each with indep
 - **Validation**
   JSON Schema Draft 2019-09 (`values.schema.json`) for input validation and IDE autocomplete. Name collision detection at render time, and a null `configMap` / `secret` value fails there, naming its values path.
 - **Out of scope**
-  The chart renders Deployments, CronJobs and hook Jobs, and only what its schema and templates can validate. There is no free-form manifest field (`extraObjects`, `rawResources`): an object the chart cannot validate belongs in another chart or in the application's own manifests. Keep `--skip-schema-validation` out of CI; it is a one-off way out for a Kubernetes field the chart does not list yet. See [ADR 0019](docs/adr/0019-the-chart-renders-only-what-it-can-validate.md).
+  The chart renders Deployments, StatefulSets, CronJobs and hook Jobs, and only what its schema and templates can validate. There is no free-form manifest field (`extraObjects`, `rawResources`): an object the chart cannot validate belongs in another chart or in the application's own manifests. Keep `--skip-schema-validation` out of CI; it is a one-off way out for a Kubernetes field the chart does not list yet. See [ADR 0019](docs/adr/0019-the-chart-renders-only-what-it-can-validate.md).
 
 ## Prerequisites
 
 - Helm >= 3.18.6 (Helm 4 supported). Below it, the schema closures of the four job
   composites (`cronJobs` and `hooks`, both scopes) and of `httpRoute` / `httpRoutes`
   are ignored without a word, so a typo there renders instead of being rejected. `helm install`/`upgrade` warn about it
-- Kubernetes 1.23 or newer — the floor is `autoscaling/v2` for the HPA and `policy/v1` for the PDB
+- Kubernetes 1.27 or newer — the floor is a StatefulSet's `persistentVolumeClaimRetentionPolicy`, on by default from 1.27: below it the API server drops the field without a word, and with it the claims' `Retain`
 - Docker (for unit tests, kubeconform, kube-linter, helm-docs)
 
 ## Quick start
@@ -92,6 +94,82 @@ the old Deployment and creates a new one.
 
 Adopting a workload that another chart already manages hits the same wall
 whenever the two selectors differ — no chart can adopt an arbitrary selector.
+
+Changing `kind` on an installed entry (`Deployment` ↔ `StatefulSet`) is not an
+edit either: the old workload is deleted and the new one created, and for a
+moment the pods of both match the same selector and the same Service. A
+StatefulSet adds its own immutable fields: `volumeClaimTemplates`,
+`podManagementPolicy` and `serviceName` (see
+[Stateful workloads](#stateful-workloads-kind-statefulset)).
+
+## Stateful workloads: `kind: StatefulSet`
+
+A database, a search engine or a message broker keeps state per pod. A
+`deployments` entry with `kind: StatefulSet` renders a StatefulSet: each pod has
+a stable name (`<fullname>-<key>-0`, `-1`, …) and, for each
+`volumeClaimTemplates` entry, a claim of its own that follows it across
+restarts. The rest of the entry (image, config, Service, HPA/KEDA, PDB,
+NetworkPolicy, hooks and cronJobs) works as on a Deployment. See
+[ADR 0020](docs/adr/0020-a-workload-kind-on-the-deployments-entry.md).
+
+```yaml
+deployments:
+  search:
+    kind: StatefulSet
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.0
+    replicaCount: 1
+    service:
+      port: 9200
+      targetPort: 9200
+    volumeMounts:
+      - name: data
+        mountPath: /usr/share/elasticsearch/data
+    volumeClaimTemplates:
+      - name: data                    # claim data-<fullname>-search-0
+        size: 10Gi
+        storageClassName: standard-rwo
+```
+
+- **Headless Service.** Every StatefulSet gets `<fullname>-<key>-headless`
+  (`clusterIP: None`, `publishNotReadyAddresses: true`), even with
+  `service.enabled: false`: the pods resolve as
+  `<pod>.<fullname>-<key>-headless`, for peer discovery. Routes and the
+  Ingress keep pointing to the normal Service. It carries the `service` ports,
+  which only name its SRV records: with `service.enabled: false` they are the
+  primary port's defaults (80, `http`) unless `service` declares others, and
+  it takes the common annotations only, never `service.annotations`, which
+  target the normal Service (external-dns, a cloud load balancer).
+- **The claims outlive the release.** `persistentVolumeClaimRetentionPolicy`
+  defaults to `Retain` on deletion and on scale-down, and the claims are not
+  in the manifest: neither `helm uninstall` nor an Argo CD prune deletes them.
+  Delete them by hand when the data is no longer wanted.
+- **One claim per pod, not one per StatefulSet.** Pods do not share a claim.
+  A volume shared between pods needs `ReadWriteMany` (Filestore, EFS, Azure
+  Files: rarely a cluster's default class): create the claim outside the chart
+  and mount it with `volumes[].persistentVolumeClaim.claimName`.
+- **A cloud block disk lives in one zone.** The pod stays in the zone where its
+  claim was created. Use a StorageClass with
+  `volumeBindingMode: WaitForFirstConsumer`, or the disk can be created in a
+  zone where the pod cannot be scheduled.
+- **`volumeClaimTemplates` is immutable.** Changing a size, a storage class or
+  a label fails the upgrade. The way through keeps the pods and their claims:
+
+  ```bash
+  kubectl delete sts <fullname>-<key> --cascade=orphan
+  helm upgrade ...   # or sync: the StatefulSet is recreated and adopts the pods
+  ```
+
+  The existing claims keep their old spec; growing one means editing the claim
+  itself, when its StorageClass allows volume expansion. For the same reason
+  the claims carry only the selector labels and their own `labels` and
+  `annotations`, never `helm.sh/chart` or `global.commonLabels`.
+- **Name.** A StatefulSet's `<fullname>-<key>` is at most 52 characters: each
+  pod carries `controller-revision-hash: <name>-<hash>`, and a label value
+  holds 63. A longer name fails the render.
+- **Fields of one kind only.** `strategy` and `progressDeadlineSeconds` belong
+  to a Deployment; `updateStrategy`, `podManagementPolicy`,
+  `volumeClaimTemplates` and `persistentVolumeClaimRetentionPolicy` to a
+  StatefulSet. The schema rejects them on the other kind.
 
 ## Example: Multi-deployment with inherited hooks/cronJobs
 
@@ -500,6 +578,7 @@ The `tests/` directory is the list — `TEST_CASES` in the `Makefile` is what
 | `service-disabled.yaml`          | Deployment with service disabled                                                          |
 | `service-extra-ports.yaml`       | Service with extraPorts, and the container ports derived from them                        |
 | `common-annotations.yaml`        | `global.commonAnnotations` colliding with per-resource ones — catches a duplicate YAML key                |
+| `statefulset.yaml`               | StatefulSets with claim templates, headless Service, HPA and KEDA targets, a sidecar-mounted claim |
 | `raw-deployment.yaml`            | Deployment with raw image string                                                          |
 | `name-collision.yaml`            | Name collision detection test                                                             |
 | `bad-values/schema/*.yaml`       | Values the schema must reject                                                             |

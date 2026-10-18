@@ -227,3 +227,25 @@ tests:
       - equal:
           path: spec.metrics[1].resource.target.averageUtilization
           value: 10000000
+
+  # ====== StatefulSet target (issue #211, ADR 0020) ======
+  - it: should target the workload by its kind
+    release:
+      name: rel
+    set:
+      deployments:
+        db:
+          kind: StatefulSet
+          image: nginx:1.25
+          autoscaling:
+            enabled: true
+            minReplicas: 1
+            maxReplicas: 3
+            targetCPUUtilizationPercentage: 80
+    asserts:
+      - equal:
+          path: spec.scaleTargetRef
+          value:
+            apiVersion: apps/v1
+            kind: StatefulSet
+            name: rel-global-chart-db

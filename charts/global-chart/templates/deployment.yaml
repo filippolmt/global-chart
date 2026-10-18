@@ -1,3 +1,9 @@
+{{- /*
+The workload of every deployments entry, whatever its kind: a Deployment, or a
+StatefulSet with kind: StatefulSet (ADR 0020). The file is named after the
+values map it renders, like service.yaml and hpa.yaml, not after a Kubernetes
+kind; it changes name only together with the map (issue #215).
+*/ -}}
 {{- $root := . }}
 {{- range $name, $deploy := .Values.deployments }}
 {{- if $deploy }}
@@ -10,12 +16,35 @@
 {{- $podRecreation := default (dict) $deploy.podRecreation }}
 {{- $dnsConfig := default (dict) $deploy.dnsConfig }}
 {{- $svc := default (dict) $deploy.service }}
+{{- $kind := include "global-chart.workloadKind" $deploy }}
+{{- $sts := include "global-chart.isStatefulSet" $deploy }}
+{{- /* Backstop guard: the schema's if/then on kind rejects these first; this is
+       the message under --skip-schema-validation (ADR 0020). */}}
+{{- $kindOnly := dict "Deployment" (list "strategy" "progressDeadlineSeconds") "StatefulSet" (list "updateStrategy" "podManagementPolicy" "volumeClaimTemplates" "persistentVolumeClaimRetentionPolicy") }}
+{{- range $owner, $fields := $kindOnly }}
+{{- if ne $owner $kind }}
+{{- range $fields }}
+{{- if eq (include "global-chart.isSet" (list $deploy .)) "true" }}
+{{- fail (printf "%s.%s: a %s field, and this entry renders a %s. Drop it, or set kind: %s." $errCtx . $owner $kind $owner) }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- /* Each claim template becomes a pod volume of its name, which an
+       externalSecrets volume must not take either. The other rules on claims
+       are validateStatefulSets' (ADR 0020). */}}
+{{- $claimVolumes := list }}
+{{- range (default (list) $deploy.volumeClaimTemplates) }}
+{{- if include "global-chart.isNamedEntry" . }}
+{{- $claimVolumes = append $claimVolumes (dict "name" .name) }}
+{{- end }}
+{{- end }}
 {{- /* externalSecrets: the Deployment always reads the real Secret, never the
        hook copy (ADR 0007). Resolved once, for the pod's checksum and its env/volumes */ -}}
-{{- $es := include "global-chart.resolveExternalSecretRefs" (dict "root" $root "refs" $deploy.externalSecrets "hook" false "volumes" $deploy.volumes "errCtx" $errCtx) | fromJson }}
+{{- $es := include "global-chart.resolveExternalSecretRefs" (dict "root" $root "refs" $deploy.externalSecrets "hook" false "volumes" (concat (default (list) $deploy.volumes) $claimVolumes) "errCtx" $errCtx) | fromJson }}
 ---
 apiVersion: apps/v1
-kind: Deployment
+kind: {{ $kind }}
 metadata:
   name: {{ $depFullname }}
   labels:
@@ -28,6 +57,9 @@ metadata:
     {{- . | nindent 4 }}
   {{- end }}
 spec:
+  {{- if $sts }}
+  serviceName: {{ include "global-chart.headlessServiceName" $labelCtx }}
+  {{- end }}
   {{- /* An autoscaler owns spec.replicas: emitting it here makes every upgrade
          snap the Deployment back to this value before the autoscaler corrects
          it — and with KEDA minReplicaCount: 0 it wakes a workload that was
@@ -38,6 +70,36 @@ spec:
   {{- with $deploy.strategy }}
   strategy:
     {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- $updateStrategy := default (dict) $deploy.updateStrategy }}
+  {{- $updateType := eq (include "global-chart.isSet" (list $updateStrategy "type")) "true" }}
+  {{- with $updateStrategy }}
+  {{- /* Backstop guard: the schema rejects it first. The API server accepts
+         rollingUpdate only with type RollingUpdate. */}}
+  {{- if and (eq (toString .type) "OnDelete") .rollingUpdate }}
+  {{- fail (printf "%s.updateStrategy.rollingUpdate: only allowed with type RollingUpdate, and the type is OnDelete. Drop rollingUpdate, or set type: RollingUpdate." $errCtx) }}
+  {{- end }}
+  {{- if or $updateType .rollingUpdate }}
+  updateStrategy:
+    {{- if $updateType }}
+    type: {{ .type }}
+    {{- end }}
+    {{- with .rollingUpdate }}
+    rollingUpdate:
+      {{- if hasKey . "partition" }}
+      partition: {{ include "global-chart.printScalar" (dict "value" .partition "errCtx" (printf "%s.updateStrategy.rollingUpdate.partition" $errCtx)) }}
+      {{- end }}
+    {{- end }}
+  {{- end }}
+  {{- end }}
+  {{- with $deploy.podManagementPolicy }}
+  podManagementPolicy: {{ . }}
+  {{- end }}
+  {{- if $sts }}
+  {{- $retention := default (dict) $deploy.persistentVolumeClaimRetentionPolicy }}
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: {{ ternary $retention.whenDeleted "Retain" (eq (include "global-chart.isSet" (list $retention "whenDeleted")) "true") }}
+    whenScaled: {{ ternary $retention.whenScaled "Retain" (eq (include "global-chart.isSet" (list $retention "whenScaled")) "true") }}
   {{- end }}
   {{- if hasKey $deploy "revisionHistoryLimit" }}
   revisionHistoryLimit: {{ include "global-chart.printScalar" (dict "value" $deploy.revisionHistoryLimit "errCtx" (printf "%s.revisionHistoryLimit" $errCtx)) }}
@@ -251,6 +313,39 @@ spec:
       topologySpreadConstraints:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+  {{- /* The claims' metadata carries the selector labels and the entry's own,
+         never helm.sh/chart or the common labels and annotations:
+         volumeClaimTemplates is immutable, so a label that moves with the chart
+         version would make every upgrade a forbidden update (ADR 0020). */}}
+  {{- with $deploy.volumeClaimTemplates }}
+  volumeClaimTemplates:
+    {{- range . }}
+    {{- if kindIs "map" . }}
+    - metadata:
+        name: {{ .name }}
+        labels:
+          {{- /* The selector labels win, as in mergeLabels: they tie the claim to its workload */}}
+          {{- toYaml (mergeOverwrite (deepCopy (default (dict) .labels)) (include "global-chart.deploymentSelectorLabels" $labelCtx | fromYaml)) | nindent 10 }}
+        {{- with .annotations }}
+        annotations:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+      spec:
+        accessModes:
+          {{- toYaml (default (list "ReadWriteOnce") .accessModes) | nindent 10 }}
+        {{- if eq (include "global-chart.isSet" (list . "storageClassName")) "true" }}
+        storageClassName: {{ .storageClassName | quote }}
+        {{- end }}
+        {{- /* Kubernetes' own default, written out: the API server fills it in,
+               and a field the manifest omits is a standing diff for a GitOps
+               controller on an immutable template */}}
+        volumeMode: {{ default "Filesystem" .volumeMode }}
+        resources:
+          requests:
+            storage: {{ .size | quote }}
+    {{- end }}
+    {{- end }}
+  {{- end }}
 {{- end }}
 {{- end }}
 {{- end }}

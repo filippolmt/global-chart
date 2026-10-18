@@ -368,3 +368,108 @@ tests:
       - equal:
           path: spec.ports[1].targetPort
           value: 9091
+
+  # ====== StatefulSet headless Service (issue #211, ADR 0020) ======
+  - it: should render the headless Service of a StatefulSet next to its normal Service
+    release:
+      name: rel
+    set:
+      deployments:
+        db:
+          kind: StatefulSet
+          image: nginx:1.25
+          service:
+            port: 9200
+            targetPort: 9200
+            portName: http
+    asserts:
+      - hasDocuments:
+          count: 2
+      - equal:
+          path: metadata.name
+          value: rel-global-chart-db
+        documentIndex: 0
+      - equal:
+          path: metadata.name
+          value: rel-global-chart-db-headless
+        documentIndex: 1
+      - equal:
+          path: spec.clusterIP
+          value: None
+        documentIndex: 1
+      - equal:
+          path: spec.publishNotReadyAddresses
+          value: true
+        documentIndex: 1
+      - equal:
+          path: spec.ports
+          value:
+            - port: 9200
+              targetPort: 9200
+              protocol: TCP
+              name: http
+        documentIndex: 1
+      - equal:
+          path: spec.selector["app.kubernetes.io/component"]
+          value: db
+        documentIndex: 1
+
+  # serviceName must name a Service that exists, or the pods' DNS names never resolve
+  - it: should render the headless Service even when the StatefulSet's Service is disabled
+    release:
+      name: rel
+    set:
+      deployments:
+        db:
+          kind: StatefulSet
+          image: nginx:1.25
+          service:
+            enabled: false
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: metadata.name
+          value: rel-global-chart-db-headless
+      - notExists:
+          path: spec.type
+
+  - it: should render no headless Service for a Deployment
+    set:
+      deployments:
+        web:
+          image: nginx:1.25
+    asserts:
+      - hasDocuments:
+          count: 1
+      - notExists:
+          path: spec.clusterIP
+
+  # service.annotations aim at the normal Service: on the headless one
+  # external-dns would publish the pod IPs under the same hostname
+  - it: should give the headless Service the common annotations only
+    release:
+      name: rel
+    set:
+      global:
+        commonAnnotations:
+          team: search
+      deployments:
+        db:
+          kind: StatefulSet
+          image: nginx:1.25
+          service:
+            annotations:
+              external-dns.alpha.kubernetes.io/hostname: db.example.com
+    asserts:
+      - equal:
+          path: metadata.annotations
+          value:
+            team: search
+            external-dns.alpha.kubernetes.io/hostname: db.example.com
+        documentIndex: 0
+      - equal:
+          path: metadata.annotations
+          value:
+            team: search
+        documentIndex: 1

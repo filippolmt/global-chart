@@ -3,24 +3,43 @@
 {{- if $deploy }}
 {{- if eq (include "global-chart.deploymentEnabled" $deploy) "true" }}
 {{- $svc := default (dict) $deploy.service }}
-{{- if eq (include "global-chart.serviceEnabled" $svc) "true" }}
 {{- $errCtx := include "global-chart.deploymentValuesPath" $name }}
-{{- $primary := include "global-chart.servicePrimaryPort" (dict "service" $svc "errCtx" (printf "%s.service" $errCtx)) | fromJson }}
-{{- $depFullname := include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $name) }}
 {{- $labelCtx := dict "root" $root "deploymentName" $name }}
+{{- /* A StatefulSet's governing Service is rendered even with service.enabled
+       false: spec.serviceName must name a Service that exists, or the pods' DNS
+       names never resolve (ADR 0020). It carries the same ports, which only feed
+       its SRV records, and publishes not-ready pods so peers find each other
+       before they are ready. It takes only the common annotations: service.annotations
+       aims at the normal Service (external-dns, a cloud load balancer), and on a
+       headless one external-dns would publish the pod IPs under the same name. */ -}}
+{{- $primary := include "global-chart.servicePrimaryPort" (dict "service" $svc "errCtx" (printf "%s.service" $errCtx)) | fromJson }}
+{{- $services := list }}
+{{- if eq (include "global-chart.serviceEnabled" $svc) "true" }}
+{{- $services = append $services (dict "name" (include "global-chart.deploymentFullname" $labelCtx) "headless" false) }}
+{{- end }}
+{{- if include "global-chart.isStatefulSet" $deploy }}
+{{- $services = append $services (dict "name" (include "global-chart.headlessServiceName" $labelCtx) "headless" true) }}
+{{- end }}
+{{- range $services }}
+{{- $headless := .headless }}
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ $depFullname }}
+  name: {{ .name }}
   labels:
     {{- include "global-chart.deploymentLabels" $labelCtx | nindent 4 }}
-  {{- with (include "global-chart.renderAnnotations" (dict "root" $root "own" $svc.annotations)) }}
+  {{- with (include "global-chart.renderAnnotations" (dict "root" $root "own" (ternary (dict) $svc.annotations $headless))) }}
   annotations:
     {{- . | nindent 4 }}
   {{- end }}
 spec:
+  {{- if $headless }}
+  clusterIP: None
+  publishNotReadyAddresses: true
+  {{- else }}
   type: {{ include "global-chart.serviceType" $svc }}
+  {{- end }}
   ports:
     - port: {{ include "global-chart.printScalar" $primary.port }}
       targetPort: {{ include "global-chart.printScalar" $primary.targetPort }}
@@ -34,8 +53,8 @@ spec:
       {{- with .appProtocol }}
       appProtocol: {{ . }}
       {{- end }}
-      {{- with .nodePort }}
-      nodePort: {{ include "global-chart.printScalar" . }}
+      {{- if and .nodePort (not $headless) }}
+      nodePort: {{ include "global-chart.printScalar" .nodePort }}
       {{- end }}
     {{- end }}
   selector:

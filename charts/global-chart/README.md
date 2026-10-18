@@ -2,7 +2,7 @@
 
 ![Version: 3.3.0](https://img.shields.io/badge/Version-3.3.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square)
 
-Reusable Helm chart for multi-deployment Kubernetes applications—Deployments, Services, Ingress, CronJobs, Hooks, ExternalSecrets, RBAC, HPA, PDB, NetworkPolicy, and more.
+Reusable Helm chart for multi-deployment Kubernetes applications—Deployments, StatefulSets, Services, Ingress, CronJobs, Hooks, ExternalSecrets, RBAC, HPA, PDB, NetworkPolicy, and more.
 
 **Homepage:** <https://github.com/filippolmt/global-chart>
 
@@ -18,7 +18,7 @@ Reusable Helm chart for multi-deployment Kubernetes applications—Deployments, 
 
 ## Requirements
 
-Kubernetes: `>=1.23.0-0`
+Kubernetes: `>=1.27.0-0`
 
 ## Values
 

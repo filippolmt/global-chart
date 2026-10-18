@@ -29,7 +29,7 @@ metadata:
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
-    kind: Deployment
+    kind: {{ include "global-chart.workloadKind" $deploy }}
     name: {{ $depFullname }}
   {{- if hasKey $keda "minReplicaCount" }}
   minReplicaCount: {{ include "global-chart.printScalar" (dict "value" $keda.minReplicaCount "errCtx" (printf "%s.keda.minReplicaCount" $errCtx)) }}

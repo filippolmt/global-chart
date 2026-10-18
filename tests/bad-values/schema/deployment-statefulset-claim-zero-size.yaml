@@ -1,0 +1,12 @@
+# A claim template asking for no storage: the size pattern takes a positive
+# quantity only.
+deployments:
+  db:
+    kind: StatefulSet
+    image: nginx:1.25
+    volumeMounts:
+      - name: data
+        mountPath: /data
+    volumeClaimTemplates:
+      - name: data
+        size: "0Gi"

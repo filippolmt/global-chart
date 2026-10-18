@@ -30,6 +30,9 @@ deployments: {}
   #   # -- (bool) Enable or disable this deployment and all its sub-resources (Service, ConfigMap, Secret, SA, HPA). Default: true
   #   enabled: true
   #
+  #   # -- Workload kind: Deployment (default) or StatefulSet (ADR 0020). Changing it on an installed entry replaces the workload
+  #   kind: Deployment
+  #
   #   # -- (int) Number of replicas to deploy
   #   replicaCount: 2
   #
@@ -193,6 +196,25 @@ deployments: {}
   #
   #   # -- Max time in seconds for deployment to make progress before considered failed
   #   progressDeadlineSeconds: 600
+  #
+  #   # StatefulSet only (kind: StatefulSet). strategy and progressDeadlineSeconds above are Deployment only.
+  #   # -- StatefulSet update strategy: RollingUpdate (with an optional partition) or OnDelete
+  #   updateStrategy:
+  #     type: RollingUpdate
+  #     rollingUpdate:
+  #       partition: 0
+  #   # -- OrderedReady (default) or Parallel. Immutable once the StatefulSet exists
+  #   podManagementPolicy: OrderedReady
+  #   # -- One claim per pod per entry, named <name>-<statefulset>-<ordinal>. Each must be mounted by a volumeMounts item. Immutable
+  #   volumeClaimTemplates: []
+  #     # - name: data
+  #     #   size: 10Gi
+  #     #   accessModes: [ReadWriteOnce]
+  #     #   storageClassName: standard-rwo
+  #   # -- What happens to the claims on deletion and scale-down. Both default to Retain
+  #   persistentVolumeClaimRetentionPolicy:
+  #     whenDeleted: Retain
+  #     whenScaled: Retain
   #
   #   # -- Pod topology spread constraints for even pod distribution
   #   topologySpreadConstraints: []

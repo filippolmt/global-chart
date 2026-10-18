@@ -9,7 +9,7 @@ resolves to the job's own value — and, for `imagePullSecrets` only, to
 not already have. Same widening as `jobServiceAccount`, in
 _serviceaccount-helpers.tpl (see ADR 0001).
 
-Inheritance, deployment scope. A job inherits image, configMap, secret,
+Inheritance, workload scope. A job inherits image, configMap, secret,
 ServiceAccount, the envFrom lists, externalSecrets, imagePullSecrets,
 hostAliases, podSecurityContext, securityContext, dnsConfig (cronjobs only),
 nodeSelector, tolerations, affinity and priorityClassName. An explicit value

@@ -20,18 +20,24 @@ copy and its Secret are gone after the hook phase → the surviving SA is the
 real one, not the hook copy →
 deployment `command`/`args` rendered → the SA a root-level `cronJobs` entry
 references exists in the cluster → every Service `targetPort` resolved to a
-container port and got endpoints → ScaledObject/TriggerAuthentication applied
+container port and got endpoints → a StatefulSet became ready behind its
+headless Service, its claim is `Bound`, and a file written on it survived the
+pod's replacement (issue #211) → ScaledObject/TriggerAuthentication applied
 with the `authenticationRef` resolved → KEDA marked the ScaledObject `Ready` and
 created the derived HPA with the rendered bounds → the `cron` trigger actually
 scaled the Deployment to its `desiredReplicas` → upgrade ran the pre-upgrade hook as `<sa>-hook` and kept the real SA's UID
 (issue #141) →
-upgrade did **not** reset `spec.replicas` on the KEDA-scaled Deployment →
+upgrade did **not** reset `spec.replicas` on the KEDA-scaled Deployment → the
+upgrade installs the same chart packaged under another version, so every
+`helm.sh/chart` label moves: one in an immutable field (a selector,
+`volumeClaimTemplates`) fails it →
 rollback ran the pre-rollback hook as the `rbacs.roles` SA copy, reading the
 ExternalSecret copy, the copies are gone and both real SAs kept their UID
 (issue #143) →
 post-delete hook read the ExternalSecret through its copy → uninstall leaves no orphaned
 ConfigMap/Secret/ServiceAccount/ScaledObject/TriggerAuthentication/ExternalSecret, and the
-derived HPA is garbage-collected with its ScaledObject.
+derived HPA is garbage-collected with its ScaledObject → the StatefulSet's claim
+survived the uninstall (ADR 0020).
 
 Before all that, `check-helm-floor` runs `helm install --dry-run=client` through
 `alpine/helm:3.18.5` and asserts that `NOTES.txt` warns about the Helm floor
@@ -40,14 +46,17 @@ even on a client dry-run; nothing is applied. It reaches the API server on the
 `kind` Docker network by the control-plane container's name, through its own
 copy of the kubeconfig, so it never touches `~/.kube/config` either.
 
-Also before it, `e2e-routes` installs the Gateway API CRDs (standard channel,
-version pinned in the Makefile, no controller) and sends every `TEST_CASES`
-scenario that renders a route to the API server as a server-side dry run.
-That runs the CRD's own schema and CEL rules, which kubeconform, reading a
-third-party copy of the schema, does not: a RequestRedirect rule carrying
-backendRefs passed every other check. Nothing routes: an unattached route is
-still a valid object. A new route kind goes in `GATEWAY_ROUTE_KINDS` too, which
-mirrors the kinds the templates render.
+Also before it, `e2e-dryrun` (`e2e-routes` is its alias) installs the Gateway
+API CRDs (standard channel, version pinned in the Makefile, no controller)
+beside KEDA and ESO, and sends every `TEST_CASES` scenario to the API server
+as a server-side dry run. That runs the API server's whole validation, the
+CRDs' own schemas and CEL rules included, which kubeconform, reading a
+third-party copy of each schema field by field, does not: a RequestRedirect
+rule carrying backendRefs passed every other check, and so would a
+StatefulSet's `rollingUpdate` beside `OnDelete`. Nothing routes: an unattached
+route is still a valid object. A scenario that renders nothing is skipped. A
+new route kind goes in `GATEWAY_ROUTE_KINDS` too, which mirrors the kinds the
+templates render.
 
 It also runs in CI as its own job in `.github/workflows/helm-ci.yml`.
 
@@ -66,7 +75,10 @@ asserts: two syncs → the `pre-install` hook ran as `<sa>-hook`, the real SA ke
 its UID, the copies are gone (issues #141, #149) → a PreSync hook that fails
 after the copies (`argocd/break.yaml`) → the copies are gone at the failure
 (`hook-failed`, ADR 0015) → with the failing hook fixed (`argocd/unbreak.yaml`)
-the next sync passes (issue #164). The race itself depends on the garbage
+the next sync passes (issue #164) → the Application is `Synced` with a
+StatefulSet in it, and once its deletion cascades (the resources finalizer is
+added first, so the StatefulSet itself goes) the StatefulSet's claim survives
+(issue #211, ADR 0020). The race itself depends on the garbage
 collector's timing and is not reproduced: what is asserted is that no copy
 survives the failure for the next attempt to race against.
 
@@ -78,6 +90,13 @@ operations; the kubeconfig pinning is the Makefile's, as for `make e2e`.
 - Hook bodies **assert** their environment instead of echoing it — `echo` exits
   0 whatever the prereq copies contain, which would make the "hook Job
   succeeded" assertion vacuous.
+- A sync that ends `Error` on a **`ComparisonError` runs once more**: the
+  repo-server never rendered the manifests (a timeout or a DNS miss inside
+  kind), so nothing of the chart was judged. A sync the chart breaks ends
+  `Failed` and is never retried, or the failing-hook step would pass.
+- The Argo CD claim check first waits for the **StatefulSet to be deleted**.
+  Without the resources finalizer, deleting the Application deletes nothing,
+  and the claim survives for the wrong reason.
 - The endpoint assertions read the **EndpointSlice ports**, not just whether the
   Service exists. A Service whose `targetPort` names nothing is created happily
   and its pod reports `serving: true`; only `ports: null` on the slice reveals

@@ -23,9 +23,9 @@ fail() {
 	exit 1
 }
 
-# Starts one sync operation and waits for it to end with the phase in $1. The
-# controller removes .operation when the operation ends, retries included.
-sync() {
+# Starts one sync operation and waits for it to end. The controller removes
+# .operation when the operation ends, retries included.
+run_sync() {
 	kubectl -n $argo patch application e2e --type merge \
 		-p '{"operation":{"initiatedBy":{"username":"e2e"},"sync":{"revision":"'"$version"'"}}}' >/dev/null
 	i=0
@@ -33,7 +33,21 @@ sync() {
 		i=$((i + 1)); [ $i -le 300 ] || fail "sync still running after 300s"
 		sleep 1
 	done
+}
+
+# Runs a sync that must end with the phase in $1. An operation that ends Error
+# on a ComparisonError never got its manifests from the repo-server (a timeout
+# or a DNS miss inside kind), so nothing of the chart was judged: it runs once
+# more. A chart the sync rejects ends Failed, never retried.
+sync() {
+	run_sync
 	phase=$(kubectl -n $argo get application e2e -o jsonpath='{.status.operationState.phase}')
+	if [ "$phase" = Error ] && kubectl -n $argo get application e2e \
+		-o jsonpath='{.status.operationState.message}' | grep -q '^ComparisonError'; then
+		echo "    the repo-server did not render the manifests (ComparisonError): syncing once more"
+		run_sync
+		phase=$(kubectl -n $argo get application e2e -o jsonpath='{.status.operationState.phase}')
+	fi
 	[ "$phase" = "$1" ] || fail "sync ended $phase, expected $1"
 }
 
@@ -97,4 +111,20 @@ sync Succeeded
 [ "$uid" = "$(sa_uid)" ] || fail "the real SA was recreated by the retry"
 copies_gone "the retry"
 echo "    the next sync passed"
+
+echo "==> StatefulSet claims under Argo CD (issue #211, ADR 0020)..."
+kubectl -n $ns rollout status sts/$fn-store --timeout=180s >/dev/null || fail "StatefulSet 'store' never became ready"
+# An immutable volumeClaimTemplates the API server fills in would be a standing diff
+[ "$(kubectl -n $argo get application e2e -o jsonpath='{.status.sync.status}')" = "Synced" ] \
+	|| fail "the Application is not Synced with a StatefulSet in it (volumeClaimTemplates drift?)"
+kubectl -n $ns get pvc data-$fn-store-0 >/dev/null || fail "the claim data-$fn-store-0 was not created"
+# The finalizer makes the deletion cascade to every resource Argo CD tracks: the
+# claim must not be one of them
+kubectl -n $argo patch application e2e --type merge \
+	-p '{"metadata":{"finalizers":["resources-finalizer.argocd.argoproj.io"]}}' >/dev/null
+kubectl -n $argo delete application e2e --timeout=180s >/dev/null
+kubectl -n $ns wait --for=delete sts/$fn-store --timeout=120s >/dev/null 2>&1 \
+	|| fail "the cascading deletion left the StatefulSet: the claim check below would prove nothing"
+kubectl -n $ns get pvc data-$fn-store-0 >/dev/null 2>&1 || fail "deleting the Application deleted the StatefulSet's claim"
+echo "    Synced with the StatefulSet; its claim survived the Application's cascading deletion"
 echo "==> e2e-argocd passed"

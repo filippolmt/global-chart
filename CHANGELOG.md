@@ -5,6 +5,59 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ---
 
+## [Unreleased]
+
+### Added
+
+- **`deployments.<name>.kind: StatefulSet`** (issue #211, [ADR 0020](docs/adr/0020-a-workload-kind-on-the-deployments-entry.md)).
+  An entry renders a StatefulSet instead of a Deployment. Everything else about
+  it stays the same: image, config, Service, HPA/KEDA (`scaleTargetRef.kind`
+  follows), PDB, NetworkPolicy, and the hooks and cronJobs that inherit from
+  it. `kind` defaults to `Deployment`, so existing values render unchanged.
+  - `volumeClaimTemplates`: one claim per pod per entry (`name`, `size`,
+    `accessModes`, `storageClassName`, `volumeMode`, `labels`,
+    `annotations`). An entry no container mounts fails the render, and so
+    does one named after a pod volume (a `volumes` entry, or a volume
+    `mountedConfigFiles` generates). A claim's metadata carries the
+    selector labels and its own, never `helm.sh/chart` or the common ones:
+    the template is immutable.
+  - `persistentVolumeClaimRetentionPolicy`, both `Retain` by default:
+    uninstalling, pruning or scaling down keeps the data.
+  - `updateStrategy` (`RollingUpdate` with `partition`, or `OnDelete`, which
+    takes no `rollingUpdate`, as the API server requires) and
+    `podManagementPolicy`.
+  - A headless Service `<fullname>-<key>-headless`, rendered for every
+    StatefulSet, even with `service.enabled: false`, with
+    `publishNotReadyAddresses: true`.
+  - The schema rejects a field of the other kind: `strategy` and
+    `progressDeadlineSeconds` on a StatefulSet, the StatefulSet fields on a
+    Deployment.
+  - A StatefulSet whose `<fullname>-<key>` is longer than 52 characters fails
+    the render: the pods' `controller-revision-hash` label would exceed 63.
+
+### Changed
+
+- **Breaking: `kubeVersion` is now `>=1.27.0-0`** (was `>=1.23.0-0`). 1.27 is
+  the first Kubernetes version that applies `persistentVolumeClaimRetentionPolicy`
+  by default. Below it the API server drops the field without a word.
+  Clusters on 1.23–1.26 are past their end of life, and Helm refuses to install
+  the chart there.
+
+### Tests
+
+- `make e2e-dryrun` replaces `make e2e-routes`, which stays as an alias. It
+  sends every `TEST_CASES` scenario to the kind API server as a server-side dry
+  run, not only those that render a route, so the rules between fields of a
+  core kind are checked too.
+- The `make e2e` upgrade installs the chart packaged under another version, so
+  a version-bearing label in an immutable field fails the run.
+- `make unit-test SUITE=tests/<name>_test.yaml` runs only the named suites.
+- `make lint-labels`, run in CI, checks that the labels of
+  `docs/agents/triage-labels.md` exist on GitHub.
+- `lint-templates` gains the kind-fields rule. `lint-docs` tells an untracked
+  file from a missing one. The Helm repository steps of `kind-keda` and
+  `kind-eso` retry three times.
+
 ## [3.3.0] — 2026-10-08
 
 ### Added

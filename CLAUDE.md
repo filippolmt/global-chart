@@ -9,18 +9,25 @@ rules below.
 
 ```bash
 make all                    # check + generate + kubeconform + kube-linter
-make check                  # the fast loop: lint-chart, lint-templates, lint-docs, unit-test, bad-values, null-sweep
+make check                  # the fast loop: lint-chart, lint-templates, lint-docs, lint-shell, unit-test, bad-values, null-sweep
 make lint-chart             # lint every scenario in TEST_CASES
 make lint-templates         # the mechanical rules of CODING_STANDARDS.md
 make lint-docs              # every file a document or a comment points at exists
-make unit-test              # helm-unittest suites via Docker
+make lint-shell             # a value piped onward goes through printf, not echo
+make unit-test              # helm-unittest suites via Docker; SUITE=tests/hpa_test.yaml runs one
+make lint-labels            # the triage labels of docs/agents/triage-labels.md exist on GitHub (needs gh)
 make null-sweep             # null every values node of every scenario: each must render or fail naming its path
 make generate-docs          # regenerate the helm-docs README
-make e2e                    # install/upgrade/rollback/uninstall on a throwaway kind cluster (runs e2e-routes first)
-make e2e-routes             # every rendered Gateway API route, server-side dry run against the real CRDs
+make e2e                    # install/upgrade/rollback/uninstall on a throwaway kind cluster (runs e2e-dryrun first)
+make e2e-dryrun             # every TEST_CASES scenario, server-side dry run against the real API server and CRDs
 make e2e-argocd             # the same cluster, synced by Argo CD (hook lifecycle under Argo)
 make render VALUES=tests/test01/values.01.yaml TEMPLATE=deployment.yaml
 ```
+
+Releases: chart-releaser publishes on every push to `main` whose `Chart.yaml`
+`version` is not yet released (`skip_existing`). A feature PR leaves the version
+as is and adds its CHANGELOG entry under `## [Unreleased]`; the bump is its own
+release PR.
 
 The Makefile carries the rest. Three rules about when to run what:
 
@@ -65,22 +72,24 @@ is the source of truth, this table is only the routing.
 | `_job-helpers.tpl` | The one pod spec of every hook and cronjob, both scopes: image resolution, CronJob and Job spec fields, `jobValuesPath` |
 | `_serviceaccount-helpers.tpl` | Every ServiceAccount rendered or bound (`resolveServiceAccount`, the job resolver) and the SA side of the hook copies (ADR 0010, 0011) |
 | `_hook-helpers.tpl` | The `helm.sh/hook*` annotations from the role table, the phase cut `hookReadsPrereqCopy`, the hook-copy consumer scans |
-| `_render-helpers.tpl` | `printScalar`, `isSet`, null checks (`rejectNull`, `rejectNullItems`, `isNamedEntry`), render blocks, ports, `resolveBackend`, `podSpecOwners`, route lists |
+| `_render-helpers.tpl` | `workloadKind` / `isStatefulSet`, `podVolumeNames`, `printScalar`, `isSet`, null checks (`rejectNull`, `rejectNullItems`, `isNamedEntry`), render blocks, ports, `resolveBackend`, `podSpecOwners`, route lists |
 | `_keda-helpers.tpl` | KEDA names, trigger and `authenticationRef` resolution |
-| `_validate-helpers.tpl` | Values paths, the `fail` shape, cross-resource validators, `validateNullItems` / `rejectNullInLists`, `hpaActiveTargets`, `requireCrd` / `requireGatewayApiCrd` |
+| `_validate-helpers.tpl` | Values paths, the `fail` shape, cross-resource validators, `validateStatefulSets`, `validateNullItems` / `rejectNullInLists`, `hpaActiveTargets`, `requireCrd` / `requireGatewayApiCrd` |
 
 ### Invariants
 
 Each line is the rule; the pointer is where its reasons and edge cases live.
 Read the pointer before changing the domain it names.
 
-1. **Deployments**: each `deployments.<name>` renders its own Deployment,
+1. **Workloads**: each `deployments.<name>` renders its own workload,
    Service, ServiceAccount, ConfigMap, Secret, HPA, PDB and NetworkPolicy,
-   named `{release}-{chart}-{name}`. The selector label
+   named `{release}-{chart}-{name}`. The workload is a Deployment, or a
+   StatefulSet with `kind: StatefulSet` (ADR 0020), which adds a headless
+   Service and its claim templates. The selector label
    `app.kubernetes.io/component: {name}` keeps their pods apart, and a
    selector is immutable: README, *Decide before the first install*.
 2. **Job scopes**: deployment-scope hooks and cronjobs inherit from their
-   deployment, root-scope ones inherit nothing (*Root scope / deployment
+   deployment, root-scope ones inherit nothing (*Root scope / workload
    scope* in `GLOSSARY.md`). `command` / `args` and `mountedConfigFiles` stay
    with the Deployment, and the `envFrom` lists add up. What is inherited, the
    opt-out toggles and the `envFrom` order: the *Inheritance* block of the
@@ -118,12 +127,14 @@ Read the pointer before changing the domain it names.
 
 ### Resource Naming Limits
 
-Kubernetes caps a name at 63 characters, so most resources truncate there. Three
-exceptions, each owned by a name helper in `_helpers.tpl`:
+Kubernetes caps a name at 63 characters, so most resources truncate there. Four
+exceptions, each owned by a name helper in `_helpers.tpl` (the StatefulSet's by
+`validateStatefulSets`):
 
 | Resource | Limit |
 |----------|-------|
 | CronJobs | 52 — Kubernetes appends an 11-char timestamp to the Job it creates |
+| StatefulSets | 52, a render `fail` in `validateStatefulSets`, not a truncation: each pod's `controller-revision-hash` label is `<name>-<hash>`, the hash up to 10 chars. Truncating would split the StatefulSet's name from its Service and HPA |
 | `mountedConfigFiles` `name` | 52, DNS-1123 label, enforced by `values.schema.json` — it feeds the pod volume name, and a volume name is a DNS-1123 *label* |
 | Mounted config file ConfigMap | Not truncated at all: a ConfigMap name is a DNS *subdomain*, so it has room the volume does not. Truncating would manufacture the collision `validateNameCollisions` exists to catch |
 
