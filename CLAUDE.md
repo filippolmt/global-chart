@@ -23,6 +23,7 @@ make e2e                    # install/upgrade/rollback/uninstall on a throwaway 
 make e2e-dryrun             # every TEST_CASES scenario, server-side dry run against the real API server and CRDs
 make e2e-argocd             # the same cluster, synced by Argo CD (hook lifecycle under Argo)
 make render VALUES=tests/test01/values.01.yaml TEMPLATE=workload.yaml
+make render-diff BASE=main  # every scenario renders the same manifests as BASE: the proof a rename or refactor changes none
 ```
 
 Releases: chart-releaser publishes on every push to `main` whose `Chart.yaml`

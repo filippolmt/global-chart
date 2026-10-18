@@ -41,6 +41,13 @@ a rule below cannot recognise: a check that sees nothing is not a pass.
   link (the migration guide a removal `fail` names, NOTES) reads `.Chart.Home`,
   so it follows Chart.yaml. A helper called with a dict gets the link from the
   caller's root (validateRemovedKeys passes it as `see`, issue #221).
+- render-order: templates/validate/validate.yaml is the first template Helm
+  renders. Helm sorts by depth, deepest first, then in reverse lexical order
+  (sortTemplates in pkg/engine), and stops at the first error, so every helper
+  that skips what a validator rejects relies on this: a template renamed or
+  moved ahead of it reports a crash in place of the validator's message (issue
+  #221, the deployment.yaml -> workload.yaml rename). Partials (`_*`) render
+  nothing and are left out.
 
 Comments (`{{/* … */}}`) are stripped before matching, so a rule may be named in
 prose. Matching runs over the whole file, so an expression split across lines
@@ -154,6 +161,16 @@ def workload_kind(chart):
     return problems
 
 
+def render_order(chart):
+    """The render-order rule."""
+    names = sorted((str(p.relative_to(chart.parent)) for p in (chart / "templates").rglob("*")
+                    if p.is_file() and not p.name.startswith("_")),
+                   key=lambda n: (n.count("/"), n), reverse=True)
+    first = f"{chart.name}/templates/validate/validate.yaml"
+    if not names or names[0] != first:
+        return [f"templates: render-order: Helm renders {names[0] if names else 'nothing'} first, not {first}; move it so the validators run before every template"]
+    return []
+
 def main(chart):
     chart = pathlib.Path(chart)
     templates = chart / "templates"
@@ -197,6 +214,7 @@ def main(chart):
             problems.append(f"{path.relative_to(chart)}: template-suite: not a *_test.yaml suite, so helm-unittest never runs it")
     problems += kind_fields(chart, schema)
     problems += workload_kind(chart)
+    problems += render_order(chart)
     if problems:
         print("    FAIL: templates break a mechanical rule of CODING_STANDARDS.md:")
         for p in problems:

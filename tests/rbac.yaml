@@ -1,4 +1,4 @@
-# RBAC and hooks only - no deployments
+# RBAC and hooks only - no workloads
 workloads: {}
 
 rbacs:

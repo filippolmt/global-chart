@@ -1,6 +1,6 @@
 # Test: Multi-deployment with hooks inheriting ServiceAccount
 # Tests workload-scope hooks with:
-# - Hook inheriting existing SA from deployment (serviceAccount.create=false, name=xxx)
+# - Hook inheriting existing SA from workload (serviceAccount.create=false, name=xxx)
 # - Hook with explicit serviceAccountName override
 # - Inheritance of tolerations, affinity, envFrom
 

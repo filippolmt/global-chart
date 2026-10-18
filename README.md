@@ -494,6 +494,9 @@ make install SCENARIO=test01
 
 # Render a single template for debugging
 make render VALUES=tests/test01/values.01.yaml TEMPLATE=workload.yaml
+
+# Prove a rename or refactor changes no manifest: every scenario, against a base ref
+make render-diff BASE=main
 ```
 
 ## Testing & CI

@@ -98,7 +98,7 @@ tests:
           errorMessage: "cronJobs.sync.volumes[0].secret.name: removed in 4.0.0, use secret.secretName"
 
   # ====== Keys removed in 4.0.0 (issue #221, ADR 0023) ======
-  - it: should fail naming workloads when values carry the removed deployments map
+  - it: should fail naming workloads when values carry the removed `deployments` map
     set:
       deployments:
         web:
@@ -107,7 +107,7 @@ tests:
       - failedTemplate:
           errorPattern: "^deployments: removed in 4\\.0\\.0, use workloads; see https://.*/CHANGELOG\\.md#migration-guide-from-3x$"
 
-  - it: should fail on the removed deployments map whatever its value
+  - it: should fail on the removed `deployments` map whatever its value
     set:
       deployments: 5
     asserts:
@@ -142,7 +142,7 @@ tests:
       - failedTemplate:
           errorMessage: "workloads.app.cronJobs.sync.inheritDeploymentSecret: removed in 4.0.0, use inheritWorkloadSecret"
 
-  - it: should fail naming workload when an ingress host carries the removed deployment backend
+  - it: should fail naming workload when an ingress host carries the removed `deployment` backend
     set:
       workloads:
         web:
@@ -159,7 +159,7 @@ tests:
       - failedTemplate:
           errorMessage: "ingress.hosts[0].deployment: removed in 4.0.0, use workload"
 
-  - it: should fail naming workload when a tcpRoutes backendRef carries the removed deployment
+  - it: should fail naming workload when a tcpRoutes backendRef carries the removed `deployment`
     capabilities:
       apiVersions:
         - gateway.networking.k8s.io/v1/TCPRoute
@@ -178,7 +178,7 @@ tests:
       - failedTemplate:
           errorMessage: "tcpRoutes.db.rules[0].backendRefs[0].deployment: removed in 4.0.0, use workload"
 
-  - it: should fail naming workload when an httpRoute backendRef carries the removed deployment
+  - it: should fail naming workload when an httpRoute backendRef carries the removed `deployment`
     capabilities:
       apiVersions:
         - gateway.networking.k8s.io/v1/HTTPRoute

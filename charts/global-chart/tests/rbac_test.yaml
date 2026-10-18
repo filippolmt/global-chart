@@ -241,7 +241,7 @@ tests:
           value: existing
         documentIndex: 3
 
-  - it: should copy the role for a hook inheriting the deployment SA the role binds
+  - it: should copy the role for a hook inheriting the workload SA the role binds
     set:
       rbacs:
         roles:
@@ -260,7 +260,7 @@ tests:
               migrate:
                 command: ["./migrate.sh"]
     asserts:
-      # the release creates app-sa through the deployment, so the copy binds
+      # the release creates app-sa through the workload, so the copy binds
       # app-sa-hook, the SA hook.yaml copies and the hook's pod runs as (ADR 0011)
       - hasDocuments:
           count: 4

@@ -33,7 +33,7 @@ stays declared in the schema with no constraint, so any value reaches its fail
 (ADR 0022); the walk, the declarations and the fixtures go in 5.0.0. A node of
 the wrong type is skipped: the schema, or the template that reads it, rejects
 it.
-  deployments                                   → workloads, with the migration guide (issue #221)
+  `deployments`                                   → workloads, with the migration guide (issue #221)
   <hook or cronjob>.fromDeployment              → fromWorkload (issue #221)
   <hook or cronjob>.inheritDeployment*          → inheritWorkload* (issue #221)
   <ingress host or route backendRef>.deployment → workload (issue #221)

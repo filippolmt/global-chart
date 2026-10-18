@@ -171,6 +171,13 @@ A helper reading such a list skips the item it cannot read
 (`isNamedEntry`, `kindIs "map"`) instead of reading through it: the error is
 then the validator's, whatever order Helm renders the templates in.
 
+**A validator's `fail` is tested in the suite of `validate/validate.yaml`.**
+A helm-unittest suite renders only the templates its `templates:` lists, so a
+`failedTemplate` case in `workload_test.yaml` never sees a check that runs in
+`validate/validate.yaml`: the case passes or fails on something else. A check
+moved from a template into a validator takes its cases to `validate_test.yaml`
+(issue #221 moved them twice).
+
 **A rule the API server enforces is checked against the API server.** A CEL
 rule of a CRD (Gateway API's `RequestRedirect` without `backendRefs`) is
 invisible to helm-unittest and kubeconform, and so is a rule between fields of
