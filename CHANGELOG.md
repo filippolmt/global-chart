@@ -150,6 +150,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   The legacy form rendered only the source's name: any other key under it
   (`items`, `defaultMode`, `readOnly`, …) was dropped. The native form renders
   every key, so check them when you migrate.
+- Clusters on Kubernetes 1.23–1.26: upgrade to 1.27 or later first.
+- A PDB whose `minAvailable` reaches the replica floor: lower it, or replace it
+  with `maxUnavailable: 0` to block evictions on purpose.
 
 ## [3.3.0] — 2026-10-08
 

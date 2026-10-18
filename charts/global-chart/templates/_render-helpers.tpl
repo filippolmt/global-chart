@@ -248,7 +248,7 @@ Usage: {{ include "global-chart.renderVolume" (dict "volume" $v "errCtx" (printf
 {{- $vol := .volume -}}
 {{- $path := required "renderVolume: errCtx is required (the values path of the volume)" .errCtx -}}
 {{- if hasKey $vol "type" }}
-  {{- fail (printf "%s.type: removed in 4.0.0, use the native volume source without type (emptyDir: {}, configMap.name, secret.secretName, persistentVolumeClaim.claimName); see %s/blob/main/%s#migration-guide-from-3x" $path .chartHome "CHANGELOG.md") }}
+  {{- fail (printf "%s.type: removed in 4.0.0, use the native volume source without type (emptyDir: {}, configMap.name, secret.secretName, persistentVolumeClaim.claimName); see %s/blob/main/CHANGELOG.md#migration-guide-from-3x" $path .chartHome) }}
 {{- end }}
 {{- range $key, $replacement := dict "secret" "secretName" "persistentVolumeClaim" "claimName" }}
   {{- $block := get $vol $key }}
