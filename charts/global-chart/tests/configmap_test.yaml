@@ -2,7 +2,7 @@ suite: configmap template tests
 templates:
   - templates/configmap.yaml
 tests:
-  # ====== Deployment enabled flag ======
+  # ====== Workload enabled flag ======
   - it: should not render configmap when deployment enabled is false
     set:
       deployments:

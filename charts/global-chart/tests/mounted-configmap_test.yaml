@@ -2,7 +2,7 @@ suite: mounted-configmap template tests
 templates:
   - templates/mounted-configmap.yaml
 tests:
-  # ====== Deployment enabled flag ======
+  # ====== Workload enabled flag ======
   - it: should not render mounted-configmap when deployment enabled is false
     set:
       deployments:

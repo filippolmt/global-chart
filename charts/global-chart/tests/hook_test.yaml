@@ -633,7 +633,7 @@ tests:
       - hasDocuments:
           count: 4
 
-  # ====== Deployment enabled flag ======
+  # ====== Workload enabled flag ======
   - it: should not render deployment-level hook when deployment enabled is false
     set:
       deployments:
@@ -648,7 +648,7 @@ tests:
       - hasDocuments:
           count: 0
 
-  # ====== Deployment-level hooks ======
+  # ====== Workload-scope hooks ======
   # Note: When deployment has serviceAccount.create: true (explicitly set),
   # the hook inherits the SA and only produces 1 document (Job at index 0).
   # When deployment has no SA config, the hook creates its own SA (SA=0, Job=1).
@@ -800,7 +800,7 @@ tests:
           value: backend-hook
         documentIndex: 0
 
-  # ====== Deployment-level hook can override image ======
+  # ====== Workload-scope hook can override image ======
   - it: should allow deployment-level hook to override image
     set:
       deployments:
@@ -819,7 +819,7 @@ tests:
           value: "custom-migrator:latest"
         documentIndex: 0
 
-  # ====== Deployment-level hook SA inheritance ======
+  # ====== Workload-scope hook SA inheritance ======
   - it: should inherit SA from deployment when deployment creates SA
     set:
       deployments:
@@ -1361,7 +1361,7 @@ tests:
           path: kind
           value: Job
 
-  # ====== Deployment-level hook: explicit empty should NOT inherit ======
+  # ====== Workload-scope hook: explicit empty should NOT inherit ======
   - it: should not inherit hostAliases when hook sets empty list
     set:
       deployments:
@@ -1513,7 +1513,7 @@ tests:
           path: spec.template.spec.imagePullSecrets
         documentIndex: 0
 
-  # ====== Deployment-level hook securityContext inheritance ======
+  # ====== Workload-scope hook securityContext inheritance ======
   - it: should inherit podSecurityContext from deployment in deployment-level hook
     set:
       deployments:
@@ -1623,7 +1623,7 @@ tests:
           value: false
         documentIndex: 0
 
-  # ====== Deployment-level hook hostAliases inheritance ======
+  # ====== Workload-scope hook hostAliases inheritance ======
   - it: should inherit hostAliases from deployment in deployment-level hook
     set:
       deployments:
@@ -1674,7 +1674,7 @@ tests:
           value: "192.168.1.1"
         documentIndex: 0
 
-  # ====== Deployment-level hook envFrom inheritance ======
+  # ====== Workload-scope hook envFrom inheritance ======
   - it: should inherit envFrom from deployment configMap and secret
     set:
       deployments:
@@ -1831,7 +1831,7 @@ tests:
               name: "shared-secrets"
         documentIndex: 0
 
-  # ====== Deployment-level hook additionalEnvs inheritance ======
+  # ====== Workload-scope hook additionalEnvs inheritance ======
   - it: should inherit additionalEnvs from deployment
     set:
       deployments:
@@ -1889,7 +1889,7 @@ tests:
             value: "from-hook"
         documentIndex: 0
 
-  # ====== Deployment-level hook nodeSelector inheritance ======
+  # ====== Workload-scope hook nodeSelector inheritance ======
   - it: should inherit nodeSelector from deployment
     set:
       deployments:
@@ -1930,7 +1930,7 @@ tests:
           value: hook-node
         documentIndex: 0
 
-  # ====== Deployment-level hook tolerations inheritance ======
+  # ====== Workload-scope hook tolerations inheritance ======
   - it: should inherit tolerations from deployment
     set:
       deployments:
@@ -1986,7 +1986,7 @@ tests:
             effect: "NoSchedule"
         documentIndex: 0
 
-  # ====== Deployment-level hook affinity inheritance ======
+  # ====== Workload-scope hook affinity inheritance ======
   - it: should inherit affinity from deployment
     set:
       deployments:
@@ -2043,7 +2043,7 @@ tests:
           path: spec.template.spec.affinity.nodeAffinity
         documentIndex: 0
 
-  # ====== Deployment-level hook imagePullSecrets inheritance ======
+  # ====== Workload-scope hook imagePullSecrets inheritance ======
   - it: should inherit imagePullSecrets from deployment
     set:
       deployments:
@@ -2086,7 +2086,7 @@ tests:
             name: "hook-registry-secret"
         documentIndex: 0
 
-  # ====== Deployment-level hook default resources ======
+  # ====== Workload-scope hook default resources ======
   - it: should use default resources on deployment-level hook when not specified
     set:
       deployments:
@@ -2129,7 +2129,7 @@ tests:
           value: 500m
         documentIndex: 0
 
-  # ====== Deployment-level hook default annotations ======
+  # ====== Workload-scope hook default annotations ======
   - it: should set correct annotations on deployment-level hook
     set:
       deployments:
@@ -2178,7 +2178,7 @@ tests:
           value: hook-succeeded
         documentIndex: 1
 
-  # ====== Deployment-level hook restartPolicy ======
+  # ====== Workload-scope hook restartPolicy ======
   - it: should default restartPolicy to Never on deployment-level hook
     set:
       deployments:
@@ -4056,7 +4056,7 @@ tests:
       - failedTemplate:
           errorPattern: "deployments.main.configMap.EMPTY: a null value reached a ConfigMap"
 
-  # ====== reloader.externalSecrets stays on the Deployment (ADR 0016) ======
+  # ====== reloader.externalSecrets stays on the workload (ADR 0016) ======
   # Every run creates fresh pods, so a Reloader annotation on a job is noise.
   - it: should not inherit the deployment's Reloader annotation
     set:

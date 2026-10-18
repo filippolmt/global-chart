@@ -85,7 +85,7 @@ tests:
           path: spec.jobTemplate.spec.template.spec.containers[0].image
           value: "myapp/backup:main@sha256:e0646c006c037b0bde03dd897029ab5cde600437969802848a63c474903cb2c8"
 
-  # ====== Deployment enabled flag ======
+  # ====== Workload enabled flag ======
   - it: should not render deployment-level cronjob when deployment enabled is false
     set:
       deployments:
@@ -146,7 +146,7 @@ tests:
       - failedTemplate:
           errorMessage: "deployments.backend.cronJobs.db-backup.image: sets a digest without a repository (expected repository@digest)"
 
-  # ====== Deployment-level CronJob inheritance ======
+  # ====== Workload-scope CronJob inheritance ======
   - it: should inherit image from parent deployment
     set:
       deployments:
@@ -182,7 +182,7 @@ tests:
           path: spec.jobTemplate.spec.template.spec.nodeSelector.tier
           value: backend
 
-  # ====== Deployment-level CronJob SA inheritance ======
+  # ====== Workload-scope CronJob SA inheritance ======
   - it: should inherit serviceAccount from parent deployment
     release:
       name: myrel
@@ -247,7 +247,7 @@ tests:
             app.kubernetes.io/component: worker
         documentIndex: 0
 
-  # ====== Deployment-level CronJob hostAliases inheritance ======
+  # ====== Workload-scope CronJob hostAliases inheritance ======
   - it: should inherit hostAliases from deployment in deployment-level cronjob
     set:
       deployments:
@@ -298,7 +298,7 @@ tests:
           value: "10.0.0.1"
         documentIndex: 0
 
-  # ====== Deployment-level CronJob: explicit empty should NOT inherit ======
+  # ====== Workload-scope CronJob: explicit empty should NOT inherit ======
   - it: should not inherit hostAliases when cronjob sets empty list
     set:
       deployments:
@@ -361,7 +361,7 @@ tests:
           path: spec.jobTemplate.spec.template.spec.containers[0].securityContext
         documentIndex: 0
 
-  # ====== Deployment-level CronJob: explicit empty should NOT inherit (nodeSelector, affinity, tolerations, imagePullSecrets) ======
+  # ====== Workload-scope CronJob: explicit empty should NOT inherit (nodeSelector, affinity, tolerations, imagePullSecrets) ======
   - it: should allow cronjob to override nodeSelector with empty map
     set:
       deployments:
@@ -494,7 +494,7 @@ tests:
           path: spec.jobTemplate.spec.template.spec.containers[0].securityContext.runAsNonRoot
           value: true
 
-  # ====== Deployment-level CronJob securityContext inheritance ======
+  # ====== Workload-scope CronJob securityContext inheritance ======
   - it: should inherit podSecurityContext from deployment in deployment-level cronjob
     set:
       deployments:
@@ -555,7 +555,7 @@ tests:
           value: ["--dry-run"]
         documentIndex: 0
 
-  # ====== Deployment-level CronJob dnsConfig inheritance ======
+  # ====== Workload-scope CronJob dnsConfig inheritance ======
   - it: should inherit dnsConfig from deployment in deployment-level cronjob
     set:
       deployments:
@@ -994,7 +994,7 @@ tests:
           path: metadata.labels.team
           value: platform
 
-  # ====== Deployment-level CronJob SA inheritance (existing SA) ======
+  # ====== Workload-scope CronJob SA inheritance (existing SA) ======
   - it: should inherit existing SA name from deployment when create=false
     set:
       deployments:
@@ -1294,8 +1294,8 @@ tests:
   # The twin of "should order envFrom by type" in deployment_test.yaml, on the
   # same four sources. A job orders **by proximity**: everything the deployment
   # hands it first, then everything it declares itself, so the nearest declarer
-  # wins. That is not the Deployment's order and is not meant to be — a job has
-  # one level the Deployment does not, its own, and ordering by type would make
+  # wins. That is not the workload's order and is not meant to be — a job has
+  # one level the workload does not, its own, and ordering by type would make
   # it lose to a source that is not its. The two orders differ on exactly one
   # pair, the deployment's generated Secret against its envFromConfigMaps.
   - it: should order envFrom by proximity, the deployment's sources before its own
@@ -2181,7 +2181,7 @@ tests:
       - notExists:
           path: spec.jobTemplate.spec.template.spec.priorityClassName
 
-  # ====== reloader.externalSecrets stays on the Deployment (ADR 0016) ======
+  # ====== reloader.externalSecrets stays on the workload (ADR 0016) ======
   # Every run creates fresh pods, so a Reloader annotation on a job is noise.
   - it: should not inherit the deployment's Reloader annotation
     set:

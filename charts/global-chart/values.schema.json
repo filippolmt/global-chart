@@ -777,7 +777,7 @@
         "imagePullSecrets": { "type": "array", "items": { "$ref": "#/$defs/imagePullSecret" } },
         "serviceAccount": { "$ref": "#/$defs/serviceAccount" },
         "annotations": {
-          "description": "Annotations on the workload's own metadata, merged over global.commonAnnotations. Not podAnnotations, and not propagated to the Service, ServiceAccount, HPA or any other resource of the deployment.",
+          "description": "Annotations on the workload's own metadata, merged over global.commonAnnotations. Not podAnnotations, and not propagated to the Service, ServiceAccount, HPA or any other resource of the workload.",
           "type": "object",
           "additionalProperties": { "type": "string" }
         },

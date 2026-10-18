@@ -51,7 +51,7 @@ Precedence: the caller's own > the chart's identity labels > global.commonLabels
 The chart's identity labels win because the selectors are built from them alone
 (`selectorLabels` / `deploymentSelectorLabels` never see commonLabels): letting a
 common label overwrite `app.kubernetes.io/name` used to make the pod template stop
-matching its own Deployment selector.
+matching its own workload's selector.
 Like renderAnnotations, this exists so the sources are never concatenated: two
 blocks that name the same label put the key in the manifest twice, which Helm
 accepts and `kubeconform -strict` rejects. `mergeOverwrite`, not `merge`, for the
@@ -212,7 +212,7 @@ Usage: {{ include "global-chart.rbacRoleHookName" $role.name }}
 {{- end }}
 
 {{/*
-Hook-specific labels: do not include selectorLabels so hooks don't match Deployment/HPA selectors.
+Hook-specific labels: do not include selectorLabels so hooks don't match workload/HPA selectors.
 Base labels without component (used when component is added separately).
 */}}
 {{- define "global-chart.hookLabels" -}}
@@ -263,7 +263,7 @@ Usage: {{ include "global-chart.rootCronJobName" (dict "root" . "name" $name) }}
 {{- end -}}
 
 {{/*
-Deployment-level CronJob name (includes deployment name for uniqueness).
+Workload-scope CronJob name (includes deployment name for uniqueness).
 Truncated to 52 chars (see rootCronJobName).
 Usage: {{ include "global-chart.deploymentCronJobName" (dict "root" . "deploymentName" $deployName "jobName" $name) }}
 */}}
@@ -273,7 +273,7 @@ Usage: {{ include "global-chart.deploymentCronJobName" (dict "root" . "deploymen
 {{- end -}}
 
 {{/*
-Deployment-level Hook Job name (includes deployment name + hook type for uniqueness).
+Workload-scope Hook Job name (includes deployment name + hook type for uniqueness).
 Canonical form: a single `trunc 63` over the full 4-part name. The collision
 validator MUST use this exact decomposition — an earlier validator variant
 truncated deploymentFullname first and re-truncated. The two only differ at a

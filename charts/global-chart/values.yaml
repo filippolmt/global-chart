@@ -22,7 +22,7 @@ nameOverride: ""
 # -- Override the chart fullname
 fullnameOverride: ""
 
-# -- Multiple deployments configuration (map of named deployments). Each deployment supports an `enabled` field (bool, default `true`) to skip rendering of the workload and all its sub-resources (Service, ConfigMap, Secret, ServiceAccount, HPA, mounted ConfigMaps, CronJobs, Hooks). An Ingress that references a disabled deployment will fail with a clear error.
+# -- Multiple deployments configuration (map of named deployments). Each deployment supports an `enabled` field (bool, default `true`) to skip rendering of the workload and all its sub-resources (Service, ConfigMap, Secret, ServiceAccount, HPA, mounted ConfigMaps, CronJobs, Hooks). An Ingress that references a disabled entry will fail with a clear error.
 # @default -- `{}` (empty map)
 deployments: {}
   # Example deployment configuration:
@@ -330,7 +330,7 @@ deployments: {}
   #   # `name` must be a DNS-1123 label of at most 52 chars: it feeds the pod
   #   # volume name `md-cm-file-<name>`, and `files` and `bundles` share one
   #   # name space, so the same name on both sides is a collision.
-  #   # These files belong to the workload's runtime: a deployment-level hook
+  #   # These files belong to the workload's runtime: a workload-scope hook
   #   # or cronJob does NOT inherit them (see the _job-helpers.tpl header, "Never inherited").
   #   mountedConfigFiles:
   #     files: []      # each: name, filename, targetPath, content
@@ -536,7 +536,7 @@ cronJobs: {}
   #
   # Note: root-level cronJobs do NOT auto-inherit ConfigMap/Secret from deployments.
   # Use envFromConfigMaps / envFromSecrets to reference them by name explicitly.
-  # Deployment-level cronJobs (deployments.<name>.cronJobs) DO auto-inherit; use
+  # Workload-scope cronJobs (deployments.<name>.cronJobs) DO auto-inherit; use
   # inheritDeploymentConfigMap/inheritDeploymentSecret: false to opt out, and
   # inheritDeploymentEnvFromConfigMaps/inheritDeploymentEnvFromSecrets: false
   # for the deployment's envFromConfigMaps/envFromSecrets.

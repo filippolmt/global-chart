@@ -2,7 +2,7 @@ suite: NOTES.txt template tests
 templates:
   - templates/NOTES.txt
 tests:
-  # ====== Deployment enabled flag ======
+  # ====== Workload enabled flag ======
   - it: should not list disabled deployment in NOTES
     set:
       deployments:

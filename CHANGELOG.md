@@ -47,8 +47,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   descriptions of `annotations`, `reloader.externalSecrets` and
   `priorityClassName`, the `values.yaml` comments and NOTES.txt
   (`Workloads created:`, was `Deployments created:`) no longer name a
-  Deployment for a StatefulSet entry. Only the text changes: a check matching
-  the old NOTES heading or the old failure text needs updating.
+  Deployment for a StatefulSet entry. A name collision now names the entry's
+  own kind: `Name collision: StatefulSet '…'`, where it always said
+  `Deployment`. Only the text changes: a check matching the old NOTES heading
+  or the old failure text needs updating.
 
 ### Fixed
 

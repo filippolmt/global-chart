@@ -77,7 +77,7 @@ spec:
 {{- end }}
 {{- end }}
 
-{{/* ====== PART 2: Deployment-level cronJobs (inherit from deployment) ====== */}}
+{{/* ====== PART 2: workload-scope cronJobs (inherit from the workload) ====== */}}
 {{- range $deployName, $deploy := .Values.deployments }}
 {{- if $deploy }}
 {{- if and (eq (include "global-chart.deploymentEnabled" $deploy) "true") $deploy.cronJobs }}

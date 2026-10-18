@@ -112,7 +112,7 @@ spec:
 {{- end }}
 {{- end }}
 
-{{/* ====== PART 2: Deployment-level hooks (inherit from deployment) ====== */}}
+{{/* ====== PART 2: workload-scope hooks (inherit from the workload) ====== */}}
 {{- range $deployName, $deploy := .Values.deployments }}
 {{- if $deploy }}
 {{- if and (eq (include "global-chart.deploymentEnabled" $deploy) "true") $deploy.hooks }}

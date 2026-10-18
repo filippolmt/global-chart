@@ -24,7 +24,7 @@ inheritance. Three exceptions to that shape:
   narrow-scope job.
 - externalSecrets is not an envFrom list here: the job's own replaces the
   inherited one.
-- The envFrom order is by proximity, the Deployment's by type: see *Environment
+- The envFrom order is by proximity, the workload's by type: see *Environment
   source* in GLOSSARY.md. Locked by an `equal` on the whole list in
   deployment_test.yaml and cronjob_test.yaml; a `contains` passes whatever the
   order, which is how the two ends drifted unobserved.
@@ -32,7 +32,7 @@ Never inherited:
 - command / args: a migration hook inheriting `python -m app.worker` would
   silently run the worker. Locked by regression tests in hook_test.yaml and
   cronjob_test.yaml.
-- mountedConfigFiles: they describe the Deployment's runtime (see *Mounted
+- mountedConfigFiles: they describe the workload's runtime (see *Mounted
   config file* in GLOSSARY.md), and one can carry credentials. A job that needs
   one declares its own volumes / volumeMounts; the generated ConfigMap name is
   not a public interface, so values never hardcode it.
@@ -185,27 +185,27 @@ containers:
   {{- $hasEnvFrom := or $hasDeployConfigMap $hasDeploySecret $job.envFromConfigMaps $job.envFromSecrets $deployEnvFromCMs $deployEnvFromSecrets $esEnvInherited $esEnvOwn -}}
   {{- if $hasEnvFrom }}
   envFrom:
-    {{- /* Deployment's generated ConfigMap (using configMapRef name - differs for hooks vs cronjobs) */ -}}
+    {{- /* The workload's generated ConfigMap (using configMapRef name - differs for hooks vs cronjobs) */ -}}
     {{- if $hasDeployConfigMap }}
     - configMapRef:
         name: {{ $configMapRef | quote }}
     {{- end }}
-    {{- /* Deployment's generated Secret (using secretRef name - differs for hooks vs cronjobs) */ -}}
+    {{- /* The workload's generated Secret (using secretRef name - differs for hooks vs cronjobs) */ -}}
     {{- if $hasDeploySecret }}
     - secretRef:
         name: {{ $secretRef | quote }}
     {{- end }}
-    {{- /* Deployment's external ConfigMaps */ -}}
+    {{- /* The workload's external ConfigMaps */ -}}
     {{- range $cm := $deployEnvFromCMs }}
     - configMapRef:
         name: {{ $cm | quote }}
     {{- end }}
-    {{- /* Deployment's external Secrets */ -}}
+    {{- /* The workload's external Secrets */ -}}
     {{- range $sec := $deployEnvFromSecrets }}
     - secretRef:
         name: {{ $sec | quote }}
     {{- end }}
-    {{- /* Deployment's externalSecrets, inherited */ -}}
+    {{- /* The workload's externalSecrets, inherited */ -}}
     {{- range $esEnvInherited }}
     - secretRef:
         name: {{ . | quote }}

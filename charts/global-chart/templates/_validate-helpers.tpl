@@ -89,7 +89,7 @@ Called from validate.yaml. Emits nothing on success.
 
 {{/*
 Validate that all generated resource names are unique after truncation.
-Checks within each resource kind: Deployments, CronJobs, Jobs (hooks),
+Checks within each resource kind: workloads, CronJobs, Jobs (hooks),
 ServiceAccounts, ConfigMaps, Secrets, ExternalSecrets, TriggerAuthentications,
 HTTPRoutes, TCPRoutes and UDPRoutes,
 Roles and RoleBindings, the hook-prerequisite copies included.
@@ -100,7 +100,7 @@ deployment named `<other>-md-cm-<file>` renders a ConfigMap under the very name
 another deployment's mounted file does — two manifests, one name, neither
 invalid on its own.
 Note: the remaining per-deployment resources (Service, SA, HPA, ScaledObject,
-PDB, NetworkPolicy) share the Deployment's own name, so the deployment name
+PDB, NetworkPolicy) share the workload's own name, so the deployment name
 check covers them. The one other name that can reach them is a StatefulSet's
 headless Service, registered beside it.
 Called from validate.yaml.
@@ -116,12 +116,12 @@ Called from validate.yaml.
 {{- $esNames := dict -}}
 {{- $esOwnedNames := dict -}}
 
-{{- /* 1. Deployment resource names (trunc 63) */ -}}
+{{- /* 1. Workload resource names (trunc 63) */ -}}
 {{- range $name, $deploy := .Values.deployments -}}
   {{- if $deploy -}}
   {{- if eq (include "global-chart.deploymentEnabled" $deploy) "true" -}}
     {{- $depFullname := include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $name) -}}
-    {{- include "global-chart.registerName" (dict "names" $deployNames "kind" "Deployment" "name" $depFullname "owner" (include "global-chart.deploymentValuesPath" $name)) -}}
+    {{- include "global-chart.registerName" (dict "names" $deployNames "kind" (include "global-chart.workloadKind" $deploy) "name" $depFullname "owner" (include "global-chart.deploymentValuesPath" $name)) -}}
     {{- /* A StatefulSet's headless Service, <name>-headless, is a name another
            entry's own name can reach. It goes in $deployNames, which stands for
            every kind sharing the entry's name, the Service among them. */ -}}
@@ -147,7 +147,7 @@ Called from validate.yaml.
     {{- $deploySA := include "global-chart.deploymentServiceAccount" (dict "root" $root "deploymentName" $name "deployment" $deploy) | fromJson -}}
     {{- include "global-chart.registerSAName" (dict "names" $saNames "sa" $deploySA "owner" (include "global-chart.deploymentValuesPath" $name)) -}}
 
-    {{- /* 1a. Deployment-level CronJob names (trunc 52) — via deploymentCronJobName helper */ -}}
+    {{- /* 1a. Workload-scope CronJob names (trunc 52) — via deploymentCronJobName helper */ -}}
     {{- range $jobName, $job := $deploy.cronJobs -}}
       {{- if $job -}}
         {{- $jobFullname := include "global-chart.deploymentCronJobName" (dict "root" $root "deploymentName" $name "jobName" $jobName) -}}
@@ -158,7 +158,7 @@ Called from validate.yaml.
       {{- end -}}
     {{- end -}}
 
-    {{- /* 1b. Deployment-level Hook names (trunc 63) + prerequisite ConfigMap/Secret */ -}}
+    {{- /* 1b. Workload-scope Hook names (trunc 63) + prerequisite ConfigMap/Secret */ -}}
     {{- if $deploy.hooks -}}
       {{- /* Hook prerequisite ConfigMap (trunc 63) */ -}}
       {{- $hasDeployConfigMap := and $deploy.configMap (gt (len $deploy.configMap) 0) -}}
@@ -488,7 +488,7 @@ The fullname heads every generated name, and most of them are DNS subdomains,
 which take anything Helm's release-name rule or the schema's override patterns
 let through. Two kinds of name are stricter, and only some releases render them:
 - a container name is a DNS-1123 label, so no dot. The fullname heads the
-  container name of every enabled Deployment and of every root-level hook;
+  container name of every enabled workload and of every root-level hook;
 - a Service name is a DNS-1035 label, so it also starts with a letter. The
   fullname heads the name of every enabled deployment's Service.
 The constraint therefore depends on what the release renders — see
@@ -618,7 +618,7 @@ Usage: {{ include "global-chart.hpaActiveTargets" $hpa | fromJson }}
 {{- end -}}
 
 {{/*
-Validate that a deployment does not enable both the native HPA and KEDA, and
+Validate that a workload does not enable both the native HPA and KEDA, and
 that an enabled HPA has an active target.
 KEDA creates and owns its own HorizontalPodAutoscaler (the *derived HPA*) for
 every ScaledObject, so a chart-rendered HPA on the same workload gives two

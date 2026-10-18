@@ -51,7 +51,7 @@ An explicit, non-empty sa.name wins over both.
 
 {{/*
 A deployment's ServiceAccount. Created by default, as <deploymentFullname>; with
-create: false and no name, name is "": no SA is named. The Deployment then runs
+create: false and no name, name is "": no SA is named. The workload then runs
 as "default", which deployment.yaml renders, and a deployment-level job creates
 its own SA instead of inheriting one. The resolver cannot return "default"
 itself: a job would then inherit it as if the deployment had named it, and an
