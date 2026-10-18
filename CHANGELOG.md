@@ -63,6 +63,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Fixed
 
+- **A PDB percentage above 100% is rejected by the schema.** `pdb.minAvailable`
+  and `pdb.maxUnavailable` accepted any `"<digits>%"`, so `"150%"` rendered
+  and the API server refused it at apply. They now take `0%` to `100%`, without
+  leading zeros.
 - **A StatefulSet's headless Service collides only with a Service** (issue
   #222). An entry named `<name>-headless` beside a StatefulSet `<name>` failed
   the render even with `service.enabled: false`, when no two manifests share a

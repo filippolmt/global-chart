@@ -535,17 +535,17 @@
       "properties": {
         "enabled": { "type": "boolean" },
         "minAvailable": {
-          "description": "A count as an integer, or a percentage as a string (\"25%\"). A digit string with no percent sign is rejected: spell a count as a number. The render fails when it leaves no pod to evict at the replica owner's floor (replicaCount, autoscaling.minReplicas or keda.minReplicaCount): set maxUnavailable: 0 to block evictions on purpose.",
+          "description": "A count as an integer, or a percentage from 0% to 100% as a string (\"25%\"), as the API server requires. A digit string with no percent sign is rejected: spell a count as a number. The render fails when it leaves no pod to evict at the replica owner's floor (replicaCount, autoscaling.minReplicas or keda.minReplicaCount): set maxUnavailable: 0 to block evictions on purpose.",
           "oneOf": [
             { "type": "integer", "minimum": 0 },
-            { "type": "string", "pattern": "^[0-9]+%$" }
+            { "type": "string", "pattern": "^(100|[1-9]?[0-9])%$" }
           ]
         },
         "maxUnavailable": {
-          "description": "A count as an integer, or a percentage as a string (\"25%\"). A digit string with no percent sign is rejected: spell a count as a number.",
+          "description": "A count as an integer, or a percentage from 0% to 100% as a string (\"25%\"), as the API server requires. A digit string with no percent sign is rejected: spell a count as a number.",
           "oneOf": [
             { "type": "integer", "minimum": 0 },
-            { "type": "string", "pattern": "^[0-9]+%$" }
+            { "type": "string", "pattern": "^(100|[1-9]?[0-9])%$" }
           ]
         }
       },

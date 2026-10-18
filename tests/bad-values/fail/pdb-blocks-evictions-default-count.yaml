@@ -1,0 +1,10 @@
+# No replicaCount: the workload runs the default of 2 pods, and minAvailable: 2
+# allows no voluntary eviction (issue #216, ADR 0021). The message names the
+# default, not a key the values never set.
+# Expected fail substring: "deployments.app.pdb.minAvailable: 2 allows no voluntary eviction with the default of 2 replicas"
+deployments:
+  app:
+    image: nginx:1.25
+    pdb:
+      enabled: true
+      minAvailable: 2
