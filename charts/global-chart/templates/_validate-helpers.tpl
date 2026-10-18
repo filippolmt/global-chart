@@ -102,12 +102,15 @@ invalid on its own.
 Note: the remaining per-workload resources (Service, SA, HPA, ScaledObject,
 PDB, NetworkPolicy) share the workload's own name, so the workload name
 check covers them. The one other name that can reach them is a StatefulSet's
-headless Service, registered beside it.
+headless Service, a Service only: it goes in $svcNames with every rendered
+normal Service, so an entry named after it collides only when that entry
+renders a Service of its own (issue #222).
 Called from validate.yaml.
 */}}
 {{- define "global-chart.validateNameCollisions" -}}
 {{- $root := . -}}
 {{- $deployNames := dict -}}
+{{- $svcNames := dict -}}
 {{- $cronNames := dict -}}
 {{- $hookNames := dict -}}
 {{- $cmNames := dict -}}
@@ -123,10 +126,13 @@ Called from validate.yaml.
     {{- $depFullname := include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $name) -}}
     {{- include "global-chart.registerName" (dict "names" $deployNames "kind" (include "global-chart.workloadKind" $deploy) "name" $depFullname "owner" (include "global-chart.deploymentValuesPath" $name)) -}}
     {{- /* A StatefulSet's headless Service, <name>-headless, is a name another
-           entry's own name can reach. It goes in $deployNames, which stands for
-           every kind sharing the entry's name, the Service among them. */ -}}
+           entry's own name can reach. It clashes only with a Service, so it goes
+           in $svcNames beside the normal Services, not in $deployNames. */ -}}
+    {{- if eq (include "global-chart.serviceEnabled" (default (dict) $deploy.service)) "true" -}}
+      {{- include "global-chart.registerName" (dict "names" $svcNames "kind" "Service" "name" $depFullname "owner" (printf "%s.service" (include "global-chart.deploymentValuesPath" $name))) -}}
+    {{- end -}}
     {{- if include "global-chart.isStatefulSet" $deploy -}}
-      {{- include "global-chart.registerName" (dict "names" $deployNames "kind" "Service" "name" (include "global-chart.headlessServiceName" (dict "root" $root "deploymentName" $name)) "owner" (printf "%s (its headless Service)" (include "global-chart.deploymentValuesPath" $name))) -}}
+      {{- include "global-chart.registerName" (dict "names" $svcNames "kind" "Service" "name" (include "global-chart.headlessServiceName" (dict "root" $root "deploymentName" $name)) "owner" (printf "%s (its headless Service)" (include "global-chart.deploymentValuesPath" $name))) -}}
     {{- end -}}
 
     {{- /* The deployment's own ConfigMap and Secret both carry $depFullname. They
