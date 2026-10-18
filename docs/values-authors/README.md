@@ -52,7 +52,8 @@ that workload: image, `configMap`, `secret`, ServiceAccount,
 `additionalEnvs`, `imagePullSecrets`, `hostAliases`,
 `podSecurityContext`, `securityContext`, `nodeSelector`, `tolerations`,
 `affinity`, `priorityClassName`, and `dnsConfig` for a cronjob only. An
-explicit value overrides; an empty `{}`, `[]` or `""` stops the inheritance.
+explicit value overrides; an empty `{}` or `[]` stops the inheritance, and so
+does `priorityClassName: ""`.
 The list fields below are the exceptions.
 
 - Never inherited: `command`, `args`, `mountedConfigFiles`, `resources`,
@@ -136,10 +137,16 @@ values path of the key holding the wrong value, then the problem:
 Error: execution error at (global-chart/templates/cronjob.yaml:19:17): cronJobs.report.fromWorkload: references workload 'api', which does not exist in .Values.workloads
 ```
 
+When a rule ties two keys, the message names both:
+
+```
+Error: execution error at (global-chart/templates/pdb.yaml:30:6): workloads.web.pdb.minAvailable: 1 allows no voluntary eviction with workloads.web.replicaCount: 1, so kubectl drain and cluster-autoscaler scale-down never finish on its node. Lower it, or set maxUnavailable: 0 instead to block evictions on purpose.
+```
+
 Fix the key the path names; the template file and line are the chart's, not
 yours. A key removed in a major release fails the same way, naming its
-replacement: `deployments: removed in 4.0.0, use workloads`. The
-*Migration guide* sections of `CHANGELOG.md` cover each major.
+replacement. The *Migration guide* sections of `CHANGELOG.md` cover each
+major.
 
 ## Pointing an application repository at this guide
 

@@ -566,7 +566,7 @@ See [CHANGELOG.md](CHANGELOG.md) for version history, breaking changes, and migr
 
 - Core values: `charts/global-chart/values.yaml`
 - JSON Schema: `charts/global-chart/values.schema.json`
-- Example scenarios: `tests/`
+- Test scenarios: `tests/`
 - Writing values for an application (the guide for values authors and their LLM): [`docs/values-authors/`](docs/values-authors/README.md)
 - Make targets: `Makefile`
 - GitHub workflow: `.github/workflows/helm-ci.yml`
