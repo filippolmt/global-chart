@@ -11,8 +11,7 @@ kind; it changes name only together with the map (issue #215).
 {{- $depFullname := include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $name) }}
 {{- $errCtx := include "global-chart.deploymentValuesPath" $name }}
 {{- $labelCtx := dict "root" $root "deploymentName" $name }}
-{{- $autoscaling := default (dict) $deploy.autoscaling }}
-{{- $keda := default (dict) $deploy.keda }}
+{{- $floor := include "global-chart.replicaFloor" (dict "deploy" $deploy "errCtx" $errCtx) | fromJson }}
 {{- $podRecreation := default (dict) $deploy.podRecreation }}
 {{- $dnsConfig := default (dict) $deploy.dnsConfig }}
 {{- $svc := default (dict) $deploy.service }}
@@ -64,8 +63,8 @@ spec:
          snap the workload back to this value before the autoscaler corrects
          it — and with KEDA minReplicaCount: 0 it wakes a workload that was
          deliberately scaled to zero. */}}
-  {{- if not (or $autoscaling.enabled $keda.enabled) }}
-  replicas: {{ include "global-chart.printScalar" (dict "value" (ternary $deploy.replicaCount 2 (hasKey $deploy "replicaCount")) "errCtx" (printf "%s.replicaCount" $errCtx)) }}
+  {{- if eq $floor.owner "workload" }}
+  replicas: {{ include "global-chart.printScalar" (dict "value" $floor.count "errCtx" $floor.path) }}
   {{- end }}
   {{- with $deploy.strategy }}
   strategy:

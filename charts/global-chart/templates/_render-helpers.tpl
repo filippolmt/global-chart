@@ -151,6 +151,32 @@ Input: the deployment map, guarded against nil like deploymentEnabled's.
 {{- end }}
 
 {{/*
+The replica owner of a deployments entry (GLOSSARY, ADR 0003, ADR 0012) and the
+fewest pods it keeps: the one home of "who owns spec.replicas", read by
+deployment.yaml, which omits spec.replicas unless the owner is the workload, and
+by pdb.yaml (issue #216).
+- "workload": replicaCount, or 2 when absent;
+- "hpa": autoscaling.minReplicas (hpa.yaml fails it when absent);
+- "keda": keda.minReplicaCount, or 0 when absent, KEDA's own default.
+`count` is the value as values carry it, a null included: printScalar at the
+reader fails it naming `path`, the key that set it.
+Usage: {{- $floor := include "global-chart.replicaFloor" (dict "deploy" $deploy "errCtx" $errCtx) | fromJson }}
+Returns: JSON {"owner": …, "count": …, "path": …}.
+*/}}
+{{- define "global-chart.replicaFloor" -}}
+{{- $deploy := .deploy -}}
+{{- $hpa := default (dict) $deploy.autoscaling -}}
+{{- $keda := default (dict) $deploy.keda -}}
+{{- if $hpa.enabled -}}
+{{- dict "owner" "hpa" "count" $hpa.minReplicas "path" (printf "%s.autoscaling.minReplicas" .errCtx) | toJson -}}
+{{- else if $keda.enabled -}}
+{{- dict "owner" "keda" "count" (ternary $keda.minReplicaCount 0 (hasKey $keda "minReplicaCount")) "path" (printf "%s.keda.minReplicaCount" .errCtx) | toJson -}}
+{{- else -}}
+{{- dict "owner" "workload" "count" (ternary $deploy.replicaCount 2 (hasKey $deploy "replicaCount")) "path" (printf "%s.replicaCount" .errCtx) | toJson -}}
+{{- end -}}
+{{- end }}
+
+{{/*
 Whether a deployments entry renders a StatefulSet: the one home of the
 comparison every StatefulSet-only branch makes. Returns "true" or "".
 Usage: {{- if include "global-chart.isStatefulSet" $deploy }}

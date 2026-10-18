@@ -42,6 +42,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   by default. Below it the API server drops the field without a word.
   Clusters on 1.23–1.26 are past their end of life, and Helm refuses to install
   the chart there.
+- **Breaking: a PDB that allows no voluntary eviction fails the render** (issue
+  #216, [ADR 0021](docs/adr/0021-a-pdb-that-allows-no-eviction-fails-only-in-the-count-dependent-form.md)).
+  `pdb.minAvailable` that reaches the replica owner's floor (`replicaCount`, 2
+  when absent, `autoscaling.minReplicas` or `keda.minReplicaCount`) blocked
+  `kubectl drain` and cluster-autoscaler scale-down on the node without a
+  word: `replicaCount: 1` with `minAvailable: 1`, or `minAvailable: "60%"`
+  with 2 pods, which rounds up to 2. `maxUnavailable: 0`, `"0%"` and
+  `minAvailable: "100%"` block at any count and still render. **Migration**:
+  lower `minAvailable`, or, to block evictions on purpose, replace it with
+  `maxUnavailable: 0`.
 - **Messages and descriptions say *workload* where they hold for every kind**
   (issue #217). The two `validateAutoscalingConflict` failures, the schema
   descriptions of `annotations`, `reloader.externalSecrets` and
