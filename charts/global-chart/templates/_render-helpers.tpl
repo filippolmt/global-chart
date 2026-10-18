@@ -160,29 +160,43 @@ Usage: {{- if include "global-chart.isStatefulSet" $deploy }}
 {{- end }}
 
 {{/*
-The names of the volumes a deployment's pod declares before its claim
-templates: every volumes entry, and the volumes its mountedConfigFiles
-generate. A claim template becomes a pod volume of its own name, so
+The names of the volumes a pod declares before its claim templates and its
+externalSecrets volumes: every volumes entry, and the volumes its
+mountedConfigFiles generate (a Deployment's only: a job has none). Fails when
+two of them share a name (issue #214): the API server would reject the pod at
+apply time. A claim template becomes a pod volume of its own name, so
 validateStatefulSets checks each against these. An unnamed volumes entry is
 skipped (isNamedEntry): its null is validateNullItems' to report.
-Usage: {{ $names := include "global-chart.podVolumeNames" $deploy | fromJson }}
+Usage: {{ $names := include "global-chart.podVolumeNames" (dict "values" $deploy "errCtx" $errCtx) | fromJson }}
+Params:
+  values - the deployment or job map that declares the volumes
+  errCtx - its values path, which leads every path below
 Output: JSON map of volume name to the values path that declares it.
 */}}
 {{- define "global-chart.podVolumeNames" -}}
-{{- $names := dict -}}
-{{- range $i, $v := (default (list) .volumes) -}}
+{{- $errCtx := .errCtx -}}
+{{- $sources := list -}}
+{{- range $i, $v := (default (list) .values.volumes) -}}
   {{- if include "global-chart.isNamedEntry" $v -}}
-  {{- $_ := set $names $v.name (printf "volumes[%d]" $i) -}}
+  {{- $sources = append $sources (list (toString $v.name) (printf "%s.volumes[%d]" $errCtx $i)) -}}
   {{- end -}}
 {{- end -}}
-{{- $mcf := default (dict) .mountedConfigFiles -}}
+{{- $mcf := default (dict) .values.mountedConfigFiles -}}
 {{- range $i, $f := (default (list) $mcf.files) -}}
   {{- if include "global-chart.isNamedEntry" $f -}}
-  {{- $_ := set $names (include "global-chart.mountedFileVolumeName" (dict "fileName" $f.name)) (printf "mountedConfigFiles.files[%d]" $i) -}}
+  {{- $sources = append $sources (list (include "global-chart.mountedFileVolumeName" (dict "fileName" $f.name)) (printf "%s.mountedConfigFiles.files[%d]" $errCtx $i)) -}}
   {{- end -}}
 {{- end -}}
 {{- range $i, $b := (default (list) $mcf.bundles) -}}
-  {{- $_ := set $names (include "global-chart.mountedBundleVolumeName" (dict "bundleIndex" $i)) (printf "mountedConfigFiles.bundles[%d]" $i) -}}
+  {{- $sources = append $sources (list (include "global-chart.mountedBundleVolumeName" (dict "bundleIndex" $i)) (printf "%s.mountedConfigFiles.bundles[%d]" $errCtx $i)) -}}
+{{- end -}}
+{{- $names := dict -}}
+{{- range $sources -}}
+  {{- $name := index . 0 -}}
+  {{- if hasKey $names $name -}}
+    {{- fail (printf "%s: declares the pod volume '%s', which %s already declares, and a pod holds one volume per name. Rename the volumes entry." (index . 1) $name (index $names $name)) -}}
+  {{- end -}}
+  {{- $_ := set $names $name (index . 1) -}}
 {{- end -}}
 {{- $names | toJson -}}
 {{- end }}

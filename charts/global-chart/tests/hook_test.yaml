@@ -2724,6 +2724,22 @@ tests:
           path: spec.template.spec.restartPolicy
           value: Never
 
+  - it: should fail when two volumes entries of a hook share a name
+    set:
+      hooks:
+        pre-install:
+          migrate:
+            image: myapp:v1
+            command: ["true"]
+            volumes:
+              - name: data
+                emptyDir: {}
+              - name: data
+                emptyDir: {}
+    asserts:
+      - failedTemplate:
+          errorMessage: "hooks.pre-install.migrate.volumes[1]: declares the pod volume 'data', which hooks.pre-install.migrate.volumes[0] already declares, and a pod holds one volume per name. Rename the volumes entry."
+
   - it: should fail when root-level hook has no image and no fromDeployment
     set:
       hooks:

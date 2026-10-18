@@ -30,6 +30,8 @@ kind; it changes name only together with the map (issue #215).
 {{- end }}
 {{- end }}
 {{- end }}
+{{- /* Fails on two pod volumes of one name (issue #214) */}}
+{{- $_ := include "global-chart.podVolumeNames" (dict "values" $deploy "errCtx" $errCtx) }}
 {{- /* Each claim template becomes a pod volume of its name, which an
        externalSecrets volume must not take either. The other rules on claims
        are validateStatefulSets' (ADR 0020). */}}

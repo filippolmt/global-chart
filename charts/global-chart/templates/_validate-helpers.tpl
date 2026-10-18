@@ -455,7 +455,7 @@ Called from validate.yaml. Emits nothing on success.
     {{- if gt (len $stsName) 52 -}}
       {{- fail (printf "%s: a StatefulSet name is at most 52 characters, and '%s' has %d. The pods' controller-revision-hash label appends up to 11 to it, within the 63 of a label value. Shorten the key, or the fullname with fullnameOverride." $errCtx $stsName (len $stsName)) -}}
     {{- end -}}
-    {{- $volumeNames := include "global-chart.podVolumeNames" $deploy | fromJson -}}
+    {{- $volumeNames := include "global-chart.podVolumeNames" (dict "values" $deploy "errCtx" $errCtx) | fromJson -}}
     {{- $mountNames := dict -}}
     {{- $unnamedMount := false -}}
     {{- range $c := concat (list $deploy) (default (list) $deploy.extraContainers) (default (list) $deploy.extraInitContainers) -}}
@@ -470,7 +470,7 @@ Called from validate.yaml. Emits nothing on success.
     {{- range $i, $claim := (default (list) $deploy.volumeClaimTemplates) -}}
       {{- if include "global-chart.isNamedEntry" $claim -}}
         {{- if hasKey $volumeNames $claim.name -}}
-          {{- fail (printf "%s.volumeClaimTemplates[%d]: '%s' is also the name of the pod volume of %s.%s, and the claim becomes a pod volume of that name. Rename one of them." $errCtx $i $claim.name $errCtx (index $volumeNames $claim.name)) -}}
+          {{- fail (printf "%s.volumeClaimTemplates[%d]: '%s' is also the name of the pod volume of %s, and the claim becomes a pod volume of that name. Rename one of them." $errCtx $i $claim.name (index $volumeNames $claim.name)) -}}
         {{- end -}}
         {{- if not (or $unnamedMount (hasKey $mountNames $claim.name)) -}}
           {{- fail (printf "%s.volumeClaimTemplates[%d]: '%s' is mounted by no volumeMounts item of the pod's containers. Mount it, or drop the entry." $errCtx $i $claim.name) -}}

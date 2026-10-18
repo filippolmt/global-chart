@@ -175,6 +175,8 @@ containers:
   {{- /* Only a deployment-level job inherits: at root level the path is never read */ -}}
   {{- $inheritedCtx := "" -}}
   {{- with .deployName -}}{{- $inheritedCtx = include "global-chart.deploymentValuesPath" . -}}{{- end -}}
+  {{- /* Fails on two volumes entries of one name (issue #214) */ -}}
+  {{- $_ := include "global-chart.podVolumeNames" (dict "values" $job "errCtx" .errCtx) -}}
   {{- $esInherited := include "global-chart.resolveExternalSecretRefs" (dict "root" $root "refs" $esRefs.inherited "hook" $esReadsCopy "volumes" $job.volumes "errCtx" $inheritedCtx) | fromJson -}}
   {{- $esOwn := include "global-chart.resolveExternalSecretRefs" (dict "root" $root "refs" $esRefs.own "hook" $esReadsCopy "volumes" $job.volumes "errCtx" .errCtx) | fromJson -}}
   {{- $esEnvInherited := $esInherited.env -}}

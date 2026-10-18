@@ -802,6 +802,52 @@ tests:
       - failedTemplate:
           errorPattern: "deployments.main.externalSecrets: the volume 'es-app-conf' generated for 'app-conf' is already declared"
 
+  - it: should fail when a volumes entry takes the name of a mounted config file volume
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          mountedConfigFiles:
+            files:
+              - { name: app, filename: app.yaml, targetPath: /etc/app.yaml, content: "a: 1" }
+          volumes:
+            - name: md-cm-file-app
+              emptyDir: {}
+    asserts:
+      - failedTemplate:
+          errorMessage: "deployments.main.mountedConfigFiles.files[0]: declares the pod volume 'md-cm-file-app', which deployments.main.volumes[0] already declares, and a pod holds one volume per name. Rename the volumes entry."
+
+  - it: should fail when a volumes entry takes the name of a mounted config bundle volume
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          mountedConfigFiles:
+            bundles:
+              - mountDir: /etc/app
+                files:
+                  - { name: app, relPath: app.yaml, content: "a: 1" }
+          volumes:
+            - name: md-cm-bundle-0
+              emptyDir: {}
+    asserts:
+      - failedTemplate:
+          errorMessage: "deployments.main.mountedConfigFiles.bundles[0]: declares the pod volume 'md-cm-bundle-0', which deployments.main.volumes[0] already declares, and a pod holds one volume per name. Rename the volumes entry."
+
+  - it: should fail when two volumes entries share a name
+    set:
+      deployments:
+        main:
+          image: nginx:1.25
+          volumes:
+            - name: data
+              emptyDir: {}
+            - name: data
+              emptyDir: {}
+    asserts:
+      - failedTemplate:
+          errorMessage: "deployments.main.volumes[1]: declares the pod volume 'data', which deployments.main.volumes[0] already declares, and a pod holds one volume per name. Rename the volumes entry."
+
   - it: should fail when the deployment names an unknown ExternalSecret key
     set:
       deployments:
