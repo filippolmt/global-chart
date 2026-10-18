@@ -121,9 +121,9 @@ spec:
             "checksum/secret" (toYaml $deploy.secret | sha256sum)
             "checksum/mounted-config-files" (toYaml $deploy.mountedConfigFiles | sha256sum) }}
       {{- /* checksum/external-secrets (issue #174): the rendered spec of every
-             externalSecrets entry the deployment references, in list order — so a
+             externalSecrets entry the workload references, in list order — so a
              change to target.template, remote.key or the list itself rolls the pods.
-             Only with references: an always-present key would roll every deployment
+             Only with references: an always-present key would roll every workload
              once on upgrade for nothing. It hashes the spec, not the values: a new
              version in the external store, the window before ESO rewrites the
              Secret on rollout, and a target.immutable Secret are not covered.
@@ -141,7 +141,7 @@ spec:
       labels:
         {{- include "global-chart.deploymentLabels" (dict "root" $root "deploymentName" $name "own" $deploy.podLabels) | nindent 8 }}
     spec:
-      {{- /* ImagePullSecrets: deployment > global (hasKey distinguishes unset from empty) */ -}}
+      {{- /* ImagePullSecrets: workload > global (hasKey distinguishes unset from empty) */ -}}
       {{- $imagePullSecrets := list -}}
       {{- if hasKey $deploy "imagePullSecrets" -}}
         {{- $imagePullSecrets = $deploy.imagePullSecrets -}}

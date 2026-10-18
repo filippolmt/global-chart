@@ -85,7 +85,7 @@ imagePullSecrets:
 **Error messages — `<values path>: <problem>`:**
 ```yaml
 # WRONG: the entry named in prose, the path printed by hand
-{{- fail (printf "PDB for deployment '%s': set only one." $name) }}
+{{- fail (printf "PDB for workload '%s': set only one." $name) }}
 # CORRECT: the path of the key holding the wrong value leads, from its single home
 {{- fail (printf "%s.pdb: set only one." (include "global-chart.deploymentValuesPath" $name)) }}
 ```

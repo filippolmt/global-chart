@@ -88,7 +88,7 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{/*
-Create a deployment-specific fully qualified name.
+Create a workload-specific fully qualified name.
 Usage: {{ include "global-chart.deploymentFullname" (dict "root" . "deploymentName" $name) }}
 */}}
 {{- define "global-chart.deploymentFullname" -}}
@@ -96,7 +96,7 @@ Usage: {{ include "global-chart.deploymentFullname" (dict "root" . "deploymentNa
 {{- end }}
 
 {{/*
-<fullname>-<deployment key> before the 63-character cut: what deploymentFullname
+<fullname>-<workload key> before the 63-character cut: what deploymentFullname
 truncates, and what validateStatefulSets holds to 52 for a StatefulSet (ADR 0020).
 Usage: {{ include "global-chart.deploymentUntruncatedName" (dict "root" . "deploymentName" $name) }}
 */}}
@@ -105,7 +105,7 @@ Usage: {{ include "global-chart.deploymentUntruncatedName" (dict "root" . "deplo
 {{- end }}
 
 {{/*
-Selector labels for a specific deployment (includes deployment name for uniqueness).
+Selector labels for a specific workload (includes workload name for uniqueness).
 Usage: {{ include "global-chart.deploymentSelectorLabels" (dict "root" . "deploymentName" $name) }}
 */}}
 {{- define "global-chart.deploymentSelectorLabels" -}}
@@ -134,9 +134,9 @@ app.kubernetes.io/managed-by: {{ .root.Release.Service }}
 {{- end }}
 
 {{/*
-Check if a deployment is enabled. Defaults to true if the field is not set.
+Check if a workload is enabled. Defaults to true if the field is not set.
 Usage: {{ include "global-chart.deploymentEnabled" $deploy }}
-Input: the deployment map. The caller has already guarded it against nil —
+Input: the workload map. The caller has already guarded it against nil —
 `hasKey` on nil fails, and every call site sits inside `{{- if $deploy }}`.
 Returns the string "true" or "false".
 */}}
@@ -263,7 +263,7 @@ Usage: {{ include "global-chart.rootCronJobName" (dict "root" . "name" $name) }}
 {{- end -}}
 
 {{/*
-Workload-scope CronJob name (includes deployment name for uniqueness).
+Workload-scope CronJob name (includes workload name for uniqueness).
 Truncated to 52 chars (see rootCronJobName).
 Usage: {{ include "global-chart.deploymentCronJobName" (dict "root" . "deploymentName" $deployName "jobName" $name) }}
 */}}
@@ -273,7 +273,7 @@ Usage: {{ include "global-chart.deploymentCronJobName" (dict "root" . "deploymen
 {{- end -}}
 
 {{/*
-Workload-scope Hook Job name (includes deployment name + hook type for uniqueness).
+Workload-scope Hook Job name (includes workload name + hook type for uniqueness).
 Canonical form: a single `trunc 63` over the full 4-part name. The collision
 validator MUST use this exact decomposition — an earlier validator variant
 truncated deploymentFullname first and re-truncated. The two only differ at a

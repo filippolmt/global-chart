@@ -18,7 +18,7 @@ pre-install hook Job succeeded running as the chart-created SA's hook copy
 ExternalSecret's value through its hook copy by envFrom and by volume → the
 copy and its Secret are gone after the hook phase → the surviving SA is the
 real one, not the hook copy →
-deployment `command`/`args` rendered → the SA a root-level `cronJobs` entry
+workload `command`/`args` rendered → the SA a root-level `cronJobs` entry
 references exists in the cluster → every Service `targetPort` resolved to a
 container port and got endpoints → a StatefulSet became ready behind its
 headless Service, its claim is `Bound`, and a file written on it survived the

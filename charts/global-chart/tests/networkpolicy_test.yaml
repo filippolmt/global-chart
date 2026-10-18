@@ -170,7 +170,7 @@ tests:
       - hasDocuments:
           count: 0
 
-  - it: should not render NetworkPolicy for disabled deployment
+  - it: should not render NetworkPolicy for disabled workload
     set:
       workloads:
         main:
@@ -185,7 +185,7 @@ tests:
       - hasDocuments:
           count: 0
 
-  - it: should render NetworkPolicy for multiple deployments
+  - it: should render NetworkPolicy for multiple workloads
     set:
       workloads:
         frontend:

@@ -3,8 +3,7 @@
   Calls fail on error. Renders no Kubernetes resources on success.
   The include below will fail with an actionable error message if name collisions are detected.
 */ -}}
-{{- /* First: Helm renders validate.yaml before every other template */ -}}
-{{- include "global-chart.rejectRemovedKeys" (dict "map" .Values "errCtx" "" "keys" (dict "deployments" (printf "workloads; fromDeployment, inheritDeployment* and the backend key deployment are renamed too, see %s/blob/main/CHANGELOG.md#migration-guide-from-3x" .Chart.Home))) -}}
+{{- include "global-chart.validateRemovedKeys" . -}}
 {{- include "global-chart.validateNullItems" . -}}
 {{- include "global-chart.validateFullname" . -}}
 {{- include "global-chart.validateNameCollisions" . -}}

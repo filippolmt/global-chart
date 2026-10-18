@@ -89,7 +89,7 @@ Usage:
 {{- fail (printf "hookAnnotations: unknown role %q (expected one of: %s)" .role (keys $table | sortAlpha | join ", ")) -}}
 {{- end -}}
 {{- if and (not $row.ownedByHook) (hasKey . "command") -}}
-{{- fail (printf "hookAnnotations: role %q is plumbing shared by every hook of the deployment, so an explicit deletePolicy would have no owner. Call it with a weight, not a command." .role) -}}
+{{- fail (printf "hookAnnotations: role %q is plumbing shared by every hook of the workload, so an explicit deletePolicy would have no owner. Call it with a weight, not a command." .role) -}}
 {{- end -}}
 {{- /* An explicit deletePolicy belongs to the hook, so it reaches only the roles
        a hook owns — the guard above is what keeps that true. The prereq copies are
@@ -135,7 +135,7 @@ Every hook that reads the hook-prerequisite copies, in both scopes: the one
 enumeration the consumer scans below walk. Fills `out` in place, keyed by the
 hook's values path (jobValuesPath, unique across both scopes), with
 {hookType, jobName, command, fullname, deploy, deployName} — deploy and
-deployName absent at root level. Disabled deployments are skipped: they render
+deployName absent at root level. Disabled workloads are skipped: they render
 no hook. Only the phases hookReadsPrereqCopy names.
 Params: root · out (the accumulator dict, mutated in place).
 Usage: {{- $hooks := dict }}{{- include "global-chart.prereqCopyHooks" (dict "root" $root "out" $hooks) }}

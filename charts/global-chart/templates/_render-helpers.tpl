@@ -144,7 +144,7 @@ The Kubernetes kind a workloads entry renders as (ADR 0020): its own kind, or
 Deployment. The one home of that default, read by deployment.yaml, hpa.yaml,
 scaledobject.yaml and, through isStatefulSet, by service.yaml and the validators.
 Usage: {{ include "global-chart.workloadKind" $deploy }}
-Input: the deployment map, guarded against nil like deploymentEnabled's.
+Input: the workload map, guarded against nil like deploymentEnabled's.
 */}}
 {{- define "global-chart.workloadKind" -}}
 {{- ternary .kind "Deployment" (eq (include "global-chart.isSet" (list . "kind")) "true") -}}
@@ -203,7 +203,7 @@ map. An unnamed volumes entry is skipped (isNamedEntry): its null is
 validateNullItems' to report.
 Usage: {{ $names := include "global-chart.podVolumeNames" (dict "values" $deploy "errCtx" $errCtx) | fromJson }}
 Params:
-  values - the deployment or job map that declares the volumes
+  values - the workload or job map that declares the volumes
   errCtx - its values path, which leads every path below
 Output: JSON map of volume name to the values path that declares it.
 */}}
@@ -262,11 +262,11 @@ Usage: {{ include "global-chart.renderVolume" (dict "volume" $v "errCtx" (printf
 
 {{/*
 Every owner of a pod spec the release renders, in both scopes, as a JSON list
-of {path, kind, spec}: each enabled deployment (kind "deployment"), then every
-non-empty hook and cronjob — root-level, and those of each enabled deployment —
+of {path, kind, spec}: each enabled workload (kind "deployment"), then every
+non-empty hook and cronjob — root-level, and those of each enabled workload —
 with their values path from deploymentValuesPath / jobValuesPath. The single
 home of that enumeration, read by validateNullItems: a
-disabled deployment and an empty job render nothing, so neither reads them.
+disabled workload and an empty job render nothing, so neither reads them.
 The specs come back through JSON: numbers are float64 (see the file header).
 Usage: {{- range (include "global-chart.podSpecOwners" . | fromJsonArray) }}
 */}}
@@ -627,7 +627,6 @@ Numbers come back float64: see the file header.
 {{- $ref := .ref -}}
 {{- $path := required "resolveBackend: errCtx is required (the values path of ref)" .errCtx -}}
 {{- $protocol := required "resolveBackend: protocol is required (the protocol the consumer forwards)" .protocol -}}
-{{- include "global-chart.rejectRemovedKeys" (dict "map" $ref "errCtx" $path "keys" (dict "deployment" "workload")) -}}
 {{- $svcName := "" -}}
 {{- $svcPort := 80 -}}
 {{- if hasKey $ref "portName" -}}

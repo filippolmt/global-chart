@@ -76,7 +76,7 @@ tests:
           path: spec.selector.matchLabels["app.kubernetes.io/component"]
           value: main
 
-  - it: should render PDB for multiple deployments
+  - it: should render PDB for multiple workloads
     set:
       workloads:
         frontend:
@@ -134,7 +134,7 @@ tests:
       - notExists:
           path: spec.maxUnavailable
 
-  - it: should not render PDB for disabled deployment
+  - it: should not render PDB for disabled workload
     set:
       workloads:
         main:

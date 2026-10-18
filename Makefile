@@ -97,11 +97,11 @@ TEST_CASES := \
 	tests/external-ingress.yaml:ingress:external-ingress \
 	tests/rbac.yaml:rbac:rbac \
 	tests/rbac-hooks.yaml:rbac-hooks:rbac-hooks \
-	tests/multi-deployment.yaml:multi:multi-deployment \
+	tests/multi-workload.yaml:multi:multi-workload \
 	tests/service-disabled.yaml:svc-disabled:service-disabled \
 	tests/service-extra-ports.yaml:svc-extra-ports:service-extra-ports \
-	tests/raw-deployment.yaml:raw:raw-deployment \
-	tests/deployment-hooks-cronjobs.yaml:deploy-hooks:deploy-hooks-cj \
+	tests/raw-workload.yaml:raw:raw-workload \
+	tests/workload-hooks-cronjobs.yaml:deploy-hooks:workload-hooks-cj \
 	tests/hooks-sa-inheritance.yaml:hooks-sa:hooks-sa-inheritance \
 	tests/name-collision.yaml:default:name-collision \
 	tests/httproute-basic.yaml:httproute-basic:httproute-basic \

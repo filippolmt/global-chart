@@ -2,20 +2,6 @@ suite: hook template tests
 templates:
   - templates/hook.yaml
 tests:
-  - it: should fail naming fromWorkload when a root-level hook carries the removed fromDeployment
-    set:
-      workloads:
-        backend:
-          image: myapp:v2
-      hooks:
-        post-upgrade:
-          migrate:
-            fromDeployment: backend
-            command: ["./migrate.sh"]
-    asserts:
-      - failedTemplate:
-          errorMessage: "hooks.post-upgrade.migrate.fromDeployment: removed in 4.0.0, use fromWorkload"
-
   # ====== Root-level hook basic ======
   - it: should render root-level hook with explicit image
     set:
@@ -110,7 +96,7 @@ tests:
           path: spec.template.spec.containers[0].imagePullPolicy
           value: IfNotPresent
 
-  - it: should fail when fromWorkload references non-existent deployment
+  - it: should fail when fromWorkload references non-existent workload
     set:
       workloads:
         backend:
@@ -664,7 +650,7 @@ tests:
           count: 4
 
   # ====== Workload enabled flag ======
-  - it: should not render workload-scope hook when deployment enabled is false
+  - it: should not render workload-scope hook when workload enabled is false
     set:
       workloads:
         backend:
@@ -679,9 +665,9 @@ tests:
           count: 0
 
   # ====== Workload-scope hooks ======
-  # Note: When deployment has serviceAccount.create: true (explicitly set),
+  # Note: When workload has serviceAccount.create: true (explicitly set),
   # the hook inherits the SA and only produces 1 document (Job at index 0).
-  # When deployment has no SA config, the hook creates its own SA (SA=0, Job=1).
+  # When workload has no SA config, the hook creates its own SA (SA=0, Job=1).
 
   - it: should render workload-scope hook inheriting image
     set:
@@ -705,7 +691,7 @@ tests:
           value: "myapp:v2"
         documentIndex: 0
 
-  - it: should inherit a deployment tag carrying a digest as written (issue #187)
+  - it: should inherit a workload tag carrying a digest as written (issue #187)
     set:
       workloads:
         backend:
@@ -768,7 +754,7 @@ tests:
       - failedTemplate:
           errorMessage: "workloads.api.image (inherited by hooks.pre-install.migrate): sets a digest without a repository (expected repository@digest)"
 
-  - it: should name workload-scope hook with deployment name included
+  - it: should name workload-scope hook with workload name included
     set:
       workloads:
         backend:
@@ -801,7 +787,7 @@ tests:
               db:
                 command: ["./m.sh"]
     asserts:
-      # documentIndex 0 is the hook-prerequisite copy of the deployment SA (#71)
+      # documentIndex 0 is the hook-prerequisite copy of the workload SA (#71)
       - isKind:
           of: Job
         documentIndex: 1
@@ -850,7 +836,7 @@ tests:
         documentIndex: 0
 
   # ====== Workload-scope hook SA inheritance ======
-  - it: should inherit SA from deployment when deployment creates SA
+  - it: should inherit SA from workload when workload creates SA
     set:
       workloads:
         backend:
@@ -869,7 +855,7 @@ tests:
           pattern: ".*backend.*"
         documentIndex: 0
 
-  - it: should inherit SA from deployment when deployment has existing SA name
+  - it: should inherit SA from workload when workload has existing SA name
     set:
       workloads:
         backend:
@@ -889,7 +875,7 @@ tests:
           value: "my-existing-sa"
         documentIndex: 0
 
-  - it: should create hook-specific SA when deployment has no SA
+  - it: should create hook-specific SA when workload has no SA
     set:
       workloads:
         backend:
@@ -946,12 +932,12 @@ tests:
       - failedTemplate:
           errorMessage: "workloads.backend.hooks.pre-upgrade.migrate: names its ServiceAccount twice, with different names: serviceAccountName \"runner\" and serviceAccount.name \"migrator\". Keep only one of the two fields (or set the same name in both)."
 
-  # ====== issue #71, ADR 0011: hook-prerequisite copy of the deployment SA ======
+  # ====== issue #71, ADR 0011: hook-prerequisite copy of the workload SA ======
   # Helm creates normal resources after the pre-* hooks, so a hook binding a
-  # chart-created deployment SA needs a hook-annotated copy of it, under its
+  # chart-created workload SA needs a hook-annotated copy of it, under its
   # own name: a same-name copy would take the live SA with it under Argo CD,
   # where pre-install runs on every sync (issue #141).
-  - it: should emit a hook copy of the deployment SA under its own name for a pre-install hook
+  - it: should emit a hook copy of the workload SA under its own name for a pre-install hook
     set:
       workloads:
         app:
@@ -1091,7 +1077,7 @@ tests:
           value: "-3"
         documentIndex: 1
 
-  - it: should not emit a hook SA copy when the deployment SA is externally managed
+  - it: should not emit a hook SA copy when the workload SA is externally managed
     set:
       workloads:
         app:
@@ -1197,7 +1183,7 @@ tests:
           value: RELEASE-NAME-global-chart-app-post-install-notify
 
   # pre-delete runs before Helm deletes anything: the real SA is in place.
-  - it: should keep the real deployment SA for a pre-delete hook
+  - it: should keep the real workload SA for a pre-delete hook
     set:
       workloads:
         app:
@@ -1216,8 +1202,8 @@ tests:
           value: RELEASE-NAME-global-chart-app
 
   # The match is by resolved name in both scopes (ADR 0011): a root-level hook
-  # naming the deployment SA gets the copy, even from a deployment with no hooks.
-  - it: should emit the hook SA copy for a root-level hook naming the deployment SA
+  # naming the workload SA gets the copy, even from a workload with no hooks.
+  - it: should emit the hook SA copy for a root-level hook naming the workload SA
     set:
       workloads:
         app:
@@ -1253,7 +1239,7 @@ tests:
           value: Job
 
   # One copy per SA: phases aggregated over every consumer, both scopes.
-  - it: should aggregate the phases of every hook running as the deployment SA copy
+  - it: should aggregate the phases of every hook running as the workload SA copy
     set:
       workloads:
         app:
@@ -1279,7 +1265,7 @@ tests:
           path: metadata.name
           value: app-sa-hook
 
-  - it: should not emit a hook SA copy for a disabled deployment
+  - it: should not emit a hook SA copy for a disabled workload
     set:
       workloads:
         app:
@@ -1301,7 +1287,7 @@ tests:
 
   # A deployment's SA bound by an rbacs.roles entry with create: false is still
   # created by the release: the Role copy and the pod bind the same copy.
-  - it: should run as the deployment SA copy when an rbacs.roles entry binds that SA
+  - it: should run as the workload SA copy when an rbacs.roles entry binds that SA
     set:
       rbacs:
         roles:
@@ -1360,7 +1346,7 @@ tests:
 
   # A workload-scope cronjob's own SA: the copy takes the deployment's
   # component label
-  - it: should copy a deployment cronjob's own SA for a pre-upgrade hook naming it
+  - it: should copy a workload cronjob's own SA for a pre-upgrade hook naming it
     set:
       workloads:
         app:
@@ -1705,7 +1691,7 @@ tests:
         documentIndex: 0
 
   # ====== Workload-scope hook envFrom inheritance ======
-  - it: should inherit envFrom from deployment configMap and secret
+  - it: should inherit envFrom from workload configMap and secret
     set:
       workloads:
         backend:
@@ -1759,7 +1745,7 @@ tests:
               name: RELEASE-NAME-global-chart-backend-hook-secret
         documentIndex: 2
 
-  - it: should copy the deployment configMap and secret data verbatim onto the prereqs
+  - it: should copy the workload configMap and secret data verbatim onto the prereqs
     set:
       workloads:
         backend:
@@ -1832,7 +1818,7 @@ tests:
           value: "ODA4MA=="
         documentIndex: 1
 
-  - it: should inherit envFromConfigMaps and envFromSecrets from deployment
+  - it: should inherit envFromConfigMaps and envFromSecrets from workload
     set:
       workloads:
         backend:
@@ -1862,7 +1848,7 @@ tests:
         documentIndex: 0
 
   # ====== Workload-scope hook additionalEnvs inheritance ======
-  - it: should inherit additionalEnvs from deployment
+  - it: should inherit additionalEnvs from workload
     set:
       workloads:
         backend:
@@ -1888,7 +1874,7 @@ tests:
                 fieldPath: metadata.name
         documentIndex: 0
 
-  - it: should merge deployment additionalEnvs with hook env
+  - it: should merge workload additionalEnvs with hook env
     set:
       workloads:
         backend:
@@ -1920,7 +1906,7 @@ tests:
         documentIndex: 0
 
   # ====== Workload-scope hook nodeSelector inheritance ======
-  - it: should inherit nodeSelector from deployment
+  - it: should inherit nodeSelector from workload
     set:
       workloads:
         backend:
@@ -1961,7 +1947,7 @@ tests:
         documentIndex: 0
 
   # ====== Workload-scope hook tolerations inheritance ======
-  - it: should inherit tolerations from deployment
+  - it: should inherit tolerations from workload
     set:
       workloads:
         backend:
@@ -2017,7 +2003,7 @@ tests:
         documentIndex: 0
 
   # ====== Workload-scope hook affinity inheritance ======
-  - it: should inherit affinity from deployment
+  - it: should inherit affinity from workload
     set:
       workloads:
         backend:
@@ -2074,7 +2060,7 @@ tests:
         documentIndex: 0
 
   # ====== Workload-scope hook imagePullSecrets inheritance ======
-  - it: should inherit imagePullSecrets from deployment
+  - it: should inherit imagePullSecrets from workload
     set:
       workloads:
         backend:
@@ -2347,7 +2333,7 @@ tests:
         documentIndex: 1
 
   # ====== hook type aggregation on prerequisites ======
-  - it: should aggregate all hook types on prerequisite ConfigMap when deployment has multiple hook types
+  - it: should aggregate all hook types on prerequisite ConfigMap when workload has multiple hook types
     set:
       workloads:
         backend:
@@ -2370,7 +2356,7 @@ tests:
           value: "pre-install,pre-upgrade"
         documentIndex: 1
 
-  - it: should aggregate all hook types on prerequisite Secret when deployment has multiple hook types
+  - it: should aggregate all hook types on prerequisite Secret when workload has multiple hook types
     set:
       workloads:
         backend:
@@ -2422,7 +2408,7 @@ tests:
 
   # ====== Seven-category: default assertions ======
 
-  - it: should render no nodeSelector when neither deployment nor hook sets it
+  - it: should render no nodeSelector when neither workload nor hook sets it
     set:
       workloads:
         backend:
@@ -2434,7 +2420,7 @@ tests:
               migrate:
                 command: ["./migrate.sh"]
     asserts:
-      # documentIndex 0 is the hook-prerequisite copy of the deployment SA (#71)
+      # documentIndex 0 is the hook-prerequisite copy of the workload SA (#71)
       - isKind:
           of: Job
         documentIndex: 1
@@ -2444,7 +2430,7 @@ tests:
 
   # ====== Hook prerequisite partial tests ======
 
-  - it: should not create prerequisite ConfigMap when deployment has no configMap
+  - it: should not create prerequisite ConfigMap when workload has no configMap
     set:
       workloads:
         backend:
@@ -2471,7 +2457,7 @@ tests:
           of: Job
         documentIndex: 2
 
-  - it: should create only ConfigMap prereq when deployment has configMap but no secret
+  - it: should create only ConfigMap prereq when workload has configMap but no secret
     set:
       workloads:
         backend:
@@ -2502,7 +2488,7 @@ tests:
           of: Job
         documentIndex: 2
 
-  - it: should create only Secret prereq when deployment has secret but no configMap
+  - it: should create only Secret prereq when workload has secret but no configMap
     set:
       workloads:
         backend:
@@ -2960,7 +2946,7 @@ tests:
           path: metadata.annotations["helm.sh/hook-delete-policy"]
           value: before-hook-creation,hook-succeeded,hook-failed
         documentIndex: 2
-      # the deployment SA copy is plumbing too: role prereq (ADR 0011)
+      # the workload SA copy is plumbing too: role prereq (ADR 0011)
       - isKind:
           of: ServiceAccount
         documentIndex: 0
@@ -3010,7 +2996,7 @@ tests:
   # at the end of this suite.
 
   # The SA copy sorts against the hooks that actually bind the
-  # deployment SA, not against every pre-install hook.
+  # workload SA, not against every pre-install hook.
   - it: should derive the SA copy weight only from SA-binding hooks
     set:
       workloads:
@@ -3036,11 +3022,11 @@ tests:
           value: "-3"
         documentIndex: 0
 
-  # ====== Root-level hooks inherit nothing from deployments ======
+  # ====== Root-level hooks inherit nothing from workloads ======
   # Guards the omission of "deploy" in hook.yaml PART 1's jobPodSpec call: the
   # helper carries the whole inheritance chain, and only the missing key keeps
   # it inactive for root-level hooks (_job-helpers.tpl header, "Inheritance").
-  - it: should inherit nothing from a deployment for a root-level hook
+  - it: should inherit nothing from a workload for a root-level hook
     documentSelector:
       path: kind
       value: Job
@@ -3549,7 +3535,7 @@ tests:
           value: RELEASE-NAME-global-chart-app-pre-install-unbounded
 
   # ====== backoffLimit (issue #113) ======
-  # No fallback from the deployment or global: a retry budget is the hook's own.
+  # No fallback from the workload or global: a retry budget is the hook's own.
   - it: should render backoffLimit on a root-level hook Job
     set:
       hooks:
@@ -3851,7 +3837,7 @@ tests:
         documentSelector:
           path: kind
           value: Job
-      # ADR 0014: the deployment value does not reach the SA; the pod field wins
+      # ADR 0014: the workload value does not reach the SA; the pod field wins
       - equal:
           path: automountServiceAccountToken
           value: true
@@ -3947,7 +3933,7 @@ tests:
                 name: prod-settings
 
   # ====== priorityClassName (issue #168) ======
-  - it: should inherit priorityClassName from deployment
+  - it: should inherit priorityClassName from workload
     documentSelector:
       path: kind
       value: Job
@@ -4036,7 +4022,7 @@ tests:
           path: spec.template.spec.priorityClassName
           value: batch-low
 
-  - it: should omit priorityClassName when neither the hook nor its deployment sets it
+  - it: should omit priorityClassName when neither the hook nor its workload sets it
     documentSelector:
       path: kind
       value: Job
@@ -4115,7 +4101,7 @@ tests:
 
   # Duplicate mountPath (issue #182): the inherited externalSecrets count, and
   # the message names the job.
-  - it: should fail when a deployment hook's volumeMounts repeat the mountPath of an inherited externalSecrets entry
+  - it: should fail when a workload hook's volumeMounts repeat the mountPath of an inherited externalSecrets entry
     set:
       externalSecrets:
         app-conf:
@@ -4142,7 +4128,7 @@ tests:
       - failedTemplate:
           errorMessage: "workloads.main.hooks.post-install.migrate: externalSecrets 'app-conf' (inherited from workloads.main) mounts on '/etc/app', which volumeMounts[0] already mounts. The API server rejects two mounts on one path in a container: give each its own mountPath."
 
-  - it: should fail when an inherited externalSecrets volume takes the name of a deployment hook's volume
+  - it: should fail when an inherited externalSecrets volume takes the name of a workload hook's volume
     set:
       externalSecrets:
         app-conf:

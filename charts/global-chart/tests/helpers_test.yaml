@@ -64,7 +64,7 @@ tests:
           value: myrelease-global-chart-api
 
   # ====== nameOverride ======
-  - it: should use nameOverride in deployment name
+  - it: should use nameOverride in workload name
     release:
       name: myrelease
     set:
@@ -78,7 +78,7 @@ tests:
           value: myrelease-custom-api
 
   # ====== fullnameOverride ======
-  - it: should use fullnameOverride in deployment name
+  - it: should use fullnameOverride in workload name
     set:
       fullnameOverride: myoverride
       workloads:
@@ -149,7 +149,7 @@ tests:
           value: "9.9.9"
 
   # ====== global.commonLabels in labels helpers ======
-  - it: should include global.commonLabels in deployment labels
+  - it: should include global.commonLabels in workload labels
     set:
       global:
         commonLabels:
@@ -165,7 +165,7 @@ tests:
             team: platform
             env: production
 
-  - it: should not include global.commonLabels in deployment selector labels
+  - it: should not include global.commonLabels in workload selector labels
     set:
       global:
         commonLabels:

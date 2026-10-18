@@ -3,7 +3,7 @@ templates:
   - templates/configmap.yaml
 tests:
   # ====== Workload enabled flag ======
-  - it: should not render configmap when deployment enabled is false
+  - it: should not render configmap when workload enabled is false
     set:
       workloads:
         main:
@@ -100,7 +100,7 @@ tests:
             - alpha
             - beta
 
-  - it: should render multiple configmaps for multiple deployments
+  - it: should render multiple configmaps for multiple workloads
     set:
       workloads:
         frontend:

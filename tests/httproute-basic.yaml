@@ -1,4 +1,4 @@
-# HTTPRoute lint scenario — single deployment backend, basic PathPrefix match.
+# HTTPRoute lint scenario — single workload backend, basic PathPrefix match.
 workloads:
   api:
     image: nginx:1.25

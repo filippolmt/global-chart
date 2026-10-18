@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Global-chart is a reusable Helm chart providing multi-deployment Kubernetes
+Global-chart is a reusable Helm chart providing multi-workload Kubernetes
 building blocks. `README.md` — feature list and examples. `CHANGELOG.md` —
 version history and migration guides. `docs/adr/` — the decisions behind the
 rules below.
@@ -97,7 +97,7 @@ Read the pointer before changing the domain it names.
    with the workload, and the `envFrom` lists add up. What is inherited, the
    opt-out toggles and the `envFrom` order: the *Inheritance* block of the
    `jobPodSpec` header in `_job-helpers.tpl`.
-3. **Fallback chains**: job > deployment > global, `hasKey` at every level; an
+3. **Fallback chains**: job > workload > global, `hasKey` at every level; an
    explicit `[]` stops the fallback. `CODING_STANDARDS.md`.
 4. **Hooks**: weights and delete policies come only from the role table in
    `_hook-helpers.tpl`, which keeps `prereq < SA < Job` and lets weights go
@@ -116,7 +116,7 @@ Read the pointer before changing the domain it names.
    templates check them, so `failedTemplate` tests stay possible. A *removed
    key* stays declared until the next major, so its `fail` is reached (ADR 0022).
 6. **One replica owner**: `autoscaling` (HPA) and `keda` (ScaledObject)
-   exclude each other per deployment, and either one omits `spec.replicas`
+   exclude each other per workload, and either one omits `spec.replicas`
    (*Replica owner* in `GLOSSARY.md`, ADR 0003, ADR 0012). The owner and the
    fewest pods it keeps: `replicaFloor`.
 7. **No `appVersion`**: `app.kubernetes.io/version` is emitted only when the

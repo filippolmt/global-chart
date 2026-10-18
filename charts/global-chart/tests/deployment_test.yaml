@@ -1,9 +1,9 @@
-suite: deployment template tests
+suite: workload template tests
 templates:
   - templates/deployment.yaml
 tests:
   # ====== enabled flag ======
-  - it: should not render deployment when enabled is false
+  - it: should not render workload when enabled is false
     set:
       workloads:
         main:
@@ -13,7 +13,7 @@ tests:
       - hasDocuments:
           count: 0
 
-  - it: should render deployment when enabled is true
+  - it: should render workload when enabled is true
     set:
       workloads:
         main:
@@ -23,7 +23,7 @@ tests:
       - hasDocuments:
           count: 1
 
-  - it: should render deployment when enabled is not set (default true)
+  - it: should render workload when enabled is not set (default true)
     set:
       workloads:
         main:
@@ -782,7 +782,7 @@ tests:
               secret:
                 secretName: RELEASE-NAME-global-chart-app-conf
 
-  - it: should fail when a mounted externalSecrets entry lands on the name of a deployment volume
+  - it: should fail when a mounted externalSecrets entry lands on the name of a workload volume
     set:
       externalSecrets:
         app-conf:
@@ -848,7 +848,7 @@ tests:
       - failedTemplate:
           errorMessage: "workloads.main.volumes[1]: declares the pod volume 'data', which workloads.main.volumes[0] already declares, and a pod holds one volume per name. Rename the volumes entry."
 
-  - it: should fail when the deployment names an unknown ExternalSecret key
+  - it: should fail when the workload names an unknown ExternalSecret key
     set:
       workloads:
         main:
@@ -936,8 +936,8 @@ tests:
           path: spec.replicas
           value: 3
 
-  # ====== deployment naming ======
-  - it: should name deployment correctly
+  # ====== workload naming ======
+  - it: should name workload correctly
     release:
       name: myrelease
     set:
@@ -1229,7 +1229,7 @@ tests:
           path: spec.template.spec.containers[0].image
           value: "myapp:v1"
 
-  - it: should use global.imagePullSecrets when deployment has none
+  - it: should use global.imagePullSecrets when workload has none
     set:
       global:
         imagePullSecrets:
@@ -1242,7 +1242,7 @@ tests:
           path: spec.template.spec.imagePullSecrets[0].name
           value: "global-regcred"
 
-  - it: should prefer deployment imagePullSecrets over global
+  - it: should prefer workload imagePullSecrets over global
     set:
       global:
         imagePullSecrets:
@@ -1283,7 +1283,7 @@ tests:
 
   # ====== Deployment field gap closure ======
 
-  - it: should render affinity when set on deployment
+  - it: should render affinity when set on workload
     set:
       workloads:
         main:
@@ -1306,7 +1306,7 @@ tests:
           path: spec.template.spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].operator
           value: In
 
-  - it: should not use global.imagePullSecrets when deployment sets empty list
+  - it: should not use global.imagePullSecrets when workload sets empty list
     set:
       global:
         imagePullSecrets:
@@ -1321,7 +1321,7 @@ tests:
 
   # ====== global.commonLabels / global.commonAnnotations ======
 
-  - it: should render global.commonLabels on deployment metadata
+  - it: should render global.commonLabels on workload metadata
     set:
       global:
         commonLabels:
@@ -1334,7 +1334,7 @@ tests:
           path: metadata.labels.team
           value: platform
 
-  - it: should render global.commonAnnotations on deployment metadata
+  - it: should render global.commonAnnotations on workload metadata
     set:
       global:
         commonAnnotations:

@@ -2,25 +2,8 @@ suite: ingress template tests
 templates:
   - templates/ingress.yaml
 tests:
-  - it: should fail naming workload when a host carries the removed deployment backend
-    set:
-      workloads:
-        web:
-          image: nginx:1.25
-      ingress:
-        enabled: true
-        hosts:
-          - host: example.com
-            deployment: web
-            paths:
-              - path: /
-                pathType: Prefix
-    asserts:
-      - failedTemplate:
-          errorMessage: "ingress.hosts[0].deployment: removed in 4.0.0, use workload"
-
-  # ====== Ingress with deployment reference ======
-  - it: should render ingress with deployment backend
+  # ====== Ingress with workload reference ======
+  - it: should render ingress with workload backend
     release:
       name: myrel
     set:
@@ -136,7 +119,7 @@ tests:
           content: "example.com"
 
   # ====== Multiple hosts ======
-  - it: should render multiple hosts with different deployments
+  - it: should render multiple hosts with different workloads
     release:
       name: myrel
     set:
@@ -177,8 +160,8 @@ tests:
           path: spec.rules[1].http.paths[0].backend.service.name
           value: myrel-global-chart-api
 
-  # ====== Ingress fails when referencing disabled deployment ======
-  - it: should fail when ingress references a disabled deployment
+  # ====== Ingress fails when referencing disabled workload ======
+  - it: should fail when ingress references a disabled workload
     set:
       workloads:
         frontend:
@@ -238,7 +221,7 @@ tests:
           of: Ingress
 
   # ====== service.enabled validation ======
-  - it: should fail when ingress references deployment with service.enabled false
+  - it: should fail when ingress references workload with service.enabled false
     set:
       workloads:
         backend:
@@ -256,7 +239,7 @@ tests:
       - failedTemplate:
           errorMessage: "ingress.hosts[0].workload: references workload 'backend', which has service.enabled: false. Enable the service or remove the reference."
 
-  - it: should render ingress when deployment has service.enabled true
+  - it: should render ingress when workload has service.enabled true
     set:
       workloads:
         backend:
@@ -278,7 +261,7 @@ tests:
           path: spec.rules[0].http.paths[0].backend.service.port.number
           value: 3000
 
-  - it: should render ingress when deployment has no service key (defaults to enabled)
+  - it: should render ingress when workload has no service key (defaults to enabled)
     set:
       workloads:
         backend:
@@ -296,7 +279,7 @@ tests:
 
   # ====== Negative tests: fail/required paths ======
 
-  - it: should fail when ingress host references non-existent deployment
+  - it: should fail when ingress host references non-existent workload
     set:
       workloads:
         backend:

@@ -62,7 +62,7 @@ those guards already make unreachable.
   cannot hold — the manifest was rejected at apply time, at the real ConfigMap and at
   its prerequisite copy alike. It renders as a block scalar now. No lint scenario
   exercised that branch, which is why the diff was silent about it and kubeconform
-  never saw it; `tests/deployment-hooks-cronjobs.yaml` exercises it now.
+  never saw it; `tests/workload-hooks-cronjobs.yaml` exercises it now.
 - A coverage gap surfaced while deciding this, and it is the more valuable half of
   the change: **no test asserts `data` on the prerequisite copies at all** (the
   existing prereq cases in `hook_test.yaml` assert kind, hook type, weight and

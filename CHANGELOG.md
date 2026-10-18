@@ -76,7 +76,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   | `deployment` in `ingress.hosts[]`, the `httpRoute` / `httpRoutes` and L4 route `backendRefs` | `workload` |
 
   An old key, of any value, fails the render as `<values path>: removed in
-  4.0.0, use <replacement>`; `deployments` also links the migration guide.
+  4.0.0, use <replacement>`, even under a disabled Ingress, HTTPRoute or
+  workload; `deployments` also links the migration guide.
   Resource names and selector labels do not change, so no workload is
   recreated. Messages follow: a values path reads `workloads.<name>`, a
   reference failure `….workload: references workload '<name>'`. A check
@@ -139,6 +140,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   reads `%s/…/CHANGELOG.md` in a format string as a path.
   `validate-bad-values` prints its failures and one summary line, not one
   line per fixture.
+- The scenarios and fixtures named after a deployment are named after a
+  workload: `tests/multi-workload.yaml`, `tests/raw-workload.yaml`,
+  `tests/workload-hooks-cronjobs.yaml`, and the `workload-` prefix in
+  `tests/bad-values/` (issue #221).
 - `lint-templates` gains the kind-fields rule. `lint-docs` tells an untracked
   file from a missing one. The Helm repository steps of `kind-keda` and
   `kind-eso` retry three times.

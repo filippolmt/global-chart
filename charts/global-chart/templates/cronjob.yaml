@@ -1,7 +1,7 @@
 {{/*
   CronJobs can be defined in two places:
   1. Root level: .Values.cronJobs (standalone, optional fromWorkload for image)
-  2. Inside workloads: .Values.workloads.<name>.cronJobs (inherits image, configMap, secret, SA from deployment)
+  2. Inside workloads: .Values.workloads.<name>.cronJobs (inherits image, configMap, secret, SA from workload)
 */}}
 
 {{- $root := . }}
@@ -19,7 +19,7 @@
 {{- $imageRef := include "global-chart.jobImageString" (dict "root" $root "job" $job "errCtx" $errCtx) }}
 
 {{- /* ServiceAccount: explicit > create own (see jobServiceAccount helper; no
-       deployment to inherit from at root level) */ -}}
+       workload to inherit from at root level) */ -}}
 {{- $sa := include "global-chart.jobServiceAccount" (dict "root" $root "job" $job "jobFullname" $jobFullname "errCtx" $errCtx) | fromJson }}
 {{- $saName := $sa.name }}
 {{- if $sa.create }}
@@ -84,15 +84,15 @@ spec:
 {{- range $name, $job := $deploy.cronJobs }}
 {{- if $job }}
 
-{{- /* Build cronjob fullname with deployment name for uniqueness */ -}}
+{{- /* Build cronjob fullname with workload name for uniqueness */ -}}
 {{- /* CronJob names limited to 52 chars (see deploymentCronJobName helper) */ -}}
 {{- $jobFullname := include "global-chart.deploymentCronJobName" (dict "root" $root "deploymentName" $deployName "jobName" $name) }}
 {{- $errCtx := include "global-chart.jobValuesPath" (dict "kind" "cronjob" "deploymentName" $deployName "jobName" $name) }}
 
-{{- /* Resolve image: explicit in cronjob > inherited from deployment (see jobImageString helper) */ -}}
+{{- /* Resolve image: explicit in cronjob > inherited from workload (see jobImageString helper) */ -}}
 {{- $imageRef := include "global-chart.jobImageString" (dict "root" $root "job" $job "deployName" $deployName "errCtx" $errCtx) }}
 
-{{- /* ServiceAccount: explicit > inherited from deployment > default (see jobServiceAccount helper) */ -}}
+{{- /* ServiceAccount: explicit > inherited from workload > default (see jobServiceAccount helper) */ -}}
 {{- $sa := include "global-chart.jobServiceAccount" (dict "root" $root "job" $job "deploy" $deploy "deployName" $deployName "jobFullname" $jobFullname "errCtx" $errCtx) | fromJson -}}
 {{- $saName := $sa.name -}}
 {{- $saCreate := $sa.create -}}

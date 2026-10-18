@@ -8,7 +8,7 @@ checks:
     # Reusable chart: probes are optional, consumer configures per workload
     - "no-readiness-probe"
     - "no-liveness-probe"
-    # Reusable chart: strategy is configurable, not all deployments need rolling update
+    # Reusable chart: strategy is configurable, not every Deployment needs a rolling update
     - "no-rolling-update-strategy"
     # Reusable chart: resource limits are optional, consumer sets per workload
     - "unset-cpu-requirements"

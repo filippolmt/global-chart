@@ -1,4 +1,4 @@
-# Ingress only (no deployments) - points to external service
+# Ingress only (no workloads) - points to external service
 workloads: {}
 ingress:
   enabled: true

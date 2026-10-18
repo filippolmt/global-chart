@@ -1,4 +1,4 @@
-# Test deployment with raw image string
+# Test workload with raw image string
 workloads:
   main:
     image: ghcr.io/app:v2

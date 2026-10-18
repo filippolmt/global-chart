@@ -3,7 +3,7 @@ templates:
   - templates/hpa.yaml
 tests:
   # ====== Workload enabled flag ======
-  - it: should not render HPA when deployment enabled is false
+  - it: should not render HPA when workload enabled is false
     set:
       workloads:
         main:
@@ -18,7 +18,7 @@ tests:
       - hasDocuments:
           count: 0
 
-  # ====== Nil safety: deployment without autoscaling key ======
+  # ====== Nil safety: workload without autoscaling key ======
   - it: should not render HPA when autoscaling is not defined
     set:
       workloads:

@@ -1,4 +1,4 @@
-suite: deployment reloader.externalSecrets (issue #175, ADR 0016)
+suite: workload reloader.externalSecrets (issue #175, ADR 0016)
 templates:
   - templates/deployment.yaml
 release:
@@ -55,7 +55,7 @@ tests:
           path: metadata.annotations["secret.reloader.stakater.com/reload"]
           value: other,rel-global-chart-app-env,app\.conf
 
-  - it: should merge the common annotations' list when the deployment sets none
+  - it: should merge the common annotations' list when the workload sets none
     set:
       global.commonAnnotations:
         secret.reloader.stakater.com/reload: shared
@@ -141,7 +141,7 @@ tests:
       - failedTemplate:
           errorPattern: "workloads\\.main\\.reloader\\.externalSecrets: true, but the workload references no externalSecrets, so Reloader has no Secret to watch"
 
-  - it: should not fail for a disabled deployment
+  - it: should not fail for a disabled workload
     set:
       workloads.main.enabled: false
       workloads.main.reloader.externalSecrets: true

@@ -24,22 +24,102 @@ workloads.{{ . }}
 {{- end }}
 
 {{/*
-Fail on a key renamed in 4.0.0 (issue #221, ADR 0023): "<values path>: removed
-in 4.0.0, use <replacement>", for the keys of that rename (renderVolume
-fails its own removed volume keys, issue #230). The schema declares
-each key with no constraint, so any value reaches this fail (ADR 0022); the
-fail, the declarations and the fixtures go in 5.0.0. Callers: validate.yaml
-(deployments), jobImageSource (fromDeployment), jobPodSpec
-(inheritDeployment*), resolveBackend (deployment). Like every read site, it
-checks only what renders: a disabled surface never reaches it (ADR 0023).
-Usage: {{- include "global-chart.rejectRemovedKeys" (dict "map" $job "errCtx" $errCtx "keys" (dict "fromDeployment" "fromWorkload")) -}}
+Fail on every key renamed in 4.0.0 (issue #221, ADR 0023), wherever it sits and
+whether or not its surface renders: a disabled Ingress, HTTPRoute or workload
+would carry the old key into the next enable. The one home of that walk, called
+first from validate.yaml, which Helm renders before any other template, so an
+old values file meets these fails before any other. Each key stays declared in
+the schema with no constraint, so any value reaches its fail (ADR 0022); the
+walk, the declarations and the fixtures go in 5.0.0. A node of the wrong type
+is skipped: the schema, or the template that reads it, rejects it.
+  workloads                           → workloads, with the migration guide
+  <root hook or cronjob>.fromDeployment → fromWorkload
+  <workload-scope job>.inheritDeployment* → inheritWorkload*
+  <ingress host or route backendRef>.deployment → workload
+Usage: {{- include "global-chart.validateRemovedKeys" . -}}
+*/}}
+{{- define "global-chart.validateRemovedKeys" -}}
+{{- $v := .Values -}}
+{{- $in := "4.0.0" -}}
+{{- include "global-chart.rejectRemovedKeys" (dict "map" $v "errCtx" "" "in" $in "keys" (dict "deployments" "workloads") "see" (printf "%s/blob/main/CHANGELOG.md#migration-guide-from-3x" .Chart.Home)) -}}
+{{- $from := dict "fromDeployment" "fromWorkload" -}}
+{{- $inherit := dict "inheritDeploymentConfigMap" "inheritWorkloadConfigMap" "inheritDeploymentSecret" "inheritWorkloadSecret" "inheritDeploymentEnvFromConfigMaps" "inheritWorkloadEnvFromConfigMaps" "inheritDeploymentEnvFromSecrets" "inheritWorkloadEnvFromSecrets" -}}
+{{- $backend := dict "deployment" "workload" -}}
+{{- include "global-chart.rejectRemovedJobKeys" (dict "cronJobs" $v.cronJobs "hooks" $v.hooks "in" $in "keys" $from) -}}
+{{- if kindIs "map" $v.workloads -}}
+  {{- range $name, $w := $v.workloads -}}
+    {{- if kindIs "map" $w -}}
+      {{- include "global-chart.rejectRemovedJobKeys" (dict "cronJobs" $w.cronJobs "hooks" $w.hooks "deploymentName" $name "in" $in "keys" $inherit) -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+{{- if and (kindIs "map" $v.ingress) (kindIs "slice" $v.ingress.hosts) -}}
+  {{- range $i, $host := $v.ingress.hosts -}}
+    {{- include "global-chart.rejectRemovedKeys" (dict "map" $host "errCtx" (printf "ingress.hosts[%d]" $i) "in" $in "keys" $backend) -}}
+  {{- end -}}
+{{- end -}}
+{{- $routes := dict -}}
+{{- if kindIs "map" $v.httpRoute -}}
+  {{- $_ := set $routes "httpRoute" $v.httpRoute -}}
+{{- end -}}
+{{- range $map := list "httpRoutes" "tcpRoutes" "udpRoutes" -}}
+  {{- $entries := index $v $map -}}
+  {{- if kindIs "map" $entries -}}
+    {{- range $name, $route := $entries -}}
+      {{- $_ := set $routes (printf "%s.%s" $map $name) $route -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+{{- range $ctx, $route := $routes -}}
+  {{- if and (kindIs "map" $route) (kindIs "slice" $route.rules) -}}
+    {{- range $r, $rule := $route.rules -}}
+      {{- if and (kindIs "map" $rule) (kindIs "slice" $rule.backendRefs) -}}
+        {{- range $b, $ref := $rule.backendRefs -}}
+          {{- include "global-chart.rejectRemovedKeys" (dict "map" $ref "errCtx" (printf "%s.rules[%d].backendRefs[%d]" $ctx $r $b) "in" $in "keys" $backend) -}}
+        {{- end -}}
+      {{- end -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+validateRemovedKeys over the hooks and cronJobs of one scope: deploymentName
+empty at root scope, the workload's key at workload scope (jobValuesPath).
+*/}}
+{{- define "global-chart.rejectRemovedJobKeys" -}}
+{{- $args := . -}}
+{{- if kindIs "map" .cronJobs -}}
+  {{- range $name, $job := .cronJobs -}}
+    {{- include "global-chart.rejectRemovedKeys" (dict "map" $job "errCtx" (include "global-chart.jobValuesPath" (dict "kind" "cronjob" "deploymentName" $args.deploymentName "jobName" $name)) "in" $args.in "keys" $args.keys) -}}
+  {{- end -}}
+{{- end -}}
+{{- if kindIs "map" .hooks -}}
+  {{- range $type, $jobs := .hooks -}}
+    {{- if kindIs "map" $jobs -}}
+      {{- range $name, $job := $jobs -}}
+        {{- include "global-chart.rejectRemovedKeys" (dict "map" $job "errCtx" (include "global-chart.jobValuesPath" (dict "kind" "hook" "deploymentName" $args.deploymentName "hookType" $type "jobName" $name)) "in" $args.in "keys" $args.keys) -}}
+      {{- end -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+Fail on the first of keys (old → replacement) that map carries:
+"<values path>: removed in <in>, use <replacement>", and "; see <see>" when
+the replacement takes more than a key to explain (CODING_STANDARDS.md). A map
+of another type carries no key. The one home of the message for the keys of
+validateRemovedKeys; renderVolume fails its own removed volume keys (#230).
 */}}
 {{- define "global-chart.rejectRemovedKeys" -}}
-{{- $errCtx := .errCtx -}}
-{{- $map := .map -}}
-{{- range $old, $new := .keys -}}
-  {{- if hasKey $map $old -}}
-    {{- fail (printf "%s: removed in 4.0.0, use %s" (ternary $old (printf "%s.%s" $errCtx $old) (eq $errCtx "")) $new) -}}
+{{- $args := . -}}
+{{- if kindIs "map" .map -}}
+  {{- range $old, $new := .keys -}}
+    {{- if hasKey $args.map $old -}}
+      {{- $path := ternary $old (printf "%s.%s" $args.errCtx $old) (eq $args.errCtx "") -}}
+      {{- fail (printf "%s: removed in %s, use %s%s" $path $args.in $new (ternary (printf "; see %s" $args.see) "" (hasKey $args "see"))) -}}
+    {{- end -}}
   {{- end -}}
 {{- end -}}
 {{- end }}
@@ -117,7 +197,7 @@ Roles and RoleBindings, the hook-prerequisite copies included.
 A kind's accumulator holds every name of that kind whatever derived it, because
 collisions cross sources: $cmNames carries the deployment's own ConfigMap, its
 mounted config file ConfigMaps and its hook-prerequisite copy alike. A
-deployment named `<other>-md-cm-<file>` renders a ConfigMap under the very name
+workload named `<other>-md-cm-<file>` renders a ConfigMap under the very name
 another deployment's mounted file does — two manifests, one name, neither
 invalid on its own.
 Note: the remaining per-workload resources (Service, SA, HPA, ScaledObject,
@@ -160,7 +240,7 @@ Called from validate.yaml.
            cannot clash with each other or with another deployment's — the name
            check above covers that — but they share $cmNames/$secretNames with the
            mounted config file copies and the hook-prerequisite copies, whose names
-           are built by appending a suffix and so CAN land on a plain deployment
+           are built by appending a suffix and so CAN land on a plain workload
            name. */ -}}
     {{- if $deploy.configMap -}}
       {{- include "global-chart.registerName" (dict "names" $cmNames "kind" "ConfigMap" "name" $depFullname "owner" (printf "%s.configMap" (include "global-chart.deploymentValuesPath" $name))) -}}
@@ -169,7 +249,7 @@ Called from validate.yaml.
       {{- include "global-chart.registerName" (dict "names" $secretNames "kind" "Secret" "name" $depFullname "owner" (printf "%s.secret" (include "global-chart.deploymentValuesPath" $name))) -}}
     {{- end -}}
 
-    {{- /* Chart-created deployment ServiceAccount: a root-level job that creates its
+    {{- /* Chart-created workload ServiceAccount: a root-level job that creates its
            own SA can land on this very name (both are <release>-<chart>-<key>) */ -}}
     {{- $deploySA := include "global-chart.deploymentServiceAccount" (dict "root" $root "deploymentName" $name "deployment" $deploy) | fromJson -}}
     {{- include "global-chart.registerSAName" (dict "names" $saNames "sa" $deploySA "owner" (include "global-chart.deploymentValuesPath" $name)) -}}
@@ -218,7 +298,7 @@ Called from validate.yaml.
     {{- /* 1c. Mounted config file ConfigMaps — `files` and `bundles` share one
            name space, so a name used on both sides renders two ConfigMaps under
            one name with different content, and the pod gets whichever applied
-           last. Registered in $cmNames, which also catches two deployments
+           last. Registered in $cmNames, which also catches two workloads
            truncating to the same $depFullname. */ -}}
     {{- $mcf := default (dict) $deploy.mountedConfigFiles -}}
     {{- $mcHint := ". Give one of the two entries a different 'name'." -}}

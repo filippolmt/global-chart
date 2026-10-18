@@ -1,8 +1,8 @@
 # Comprehensive multi-deployment test
-# Tests all features with multiple independent deployments
+# Tests all features with multiple independent workloads
 
 workloads:
-  # Frontend deployment - full featured
+  # Frontend workload - full featured
   frontend:
     replicaCount: 3
     image:
@@ -64,7 +64,7 @@ workloads:
     nodeSelector:
       node-type: frontend
 
-  # Backend deployment - API service
+  # Backend workload - API service
   backend:
     replicaCount: 2
     image:
@@ -161,14 +161,14 @@ workloads:
       searches:
         - svc.cluster.local
 
-  # Worker deployment - background jobs (no service)
+  # Worker workload - background jobs (no service)
   worker:
     replicaCount: 1
     image:
       repository: myapp/worker
       tag: "v2.1.0"
 
-    # Same image as a web deployment, different entrypoint (issue #72)
+    # Same image as a web workload, different entrypoint (issue #72)
     command: ["python", "-m", "app.worker"]
     args: ["--concurrency", "5"]
 
@@ -218,7 +218,7 @@ workloads:
                     - background
                     - worker
 
-  # Minimal deployment - tests defaults
+  # Minimal workload - tests defaults
   minimal:
     image: busybox:latest
 
@@ -289,7 +289,7 @@ workloads:
                 MIIE...
                 -----END PRIVATE KEY-----
 
-# Ingress routing to different deployments
+# Ingress routing to different workloads
 ingress:
   enabled: true
   className: nginx
@@ -326,7 +326,7 @@ ingress:
         - path: /
           pathType: Prefix
 
-# CronJobs using different deployments
+# CronJobs using different workloads
 cronJobs:
   # Uses backend image
   db-backup:
@@ -364,7 +364,7 @@ cronJobs:
         cpu: 200m
         memory: 512Mi
 
-# Hooks using different deployments
+# Hooks using different workloads
 hooks:
   pre-install:
     init-db:
@@ -418,7 +418,7 @@ rbacs:
           resources: ["pods", "pods/log"]
           verbs: ["get", "list", "watch"]
 
-# External secrets for all deployments
+# External secrets for all workloads
 externalSecrets:
   database-credentials:
     remote:

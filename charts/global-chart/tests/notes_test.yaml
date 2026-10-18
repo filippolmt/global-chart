@@ -3,7 +3,7 @@ templates:
   - templates/NOTES.txt
 tests:
   # ====== Workload enabled flag ======
-  - it: should not list disabled deployment in NOTES
+  - it: should not list disabled workload in NOTES
     set:
       workloads:
         main:
@@ -13,7 +13,7 @@ tests:
       - notMatchRegexRaw:
           pattern: "main"
 
-  - it: should render NOTES.txt with deployment info
+  - it: should render NOTES.txt with workload info
     set:
       workloads:
         main:

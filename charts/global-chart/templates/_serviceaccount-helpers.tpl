@@ -54,7 +54,7 @@ A deployment's ServiceAccount. Created by default, as <deploymentFullname>; with
 create: false and no name, name is "": no SA is named. The workload then runs
 as "default", which deployment.yaml renders, and a workload-scope job creates
 its own SA instead of inheriting one. The resolver cannot return "default"
-itself: a job would then inherit it as if the deployment had named it, and an
+itself: a job would then inherit it as if the workload had named it, and an
 explicit `name: default` must stay inheritable.
 Usage: {{ include "global-chart.deploymentServiceAccount" (dict "root" . "deploymentName" $name "deployment" $deploy) | fromJson }}
 */}}
@@ -66,7 +66,7 @@ Usage: {{ include "global-chart.deploymentServiceAccount" (dict "root" . "deploy
 {{/*
 ServiceAccount of an rbacs.roles entry; {} when the entry declares none.
 Presence is hasKey, never truthiness: `serviceAccount: {}` declares an SA with
-every default, as it does for a deployment (issue #124). <role>-sa is the name
+every default, as it does for a workload (issue #124). <role>-sa is the name
 whether the SA is created or bound.
 Usage: {{ include "global-chart.rbacServiceAccount" $role | fromJson }}
 */}}
@@ -85,9 +85,9 @@ ServiceAccount of a hook or cronjob, both scopes: the SA resolver for every job.
 Accepts a dict with:
   root         - top-level chart context
   job          - the cronjob/hook command map
-  deploy       - the parent deployment map; nil/absent for root-level jobs, which
-                 are simply the "no deployment SA applies" case
-  deployName   - the deployment key (unused when deploy is nil)
+  deploy       - the parent workload map; nil/absent for root-level jobs, which
+                 are simply the "no workload SA applies" case
+  deployName   - the workload key (unused when deploy is nil)
   jobFullname  - the job's own resource name (fallback when a SA is created)
   errCtx       - values path of the job, from jobValuesPath (_job-helpers.tpl),
                  for the fail message below (required). Every call site passes
@@ -95,7 +95,7 @@ Accepts a dict with:
                  the job the same way
 
 Resolution:
-  name:   explicit (serviceAccountName | serviceAccount.name) > deployment SA > jobFullname.
+  name:   explicit (serviceAccountName | serviceAccount.name) > workload SA > jobFullname.
           Empty when serviceAccount.create is false and nothing names a SA: callers
           then omit serviceAccountName and the pod runs as the namespace default.
           The two explicit fields are one name written in two places: both set,
@@ -188,12 +188,12 @@ Usage: {{ $rbacSAs := include "global-chart.rbacServiceAccounts" $root | fromJso
 Every ServiceAccount the release itself creates, by name: the one scan behind
 the hook-prerequisite copy of a SA (ADR 0010, ADR 0011). Such a SA is a normal
 resource, absent during the phases hookReadsPrereqCopy names, so a hook bound
-to it runs as its copy. The sources are an enabled deployment, an rbacs.roles
+to it runs as its copy. The sources are an enabled workload, an rbacs.roles
 entry and a cronjob of either scope that creates its own SA. A hook's own SA is
 not one: it is itself a hook resource, in place before its Job.
 Returns JSON: SA name -> {automount, annotations, owner, deploymentName} —
 what the copy carries, the values path validateNameCollisions blames, and the
-deployment whose component label the copy takes ("" when none). Two sources
+workload whose component label the copy takes ("" when none). Two sources
 creating one name is validateNameCollisions' failure, so a name has one entry.
 Usage: {{ $releaseSAs := include "global-chart.releaseServiceAccounts" $root | fromJson }}
 */}}

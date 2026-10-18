@@ -1,4 +1,4 @@
-# Hooks only - no deployments
+# Hooks only - no workloads
 workloads: {}
 hooks:
   post-install:

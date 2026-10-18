@@ -1,4 +1,4 @@
-# Test deployment with service disabled
+# Test workload with service disabled
 workloads:
   main:
     image:

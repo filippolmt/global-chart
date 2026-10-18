@@ -101,8 +101,8 @@ tests:
           errorMessage: "httpRoute.rules[0].backendRefs: empty — provide at least one backendRef (workload or service)."
         template: templates/httproute.yaml
 
-  # ====== 6. backendRef → nonexistent deployment ======
-  - it: should fail when backendRef references a non-existent deployment
+  # ====== 6. backendRef → nonexistent workload ======
+  - it: should fail when backendRef references a non-existent workload
     set:
       workloads:
         backend:
@@ -123,8 +123,8 @@ tests:
           errorMessage: "httpRoute.rules[0].backendRefs[0].workload: references workload 'frontend', which does not exist in .Values.workloads"
         template: templates/httproute.yaml
 
-  # ====== 7. backendRef → deployment with enabled: false ======
-  - it: should fail when backendRef references a deployment with enabled false
+  # ====== 7. backendRef → workload with enabled: false ======
+  - it: should fail when backendRef references a workload with enabled false
     set:
       workloads:
         frontend:
@@ -146,8 +146,8 @@ tests:
           errorMessage: "httpRoute.rules[0].backendRefs[0].workload: references workload 'frontend', which has enabled: false (its Service will not be created)"
         template: templates/httproute.yaml
 
-  # ====== 8. backendRef → deployment with service.enabled: false ======
-  - it: should fail when backendRef references a deployment with service.enabled false
+  # ====== 8. backendRef → workload with service.enabled: false ======
+  - it: should fail when backendRef references a workload with service.enabled false
     set:
       workloads:
         backend:
@@ -170,8 +170,8 @@ tests:
           errorMessage: "httpRoute.rules[0].backendRefs[0].workload: references workload 'backend', which has service.enabled: false. Enable the service or remove the reference."
         template: templates/httproute.yaml
 
-  # ====== 9. backendRef → neither deployment nor service.name ======
-  - it: should fail when backendRef has neither deployment nor service.name
+  # ====== 9. backendRef → neither workload nor service.name ======
+  - it: should fail when backendRef has neither workload nor service.name
     set:
       workloads:
         api:
@@ -295,7 +295,7 @@ tests:
           count: 0
         template: templates/ingress.yaml
 
-  - it: should fail naming an empty backendRef deployment as empty, not missing
+  - it: should fail naming an empty backendRef workload as empty, not missing
     set:
       workloads:
         backend:

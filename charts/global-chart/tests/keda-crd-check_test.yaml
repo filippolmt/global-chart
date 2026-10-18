@@ -7,7 +7,7 @@ templates:
 # per-test `capabilities.apiVersions: []` does not clear a suite-level list, so
 # the failure path needs a suite of its own.
 tests:
-  - it: should fail when a KEDA-enabled deployment finds no keda.sh CRD
+  - it: should fail when a KEDA-enabled workload finds no keda.sh CRD
     template: templates/scaledobject.yaml
     set:
       workloads:

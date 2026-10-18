@@ -49,7 +49,7 @@ Usage: {{ include "global-chart.kedaAuthRefName" (dict "root" . "name" $refName 
 Fail unless the KEDA CRDs are registered in the target cluster.
 
 Without this the failure surfaces as the API server's "no matches for kind
-ScaledObject", which names neither the deployment nor the remedy.
+ScaledObject", which names neither the workload nor the remedy.
 
 .Capabilities.APIVersions is populated from the cluster only during
 install/upgrade; `helm template` and `helm lint` see the built-in set alone, so

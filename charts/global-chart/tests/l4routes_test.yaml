@@ -10,22 +10,6 @@ capabilities:
 release:
   name: myrel
 tests:
-  - it: should fail naming workload when a backendRef carries the removed deployment
-    set:
-      workloads:
-        api:
-          image: nginx:1.25
-      tcpRoutes:
-        db:
-          parentRefs:
-            - name: direct-gw
-          rules:
-            - backendRefs:
-                - deployment: api
-    asserts:
-      - failedTemplate:
-          errorMessage: "tcpRoutes.db.rules[0].backendRefs[0].deployment: removed in 4.0.0, use workload"
-
   # ====== Rendering ======
   - it: should render nothing when tcpRoutes and udpRoutes are empty
     set:
@@ -316,7 +300,7 @@ tests:
       - failedTemplate:
           errorMessage: "tcpRoutes.db.rules[0].backendRefs[0].portName: set together with service. portName picks a port of a workload's Service; a service backend carries its own port. Drop one of them."
 
-  - it: should fail on an unknown deployment
+  - it: should fail on an unknown workload
     set:
       tcpRoutes:
         db:
@@ -326,7 +310,7 @@ tests:
       - failedTemplate:
           errorMessage: "tcpRoutes.db.rules[0].backendRefs[0].workload: references workload 'ghost', which does not exist in .Values.workloads"
 
-  - it: should fail on a deployment whose Service is disabled
+  - it: should fail on a workload whose Service is disabled
     set:
       workloads:
         api:

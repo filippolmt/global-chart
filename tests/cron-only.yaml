@@ -1,4 +1,4 @@
-# CronJobs only - no deployments
+# CronJobs only - no workloads
 workloads: {}
 cronJobs:
   nightly:

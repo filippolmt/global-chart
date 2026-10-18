@@ -1,7 +1,7 @@
 # covers: deployment
 # An unknown key under workloads.<name> (typo of replicaCount). Must be
 # rejected by values.schema.json ($defs/deployment is closed). Without the
-# constraint the typo is silently dropped and the deployment keeps its default
+# constraint the typo is silently dropped and the workload keeps its default
 # replica count — the failure only shows up in the cluster.
 workloads:
   web:

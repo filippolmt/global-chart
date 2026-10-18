@@ -1,5 +1,5 @@
-# Test: Hooks and CronJobs inside deployments
-# Tests that hooks and cronJobs defined inside deployments inherit:
+# Test: Hooks and CronJobs inside workloads
+# Tests that hooks and cronJobs defined inside workloads inherit:
 # - image
 # - configMap (envFrom)
 # - secret (envFrom)
@@ -9,7 +9,7 @@
 # - envFromConfigMaps, envFromSecrets, additionalEnvs
 
 workloads:
-  # Backend deployment with hooks and cronJobs inside
+  # Backend workload with hooks and cronJobs inside
   backend:
     replicaCount: 2
     image:
@@ -70,7 +70,7 @@ workloads:
         value: "backend"
         effect: "NoSchedule"
 
-    # Hooks inside deployment - inherit everything from parent
+    # Hooks inside workload - inherit everything from parent
     hooks:
       pre-upgrade:
         migrate:
@@ -91,7 +91,7 @@ workloads:
               cpu: 200m
               memory: 256Mi
 
-    # CronJobs inside deployment - inherit everything from parent
+    # CronJobs inside workload - inherit everything from parent
     cronJobs:
       db-backup:
         schedule: "0 2 * * *"
@@ -110,7 +110,7 @@ workloads:
             cpu: 50m
             memory: 64Mi
 
-  # Worker deployment with different config
+  # Worker workload with different config
   worker:
     replicaCount: 1
     image: myapp/worker:v2.0.0

@@ -3,21 +3,167 @@ templates:
   - templates/validate.yaml
 tests:
   # ====== Keys removed in 4.0.0 (issue #221, ADR 0023) ======
-  - it: should fail naming workloads when values carry the removed deployments map
+  - it: should fail naming workloads when values carry the removed workloads map
     set:
       deployments:
         web:
           image: nginx:1.25
     asserts:
       - failedTemplate:
-          errorPattern: "^deployments: removed in 4\\.0\\.0, use workloads; .*CHANGELOG\\.md#migration-guide-from-3x$"
+          errorPattern: "^deployments: removed in 4\\.0\\.0, use workloads; see https://.*/CHANGELOG\\.md#migration-guide-from-3x$"
 
-  - it: should fail on the removed deployments map whatever its value
+  - it: should fail on the removed workloads map whatever its value
     set:
       deployments: 5
     asserts:
       - failedTemplate:
           errorPattern: "^deployments: removed in 4\\.0\\.0, use workloads"
+
+  - it: should fail naming fromWorkload when a root-level hook carries the removed fromDeployment
+    set:
+      workloads:
+        backend:
+          image: myapp:v2
+      hooks:
+        post-upgrade:
+          migrate:
+            fromDeployment: backend
+            command: ["./migrate.sh"]
+    asserts:
+      - failedTemplate:
+          errorMessage: "hooks.post-upgrade.migrate.fromDeployment: removed in 4.0.0, use fromWorkload"
+
+  - it: should fail naming inheritWorkloadSecret when a workload-scope cronjob carries the removed inheritDeploymentSecret
+    set:
+      workloads:
+        app:
+          image: myapp:v1
+          cronJobs:
+            sync:
+              schedule: "0 * * * *"
+              command: ["./sync.sh"]
+              inheritDeploymentSecret: false
+    asserts:
+      - failedTemplate:
+          errorMessage: "workloads.app.cronJobs.sync.inheritDeploymentSecret: removed in 4.0.0, use inheritWorkloadSecret"
+
+  - it: should fail naming workload when a host carries the removed workload backend
+    set:
+      workloads:
+        web:
+          image: nginx:1.25
+      ingress:
+        enabled: true
+        hosts:
+          - host: example.com
+            deployment: web
+            paths:
+              - path: /
+                pathType: Prefix
+    asserts:
+      - failedTemplate:
+          errorMessage: "ingress.hosts[0].deployment: removed in 4.0.0, use workload"
+
+  - it: should fail naming workload when a backendRef carries the removed workload
+    capabilities:
+      apiVersions:
+        - gateway.networking.k8s.io/v1/TCPRoute
+    set:
+      workloads:
+        api:
+          image: nginx:1.25
+      tcpRoutes:
+        db:
+          parentRefs:
+            - name: direct-gw
+          rules:
+            - backendRefs:
+                - deployment: api
+    asserts:
+      - failedTemplate:
+          errorMessage: "tcpRoutes.db.rules[0].backendRefs[0].deployment: removed in 4.0.0, use workload"
+
+  - it: should fail naming workload when a backendRef carries the removed workload
+    capabilities:
+      apiVersions:
+        - gateway.networking.k8s.io/v1/HTTPRoute
+    set:
+      workloads:
+        api:
+          image: nginx:1.25
+      httpRoute:
+        enabled: true
+        parentRefs:
+          - name: public-gw
+        rules:
+          - backendRefs:
+              - deployment: api
+    asserts:
+      - failedTemplate:
+          errorMessage: "httpRoute.rules[0].backendRefs[0].deployment: removed in 4.0.0, use workload"
+
+  # A disabled surface renders nothing, and its old key would wait for the next enable
+  - it: should fail on a removed backend key under a disabled ingress
+    set:
+      ingress:
+        enabled: false
+        hosts:
+          - host: example.com
+            deployment: web
+            paths: [{ path: /, pathType: Prefix }]
+    asserts:
+      - failedTemplate:
+          errorMessage: "ingress.hosts[0].deployment: removed in 4.0.0, use workload"
+
+  - it: should fail on a removed backend key under a disabled httpRoute
+    set:
+      httpRoute:
+        enabled: false
+        rules:
+          - backendRefs:
+              - deployment: web
+    asserts:
+      - failedTemplate:
+          errorMessage: "httpRoute.rules[0].backendRefs[0].deployment: removed in 4.0.0, use workload"
+
+  - it: should fail on a removed inherit toggle in a hook of a disabled workload
+    set:
+      workloads:
+        app:
+          enabled: false
+          image: myapp:v1
+          hooks:
+            pre-install:
+              migrate:
+                command: ["./migrate.sh"]
+                inheritDeploymentEnvFromSecrets: false
+    asserts:
+      - failedTemplate:
+          errorMessage: "workloads.app.hooks.pre-install.migrate.inheritDeploymentEnvFromSecrets: removed in 4.0.0, use inheritWorkloadEnvFromSecrets"
+
+  - it: should fail on a removed backend key in an udpRoutes entry
+    set:
+      udpRoutes:
+        dns:
+          parentRefs: [{ name: gw }]
+          rules:
+            - backendRefs:
+                - service: { name: dns }
+                - deployment: web
+    asserts:
+      - failedTemplate:
+          errorMessage: "udpRoutes.dns.rules[0].backendRefs[1].deployment: removed in 4.0.0, use workload"
+
+  - it: should fail on a removed fromDeployment in a root-level cronjob
+    set:
+      cronJobs:
+        sync:
+          schedule: "0 * * * *"
+          command: ["./sync.sh"]
+          fromDeployment: web
+    asserts:
+      - failedTemplate:
+          errorMessage: "cronJobs.sync.fromDeployment: removed in 4.0.0, use fromWorkload"
 
   # ====== StatefulSet headless Service name (issue #211, ADR 0020) ======
   # <fullname>-headless is a Service name another entry's own Service can reach.
@@ -159,10 +305,10 @@ tests:
       - hasDocuments:
           count: 0
 
-  # ====== deployment name collision ======
-  # Prefix "RELEASE-NAME-global-chart-" = 26 chars, leaving 37 chars for deployment name
+  # ====== workload name collision ======
+  # Prefix "RELEASE-NAME-global-chart-" = 26 chars, leaving 37 chars for workload name
   # "abcdefghij-klmnopqrst-uvwxyz-abcdefgh1" (39 chars) and "...gh2" both truncate to same 37 chars
-  - it: should fail when two deployment names collide after truncation
+  - it: should fail when two workload names collide after truncation
     set:
       workloads:
         abcdefghij-klmnopqrst-uvwxyz-abcdefgh1:
@@ -173,7 +319,7 @@ tests:
       - failedTemplate:
           errorMessage: "Name collision: Deployment 'RELEASE-NAME-global-chart-abcdefghij-klmnopqrst-uvwxyz-abcdefgh' generated by workloads.abcdefghij-klmnopqrst-uvwxyz-abcdefgh2 conflicts with workloads.abcdefghij-klmnopqrst-uvwxyz-abcdefgh1"
 
-  - it: should not fail when deployment names are unique after truncation
+  - it: should not fail when workload names are unique after truncation
     set:
       workloads:
         frontend:
@@ -207,7 +353,7 @@ tests:
 
   # ====== Collision tests: remaining types ======
 
-  # --- Deploy-level hook Job collision (same deployment, same hook type, long job names) ---
+  # --- Deploy-level hook Job collision (same workload, same hook type, long job names) ---
   # depFullname = "RELEASE-NAME-global-chart-app" (29 chars)
   # hookJobName = "{depFullname}-pre-install-{jobName}" trunc 63
   # Prefix: 29 + 1 + 11 + 1 = 42 chars. Available for jobName: 63 - 42 = 21 chars.
@@ -364,7 +510,7 @@ tests:
   # A kind's accumulator has to hold every name of that kind whatever derived it.
   # Entry "a-md-cm-x" renders a ConfigMap under the same name entry "a"
   # derives for its mounted file: two manifests, one name, neither invalid alone.
-  - it: should fail when a deployment ConfigMap collides with a mounted config file
+  - it: should fail when a workload ConfigMap collides with a mounted config file
     set:
       workloads:
         a:
@@ -384,8 +530,8 @@ tests:
           errorMessage: "Name collision: ConfigMap 'RELEASE-NAME-global-chart-a-md-cm-x' generated by workloads.a-md-cm-x.configMap conflicts with workloads.a.mountedConfigFiles.files[0] ('x')"
 
   # Same shape on the Secret side: the hook prerequisite copy appends
-  # "-hook-secret", which is a name a deployment can carry outright.
-  - it: should fail when a deployment Secret collides with a hook prerequisite Secret
+  # "-hook-secret", which is a name a workload can carry outright.
+  - it: should fail when a workload Secret collides with a hook prerequisite Secret
     set:
       workloads:
         a:
@@ -445,7 +591,7 @@ tests:
 
   # A deployment's own ConfigMap and Secret share its name by design; registering
   # both must not make the ordinary case collide with itself.
-  - it: should not fail when a deployment has both a configMap and a secret
+  - it: should not fail when a workload has both a configMap and a secret
     set:
       workloads:
         app:
@@ -461,7 +607,7 @@ tests:
   # ====== Autoscaler conflict (HPA vs KEDA) ======
   # KEDA creates and owns its own HPA for the ScaledObject; a chart-rendered HPA
   # on the same workload gives two controllers writing spec.replicas.
-  - it: should fail when a deployment enables both the native HPA and KEDA
+  - it: should fail when a workload enables both the native HPA and KEDA
     set:
       workloads:
         worker:
@@ -597,7 +743,7 @@ tests:
       - failedTemplate:
           errorPattern: "minimum"
 
-  - it: should not fail when HPA and KEDA are enabled on different deployments
+  - it: should not fail when HPA and KEDA are enabled on different workloads
     set:
       workloads:
         legacy:
@@ -618,8 +764,8 @@ tests:
       - hasDocuments:
           count: 0
 
-  # A disabled deployment renders nothing, so its values cannot conflict.
-  - it: should not fail when both autoscalers are set on a disabled deployment
+  # A disabled workload renders nothing, so its values cannot conflict.
+  - it: should not fail when both autoscalers are set on a disabled workload
     set:
       workloads:
         worker:
@@ -805,10 +951,10 @@ tests:
           count: 0
 
   # ====== ServiceAccount name collision ======
-  # A root-level cronJob and a deployment keyed the same generate the same SA name
+  # A root-level cronJob and a workload keyed the same generate the same SA name
   # (<release>-<chart>-<key>). Both create it, and the install dies on "already
   # exists" halfway through the release.
-  - it: should fail when a root cronJob creates a ServiceAccount a deployment also creates
+  - it: should fail when a root cronJob creates a ServiceAccount a workload also creates
     set:
       workloads:
         cleanup:
@@ -865,7 +1011,7 @@ tests:
       - failedTemplate:
           errorMessage: "Name collision: ExternalSecret 'RELEASE-NAME-global-chart-app-hook' generated by externalSecrets.app (hook prerequisite copy) conflicts with externalSecrets.app-hook"
 
-  - it: should fail when the Secret of an ExternalSecret hook copy collides with a deployment Secret
+  - it: should fail when the Secret of an ExternalSecret hook copy collides with a workload Secret
     set:
       externalSecrets:
         app-env:
@@ -986,7 +1132,7 @@ tests:
   # externalSecrets.<key> and workloads.<key>.secret both default to
   # <fullname>-<key>. Owner adopts the Helm Secret: the two overwrite each
   # other's data, and deleting the ExternalSecret garbage-collects the Secret.
-  - it: should fail when an Owner ExternalSecret targets a deployment Secret
+  - it: should fail when an Owner ExternalSecret targets a workload Secret
     set:
       externalSecrets:
         app:
@@ -1001,7 +1147,7 @@ tests:
       - failedTemplate:
           errorMessage: "Name collision: Secret 'RELEASE-NAME-global-chart-app' generated by externalSecrets.app conflicts with workloads.app.secret"
 
-  - it: should fail when an Owner ExternalSecret targets a deployment Secret's hook prerequisite copy
+  - it: should fail when an Owner ExternalSecret targets a workload Secret's hook prerequisite copy
     set:
       externalSecrets:
         app-hook-secret:
@@ -1022,7 +1168,7 @@ tests:
 
   # Merge adds its keys to the Secret and Helm's patch keeps them; None writes
   # nothing. Neither fights Helm, so both stay legal.
-  - it: should not fail when a Merge ExternalSecret writes into a deployment Secret
+  - it: should not fail when a Merge ExternalSecret writes into a workload Secret
     set:
       externalSecrets:
         app:
@@ -1037,7 +1183,7 @@ tests:
     asserts:
       - notFailedTemplate: {}
 
-  - it: should not fail when a None ExternalSecret names a deployment Secret
+  - it: should not fail when a None ExternalSecret names a workload Secret
     set:
       externalSecrets:
         app:
@@ -1055,7 +1201,7 @@ tests:
   # Orphan clears data down to its own keys like Owner, without the
   # ownerReference: the same fight with Helm, minus the garbage collection
   # (issue #161). CreateOrMerge keeps existing keys like Merge.
-  - it: should fail when an Orphan ExternalSecret targets a deployment Secret
+  - it: should fail when an Orphan ExternalSecret targets a workload Secret
     set:
       externalSecrets:
         app:
@@ -1071,7 +1217,7 @@ tests:
       - failedTemplate:
           errorMessage: "Name collision: Secret 'RELEASE-NAME-global-chart-app' generated by externalSecrets.app conflicts with workloads.app.secret"
 
-  - it: should not fail when a CreateOrMerge ExternalSecret writes into a deployment Secret
+  - it: should not fail when a CreateOrMerge ExternalSecret writes into a workload Secret
     set:
       externalSecrets:
         app:
@@ -1086,7 +1232,7 @@ tests:
     asserts:
       - notFailedTemplate: {}
 
-  - it: should not fail when the deployment owning the Secret is disabled
+  - it: should not fail when the workload owning the Secret is disabled
     set:
       externalSecrets:
         app:
@@ -1146,7 +1292,7 @@ tests:
       - failedTemplate:
           errorPattern: "Name collision: ServiceAccount 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'"
 
-  - it: should fail when a role creates the ServiceAccount a deployment creates
+  - it: should fail when a role creates the ServiceAccount a workload creates
     set:
       workloads:
         web:
@@ -1211,7 +1357,7 @@ tests:
       - failedTemplate:
           errorPattern: "Name collision: ServiceAccount 'c{63}' created for rbacs.roles\\[0\\] \\('scaler'\\) \\(hook prerequisite copy\\) conflicts with the one created for rbacs.roles\\[0\\] \\('scaler'\\)"
 
-  # The deployment SA copy (ADR 0011) is registered under the same rule
+  # The workload SA copy (ADR 0011) is registered under the same rule
   - it: should fail when a deployment's hook SA copy lands on a created ServiceAccount
     set:
       workloads:

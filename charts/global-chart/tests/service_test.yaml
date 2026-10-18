@@ -3,7 +3,7 @@ templates:
   - templates/service.yaml
 tests:
   # ====== Workload enabled flag ======
-  - it: should not render service when deployment enabled is false
+  - it: should not render service when workload enabled is false
     set:
       workloads:
         main:
@@ -51,7 +51,7 @@ tests:
           value: 8080
 
   # ====== Service naming ======
-  - it: should name service after deployment
+  - it: should name service after workload
     release:
       name: myrel
     set:
@@ -86,8 +86,8 @@ tests:
           path: spec.ports[0].port
           value: 80
 
-  # ====== Multiple deployments create multiple services ======
-  - it: should create service for each deployment
+  # ====== Multiple workloads create multiple services ======
+  - it: should create service for each workload
     set:
       workloads:
         frontend:

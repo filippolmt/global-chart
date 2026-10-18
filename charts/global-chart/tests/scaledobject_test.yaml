@@ -32,7 +32,7 @@ tests:
       - hasDocuments:
           count: 0
 
-  - it: should not render a ScaledObject when the deployment is disabled
+  - it: should not render a ScaledObject when the workload is disabled
     set:
       workloads:
         main:
@@ -48,7 +48,7 @@ tests:
           count: 0
 
   # ====== Base shape ======
-  - it: should render name, labels and scaleTargetRef from the deployment
+  - it: should render name, labels and scaleTargetRef from the workload
     set:
       workloads:
         worker:
@@ -326,7 +326,7 @@ tests:
           path: metadata.annotations
 
   # ====== Multi-deployment ======
-  - it: should render one ScaledObject per KEDA-enabled deployment
+  - it: should render one ScaledObject per KEDA-enabled workload
     set:
       workloads:
         worker:

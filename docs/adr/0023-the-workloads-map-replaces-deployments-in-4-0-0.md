@@ -21,16 +21,16 @@ because a rename costs a major release. That cost no longer stands alone:
 | the backend key `deployment` (`ingress.hosts[]`, the `httpRoute` / `httpRoutes` and L4 route `backendRefs`) | `workload` |
 
 Each removed key fails as ADR 0022 requires: it stays declared in the schema
-with no constraint, and `rejectRemovedKeys` fails with
+with no constraint, and the template fails with
 `<values path>: removed in 4.0.0, use <replacement>`. The `deployments`
 failure also links the *Migration guide* in `CHANGELOG.md`, since the other
-renames come with it. Helm renders `validate.yaml` before any other template, so
-an old values file meets that failure first (checked on Helm 4.3.1). The
-other keys fail where they are read, like the volume keys of issue #230: on
-a surface that renders nothing (`enabled: false` on the Ingress, an
-HTTPRoute or a workload) the old key is not read, and it fails once the
-surface is enabled. The
-failures, the declarations and their fixtures go in 5.0.0.
+renames come with it. One walk, `validateRemovedKeys`, checks every key
+wherever it sits, whether its surface renders or not: an old key under a
+disabled Ingress, HTTPRoute or workload would otherwise wait, silent, for the
+next enable. It runs from `validate.yaml`, which Helm renders before any other
+template, so an old values file meets these failures before any other
+(checked on Helm 4.3.1). The walk, the declarations and their fixtures go in
+5.0.0.
 
 **There is no deprecation minor.** This is an exception to phase 1 of the
 deprecation rule in `CODING_STANDARDS.md`. `main` already carries breaking

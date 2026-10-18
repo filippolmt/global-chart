@@ -14,7 +14,7 @@
 
        parentRefs is a verbatim Gateway API structure, rendered through toYaml
        as in httproute.yaml. backendRefs is rendered field by field, since
-       that is where the chart transforms input (deployment + portName ->
+       that is where the chart transforms input (workload + portName ->
        Service name and port, via resolveBackend).
 
        The required-field fails below repeat what the schema rejects

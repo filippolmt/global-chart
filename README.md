@@ -12,7 +12,7 @@ The chart supports **multiple workloads** in a single release, each with indepen
 - **StatefulSets**
   `kind: StatefulSet` on a `workloads` entry renders a StatefulSet instead of a Deployment, with one claim per pod from `volumeClaimTemplates` and a headless governing Service (see [Stateful workloads](#stateful-workloads-kind-statefulset)). Everything else about the entry stays the same.
 - **Workload primitives**
-  Image can be a string (`nginx:1.25`) or a map (`repository/tag/digest`), held by the schema to the reference grammar the kubelet parses; `tag` is a string, so quote a numeric-looking one (`"1.20"`). Probes, resources, autoscaling (HPA), scheduling constraints, extra containers/init containers, pod recreation bumps, and ConfigMap/Secret `envFrom` are all configurable. `command`/`args` override the image entrypoint per deployment, so one image can back several workloads (web, worker, …); they are never inherited by the deployment's hooks/cronJobs.
+  Image can be a string (`nginx:1.25`) or a map (`repository/tag/digest`), held by the schema to the reference grammar the kubelet parses; `tag` is a string, so quote a numeric-looking one (`"1.20"`). Probes, resources, autoscaling (HPA), scheduling constraints, extra containers/init containers, pod recreation bumps, and ConfigMap/Secret `envFrom` are all configurable. `command`/`args` override the image entrypoint per workload, so one image can back several workloads (web, worker, …); they are never inherited by the deployment's hooks/cronJobs.
 - **Networking**
   First-class Service configuration (with per-service annotations) plus optional Ingress with TLS, class annotations, and routes to specific workloads. DNS options and host aliases can be defined per workload.
   HTTP reaches the workloads through one routing layer, Ingress or Gateway API HTTPRoutes (`httpRoute` for one, `httpRoutes` for one per entry), never both. Ports that are not HTTP go through TCPRoutes and UDPRoutes (`tcpRoutes`, `udpRoutes`), alongside either (see [Exposing a TCP or UDP port](#exposing-a-tcp-or-udp-port-through-a-gateway)). A `workload:` backend picks a port of its Service by name with `portName`.
@@ -20,9 +20,9 @@ The chart supports **multiple workloads** in a single release, each with indepen
   Inline ConfigMap/Secret data, mounted config files (single file) or bundles (projected lists of files), and `volumes` in the native Kubernetes form (any volume source) are supported.
 - **Lifecycle and batch**
   Helm hook jobs and CronJobs can be defined in two ways:
-  - **Root level** (`hooks.*`, `cronJobs.*`): Standalone, use `fromWorkload` to copy image and its `pullPolicy` from a deployment
-  - **Inside workloads** (`workloads.*.hooks`, `workloads.*.cronJobs`): Inherit image, configMap, secret, serviceAccount, hostAliases, podSecurityContext, securityContext, dnsConfig (cronJobs), nodeSelector, tolerations, affinity, priorityClassName, and more from the parent deployment
-  - `priorityClassName` is inherited too: a cronjob of a deployment with a preempting PriorityClass can evict other pods on every run. Set `priorityClassName: ""` on the job (or a lower class) to stop it
+  - **Root level** (`hooks.*`, `cronJobs.*`): Standalone, use `fromWorkload` to copy image and its `pullPolicy` from a workload
+  - **Inside workloads** (`workloads.*.hooks`, `workloads.*.cronJobs`): Inherit image, configMap, secret, serviceAccount, hostAliases, podSecurityContext, securityContext, dnsConfig (cronJobs), nodeSelector, tolerations, affinity, priorityClassName, and more from the parent workload
+  - `priorityClassName` is inherited too: a cronjob of a workload with a preempting PriorityClass can evict other pods on every run. Set `priorityClassName: ""` on the job (or a lower class) to stop it
   - A workload-scope job's `envFrom` adds its own `envFromConfigMaps` / `envFromSecrets` after the workload's, never replacing them. To drop what it inherits, set `false` on `inheritWorkloadConfigMap` / `inheritWorkloadSecret` (the generated ConfigMap/Secret) or `inheritWorkloadEnvFromConfigMaps` / `inheritWorkloadEnvFromSecrets` (the workload's lists)
   - Hook prerequisite ConfigMap/Secret are created automatically with correct weight ordering
   - A `pre-*` or `post-delete` hook can read a Secret produced by the release's own `externalSecrets`: reference it by key (see [Reading an ExternalSecret from a hook](#reading-an-externalsecret-from-a-hook))
@@ -74,7 +74,7 @@ exists, because changing them later fails the upgrade:
 `app.kubernetes.io/name` defaults to the chart name rather than to your
 application's name — that is what a generic chart knows about itself. The
 application's identity lives in `helm.sh/chart`, the release name, and the
-deployment key. If you want the conventional per-application value, set
+workload key. If you want the conventional per-application value, set
 `nameOverride` at the first install:
 
 ```yaml
@@ -184,7 +184,7 @@ workloads:
       DB_PASSWORD: supersecret
     serviceAccount:
       create: true
-    # Hooks inside deployment - inherit image, configMap, secret, SA.
+    # Hooks inside workload - inherit image, configMap, secret, SA.
     # A pre-* or post-delete hook works with a chart-created SA too: the chart
     # emits a hook copy <sa>-hook and the hook runs as it (ADR 0011), since
     # normal resources are created after hooks. An identity keyed on the SA
@@ -193,7 +193,7 @@ workloads:
       pre-upgrade:
         migrate:
           command: ["./migrate.sh"]
-    # CronJobs inside deployment - inherit everything from parent
+    # CronJobs inside workload - inherit everything from parent
     cronJobs:
       backup:
         schedule: "0 2 * * *"
@@ -286,7 +286,7 @@ See [ADR 0007](docs/adr/0007-hook-prerequisite-externalsecret-copy.md) and
 
 ## Rolling the pods on an ExternalSecret change
 
-A deployment that references `externalSecrets` carries a
+A workload that references `externalSecrets` carries a
 `checksum/external-secrets` pod annotation: the sha256 of the rendered specs of
 the entries it references, in list order. A change to `target.template`, to
 `remote.key`/`property` or to the list rolls its pods, as `checksum/secret` does
@@ -315,7 +315,7 @@ The workload's metadata gets `secret.reloader.stakater.com/reload` with the
 target of every referenced entry, env and mounted alike, read from the same
 resolver as the pod wiring — never hardcode a generated name. A reload list you
 set yourself, in `annotations`, `global.commonAnnotations` or both, is merged
-with it entry by entry, duplicates removed. The field fails the render when the deployment references
+with it entry by entry, duplicates removed. The field fails the render when the workload references
 no `externalSecrets`, and does nothing without Reloader. Hooks and cronjobs are
 not covered (ADR 0016).
 
@@ -519,15 +519,15 @@ The `tests/` directory is the list — `TEST_CASES` in the `Makefile` is what
 | `test01/values.01.yaml`          | Full kitchen-sink (autoscaling, volumes, secrets, hooks, crons, ingress, ExternalSecrets) |
 | `values.02.yaml`                 | Deployment with existing service account                                                  |
 | `values.03.yaml`                 | Chart disabled (no output)                                                                |
-| `multi-deployment.yaml`          | Multi-deployment test (frontend, backend, worker, minimal)                                |
-| `deployment-hooks-cronjobs.yaml` | Hooks/CronJobs inside deployments (inheritance test)                                      |
+| `multi-workload.yaml`            | Multi-workload test (frontend, backend, worker, minimal)                                  |
+| `workload-hooks-cronjobs.yaml`   | Hooks/CronJobs inside workloads (inheritance test)                                        |
 | `hooks-sa-inheritance.yaml`      | Hooks SA inheritance (existing SA, explicit override)                                     |
 | `mountedcm*.yaml`                | Mounted config file scenarios                                                             |
 | `cron-only.yaml`                 | CronJobs without a workload                                                               |
 | `hook-only.yaml`                 | Hooks without a workload                                                                  |
 | `externalsecret-only.yaml`       | ExternalSecrets only                                                                      |
 | `externalsecret-hooks.yaml`      | ExternalSecrets read by hooks (hook-prerequisite copy) and cronjobs                       |
-| `ingress-custom.yaml`            | Ingress with deployment reference                                                         |
+| `ingress-custom.yaml`            | Ingress with workload reference                                                           |
 | `external-ingress.yaml`          | Ingress pointing to external service                                                      |
 | `httproute-basic.yaml`           | Gateway API HTTPRoute, plain backend                                                      |
 | `httproute-canary.yaml`          | HTTPRoute with weighted backends                                                          |
@@ -541,7 +541,7 @@ The `tests/` directory is the list — `TEST_CASES` in the `Makefile` is what
 | `service-extra-ports.yaml`       | Service with extraPorts, and the container ports derived from them                        |
 | `common-annotations.yaml`        | `global.commonAnnotations` colliding with per-resource ones — catches a duplicate YAML key                |
 | `statefulset.yaml`               | StatefulSets with claim templates, headless Service, HPA and KEDA targets, a sidecar-mounted claim |
-| `raw-deployment.yaml`            | Deployment with raw image string                                                          |
+| `raw-workload.yaml`              | Workload with raw image string                                                            |
 | `name-collision.yaml`            | Name collision detection test                                                             |
 | `bad-values/schema/*.yaml`       | Values the schema must reject                                                             |
 | `bad-values/fail/*.yaml`         | Values a template `fail` must reject                                                      |
