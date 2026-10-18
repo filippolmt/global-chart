@@ -9,7 +9,7 @@ rules below.
 
 ```bash
 make all                    # check + generate + kubeconform + kube-linter
-make check                  # the fast loop: lint-chart, lint-templates, lint-docs, lint-shell, lint-glossary, unit-test, bad-values, null-sweep
+make check                  # the fast loop: lint-chart, lint-templates, lint-docs, lint-shell, lint-glossary, unit-test, bad-values, scenario-coverage, null-sweep
 make lint-chart             # lint every scenario in TEST_CASES
 make lint-templates         # the mechanical rules of CODING_STANDARDS.md
 make lint-docs              # every file a document or a comment points at exists
@@ -17,12 +17,13 @@ make lint-shell             # a value piped onward goes through printf, not echo
 make lint-glossary          # no phrase GLOSSARY.md avoids with one reading only (`tests/lint-glossary.py` lists them)
 make unit-test              # helm-unittest suites via Docker; SUITE=tests/hpa_test.yaml runs one
 make lint-labels            # the triage labels of docs/agents/triage-labels.md exist on GitHub (needs gh)
+make scenario-coverage      # every map or list node of the schema set by a scenario, every type a node accepts used by one
 make null-sweep             # null every values node of every scenario, then give each map and list the wrong type: each must render or fail naming its path
 make generate-docs          # regenerate the helm-docs README
 make e2e                    # install/upgrade/rollback/uninstall on a throwaway kind cluster (runs e2e-dryrun first)
 make e2e-dryrun             # every TEST_CASES scenario, server-side dry run against the real API server and CRDs
 make e2e-argocd             # the same cluster, synced by Argo CD (hook lifecycle under Argo)
-make render VALUES=tests/test01/values.01.yaml TEMPLATE=workload.yaml
+make render VALUES=tests/test01/values.01.yaml TEMPLATE=workload.yaml  # TEMPLATE left out: the whole chart; SKIP_SCHEMA=1: --skip-schema-validation
 make render-diff BASE=main  # every scenario renders the same manifests as BASE: the proof a rename or refactor changes none
 ```
 
