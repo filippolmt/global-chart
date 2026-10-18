@@ -20,7 +20,7 @@ tests:
           image: nginx:1.25
     asserts:
       - matchRegexRaw:
-          pattern: "Deployments created:"
+          pattern: "Workloads created:"
       - matchRegexRaw:
           pattern: "main"
 

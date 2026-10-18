@@ -410,7 +410,7 @@ tests:
 
   # ====== Autoscaler conflict (HPA vs KEDA) ======
   # KEDA creates and owns its own HPA for the ScaledObject; a chart-rendered HPA
-  # on the same Deployment gives two controllers writing spec.replicas.
+  # on the same workload gives two controllers writing spec.replicas.
   - it: should fail when a deployment enables both the native HPA and KEDA
     set:
       deployments:
@@ -431,7 +431,7 @@ tests:
           errorPattern: "deployments\\.worker\\.autoscaling\\.enabled: true together with keda\\.enabled, and the two are mutually exclusive"
 
   # ====== autoscaling.enabled needs an active metric (issue #151, ADR 0012) ======
-  # The Deployment drops spec.replicas when autoscaling is enabled; with no
+  # The workload drops spec.replicas when autoscaling is enabled; with no
   # positive target no HPA renders and Kubernetes defaults replicas to 1.
   - it: should fail when autoscaling is enabled with no target set
     set:
@@ -445,7 +445,7 @@ tests:
             maxReplicas: 10
     asserts:
       - failedTemplate:
-          errorMessage: "deployments.main.autoscaling: enabled, but neither targetCPUUtilizationPercentage nor targetMemoryUtilizationPercentage is a positive number; without one no HPA renders and the Deployment runs a single replica. Set a target or disable autoscaling."
+          errorMessage: "deployments.main.autoscaling: enabled, but neither targetCPUUtilizationPercentage nor targetMemoryUtilizationPercentage is a positive number; without one no HPA renders and the workload runs a single replica. Set a target or disable autoscaling."
 
   - it: should fail when autoscaling is enabled with every target off
     set:
@@ -460,7 +460,7 @@ tests:
             targetMemoryUtilizationPercentage: 0
     asserts:
       - failedTemplate:
-          errorPattern: "deployments\\.main\\.autoscaling: enabled, but neither targetCPUUtilizationPercentage nor targetMemoryUtilizationPercentage is a positive number; without one no HPA renders and the Deployment runs a single replica"
+          errorPattern: "deployments\\.main\\.autoscaling: enabled, but neither targetCPUUtilizationPercentage nor targetMemoryUtilizationPercentage is a positive number; without one no HPA renders and the workload runs a single replica"
 
   - it: should not fail when one target is on and the other is 0
     set:

@@ -345,7 +345,7 @@
       "properties": {
         "externalSecrets": {
           "type": "boolean",
-          "description": "Render secret.reloader.stakater.com/reload on the Deployment with the target Secret of every externalSecrets entry it references, env and mounted, so Reloader rolls the pods when ESO rewrites one (value rotation, rollout race). Merged with a reload list set in annotations or global.commonAnnotations. Requires at least one referenced externalSecrets entry."
+          "description": "Render secret.reloader.stakater.com/reload on the workload with the target Secret of every externalSecrets entry it references, env and mounted, so Reloader rolls the pods when ESO rewrites one (value rotation, rollout race). Merged with a reload list set in annotations or global.commonAnnotations. Requires at least one referenced externalSecrets entry."
         }
       },
       "additionalProperties": false
@@ -777,7 +777,7 @@
         "imagePullSecrets": { "type": "array", "items": { "$ref": "#/$defs/imagePullSecret" } },
         "serviceAccount": { "$ref": "#/$defs/serviceAccount" },
         "annotations": {
-          "description": "Annotations on the Deployment's own metadata, merged over global.commonAnnotations. Not podAnnotations, and not propagated to the Service, ServiceAccount, HPA or any other resource of the deployment.",
+          "description": "Annotations on the workload's own metadata, merged over global.commonAnnotations. Not podAnnotations, and not propagated to the Service, ServiceAccount, HPA or any other resource of the deployment.",
           "type": "object",
           "additionalProperties": { "type": "string" }
         },
@@ -827,7 +827,7 @@
           "additionalProperties": { "type": "string" }
         },
         "priorityClassName": {
-          "description": "Name of an existing PriorityClass for the pod (a DNS-1123 subdomain, at most 253 characters). The PriorityClass itself is cluster-scoped and not rendered by the chart. Deployment-level hooks and cronjobs inherit it; null or \"\" means unset.",
+          "description": "Name of an existing PriorityClass for the pod (a DNS-1123 subdomain, at most 253 characters). The PriorityClass itself is cluster-scoped and not rendered by the chart. Workload-scope hooks and cronjobs inherit it; null or \"\" means unset.",
           "$ref": "#/$defs/optionalObjectName"
         },
         "tolerations": { "type": "array", "items": { "$ref": "#/$defs/toleration" } },
@@ -966,7 +966,7 @@
           "additionalProperties": { "type": "string" }
         },
         "priorityClassName": {
-          "description": "Name of an existing PriorityClass for the job pod. Deployment-level: explicit > inherited from the deployment. Explicit null or \"\" stops the inheritance. Root-level: only this value.",
+          "description": "Name of an existing PriorityClass for the job pod. Workload scope: explicit > inherited from the workload. Explicit null or \"\" stops the inheritance. Root scope: only this value.",
           "$ref": "#/$defs/optionalObjectName"
         },
         "tolerations": { "type": "array", "items": { "$ref": "#/$defs/toleration" } },

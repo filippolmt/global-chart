@@ -2,7 +2,7 @@ Thank you for installing {{ include "global-chart.fullname" . }}!
 
 {{- if .Values.deployments }}
 
-Deployments created:
+Workloads created:
 {{- range $name, $deploy := .Values.deployments }}
 {{- if $deploy }}
 {{- if eq (include "global-chart.deploymentEnabled" $deploy) "true" }}

@@ -621,9 +621,9 @@ Usage: {{ include "global-chart.hpaActiveTargets" $hpa | fromJson }}
 Validate that a deployment does not enable both the native HPA and KEDA, and
 that an enabled HPA has an active target.
 KEDA creates and owns its own HorizontalPodAutoscaler (the *derived HPA*) for
-every ScaledObject, so a chart-rendered HPA on the same Deployment gives two
+every ScaledObject, so a chart-rendered HPA on the same workload gives two
 controllers writing spec.replicas.
-The Deployment drops spec.replicas whenever autoscaling is enabled, so with no
+The workload drops spec.replicas whenever autoscaling is enabled, so with no
 active target neither side owns the count and Kubernetes defaults it to one
 pod (issue #151, ADR 0012). The KEDA conflict fails first: it is the more
 fundamental error, and fixing it can make the other moot.
@@ -636,10 +636,10 @@ Called from validate.yaml. Emits nothing on success.
     {{- $hpa := default (dict) $deploy.autoscaling -}}
     {{- $keda := default (dict) $deploy.keda -}}
     {{- if and $hpa.enabled $keda.enabled -}}
-      {{- fail (printf "%s.autoscaling.enabled: true together with keda.enabled, and the two are mutually exclusive. KEDA creates and owns its own HorizontalPodAutoscaler for the ScaledObject; a chart-rendered HPA on the same Deployment would fight it. Disable one of the two." (include "global-chart.deploymentValuesPath" $name)) -}}
+      {{- fail (printf "%s.autoscaling.enabled: true together with keda.enabled, and the two are mutually exclusive. KEDA creates and owns its own HorizontalPodAutoscaler for the ScaledObject; a chart-rendered HPA on the same workload would fight it. Disable one of the two." (include "global-chart.deploymentValuesPath" $name)) -}}
     {{- end -}}
     {{- if and $hpa.enabled (not (include "global-chart.hpaActiveTargets" $hpa | fromJson)) -}}
-      {{- fail (printf "%s.autoscaling: enabled, but neither targetCPUUtilizationPercentage nor targetMemoryUtilizationPercentage is a positive number; without one no HPA renders and the Deployment runs a single replica. Set a target or disable autoscaling." (include "global-chart.deploymentValuesPath" $name)) -}}
+      {{- fail (printf "%s.autoscaling: enabled, but neither targetCPUUtilizationPercentage nor targetMemoryUtilizationPercentage is a positive number; without one no HPA renders and the workload runs a single replica. Set a target or disable autoscaling." (include "global-chart.deploymentValuesPath" $name)) -}}
     {{- end -}}
   {{- end -}}
   {{- end -}}

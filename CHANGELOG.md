@@ -42,6 +42,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   by default. Below it the API server drops the field without a word.
   Clusters on 1.23–1.26 are past their end of life, and Helm refuses to install
   the chart there.
+- **Messages and descriptions say *workload* where they hold for every kind**
+  (issue #217). The two `validateAutoscalingConflict` failures, the schema
+  descriptions of `annotations`, `reloader.externalSecrets` and
+  `priorityClassName`, the `values.yaml` comments and NOTES.txt
+  (`Workloads created:`, was `Deployments created:`) no longer name a
+  Deployment for a StatefulSet entry. Only the text changes: a check matching
+  the old NOTES heading or the old failure text needs updating.
 
 ### Fixed
 
