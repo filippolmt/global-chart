@@ -1,5 +1,5 @@
 # Renamed in 4.0.0 (issue #221, ADR 0023): the schema declares the old key
-# with no constraint, and global-chart.rejectRemovedKeys fails naming the new one.
+# with no constraint, and global-chart.validateRemovedKeys fails naming the new one.
 # Expected fail substring: "workloads.web.cronJobs.sync.inheritDeploymentEnvFromConfigMaps: removed in 4.0.0, use inheritWorkloadEnvFromConfigMaps"
 workloads:
   web:

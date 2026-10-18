@@ -10,7 +10,7 @@
 
 {{- /*
   PART 0: hook-prerequisite copy of every ServiceAccount the release creates
-  that a hook runs as (ADR 0010, ADR 0011) — a deployment's, an rbacs.roles
+  that a hook runs as (ADR 0010, ADR 0011) — a workload's, an rbacs.roles
   entry's or a cronjob's.
 
   Such a SA is a normal resource: Helm creates it after the pre-* hooks and
@@ -129,7 +129,7 @@ spec:
 {{- $minJobWeight := include "global-chart.minHookWeight" (dict "hooks" $deploy.hooks) -}}
 
 {{- /*
-  Hook-specific ConfigMap/Secret: duplicates of the deployment's generated ConfigMap/Secret
+  Hook-specific ConfigMap/Secret: duplicates of the workload's generated ConfigMap/Secret
   with hook annotations so they exist BEFORE the Job runs.
   Normal (non-hook) ConfigMap/Secret are NOT updated until after hooks complete,
   so the Job would reference stale values without these hook copies.
@@ -205,7 +205,7 @@ data:
 {{- $saAutomount := $sa.automount -}}
 {{- $saAnnotations := $sa.annotations -}}
 
-{{- /* Create SA only if needed (not using deployment's or explicit existing);
+{{- /* Create SA only if needed (not using workload's or explicit existing);
        it sorts before its Job — hookAnnotations owns the offset */ -}}
 {{- if $saCreate }}
 ---

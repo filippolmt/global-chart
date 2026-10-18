@@ -38,9 +38,9 @@ tests:
           value: "myapp:v2"
         documentIndex: 1
 
-  # fromWorkload copies the deployment's pullPolicy with its image: with a
+  # fromWorkload copies the workload's pullPolicy with its image: with a
   # mutable tag the hook would otherwise run a stale cached image (issue #160).
-  - it: should take the fromWorkload deployment's pullPolicy
+  - it: should take the fromWorkload workload's pullPolicy
     set:
       workloads:
         backend:
@@ -530,22 +530,6 @@ tests:
             name: data
             emptyDir: {}
         documentIndex: 1
-
-  - it: should fail on the removed type in a hook volume, with the hook's path
-    set:
-      workloads:
-        main:
-          image: "nginx:1.25"
-          hooks:
-            pre-install:
-              migrate:
-                command: ["true"]
-                volumes:
-                  - name: myvol
-                    type: secret
-    asserts:
-      - failedTemplate:
-          errorPattern: "workloads\\.main\\.hooks\\.pre-install\\.migrate\\.volumes\\[0\\]\\.type: removed in 4\\.0\\.0"
 
   # ====== Root-level hook with explicit serviceAccountName ======
   - it: should skip SA creation when serviceAccountName is explicitly set
@@ -1285,7 +1269,7 @@ tests:
           path: spec.template.spec.serviceAccountName
           value: app-sa
 
-  # A deployment's SA bound by an rbacs.roles entry with create: false is still
+  # A workload's SA bound by an rbacs.roles entry with create: false is still
   # created by the release: the Role copy and the pod bind the same copy.
   - it: should run as the workload SA copy when an rbacs.roles entry binds that SA
     set:
@@ -1344,7 +1328,7 @@ tests:
           value: report-sa-hook
         documentIndex: 1
 
-  # A workload-scope cronjob's own SA: the copy takes the deployment's
+  # A workload-scope cronjob's own SA: the copy takes the workload's
   # component label
   - it: should copy a workload cronjob's own SA for a pre-upgrade hook naming it
     set:
@@ -1574,7 +1558,7 @@ tests:
         documentIndex: 0
 
   # command/args are deliberately NOT inheritable: a migration hook must never
-  # pick up the deployment's entrypoint (see issue #72).
+  # pick up the workload's entrypoint (see issue #72).
   - it: should not inherit command or args from the workload in workload-scope hook
     set:
       workloads:
@@ -3797,7 +3781,7 @@ tests:
 
   # ====== Pod-level automountServiceAccountToken (issue #154, ADR 0014) ======
   # The pod field wins over the ServiceAccount's at admission. Chain: the job's
-  # own value > (workload scope only) the deployment's pod-level value > omit.
+  # own value > (workload scope only) the workload's pod-level value > omit.
   - it: should render pod-level automountServiceAccountToken false from a root hook's own field
     documentSelector:
       path: kind
@@ -3814,7 +3798,7 @@ tests:
           path: spec.template.spec.automountServiceAccountToken
           value: false
 
-  - it: should inherit the deployment's pod-level false on a hook running as the SA copy, whose automount stays true
+  - it: should inherit the workload's pod-level false on a hook running as the SA copy, whose automount stays true
     set:
       workloads:
         app:
@@ -3845,7 +3829,7 @@ tests:
           path: kind
           value: ServiceAccount
 
-  - it: should let a hook's explicit automountServiceAccountToken true beat the deployment's false
+  - it: should let a hook's explicit automountServiceAccountToken true beat the workload's false
     documentSelector:
       path: kind
       value: Job
@@ -3910,7 +3894,7 @@ tests:
           value: "-10"
 
   # A workload-scope hook opts out of one list and keeps the other (issue #159)
-  - it: should opt a workload-scope hook out of the deployment's envFromSecrets only
+  - it: should opt a workload-scope hook out of the workload's envFromSecrets only
     set:
       workloads:
         main:
@@ -4074,7 +4058,7 @@ tests:
 
   # ====== reloader.externalSecrets stays on the workload (ADR 0016) ======
   # Every run creates fresh pods, so a Reloader annotation on a job is noise.
-  - it: should not inherit the deployment's Reloader annotation
+  - it: should not inherit the workload's Reloader annotation
     set:
       externalSecrets:
         app-env:

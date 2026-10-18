@@ -233,7 +233,7 @@ tests:
             owner: fleet
 
   # ====== Backend resolution failures ======
-  - it: should fail on a portName the deployment's Service lacks, listing its ports
+  - it: should fail on a portName the workload's Service lacks, listing its ports
     set:
       workloads:
         traccar:

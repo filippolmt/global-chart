@@ -9,7 +9,7 @@ themselves. The defaults of a declared serviceAccount map — `create` true,
 resolveServiceAccount alone; three copies of them used to drift apart one at a
 time.
 
-- deploymentServiceAccount: a deployment's SA. Also read by every workload-scope
+- deploymentServiceAccount: a workload's SA. Also read by every workload-scope
   job that inherits it, and by its hook-prerequisite copy (ADR 0011).
 - rbacServiceAccount: the SA of an rbacs.roles entry. rbacServiceAccounts folds
   every entry's into one map by SA name, the input of the rbacs.roles
@@ -24,7 +24,7 @@ time.
   their own chain: `create` defaults to "only when nothing else names a SA", not
   true. Its `automount` and annotations first fall back to the job-level
   automountServiceAccountToken / serviceAccountAnnotations, then to the shared
-  defaults above. It takes the parent deployment's SA from
+  defaults above. It takes the parent workload's SA from
   deploymentServiceAccount. It is also the one resolver that validates: a job
   naming its SA twice, with different names, fails here (issue #133). The check
   sits in the resolver, not in _validate-helpers.tpl, because every render path
@@ -50,7 +50,7 @@ An explicit, non-empty sa.name wins over both.
 {{- end }}
 
 {{/*
-A deployment's ServiceAccount. Created by default, as <deploymentFullname>; with
+A workload's ServiceAccount. Created by default, as <deploymentFullname>; with
 create: false and no name, name is "": no SA is named. The workload then runs
 as "default", which deployment.yaml renders, and a workload-scope job creates
 its own SA instead of inheriting one. The resolver cannot return "default"
@@ -121,7 +121,7 @@ Resolution:
   {{- fail (printf "%s: names its ServiceAccount twice, with different names: serviceAccountName %q and serviceAccount.name %q. Keep only one of the two fields (or set the same name in both)." $errCtx (toString $job.serviceAccountName) (toString $jobSAMap.name)) -}}
 {{- end -}}
 {{- $jobSAExplicitName := coalesce $job.serviceAccountName $jobSAMap.name -}}
-{{- /* The deployment's SA name, created or referenced-existing; "" when it
+{{- /* The workload's SA name, created or referenced-existing; "" when it
        names none, and always "" at root level */ -}}
 {{- $deploymentSAName := "" -}}
 {{- if $deploy -}}
@@ -238,7 +238,7 @@ Usage: {{ $releaseSAs := include "global-chart.releaseServiceAccounts" $root | f
 {{/*
 Whether the release itself creates a ServiceAccount under `name`: "true" when
 releaseServiceAccounts holds it, else "". The ONE answer, whoever creates the
-SA: a deployment's SA bound by an rbacs.roles entry with create: false is
+SA: a workload's SA bound by an rbacs.roles entry with create: false is
 created by the release all the same, and the Role copy and the pod must bind
 the same copy.
 Params: root · name.
@@ -286,7 +286,7 @@ are copied) and hookServiceAccountName (which points the pod at
 the copy) both ask here, so a hook can never run as a copy that was not
 rendered. It does when hookBindsInCopyPhase holds and the release creates that
 SA (releaseCreatesServiceAccount).
-The SA is compared by resolved name, so a hook inheriting its deployment's SA
+The SA is compared by resolved name, so a hook inheriting its workload's SA
 and a root-level hook naming it match alike (ADR 0011).
 Params: root · hookType · sa (the hook's jobServiceAccount result).
 */}}
@@ -303,7 +303,7 @@ them) asks here. Which SA the pod runs as is hookServiceAccountName's answer.
 A hook reads the copy when hookBindsInCopyPhase holds and its SA's name is the
 SA of at least one rbacs.roles entry, whether the entry creates it or binds an
 existing one.
-The SA is compared by resolved name, so a hook inheriting its deployment's SA
+The SA is compared by resolved name, so a hook inheriting its workload's SA
 matches a role binding that SA, in either scope.
 Returns JSON: {roles} — every entry whose copy it reads.
 Params: root · hookType · sa (the hook's jobServiceAccount result).

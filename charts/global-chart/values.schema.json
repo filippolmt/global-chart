@@ -1059,10 +1059,6 @@
       "type": "object",
       "properties": {
         "inheritWorkloadConfigMap": { "type": "boolean" },
-        "inheritDeploymentConfigMap": { "description": "removed in 4.0.0, issue #221: use inheritWorkloadConfigMap." },
-        "inheritDeploymentSecret": { "description": "removed in 4.0.0, issue #221: use inheritWorkloadSecret." },
-        "inheritDeploymentEnvFromConfigMaps": { "description": "removed in 4.0.0, issue #221: use inheritWorkloadEnvFromConfigMaps." },
-        "inheritDeploymentEnvFromSecrets": { "description": "removed in 4.0.0, issue #221: use inheritWorkloadEnvFromSecrets." },
         "inheritWorkloadSecret": { "type": "boolean" },
         "inheritWorkloadEnvFromConfigMaps": {
           "type": "boolean",
@@ -1071,7 +1067,11 @@
         "inheritWorkloadEnvFromSecrets": {
           "type": "boolean",
           "description": "false drops the workload's envFromSecrets from this job's envFrom. Default true. externalSecrets have their own rule: a job's own list replaces the inherited one."
-        }
+        },
+        "inheritDeploymentConfigMap": { "description": "removed in 4.0.0, issue #221: use inheritWorkloadConfigMap." },
+        "inheritDeploymentSecret": { "description": "removed in 4.0.0, issue #221: use inheritWorkloadSecret." },
+        "inheritDeploymentEnvFromConfigMaps": { "description": "removed in 4.0.0, issue #221: use inheritWorkloadEnvFromConfigMaps." },
+        "inheritDeploymentEnvFromSecrets": { "description": "removed in 4.0.0, issue #221: use inheritWorkloadEnvFromSecrets." }
       }
     },
     "cronJob": {

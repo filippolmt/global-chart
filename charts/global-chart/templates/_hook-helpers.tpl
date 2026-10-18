@@ -15,7 +15,7 @@ and hookReadsServiceAccountCopy in _serviceaccount-helpers.tpl.
 Why the plumbing deletes itself: hook resources are not part of the release
 manifest, so Helm never deletes them at uninstall. The prereq ConfigMap/Secret
 and the chart-created hook ServiceAccounts therefore carry their own delete
-policy; the prereq Secret holds the deployment's secret data and must not
+policy; the prereq Secret holds the workload's secret data and must not
 outlive the release. Hook Jobs keep plain before-hook-creation: a completed
 Job is the record of what ran. A hook's explicit deletePolicy reaches what the
 hook owns, its Job and its ServiceAccount; the copies have a fixed policy per
@@ -34,7 +34,7 @@ Usage: {{ include "global-chart.effectiveHookWeight" $command }}
 
 {{/*
 Minimum effective hook weight across a hooks map.
-Param: hooks - map hookType -> jobName -> command (a deployment's .hooks, or a
+Param: hooks - map hookType -> jobName -> command (a workload's .hooks, or a
         synthetic subset of it when only some hooks count)
 Usage: {{ include "global-chart.minHookWeight" (dict "hooks" $deploy.hooks) }}
 */}}

@@ -1,0 +1,10 @@
+# The legacy volumes[].type, removed in 4.0.0 (issue #230, ADR 0022), on a
+# disabled workload: global-chart.validateRemovedKeys walks it all the same.
+# Expected fail substring: "workloads.web.volumes[0].type: removed in 4.0.0, use the native volume source"
+workloads:
+  web:
+    enabled: false
+    image: nginx:1.25
+    volumes:
+      - name: scratch
+        type: emptyDir

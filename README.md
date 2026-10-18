@@ -7,12 +7,12 @@ The chart supports **multiple workloads** in a single release, each with indepen
 
 ## Chart scope at a glance
 
-- **Multi-deployment support**
+- **Multi-workload support**
   Define multiple independent workloads under `workloads.*`. Each gets its own Service, ConfigMap, Secret, ServiceAccount, HPA, PDB, and NetworkPolicy.
 - **StatefulSets**
   `kind: StatefulSet` on a `workloads` entry renders a StatefulSet instead of a Deployment, with one claim per pod from `volumeClaimTemplates` and a headless governing Service (see [Stateful workloads](#stateful-workloads-kind-statefulset)). Everything else about the entry stays the same.
 - **Workload primitives**
-  Image can be a string (`nginx:1.25`) or a map (`repository/tag/digest`), held by the schema to the reference grammar the kubelet parses; `tag` is a string, so quote a numeric-looking one (`"1.20"`). Probes, resources, autoscaling (HPA), scheduling constraints, extra containers/init containers, pod recreation bumps, and ConfigMap/Secret `envFrom` are all configurable. `command`/`args` override the image entrypoint per workload, so one image can back several workloads (web, worker, …); they are never inherited by the deployment's hooks/cronJobs.
+  Image can be a string (`nginx:1.25`) or a map (`repository/tag/digest`), held by the schema to the reference grammar the kubelet parses; `tag` is a string, so quote a numeric-looking one (`"1.20"`). Probes, resources, autoscaling (HPA), scheduling constraints, extra containers/init containers, pod recreation bumps, and ConfigMap/Secret `envFrom` are all configurable. `command`/`args` override the image entrypoint per workload, so one image can back several workloads (web, worker, …); they are never inherited by the workload's hooks/cronJobs.
 - **Networking**
   First-class Service configuration (with per-service annotations) plus optional Ingress with TLS, class annotations, and routes to specific workloads. DNS options and host aliases can be defined per workload.
   HTTP reaches the workloads through one routing layer, Ingress or Gateway API HTTPRoutes (`httpRoute` for one, `httpRoutes` for one per entry), never both. Ports that are not HTTP go through TCPRoutes and UDPRoutes (`tcpRoutes`, `udpRoutes`), alongside either (see [Exposing a TCP or UDP port](#exposing-a-tcp-or-udp-port-through-a-gateway)). A `workload:` backend picks a port of its Service by name with `portName`.
@@ -171,7 +171,7 @@ workloads:
   `volumeClaimTemplates` and `persistentVolumeClaimRetentionPolicy` to a
   StatefulSet. The schema rejects them on the other kind.
 
-## Example: Multi-deployment with inherited hooks/cronJobs
+## Example: Multi-workload with inherited hooks/cronJobs
 
 ```yaml
 workloads:
@@ -259,7 +259,7 @@ For every key a `pre-*` or `post-delete` hook references, the chart renders a
 hook-prerequisite copy of the ExternalSecret — same spec, its own Secret
 `<target>-hook`, owned by the copy and gone with it — and the hook reads that
 one. The workload, its cronjobs and every other hook read the real Secret, a
-`pre-delete` hook included: it runs before Helm deletes anything. A deployment's hooks and
+`pre-delete` hook included: it runs before Helm deletes anything. A workload's hooks and
 cronjobs inherit its list; a job's own `externalSecrets` (`[]` included)
 replaces it. Root-level hooks and cronjobs declare their own.
 

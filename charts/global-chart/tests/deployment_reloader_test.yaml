@@ -79,7 +79,7 @@ tests:
 
   # Every list the user set is kept: "own wins over common" would drop a shared
   # list in silence, the reason the targets are merged in the first place.
-  - it: should merge both the common and the deployment's list when both set it
+  - it: should merge both the common and the workload's list when both set it
     set:
       global.commonAnnotations:
         secret.reloader.stakater.com/reload: shared

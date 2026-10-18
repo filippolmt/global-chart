@@ -39,8 +39,8 @@ a rule below cannot recognise: a check that sees nothing is not a pass.
   global-chart.workloadKind.
 - chart-home: the `home` URL of Chart.yaml is never written in a template: a
   link (the migration guide a removal `fail` names, NOTES) reads `.Chart.Home`,
-  so it follows Chart.yaml. A helper called with a dict gets it as `chartHome`
-  from the caller's root (renderVolume, issue #230).
+  so it follows Chart.yaml. A helper called with a dict gets the link from the
+  caller's root (validateRemovedKeys passes it as `see`, issue #221).
 
 Comments (`{{/* … */}}`) are stripped before matching, so a rule may be named in
 prose. Matching runs over the whole file, so an expression split across lines

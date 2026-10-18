@@ -2,8 +2,103 @@ suite: cross-resource validation tests
 templates:
   - templates/validate.yaml
 tests:
+  # ====== Volume keys removed in 4.0.0 (issue #230, ADR 0022) ======
+  # ====== Removed legacy volumes[].type format (issue #230, ADR 0022) ======
+  - it: should fail naming the native source when a volume carries the removed type
+    set:
+      workloads:
+        main:
+          image: "nginx:1.25"
+          volumes:
+            - name: myvol
+              type: emptyDir
+    asserts:
+      - failedTemplate:
+          errorPattern: "workloads\\.main\\.volumes\\[0\\]\\.type: removed in 4\\.0\\.0, use the native volume source .*; see https://github\\.com/filippolmt/global-chart/blob/main/CHANGELOG\\.md#migration-guide-from-3x"
+
+  - it: should fail on the removed type whatever its value, a non-string included
+    set:
+      workloads:
+        main:
+          image: "nginx:1.25"
+          volumes:
+            - name: myvol
+              type: 5
+    asserts:
+      - failedTemplate:
+          errorPattern: "workloads\\.main\\.volumes\\[0\\]\\.type: removed in 4\\.0\\.0"
+
+  - it: should fail naming secretName when a secret volume carries the removed name alias
+    set:
+      workloads:
+        main:
+          image: "nginx:1.25"
+          volumes:
+            - name: myvol
+              secret:
+                name: my-secret
+    asserts:
+      - failedTemplate:
+          errorMessage: "workloads.main.volumes[0].secret.name: removed in 4.0.0, use secret.secretName"
+
+  - it: should fail naming claimName when a persistentVolumeClaim volume carries the removed name alias
+    set:
+      workloads:
+        main:
+          image: "nginx:1.25"
+          volumes:
+            - name: myvol
+              persistentVolumeClaim:
+                name: my-claim
+    asserts:
+      - failedTemplate:
+          errorMessage: "workloads.main.volumes[0].persistentVolumeClaim.name: removed in 4.0.0, use persistentVolumeClaim.claimName"
+
+  - it: should fail on the removed type in a hook volume, with the hook's path
+    set:
+      workloads:
+        main:
+          image: "nginx:1.25"
+          hooks:
+            pre-install:
+              migrate:
+                command: ["true"]
+                volumes:
+                  - name: myvol
+                    type: secret
+    asserts:
+      - failedTemplate:
+          errorPattern: "workloads\\.main\\.hooks\\.pre-install\\.migrate\\.volumes\\[0\\]\\.type: removed in 4\\.0\\.0"
+
+  - it: should fail on the removed volume type of a disabled workload
+    set:
+      workloads:
+        main:
+          enabled: false
+          image: "nginx:1.25"
+          volumes:
+            - name: myvol
+              type: emptyDir
+    asserts:
+      - failedTemplate:
+          errorPattern: "^workloads\\.main\\.volumes\\[0\\]\\.type: removed in 4\\.0\\.0, use the native volume source"
+
+  - it: should fail on the removed secret.name alias in a root-level cronjob volume
+    set:
+      cronJobs:
+        sync:
+          image: "nginx:1.25"
+          schedule: "0 * * * *"
+          volumes:
+            - name: creds
+              secret:
+                name: app-creds
+    asserts:
+      - failedTemplate:
+          errorMessage: "cronJobs.sync.volumes[0].secret.name: removed in 4.0.0, use secret.secretName"
+
   # ====== Keys removed in 4.0.0 (issue #221, ADR 0023) ======
-  - it: should fail naming workloads when values carry the removed workloads map
+  - it: should fail naming workloads when values carry the removed deployments map
     set:
       deployments:
         web:
@@ -12,7 +107,7 @@ tests:
       - failedTemplate:
           errorPattern: "^deployments: removed in 4\\.0\\.0, use workloads; see https://.*/CHANGELOG\\.md#migration-guide-from-3x$"
 
-  - it: should fail on the removed workloads map whatever its value
+  - it: should fail on the removed deployments map whatever its value
     set:
       deployments: 5
     asserts:
@@ -47,7 +142,7 @@ tests:
       - failedTemplate:
           errorMessage: "workloads.app.cronJobs.sync.inheritDeploymentSecret: removed in 4.0.0, use inheritWorkloadSecret"
 
-  - it: should fail naming workload when a host carries the removed workload backend
+  - it: should fail naming workload when an ingress host carries the removed deployment backend
     set:
       workloads:
         web:
@@ -64,7 +159,7 @@ tests:
       - failedTemplate:
           errorMessage: "ingress.hosts[0].deployment: removed in 4.0.0, use workload"
 
-  - it: should fail naming workload when a backendRef carries the removed workload
+  - it: should fail naming workload when a tcpRoutes backendRef carries the removed deployment
     capabilities:
       apiVersions:
         - gateway.networking.k8s.io/v1/TCPRoute
@@ -83,7 +178,7 @@ tests:
       - failedTemplate:
           errorMessage: "tcpRoutes.db.rules[0].backendRefs[0].deployment: removed in 4.0.0, use workload"
 
-  - it: should fail naming workload when a backendRef carries the removed workload
+  - it: should fail naming workload when an httpRoute backendRef carries the removed deployment
     capabilities:
       apiVersions:
         - gateway.networking.k8s.io/v1/HTTPRoute
@@ -141,7 +236,7 @@ tests:
       - failedTemplate:
           errorMessage: "workloads.app.hooks.pre-install.migrate.inheritDeploymentEnvFromSecrets: removed in 4.0.0, use inheritWorkloadEnvFromSecrets"
 
-  - it: should fail on a removed backend key in an udpRoutes entry
+  - it: should fail on a removed backend key in a udpRoutes entry
     set:
       udpRoutes:
         dns:
@@ -589,7 +684,7 @@ tests:
       - hasDocuments:
           count: 0
 
-  # A deployment's own ConfigMap and Secret share its name by design; registering
+  # A workload's own ConfigMap and Secret share its name by design; registering
   # both must not make the ordinary case collide with itself.
   - it: should not fail when a workload has both a configMap and a secret
     set:
@@ -1358,7 +1453,7 @@ tests:
           errorPattern: "Name collision: ServiceAccount 'c{63}' created for rbacs.roles\\[0\\] \\('scaler'\\) \\(hook prerequisite copy\\) conflicts with the one created for rbacs.roles\\[0\\] \\('scaler'\\)"
 
   # The workload SA copy (ADR 0011) is registered under the same rule
-  - it: should fail when a deployment's hook SA copy lands on a created ServiceAccount
+  - it: should fail when a workload's hook SA copy lands on a created ServiceAccount
     set:
       workloads:
         app:
@@ -1374,7 +1469,7 @@ tests:
       - failedTemplate:
           errorMessage: "Name collision: ServiceAccount 'app-sa-hook' created for workloads.app (hook prerequisite copy) conflicts with the one created for rbacs.roles[0] ('other'). A hook-prerequisite copy is named after its real resource plus '-hook', truncated to the same limit (ADR 0011): shorten the name so the copy fits, or rename the entry it lands on."
 
-  - it: should fail when a deployment's hook SA copy truncates back onto the real SA
+  - it: should fail when a workload's hook SA copy truncates back onto the real SA
     set:
       workloads:
         app:

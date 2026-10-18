@@ -1,6 +1,6 @@
 # A workload-scope job does not take additionalEnvs (issue #146): no template
 # read it, so it was a silent no-op. The job's own `env` is the field; the
-# deployment's additionalEnvs is inherited on its own.
+# workload's additionalEnvs is inherited on its own.
 workloads:
   app:
     image: nginx:1.25

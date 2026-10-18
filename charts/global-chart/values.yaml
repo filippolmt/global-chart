@@ -5,7 +5,7 @@ global:
   # -- Global image registry prefix (e.g., registry.example.com)
   # @default -- `""` (no prefix)
   imageRegistry: ""
-  # -- Global imagePullSecrets (used when deployment/cronJob/hook doesn't specify its own)
+  # -- Global imagePullSecrets (used when workload/cronJob/hook doesn't specify its own)
   # @default -- `[]`
   imagePullSecrets: []
   # -- Global labels applied to metadata.labels of ALL resources (not added to selector labels). A per-resource label of the same name wins; the chart's own `app.kubernetes.io/*` and `helm.sh/chart` labels win over both, since the selectors are built from them
@@ -46,10 +46,10 @@ workloads: {}
   #     tag: "1.23"
   #
   #   # -- Override the image ENTRYPOINT. Omit to keep the image default.
-  #   # Not inherited by this deployment's hooks/cronJobs.
+  #   # Not inherited by this workload's hooks/cronJobs.
   #   command: ["python", "-m", "app.worker"]
   #   # -- Override the image CMD arguments. Omit to keep the image default.
-  #   # Not inherited by this deployment's hooks/cronJobs.
+  #   # Not inherited by this workload's hooks/cronJobs.
   #   args: ["--concurrency", "5"]
   #
   #   # -- List of imagePullSecrets for private registries
@@ -360,7 +360,7 @@ workloads: {}
   #       # Opt-out of workload ConfigMap/Secret env injection (defaults: true):
   #       # inheritWorkloadConfigMap: false
   #       # inheritWorkloadSecret: false
-  #       # Opt-out of the deployment's envFromConfigMaps/envFromSecrets (defaults:
+  #       # Opt-out of the workload's envFromConfigMaps/envFromSecrets (defaults:
   #       # true). The job's own lists add to them, never replace them:
   #       # inheritWorkloadEnvFromConfigMaps: false
   #       # inheritWorkloadEnvFromSecrets: false
@@ -384,7 +384,7 @@ ingress:
       # (service.portName or a service.extraPorts[].name); omitted, the primary port
       workload: ""
       # -- Service backend override (use instead of workload for external services).
-      # Optional `port`, 1-65535: omitted, it is the deployment's service.port, or 80
+      # Optional `port`, 1-65535: omitted, it is the workload's service.port, or 80
       # for a service.name backend
       service:
         # -- Explicit service name (overrides workload reference)
@@ -508,7 +508,7 @@ cronJobs: {}
   #   image:
   #     repository: myapp
   #     tag: v1.0
-  #   # Or reference a deployment's image:
+  #   # Or reference a workload's image:
   #   # fromWorkload: main
   #   command: ["/bin/sh", "-c"]
   #   args: ["./cleanup.sh"]
@@ -536,7 +536,7 @@ cronJobs: {}
   # Workload-scope cronJobs (workloads.<name>.cronJobs) DO auto-inherit; use
   # inheritWorkloadConfigMap/inheritWorkloadSecret: false to opt out, and
   # inheritWorkloadEnvFromConfigMaps/inheritWorkloadEnvFromSecrets: false
-  # for the deployment's envFromConfigMaps/envFromSecrets.
+  # for the workload's envFromConfigMaps/envFromSecrets.
 
 # -- Hook jobs for chart lifecycle (install/upgrade). Can also be defined inside workloads to inherit image, configMap, secret, SA.
 hooks: {}
@@ -547,7 +547,7 @@ hooks: {}
   #     image:
   #       repository: myapp
   #       tag: v1.0
-  #     # Or reference a deployment's image:
+  #     # Or reference a workload's image:
   #     # fromWorkload: main
   #     command: ["/bin/sh", "-c"]
   #     args: ["./migrate.sh"]
@@ -620,7 +620,7 @@ externalSecrets: {}
   #         .htpasswd: '{{ htpasswd "stage" .password "bcrypt" }}'
 
 # -- KEDA TriggerAuthentication definitions, shared by the triggers of any
-# deployment. Rendered as `{release}-{chart}-{key}`; reference them from a
+# workload. Rendered as `{release}-{chart}-{key}`; reference them from a
 # trigger by their key here and the chart resolves the full name.
 kedaTriggerAuthentications: {}
   # sqs-auth:

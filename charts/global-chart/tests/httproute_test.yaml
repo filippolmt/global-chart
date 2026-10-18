@@ -832,7 +832,7 @@ tests:
           value: 80
 
   # ====== portName (issue #194) ======
-  - it: should route a backendRef to a named extra port of the deployment's Service
+  - it: should route a backendRef to a named extra port of the workload's Service
     release:
       name: myrel
     set:

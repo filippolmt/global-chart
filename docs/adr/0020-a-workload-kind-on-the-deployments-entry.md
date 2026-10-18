@@ -87,8 +87,8 @@ pod.
   route backends and hook references would need a type of their own.
 - **Rename the map to `workloads.<name>.kind`.** Rejected: a major release for
   every existing values file, with no functional gain. *Superseded by ADR 0023:*
-  4.0.0 is a major already, and the DaemonSet makes the key wrong for two
-  kinds out of three.
+  4.0.0 is a major already, and the key is wrong for every kind but
+  Deployment.
 
 ## Consequences
 

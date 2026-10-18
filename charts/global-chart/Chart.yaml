@@ -37,6 +37,7 @@ maintainers:
 
 # Search keywords
 keywords:
+  - deployment
   - workload
   - statefulset
   - service
@@ -44,6 +45,7 @@ keywords:
   - cronjob
   - hooks
   - kubernetes
+  - multi-deployment
   - multi-workload
   - pdb
   - network-policy

@@ -26,7 +26,7 @@ Kubernetes: `>=1.27.0-0`
 |-----|------|---------|-------------|
 | global | object | `{"commonAnnotations":{},"commonLabels":{},"imagePullSecrets":[],"imageRegistry":""}` | Global values shared across all workloads, cronJobs, and hooks |
 | global.imageRegistry | string | `""` (no prefix) | Global image registry prefix (e.g., registry.example.com) |
-| global.imagePullSecrets | list | `[]` | Global imagePullSecrets (used when deployment/cronJob/hook doesn't specify its own) |
+| global.imagePullSecrets | list | `[]` | Global imagePullSecrets (used when workload/cronJob/hook doesn't specify its own) |
 | global.commonLabels | object | `{}` | Global labels applied to metadata.labels of ALL resources (not added to selector labels). A per-resource label of the same name wins; the chart's own `app.kubernetes.io/*` and `helm.sh/chart` labels win over both, since the selectors are built from them |
 | global.commonAnnotations | object | `{}` | Global annotations applied to metadata.annotations of ALL resources (including pod templates). A per-resource annotation of the same name wins, empty string included. The `helm.sh/hook*` annotations the chart emits itself are ignored here |
 | nameOverride | string | `""` | Override the chart name. Sets `app.kubernetes.io/name`, which is part of the workload's immutable `spec.selector`: decide it before the first install, or every existing workload has to be deleted and recreated to change it. |
@@ -39,7 +39,7 @@ Kubernetes: `>=1.27.0-0`
 | ingress.tls | list | `[]` | TLS configuration for secure hosts |
 | ingress.hosts | list | `[{"host":"chart-example.local","paths":[{"path":"/","pathType":"ImplementationSpecific"}],"service":{"name":""},"workload":""}]` | Definitions for each host rule |
 | ingress.hosts[0].workload | string | `""` | Name of the workload to route traffic to (required unless service.name is set). An optional `portName` next to it picks a TCP port of its Service by name (service.portName or a service.extraPorts[].name); omitted, the primary port |
-| ingress.hosts[0].service | object | `{"name":""}` | Service backend override (use instead of workload for external services). Optional `port`, 1-65535: omitted, it is the deployment's service.port, or 80 for a service.name backend |
+| ingress.hosts[0].service | object | `{"name":""}` | Service backend override (use instead of workload for external services). Optional `port`, 1-65535: omitted, it is the workload's service.port, or 80 for a service.name backend |
 | ingress.hosts[0].service.name | string | `""` | Explicit service name (overrides workload reference) |
 | ingress.hosts[0].paths | list | `[{"path":"/","pathType":"ImplementationSpecific"}]` | HTTP path definitions for this host |
 | httpRoute | object | `{"annotations":{},"enabled":false,"hostnames":[],"parentRefs":[],"rules":[]}` | HTTPRoute (Gateway API v1) — alternative to Ingress. The chart renders only the HTTPRoute resource; the referenced Gateway must be managed externally (e.g. by your platform team or a separate infra chart). Mutually exclusive with `ingress.enabled` — enabling both fails template render. |
@@ -54,7 +54,7 @@ Kubernetes: `>=1.27.0-0`
 | cronJobs | object | `{}` | CronJobs configuration (map of named cronJobs). Can also be defined inside workloads to inherit image, configMap, secret, SA. |
 | hooks | object | `{}` | Hook jobs for chart lifecycle (install/upgrade). Can also be defined inside workloads to inherit image, configMap, secret, SA. |
 | externalSecrets | object | `{}` | ExternalSecrets definitions for secret management. Each entry renders one ExternalSecret. The `remote` map (single-key form) and each `data[].remote` accept `key`, `property` (a gjson path selecting one key out of a JSON payload), `version` (string or number, quoted on render), `conversionStrategy`, `decodingStrategy` and `metadataPolicy`. `dataFrom` is rendered verbatim. Jobs and workloads read the produced Secret through their own `externalSecrets: [{name: <key>}]` list; for every key a pre-* (pre-delete excepted) or post-delete hook reads, the chart also renders a hook-prerequisite copy producing `<target>-hook`. |
-| kedaTriggerAuthentications | object | `{}` | KEDA TriggerAuthentication definitions, shared by the triggers of any deployment. Rendered as `{release}-{chart}-{key}`; reference them from a trigger by their key here and the chart resolves the full name. |
+| kedaTriggerAuthentications | object | `{}` | KEDA TriggerAuthentication definitions, shared by the triggers of any workload. Rendered as `{release}-{chart}-{key}`; reference them from a trigger by their key here and the chart resolves the full name. |
 | defaults | object | `{"resources":{"requests":{"cpu":"100m","memory":"128Mi"}}}` | Default resource settings for CronJobs and Hooks when not specified per-job |
 | rbacs | object | `{"roles":[]}` | RBAC configuration: create multiple service accounts, roles and rolebindings |
 | rbacs.roles | list | `[]` | Set serviceAccount.create to false to bind to an existing account without creating it. |

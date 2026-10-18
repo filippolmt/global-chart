@@ -5,7 +5,7 @@ status: accepted
 # The `workloads` map replaces `deployments` in 4.0.0, with no deprecation minor
 
 Since issue #211 an entry of the root map can render a StatefulSet, and issue
-#215 adds a DaemonSet. The values still named every entry a deployment:
+#215 plans a DaemonSet. The values still named every entry a deployment:
 `deployments.db.kind: StatefulSet`, `fromDeployment: db`. The key said
 something false about the entry it held. ADR 0020 rejected renaming the map
 because a rename costs a major release. That cost no longer stands alone:
@@ -27,9 +27,10 @@ failure also links the *Migration guide* in `CHANGELOG.md`, since the other
 renames come with it. One walk, `validateRemovedKeys`, checks every key
 wherever it sits, whether its surface renders or not: an old key under a
 disabled Ingress, HTTPRoute or workload would otherwise wait, silent, for the
-next enable. It runs from `validate.yaml`, which Helm renders before any other
-template, so an old values file meets these failures before any other
-(checked on Helm 4.3.1). The walk, the declarations and their fixtures go in
+next enable. It runs first in `validate.yaml`. Helm renders the deepest templates
+first, then the rest in reverse alphabetical order: only `templates/tests/`
+comes before `validate.yaml`, and it renders nothing from an old values file,
+which so meets these failures before any other (checked on Helm 4.3.1). The walk, the declarations and their fixtures go in
 5.0.0.
 
 **There is no deprecation minor.** This is an exception to phase 1 of the
@@ -56,8 +57,9 @@ part of the values API.
 - **A deprecation-only 3.4.0 from a branch cut at the 3.3.0 tag.** Rejected:
   chart-releaser publishes from `main` only, and a release branch is a process
   the repository does not have.
-- **Keep `deployments` (ADR 0020 as written).** Rejected: the DaemonSet makes
-  the key wrong for two kinds out of three.
+- **Keep `deployments` (ADR 0020 as written).** Rejected: the key is already
+  wrong for a StatefulSet, and the DaemonSet of issue #215 would make it
+  wrong for two kinds out of three.
 
 ## Consequences
 

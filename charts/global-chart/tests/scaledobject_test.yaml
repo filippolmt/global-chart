@@ -325,7 +325,7 @@ tests:
       - notExists:
           path: metadata.annotations
 
-  # ====== Multi-deployment ======
+  # ====== Multi-workload ======
   - it: should render one ScaledObject per KEDA-enabled workload
     set:
       workloads:

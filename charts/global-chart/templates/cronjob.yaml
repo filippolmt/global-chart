@@ -99,7 +99,7 @@ spec:
 {{- $saAutomount := $sa.automount -}}
 {{- $saAnnotations := $sa.annotations -}}
 
-{{- /* Create SA only if needed (not using deployment's or explicit existing) */ -}}
+{{- /* Create SA only if needed (not using workload's or explicit existing) */ -}}
 {{- if $saCreate }}
 ---
 apiVersion: v1

@@ -236,26 +236,13 @@ Render a single volume entry: { name, <any-k8s-volume-source> }, verbatim but
 for the name. $defs/volumes stays open (ADR 0017) and requires a non-empty
 name, so the required below fires only under --skip-schema-validation, where a
 fixture in tests/bad-values/skip-schema/ holds it. errCtx is the values path of
-the entry, <owner>.volumes[<i>], which leads every fail message (issue #190); chartHome
-is .Chart.Home, the base of the migration guide link.
-Removed keys (ADR 0022, issue #230): the legacy `type` and the aliases
-`secret.name` / `persistentVolumeClaim.name`, removed in 4.0.0, fail naming
-their replacement; the schema declares them with no constraint so any value
-reaches the fail. Those fails, their declarations and fixtures go in 5.0.0.
-Usage: {{ include "global-chart.renderVolume" (dict "volume" $v "errCtx" (printf "%s.volumes[%d]" $errCtx $i) "chartHome" $root.Chart.Home) }}
+the entry, <owner>.volumes[<i>], which leads every fail message (issue #190).
+The keys removed in 4.0.0 (issue #230) fail earlier, in validateRemovedKeys.
+Usage: {{ include "global-chart.renderVolume" (dict "volume" $v "errCtx" (printf "%s.volumes[%d]" $errCtx $i)) }}
 */}}
 {{- define "global-chart.renderVolume" -}}
 {{- $vol := .volume -}}
 {{- $path := required "renderVolume: errCtx is required (the values path of the volume)" .errCtx -}}
-{{- if hasKey $vol "type" }}
-  {{- fail (printf "%s.type: removed in 4.0.0, use the native volume source without type (emptyDir: {}, configMap.name, secret.secretName, persistentVolumeClaim.claimName); see %s/blob/main/CHANGELOG.md#migration-guide-from-3x" $path .chartHome) }}
-{{- end }}
-{{- range $key, $replacement := dict "secret" "secretName" "persistentVolumeClaim" "claimName" }}
-  {{- $block := get $vol $key }}
-  {{- if and (kindIs "map" $block) (hasKey $block "name") }}
-    {{- fail (printf "%s.%s.name: removed in 4.0.0, use %s.%s" $path $key $key $replacement) }}
-  {{- end }}
-{{- end -}}
 - name: {{ required (printf "%s: a volume needs a 'name'" $path) $vol.name }}
 {{- toYaml (omit $vol "name") | nindent 2 }}
 {{- end }}
@@ -401,7 +388,7 @@ chart never emits it, so there is nothing to collide with.
 {{- end }}
 
 {{/*
-A deployment's own annotations, as JSON, for renderAnnotations' `own`: its
+A workload's own annotations, as JSON, for renderAnnotations' `own`: its
 `annotations` unchanged, plus — when reloader.externalSecrets is on (issue #175,
 ADR 0016) — secret.reloader.stakater.com/reload listing the targets of its
 referenced externalSecrets. Single home of "the field is on" and of its one
@@ -416,8 +403,8 @@ would drop the targets in silence, "own wins over common" a shared list. A
 target the user already listed, quoted or bare, is not listed twice.
 Params:
   root   - chart context
-  deploy - the deployment's values
-  name   - the deployment's key, for the fail message
+  deploy - the workload's values
+  name   - the workload's key, for the fail message
   es     - its resolveExternalSecretRefs result
 Usage: {{- $own := include "global-chart.deploymentOwnAnnotations" (dict "root" $root "deploy" $deploy "name" $name "es" $es) | fromJson }}
 */}}
@@ -609,10 +596,10 @@ Resolution priority (mirrors the historical inline ingress logic):
                                 with validations: workload exists, enabled, service.enabled != false
   3. Otherwise: fail with actionable message.
 
-portName (issue #194) names a port of the deployment's Service — the primary
+portName (issue #194) names a port of the workload's Service — the primary
 port's name (servicePrimaryPort, "http" by default) or an extraPorts[].name —
 and resolves to its number, since a Gateway API backendRef carries numbers only.
-It is the single home of picking a deployment's port, so ingress, httpRoute and
+It is the single home of picking a workload's port, so ingress, httpRoute and
 the L4 routes all get it. Rejected alongside a service carrying a name or a
 port (a foreign Service carries its own port) and on a name the Service lacks. The port picked, primary
 included, must carry the consumer's protocol: Kubernetes accepts a TCP route to
@@ -643,7 +630,7 @@ Numbers come back float64: see the file header.
        This 80 is deliberately NOT servicePrimaryPort's: ref.service is an
        arbitrary Service in the cluster, with only name/port — no portName, no
        targetPort. Its default merely coincides with the chart's primary port;
-       sharing a home would couple a deployment's primary port to a foreign
+       sharing a home would couple a workload's primary port to a foreign
        Service's. */ -}}
 {{- if and (hasKey $ref "service") $ref.service $ref.service.name -}}
   {{- $svcName = $ref.service.name -}}
@@ -724,7 +711,7 @@ version: {{ include "global-chart.printScalar" (dict "value" $remote.version "er
 {{- end }}
 
 {{/*
-Container ports for a deployment's pod spec, derived from its Service definition.
+Container ports for a workload's pod spec, derived from its Service definition.
 Single source of truth for the pod side of the Service: deployment.yaml renders
 this list, and validateServiceTargetPorts checks named targetPorts against it,
 so the two can never drift — that drift is what made service.targetPort unusable
@@ -768,7 +755,7 @@ Numbers come back float64: see the file header.
 {{- end }}
 
 {{/*
-The primary port of a deployment's Service: the single home of its four
+The primary port of a workload's Service: the single home of its four
 defaults (`port` 80, `name` "http", `protocol` TCP, `targetPort` following the
 name). Consumed by service.yaml, containerPorts, validateServiceTargetPorts,
 validateServicePorts,
@@ -781,10 +768,10 @@ custom portName and no targetPort, "http" would name a port nothing declares.
 Only the primary port is here. extraPorts entries have name/port/targetPort all
 required by the schema; their one default, the protocol, lives in
 extraPortProtocol.
-Every consumer of a deployment's ports reaches this helper before it prints
+Every consumer of a workload's ports reaches this helper before it prints
 one, so it runs rejectNullServicePorts first: the one call that covers them all.
 Usage: {{ $primary := include "global-chart.servicePrimaryPort" (dict "service" $svc "errCtx" (printf "%s.service" $errCtx)) | fromJson }}
-Input: the deployment's service map, already defaulted to (dict) by the caller,
+Input: the workload's service map, already defaulted to (dict) by the caller,
 and errCtx, its values path.
 Output: JSON of the form {"port":80,"name":"http","protocol":"TCP","targetPort":"http"}
 Numbers come back float64: see the file header.
@@ -802,7 +789,7 @@ Numbers come back float64: see the file header.
 {{- end }}
 
 {{/*
-Every port of a deployment's Service, in the order service.yaml renders them:
+Every port of a workload's Service, in the order service.yaml renders them:
 the primary port first (from servicePrimaryPort), then each extraPorts entry
 with its protocol from extraPortProtocol. The single home of that enumeration
 on the Service side, read by validateServicePorts and resolveBackend; the pod
@@ -826,7 +813,7 @@ the file header.
 {{- end }}
 
 {{/*
-Fail on a null in a deployment's Service ports, naming its key (issue #191): a
+Fail on a null in a workload's Service ports, naming its key (issue #191): a
 port, targetPort, portName or protocol of the primary port, and any key of an
 extraPorts entry. The single home of that check. servicePrimaryPort runs it,
 because every consumer of the ports (service.yaml, containerPorts, the
@@ -860,10 +847,10 @@ Usage: {{ include "global-chart.extraPortProtocol" $extraPort }}
 {{- end }}
 
 {{/*
-The type of a deployment's Service: its own, or ClusterIP. The one home of that
+The type of a workload's Service: its own, or ClusterIP. The one home of that
 default, read by service.yaml and validateServicePorts.
 Usage: {{ include "global-chart.serviceType" $svc }}
-Input: the deployment's service map, already defaulted to (dict) by the caller.
+Input: the workload's service map, already defaulted to (dict) by the caller.
 */}}
 {{- define "global-chart.serviceType" -}}
 {{- ternary .type "ClusterIP" (eq (include "global-chart.isSet" (list . "type")) "true") -}}

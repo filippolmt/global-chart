@@ -16,11 +16,11 @@ nodeSelector, tolerations, affinity and priorityClassName. An explicit value
 overrides; an empty `{}`, `[]` or `""` (priorityClassName) stops the
 inheritance. Three exceptions to that shape:
 - envFromConfigMaps / envFromSecrets are additive: the job's own (`[]`
-  included) come after the deployment's and never replace them. The opt-outs
+  included) come after the workload's and never replace them. The opt-outs
   are toggles, default true: inheritWorkloadConfigMap /
   inheritWorkloadSecret break the generated ConfigMap/Secret injection, and
   inheritWorkloadEnvFromConfigMaps / inheritWorkloadEnvFromSecrets drop the
-  deployment's lists (issue #159). They narrow the secret leak surface of a
+  workload's lists (issue #159). They narrow the secret leak surface of a
   narrow-scope job.
 - externalSecrets is not an envFrom list here: the job's own replaces the
   inherited one.
@@ -51,7 +51,7 @@ Accepts a dict with:
   configMapRef   - ConfigMap name for envFrom (hooks use hook-config, cronjobs
                    use deploy name); read only when the workload has a
                    ConfigMap, so root-level callers omit it
-  secretRef      - same, for the deployment's Secret; root-level callers omit it
+  secretRef      - same, for the workload's Secret; root-level callers omit it
   hookType       - the hook's phase; hooks only. A hook whose phase
                    hookReadsPrereqCopy names (pre-* except pre-delete, and
                    post-delete) reads the hook-prerequisite copy of every
@@ -64,9 +64,9 @@ Accepts a dict with:
                    mounts, and names the job in jobImageSource's
 
 The pod-level `automountServiceAccountToken` follows the usual chain: the job's
-own value, then the deployment's pod-level value, else omitted and the
+own value, then the workload's pod-level value, else omitted and the
 ServiceAccount decides. The pod field wins over the SA's at admission, so the
-deployment's value is never carried into an SA the job creates (ADR 0014,
+workload's value is never carried into an SA the job creates (ADR 0014,
 docs/adr/0014-job-pod-automount-follows-the-inheritance-chain.md).
 */}}
 {{- define "global-chart.jobPodSpec" -}}
@@ -150,11 +150,11 @@ containers:
   securityContext:
     {{- toYaml . | nindent 4 }}
   {{- end }}
-  {{- /* EnvFrom, by proximity: deployment's configMap/secret, deployment's envFromConfigMaps/envFromSecrets and inherited externalSecrets, then the job's own */ -}}
+  {{- /* EnvFrom, by proximity: workload's configMap/secret, workload's envFromConfigMaps/envFromSecrets and inherited externalSecrets, then the job's own */ -}}
   {{- /* Opt-out flags, default true, set false to break inheritance:
          inheritWorkloadSecret/inheritWorkloadConfigMap for the generated
          Secret/ConfigMap, inheritWorkloadEnvFromSecrets/-ConfigMaps for the
-         deployment's envFromSecrets/envFromConfigMaps (issue #159). The job's
+         workload's envFromSecrets/envFromConfigMaps (issue #159). The job's
          own lists add to what it inherits, they never replace it */ -}}
   {{- $inheritCM := ternary $job.inheritWorkloadConfigMap true (eq (include "global-chart.isSet" (list $job "inheritWorkloadConfigMap")) "true") -}}
   {{- $inheritSec := ternary $job.inheritWorkloadSecret true (eq (include "global-chart.isSet" (list $job "inheritWorkloadSecret")) "true") -}}
@@ -226,7 +226,7 @@ containers:
         name: {{ . | quote }}
     {{- end }}
   {{- end }}
-  {{- /* Env: deployment's additionalEnvs + job's env */ -}}
+  {{- /* Env: workload's additionalEnvs + job's env */ -}}
   {{- $envVars := list -}}
   {{- if $deploy.additionalEnvs -}}
     {{- $envVars = $deploy.additionalEnvs -}}
@@ -248,7 +248,7 @@ containers:
 {{- if or $job.volumes $esMounted }}
 volumes:
   {{- range $i, $v := $job.volumes }}
-  {{- include "global-chart.renderVolume" (dict "volume" $v "errCtx" (printf "%s.volumes[%d]" $.errCtx $i) "chartHome" $root.Chart.Home) | nindent 2 }}
+  {{- include "global-chart.renderVolume" (dict "volume" $v "errCtx" (printf "%s.volumes[%d]" $.errCtx $i)) | nindent 2 }}
   {{- end }}
   {{- with $esMounted }}
   {{- include "global-chart.renderExternalSecretVolumes" . | nindent 2 }}
@@ -345,7 +345,7 @@ when it is the job's own; fails only on a fromWorkload naming no workload.
 Accepts a dict with:
   root    - top-level chart context
   job     - the cronjob/hook command map
-  deployName - the parent deployment's key (omit for root-level jobs): the
+  deployName - the parent workload's key (omit for root-level jobs): the
                helper reads the workload from it, and names it in "from"
   errCtx  - values path of the job, from jobValuesPath (required): names the job
             in the failure messages
@@ -383,7 +383,7 @@ Resolve the image string for a cronjob/hook command, from jobImageSource.
 Returns the image string, and fails when none resolves: the one home of the
 "image is required" message, which callers used to spell out each with its own
 printf. Takes the same dict as jobImageSource. An imageString fail leads with
-the path of the image: the job's own, or the deployment's it inherits, "(inherited
+the path of the image: the job's own, or the workload's it inherits, "(inherited
 by <job>)" (issues #188, #190).
 */}}
 {{- define "global-chart.jobImageString" -}}

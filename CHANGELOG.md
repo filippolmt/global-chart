@@ -92,7 +92,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   The aliases fail too, naming their replacement:
   `<path>.volumes[<i>].secret.name: removed in 4.0.0, use secret.secretName`
   and `….persistentVolumeClaim.name: removed in 4.0.0, use
-  persistentVolumeClaim.claimName`. The `NOTES.txt` deprecation list goes.
+  persistentVolumeClaim.claimName`, on a disabled workload too (issue #221
+  moved these checks into the walk of every removed key). The `NOTES.txt`
+  deprecation list goes.
   **Action:** rewrite each volume in the native form, per the
   [migration guide](#migration-guide-from-3x).
 

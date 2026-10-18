@@ -438,7 +438,7 @@ tests:
           errorPattern: "pathType"
 
   # ====== portName (issue #194) ======
-  - it: should route a host to a named extra port of the deployment's Service
+  - it: should route a host to a named extra port of the workload's Service
     release:
       name: myrel
     set:
