@@ -18,7 +18,6 @@ deployments:
 
     volumes:
       - name: nginx-config
-        type: configMap
         configMap:
           name: nginx-config
     volumeMounts:

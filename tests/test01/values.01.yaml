@@ -37,15 +37,12 @@ deployments:
 
     volumes:
       - name: myvolume
-        type: secret
         secret:
           secretName: mysql-0-secret
       - name: myvolume2
-        type: configMap
         configMap:
           name: mysql-0-config
       - name: myvolume3
-        type: persistentVolumeClaim
         persistentVolumeClaim:
           claimName: mypvc
       - name: cache

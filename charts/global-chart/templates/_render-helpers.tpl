@@ -232,44 +232,32 @@ Output: JSON map of volume name to the values path that declares it.
 {{- end }}
 
 {{/*
-Render a single volume entry. Supports both:
-- Legacy format: { name, type, secret/configMap/persistentVolumeClaim/emptyDir }
-- Native format: { name, <any-k8s-volume-source> } (no .type field)
-$defs/volumes stays open (ADR 0017) and requires a non-empty name, so the
-required below fires only under --skip-schema-validation, where a fixture in
-tests/bad-values/skip-schema/ holds it; the legacy type vocabulary is this
-helper's fail, not a schema enum. errCtx is the values path of the entry,
-<owner>.volumes[<i>], which leads every fail message (issue #190).
-Usage: {{ include "global-chart.renderVolume" (dict "volume" $v "errCtx" (printf "%s.volumes[%d]" $errCtx $i)) }}
+Render a single volume entry: { name, <any-k8s-volume-source> }, verbatim but
+for the name. $defs/volumes stays open (ADR 0017) and requires a non-empty
+name, so the required below fires only under --skip-schema-validation, where a
+fixture in tests/bad-values/skip-schema/ holds it. errCtx is the values path of
+the entry, <owner>.volumes[<i>], which leads every fail message (issue #190); chartHome
+is .Chart.Home, the base of the migration guide link.
+Removed keys (ADR 0022, issue #230): the legacy `type` and the aliases
+`secret.name` / `persistentVolumeClaim.name`, removed in 4.0.0, fail naming
+their replacement; the schema declares them with no constraint so any value
+reaches the fail. Those fails, their declarations and fixtures go in 5.0.0.
+Usage: {{ include "global-chart.renderVolume" (dict "volume" $v "errCtx" (printf "%s.volumes[%d]" $errCtx $i) "chartHome" $root.Chart.Home) }}
 */}}
 {{- define "global-chart.renderVolume" -}}
 {{- $vol := .volume -}}
 {{- $path := required "renderVolume: errCtx is required (the values path of the volume)" .errCtx -}}
-- name: {{ required (printf "%s: a volume needs a 'name'" $path) $vol.name }}
 {{- if hasKey $vol "type" }}
-  {{- /* Legacy format: translate .type to native */ -}}
-  {{- if eq $vol.type "emptyDir" }}
-  emptyDir: {}
-  {{- else if eq $vol.type "configMap" }}
-  {{- $src := default (dict) $vol.configMap }}
-  configMap:
-    name: {{ required (printf "%s.configMap.name: required by the legacy type configMap" $path) $src.name | quote }}
-  {{- else if eq $vol.type "secret" }}
-  {{- $src := default (dict) $vol.secret }}
-  secret:
-    secretName: {{ required (printf "%s.secret.secretName: required by the legacy type secret (or secret.name)" $path) (default $src.name $src.secretName) | quote }}
-  {{- else if eq $vol.type "persistentVolumeClaim" }}
-  {{- $src := default (dict) $vol.persistentVolumeClaim }}
-  persistentVolumeClaim:
-    claimName: {{ required (printf "%s.persistentVolumeClaim.claimName: required by the legacy type persistentVolumeClaim (or persistentVolumeClaim.name)" $path) (default $src.name $src.claimName) | quote }}
-  {{- else }}
-  {{- fail (printf "%s.type: unknown legacy volume type '%s'. Supported types: emptyDir, configMap, secret, persistentVolumeClaim. For other volume types, use native Kubernetes volume spec (omit .type)." $path $vol.type) }}
-  {{- end }}
-{{- else }}
-  {{- /* Native format: render everything except name deterministically */ -}}
-  {{- $native := omit $vol "name" -}}
-  {{- toYaml $native | nindent 2 }}
+  {{- fail (printf "%s.type: removed in 4.0.0, use the native volume source without type (emptyDir: {}, configMap.name, secret.secretName, persistentVolumeClaim.claimName); see %s/blob/main/CHANGELOG.md#migration-guide-from-3x" $path .chartHome) }}
 {{- end }}
+{{- range $key, $replacement := dict "secret" "secretName" "persistentVolumeClaim" "claimName" }}
+  {{- $block := get $vol $key }}
+  {{- if and (kindIs "map" $block) (hasKey $block "name") }}
+    {{- fail (printf "%s.%s.name: removed in 4.0.0, use %s.%s" $path $key $key $replacement) }}
+  {{- end }}
+{{- end -}}
+- name: {{ required (printf "%s: a volume needs a 'name'" $path) $vol.name }}
+{{- toYaml (omit $vol "name") | nindent 2 }}
 {{- end }}
 
 {{/*
@@ -277,7 +265,7 @@ Every owner of a pod spec the release renders, in both scopes, as a JSON list
 of {path, kind, spec}: each enabled deployment (kind "deployment"), then every
 non-empty hook and cronjob — root-level, and those of each enabled deployment —
 with their values path from deploymentValuesPath / jobValuesPath. The single
-home of that enumeration, read by legacyVolumePaths and validateNullItems: a
+home of that enumeration, read by validateNullItems: a
 disabled deployment and an empty job render nothing, so neither reads them.
 The specs come back through JSON: numbers are float64 (see the file header).
 Usage: {{- range (include "global-chart.podSpecOwners" . | fromJsonArray) }}
@@ -307,28 +295,6 @@ Usage: {{- range (include "global-chart.podSpecOwners" . | fromJsonArray) }}
 {{- end -}}
 {{- $out | toJson -}}
 {{- end }}
-
-{{/*
-The values path of every volume in the legacy format (one carrying `type`), in
-the workloads and in the hooks and cronjobs of both scopes, as a JSON list of
-"<path>.volumes[<i>] (<name>)". Disabled deployments render nothing and are
-skipped. Read by NOTES.txt for the deprecation line (issue #183); it goes with
-the format in 4.0.0.
-Usage: {{- $legacy := include "global-chart.legacyVolumePaths" . | fromJsonArray }}
-*/}}
-{{- define "global-chart.legacyVolumePaths" -}}
-{{- $withVolumes := include "global-chart.podSpecOwners" . | fromJsonArray -}}
-{{- $out := list -}}
-{{- range $withVolumes -}}
-  {{- $path := .path -}}
-  {{- range $i, $vol := (default (list) .spec.volumes) -}}
-    {{- if hasKey $vol "type" -}}
-      {{- $out = append $out (printf "%s.volumes[%d] (%s)" $path $i $vol.name) -}}
-    {{- end -}}
-  {{- end -}}
-{{- end -}}
-{{- toJson $out -}}
-{{- end -}}
 
 {{/*
 Render imagePullSecrets block. Accepts a list of strings or objects with "name" key.

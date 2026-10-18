@@ -253,19 +253,16 @@ deployments: {}
   #     # -- Egress rules (to which destinations traffic is allowed)
   #     egress: []
   #
-  #   # -- Pod volumes (native K8s spec or legacy .type format)
+  #   # -- Pod volumes (native Kubernetes volume sources)
   #   volumes: []
-  #     # Native format (recommended):
   #     # - name: data
   #     #   emptyDir: {}
+  #     # - name: myvolume
+  #     #   secret:
+  #     #     secretName: my-secret
   #     # - name: certs
   #     #   csi:
   #     #     driver: secrets-store.csi.k8s.io
-  #     # Legacy format (backward compatible):
-  #     # - name: myvolume
-  #     #   type: secret
-  #     #   secret:
-  #     #     secretName: my-secret
   #
   #   # -- Container volumeMounts for the above volumes
   #   volumeMounts: []
