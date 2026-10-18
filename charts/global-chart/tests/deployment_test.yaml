@@ -1489,7 +1489,7 @@ tests:
               type: emptyDir
     asserts:
       - failedTemplate:
-          errorPattern: "deployments\\.main\\.volumes\\[0\\]\\.type: removed in 4\\.0\\.0, use the native volume source"
+          errorPattern: "deployments\\.main\\.volumes\\[0\\]\\.type: removed in 4\\.0\\.0, use the native volume source .*; see https://github\\.com/filippolmt/global-chart/blob/main/CHANGELOG\\.md#migration-guide-from-3x"
 
   - it: should fail on the removed type whatever its value, a non-string included
     set:

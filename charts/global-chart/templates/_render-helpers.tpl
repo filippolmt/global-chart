@@ -236,18 +236,19 @@ Render a single volume entry: { name, <any-k8s-volume-source> }, verbatim but
 for the name. $defs/volumes stays open (ADR 0017) and requires a non-empty
 name, so the required below fires only under --skip-schema-validation, where a
 fixture in tests/bad-values/skip-schema/ holds it. errCtx is the values path of
-the entry, <owner>.volumes[<i>], which leads every fail message (issue #190).
+the entry, <owner>.volumes[<i>], which leads every fail message (issue #190); chartHome
+is .Chart.Home, the base of the migration guide link.
 Removed keys (ADR 0022, issue #230): the legacy `type` and the aliases
 `secret.name` / `persistentVolumeClaim.name`, removed in 4.0.0, fail naming
 their replacement; the schema declares them with no constraint so any value
 reaches the fail. Those fails, their declarations and fixtures go in 5.0.0.
-Usage: {{ include "global-chart.renderVolume" (dict "volume" $v "errCtx" (printf "%s.volumes[%d]" $errCtx $i)) }}
+Usage: {{ include "global-chart.renderVolume" (dict "volume" $v "errCtx" (printf "%s.volumes[%d]" $errCtx $i) "chartHome" $root.Chart.Home) }}
 */}}
 {{- define "global-chart.renderVolume" -}}
 {{- $vol := .volume -}}
 {{- $path := required "renderVolume: errCtx is required (the values path of the volume)" .errCtx -}}
 {{- if hasKey $vol "type" }}
-  {{- fail (printf "%s.type: removed in 4.0.0, use the native volume source without type (emptyDir: {}, configMap.name, secret.secretName, persistentVolumeClaim.claimName); see https://github.com/filippolmt/global-chart/blob/main/CHANGELOG.md#migration-guide-from-3x" $path) }}
+  {{- fail (printf "%s.type: removed in 4.0.0, use the native volume source without type (emptyDir: {}, configMap.name, secret.secretName, persistentVolumeClaim.claimName); see %s/blob/main/%s#migration-guide-from-3x" $path .chartHome "CHANGELOG.md") }}
 {{- end }}
 {{- range $key, $replacement := dict "secret" "secretName" "persistentVolumeClaim" "claimName" }}
   {{- $block := get $vol $key }}
