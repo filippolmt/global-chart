@@ -105,6 +105,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Fixed
 
+- **A values node of the wrong kind fails naming its path** (issue #235). Under
+  `--skip-schema-validation`, a map or list a template reads given as a number,
+  a string or the other container (`hooks: {pre-install: 3}`,
+  `ingress.hosts: 5`, `workloads: [web]`) stopped the render on a raw Go error
+  naming a template line, and `envFromConfigMaps: {x: 3}` rendered a
+  configMapRef named `"3"` without an error. The render now fails as
+  `hooks.pre-install: a number, where the chart reads a map`. A null still
+  means unset, and a passthrough node the chart hands on unread (tolerations,
+  resources) is left to the API server, as before.
 - **A PDB percentage above 100% is rejected by the schema.** `pdb.minAvailable`
   and `pdb.maxUnavailable` accepted any `"<digits>%"`, so `"150%"` rendered
   and the API server refused it at apply. They now take `0%` to `100%`, without
@@ -127,6 +136,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Tests
 
+- `make null-sweep` gains a type pass (issue #235): each map and list node of
+  each scenario is given a number and the other container in turn, and must
+  render or fail naming its path; a node `valuesShape` names must fail with
+  its message. A Go fmt error (`%!`) in a message counts as a raw error.
 - `make e2e-dryrun` replaces `make e2e-routes`, which stays as an alias. It
   sends every `TEST_CASES` scenario to the kind API server as a server-side dry
   run, not only those that render a route, so the rules between fields of a

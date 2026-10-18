@@ -9,7 +9,7 @@ Two kinds of rule:
   not. `make lint-templates` (`tests/lint-templates.py`, its docstring lists
   them): `default true` on a boolean, `set` on `.Values`, the shape of a
   `fail` message, a suite per template. `make null-sweep` nulls every values
-  node of every scenario. `make e2e-dryrun` sends every scenario to a real API
+  node of every scenario, then gives each map and list the wrong kind. `make e2e-dryrun` sends every scenario to a real API
   server. `lint-templates`' kind-fields rule holds the backstop guard's
   `$kindOnly` to the schema's `if/then/else` on `kind`, and its workload-kind
   rule keeps a quoted kind (`"Deployment"`) in `workloadKind`, `isStatefulSet`
@@ -150,7 +150,9 @@ one key picked the wrong value among several, the path ends on it
 rejects a value and a template `fail` repeats it, the `fail` is what a user on
 `--skip-schema-validation` sees, and it gets a `tests/bad-values/skip-schema/`
 fixture. `make null-sweep` covers the scenarios; a values node no scenario
-reaches is not swept, so a new map or list gets a scenario that sets it.
+reaches is not swept, so a new map or list gets a scenario that sets it. A
+map or list a template reads goes in `valuesShape` (`_validate-helpers.tpl`),
+and the sweep's type pass fails a raw error on one it misses (issue #235).
 
 **A null means one thing per kind of node** (issue #198):
 
