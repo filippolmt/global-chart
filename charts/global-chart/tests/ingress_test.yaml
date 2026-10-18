@@ -2,12 +2,12 @@ suite: ingress template tests
 templates:
   - templates/ingress.yaml
 tests:
-  # ====== Ingress with deployment reference ======
-  - it: should render ingress with deployment backend
+  # ====== Ingress with workload reference ======
+  - it: should render ingress with workload backend
     release:
       name: myrel
     set:
-      deployments:
+      workloads:
         frontend:
           image: nginx:1.25
           service:
@@ -17,7 +17,7 @@ tests:
         className: nginx
         hosts:
           - host: example.com
-            deployment: frontend
+            workload: frontend
             paths:
               - path: /
                 pathType: Prefix
@@ -71,7 +71,7 @@ tests:
   # ====== Ingress annotations ======
   - it: should render annotations
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
       ingress:
@@ -81,7 +81,7 @@ tests:
           nginx.ingress.kubernetes.io/ssl-redirect: "true"
         hosts:
           - host: example.com
-            deployment: main
+            workload: main
             paths:
               - path: /
                 pathType: Prefix
@@ -94,7 +94,7 @@ tests:
   # ====== Ingress TLS ======
   - it: should render TLS configuration
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
       ingress:
@@ -106,7 +106,7 @@ tests:
               - example.com
         hosts:
           - host: example.com
-            deployment: main
+            workload: main
             paths:
               - path: /
                 pathType: Prefix
@@ -119,11 +119,11 @@ tests:
           content: "example.com"
 
   # ====== Multiple hosts ======
-  - it: should render multiple hosts with different deployments
+  - it: should render multiple hosts with different workloads
     release:
       name: myrel
     set:
-      deployments:
+      workloads:
         frontend:
           image: nginx:1.25
           service:
@@ -137,12 +137,12 @@ tests:
         className: nginx
         hosts:
           - host: www.example.com
-            deployment: frontend
+            workload: frontend
             paths:
               - path: /
                 pathType: Prefix
           - host: api.example.com
-            deployment: api
+            workload: api
             paths:
               - path: /api
                 pathType: Prefix
@@ -160,10 +160,10 @@ tests:
           path: spec.rules[1].http.paths[0].backend.service.name
           value: myrel-global-chart-api
 
-  # ====== Ingress fails when referencing disabled deployment ======
-  - it: should fail when ingress references a disabled deployment
+  # ====== Ingress fails when referencing disabled workload ======
+  - it: should fail when ingress references a disabled workload
     set:
-      deployments:
+      workloads:
         frontend:
           enabled: false
           image: nginx:1.25
@@ -172,25 +172,25 @@ tests:
         className: nginx
         hosts:
           - host: example.com
-            deployment: frontend
+            workload: frontend
             paths:
               - path: /
                 pathType: Prefix
     asserts:
       - failedTemplate:
-          errorMessage: "ingress.hosts[0].deployment: references deployment 'frontend', which has enabled: false (its Service will not be created)"
+          errorMessage: "ingress.hosts[0].workload: references workload 'frontend', which has enabled: false (its Service will not be created)"
 
   # ====== Ingress always uses networking.k8s.io/v1 ======
   - it: should always use networking.k8s.io/v1 apiVersion
     set:
-      deployments:
+      workloads:
         main:
           image: "nginx:1.25"
       ingress:
         enabled: true
         hosts:
           - host: example.com
-            deployment: main
+            workload: main
             paths:
               - path: /
                 pathType: Prefix
@@ -202,7 +202,7 @@ tests:
   # ====== Ingress annotations nil safety ======
   - it: should render ingress without annotations defined
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           service:
@@ -212,7 +212,7 @@ tests:
         className: nginx
         hosts:
           - host: example.com
-            deployment: main
+            workload: main
             paths:
               - path: /
                 pathType: Prefix
@@ -221,9 +221,9 @@ tests:
           of: Ingress
 
   # ====== service.enabled validation ======
-  - it: should fail when ingress references deployment with service.enabled false
+  - it: should fail when ingress references workload with service.enabled false
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           service:
@@ -232,16 +232,16 @@ tests:
         enabled: true
         hosts:
           - host: api.example.com
-            deployment: backend
+            workload: backend
             paths:
               - path: /
     asserts:
       - failedTemplate:
-          errorMessage: "ingress.hosts[0].deployment: references deployment 'backend', which has service.enabled: false. Enable the service or remove the reference."
+          errorMessage: "ingress.hosts[0].workload: references workload 'backend', which has service.enabled: false. Enable the service or remove the reference."
 
-  - it: should render ingress when deployment has service.enabled true
+  - it: should render ingress when workload has service.enabled true
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           service:
@@ -251,7 +251,7 @@ tests:
         enabled: true
         hosts:
           - host: api.example.com
-            deployment: backend
+            workload: backend
             paths:
               - path: /
     asserts:
@@ -261,16 +261,16 @@ tests:
           path: spec.rules[0].http.paths[0].backend.service.port.number
           value: 3000
 
-  - it: should render ingress when deployment has no service key (defaults to enabled)
+  - it: should render ingress when workload has no service key (defaults to enabled)
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
       ingress:
         enabled: true
         hosts:
           - host: api.example.com
-            deployment: backend
+            workload: backend
             paths:
               - path: /
     asserts:
@@ -279,25 +279,25 @@ tests:
 
   # ====== Negative tests: fail/required paths ======
 
-  - it: should fail when ingress host references non-existent deployment
+  - it: should fail when ingress host references non-existent workload
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
       ingress:
         enabled: true
         hosts:
           - host: example.com
-            deployment: frontend
+            workload: frontend
             paths:
               - path: /
     asserts:
       - failedTemplate:
-          errorPattern: "ingress\\.hosts\\[0\\]\\.deployment: references deployment 'frontend', which does not exist in \\.Values\\.deployments"
+          errorPattern: "ingress\\.hosts\\[0\\]\\.workload: references workload 'frontend', which does not exist in \\.Values\\.workloads"
 
-  - it: should fail when ingress host has neither deployment nor service.name
+  - it: should fail when ingress host has neither workload nor service.name
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
       ingress:
@@ -308,7 +308,7 @@ tests:
               - path: /
     asserts:
       - failedTemplate:
-          errorPattern: "must specify either 'deployment'.*or 'service.name'"
+          errorPattern: "must specify either 'workload'.*or 'service.name'"
 
   # ====== global.commonLabels ======
   - it: should render global.commonLabels on ingress metadata
@@ -316,7 +316,7 @@ tests:
       global:
         commonLabels:
           team: platform
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
       ingress:
@@ -324,7 +324,7 @@ tests:
         className: nginx
         hosts:
           - host: example.com
-            deployment: main
+            workload: main
             paths:
               - path: /
                 pathType: Prefix
@@ -340,7 +340,7 @@ tests:
         commonAnnotations:
           owner: platform
           shared: from-global
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
       ingress:
@@ -351,7 +351,7 @@ tests:
           shared: from-ingress
         hosts:
           - host: example.com
-            deployment: main
+            workload: main
             paths:
               - path: /
                 pathType: Prefix
@@ -438,11 +438,11 @@ tests:
           errorPattern: "pathType"
 
   # ====== portName (issue #194) ======
-  - it: should route a host to a named extra port of the deployment's Service
+  - it: should route a host to a named extra port of the workload's Service
     release:
       name: myrel
     set:
-      deployments:
+      workloads:
         api:
           image: nginx:1.25
           service:
@@ -454,7 +454,7 @@ tests:
         enabled: true
         hosts:
           - host: admin.example.com
-            deployment: api
+            workload: api
             portName: admin
             paths: [{ path: / }]
     asserts:
@@ -467,7 +467,7 @@ tests:
 
   - it: should fail a host routed to a UDP port
     set:
-      deployments:
+      workloads:
         api:
           image: nginx:1.25
           service:
@@ -480,9 +480,9 @@ tests:
         enabled: true
         hosts:
           - host: example.com
-            deployment: api
+            workload: api
             portName: syslog
             paths: [{ path: / }]
     asserts:
       - failedTemplate:
-          errorPattern: "ingress\\.hosts\\[0\\]\\.portName: resolves to the UDP port 'syslog' of deployment 'api', but this backend forwards TCP"
+          errorPattern: "ingress\\.hosts\\[0\\]\\.portName: resolves to the UDP port 'syslog' of workload 'api', but this backend forwards TCP"

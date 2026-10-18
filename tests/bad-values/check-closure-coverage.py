@@ -20,7 +20,7 @@ closed `oneOf`/`anyOf` branch belongs in a `$defs` of its own, so its pointer
 does not hang on the order of the branches.
 
 The fixture. One per closed node, in `schema/`, named after the scope and kind
-the values use (`root-cronjob-`, `deployment-hook-`), not after the schema
+the values use (`root-cronjob-`, `workload-hook-`), not after the schema
 path: the `# covers:` line is what ties the two together.
 
 The static check. Every closed node has exactly one marker, and every marker

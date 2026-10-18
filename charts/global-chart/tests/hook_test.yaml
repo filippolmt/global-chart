@@ -22,15 +22,15 @@ tests:
           value: post-install
         documentIndex: 1
 
-  - it: should render root-level hook with fromDeployment image
+  - it: should render root-level hook with fromWorkload image
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
       hooks:
         post-upgrade:
           migrate:
-            fromDeployment: backend
+            fromWorkload: backend
             command: ["./migrate.sh"]
     asserts:
       - equal:
@@ -38,17 +38,17 @@ tests:
           value: "myapp:v2"
         documentIndex: 1
 
-  # fromDeployment copies the deployment's pullPolicy with its image: with a
+  # fromWorkload copies the workload's pullPolicy with its image: with a
   # mutable tag the hook would otherwise run a stale cached image (issue #160).
-  - it: should take the fromDeployment deployment's pullPolicy
+  - it: should take the fromWorkload workload's pullPolicy
     set:
-      deployments:
+      workloads:
         backend:
           image: { repository: registry.example.com/app, tag: latest, pullPolicy: Always }
       hooks:
         pre-upgrade:
           migrate:
-            fromDeployment: backend
+            fromWorkload: backend
             command: ["./migrate"]
     documentSelector:
       path: kind
@@ -58,15 +58,15 @@ tests:
           path: spec.template.spec.containers[0].imagePullPolicy
           value: Always
 
-  - it: should keep the job's own imagePullPolicy over the fromDeployment one
+  - it: should keep the job's own imagePullPolicy over the fromWorkload one
     set:
-      deployments:
+      workloads:
         backend:
           image: { repository: registry.example.com/app, tag: latest, pullPolicy: Always }
       hooks:
         pre-upgrade:
           migrate:
-            fromDeployment: backend
+            fromWorkload: backend
             imagePullPolicy: Never
             command: ["./migrate"]
     documentSelector:
@@ -77,15 +77,15 @@ tests:
           path: spec.template.spec.containers[0].imagePullPolicy
           value: Never
 
-  - it: should not take the fromDeployment pullPolicy when the job sets its own image
+  - it: should not take the fromWorkload pullPolicy when the job sets its own image
     set:
-      deployments:
+      workloads:
         backend:
           image: { repository: registry.example.com/app, tag: latest, pullPolicy: Always }
       hooks:
         pre-upgrade:
           migrate:
-            fromDeployment: backend
+            fromWorkload: backend
             image: busybox:1.36
             command: ["true"]
     documentSelector:
@@ -96,19 +96,19 @@ tests:
           path: spec.template.spec.containers[0].imagePullPolicy
           value: IfNotPresent
 
-  - it: should fail when fromDeployment references non-existent deployment
+  - it: should fail when fromWorkload references non-existent workload
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v1
       hooks:
         post-install:
           migrate:
-            fromDeployment: nonexistent
+            fromWorkload: nonexistent
             command: ["./migrate.sh"]
     asserts:
       - failedTemplate:
-          errorMessage: "hooks.post-install.migrate.fromDeployment: references deployment 'nonexistent', which does not exist in .Values.deployments"
+          errorMessage: "hooks.post-install.migrate.fromWorkload: references workload 'nonexistent', which does not exist in .Values.workloads"
 
   # ====== Root-level hook naming ======
   - it: should name root-level hook using hookfullname pattern
@@ -352,7 +352,7 @@ tests:
   # rejected at apply (issue #158).
   - it: should reject restartPolicy Always on a workload-scope hook
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           hooks:
@@ -531,22 +531,6 @@ tests:
             emptyDir: {}
         documentIndex: 1
 
-  - it: should fail on the removed type in a hook volume, with the hook's path
-    set:
-      deployments:
-        main:
-          image: "nginx:1.25"
-          hooks:
-            pre-install:
-              migrate:
-                command: ["true"]
-                volumes:
-                  - name: myvol
-                    type: secret
-    asserts:
-      - failedTemplate:
-          errorPattern: "deployments\\.main\\.hooks\\.pre-install\\.migrate\\.volumes\\[0\\]\\.type: removed in 4\\.0\\.0"
-
   # ====== Root-level hook with explicit serviceAccountName ======
   - it: should skip SA creation when serviceAccountName is explicitly set
     set:
@@ -611,7 +595,7 @@ tests:
   # ====== Root-level hook with no hooks set ======
   - it: should render nothing when hooks are not set
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
     asserts:
@@ -650,9 +634,9 @@ tests:
           count: 4
 
   # ====== Workload enabled flag ======
-  - it: should not render workload-scope hook when deployment enabled is false
+  - it: should not render workload-scope hook when workload enabled is false
     set:
-      deployments:
+      workloads:
         backend:
           enabled: false
           image: myapp:v2
@@ -665,13 +649,13 @@ tests:
           count: 0
 
   # ====== Workload-scope hooks ======
-  # Note: When deployment has serviceAccount.create: true (explicitly set),
+  # Note: When workload has serviceAccount.create: true (explicitly set),
   # the hook inherits the SA and only produces 1 document (Job at index 0).
-  # When deployment has no SA config, the hook creates its own SA (SA=0, Job=1).
+  # When workload has no SA config, the hook creates its own SA (SA=0, Job=1).
 
   - it: should render workload-scope hook inheriting image
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           serviceAccount:
@@ -691,9 +675,9 @@ tests:
           value: "myapp:v2"
         documentIndex: 0
 
-  - it: should inherit a deployment tag carrying a digest as written (issue #187)
+  - it: should inherit a workload tag carrying a digest as written (issue #187)
     set:
-      deployments:
+      workloads:
         backend:
           image:
             repository: myapp
@@ -712,7 +696,7 @@ tests:
 
   - it: should name a workload-scope hook image by its values path (issue #188)
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           hooks:
@@ -723,11 +707,11 @@ tests:
                 command: ["./migrate.sh"]
     asserts:
       - failedTemplate:
-          errorMessage: "deployments.backend.hooks.pre-install.migrate.image: sets a digest without a repository (expected repository@digest)"
+          errorMessage: "workloads.backend.hooks.pre-install.migrate.image: sets a digest without a repository (expected repository@digest)"
 
   - it: should name an inherited image where it sits, and the hook inheriting it (issue #188)
     set:
-      deployments:
+      workloads:
         backend:
           image:
             digest: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
@@ -737,26 +721,26 @@ tests:
                 command: ["./migrate.sh"]
     asserts:
       - failedTemplate:
-          errorMessage: "deployments.backend.image (inherited by deployments.backend.hooks.pre-install.migrate): sets a digest without a repository (expected repository@digest)"
+          errorMessage: "workloads.backend.image (inherited by workloads.backend.hooks.pre-install.migrate): sets a digest without a repository (expected repository@digest)"
 
-  - it: should name a fromDeployment image where it sits, and the hook taking it (issue #188)
+  - it: should name a fromWorkload image where it sits, and the hook taking it (issue #188)
     set:
-      deployments:
+      workloads:
         api:
           image:
             digest: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
       hooks:
         pre-install:
           migrate:
-            fromDeployment: api
+            fromWorkload: api
             command: ["./migrate.sh"]
     asserts:
       - failedTemplate:
-          errorMessage: "deployments.api.image (inherited by hooks.pre-install.migrate): sets a digest without a repository (expected repository@digest)"
+          errorMessage: "workloads.api.image (inherited by hooks.pre-install.migrate): sets a digest without a repository (expected repository@digest)"
 
-  - it: should name workload-scope hook with deployment name included
+  - it: should name workload-scope hook with workload name included
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           serviceAccount:
@@ -779,7 +763,7 @@ tests:
     release:
       name: rel-abcdefghijklmnop
     set:
-      deployments:
+      workloads:
         backend-service-worker-component:
           image: nginx:1.25
           hooks:
@@ -787,7 +771,7 @@ tests:
               db:
                 command: ["./m.sh"]
     asserts:
-      # documentIndex 0 is the hook-prerequisite copy of the deployment SA (#71)
+      # documentIndex 0 is the hook-prerequisite copy of the workload SA (#71)
       - isKind:
           of: Job
         documentIndex: 1
@@ -801,7 +785,7 @@ tests:
 
   - it: should set component label for workload-scope hook
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           serviceAccount:
@@ -819,7 +803,7 @@ tests:
   # ====== Workload-scope hook can override image ======
   - it: should allow workload-scope hook to override image
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           serviceAccount:
@@ -836,9 +820,9 @@ tests:
         documentIndex: 0
 
   # ====== Workload-scope hook SA inheritance ======
-  - it: should inherit SA from deployment when deployment creates SA
+  - it: should inherit SA from workload when workload creates SA
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           serviceAccount:
@@ -855,9 +839,9 @@ tests:
           pattern: ".*backend.*"
         documentIndex: 0
 
-  - it: should inherit SA from deployment when deployment has existing SA name
+  - it: should inherit SA from workload when workload has existing SA name
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           serviceAccount:
@@ -875,9 +859,9 @@ tests:
           value: "my-existing-sa"
         documentIndex: 0
 
-  - it: should create hook-specific SA when deployment has no SA
+  - it: should create hook-specific SA when workload has no SA
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           serviceAccount:
@@ -898,7 +882,7 @@ tests:
 
   - it: should allow explicit serviceAccountName override in workload-scope hook
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           serviceAccount:
@@ -918,7 +902,7 @@ tests:
 
   - it: should fail when a workload-scope hook names its ServiceAccount twice with different names
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           hooks:
@@ -930,16 +914,16 @@ tests:
                   name: migrator
     asserts:
       - failedTemplate:
-          errorMessage: "deployments.backend.hooks.pre-upgrade.migrate: names its ServiceAccount twice, with different names: serviceAccountName \"runner\" and serviceAccount.name \"migrator\". Keep only one of the two fields (or set the same name in both)."
+          errorMessage: "workloads.backend.hooks.pre-upgrade.migrate: names its ServiceAccount twice, with different names: serviceAccountName \"runner\" and serviceAccount.name \"migrator\". Keep only one of the two fields (or set the same name in both)."
 
-  # ====== issue #71, ADR 0011: hook-prerequisite copy of the deployment SA ======
+  # ====== issue #71, ADR 0011: hook-prerequisite copy of the workload SA ======
   # Helm creates normal resources after the pre-* hooks, so a hook binding a
-  # chart-created deployment SA needs a hook-annotated copy of it, under its
+  # chart-created workload SA needs a hook-annotated copy of it, under its
   # own name: a same-name copy would take the live SA with it under Argo CD,
   # where pre-install runs on every sync (issue #141).
-  - it: should emit a hook copy of the deployment SA under its own name for a pre-install hook
+  - it: should emit a hook copy of the workload SA under its own name for a pre-install hook
     set:
-      deployments:
+      workloads:
         app:
           image: myapp:v1
           serviceAccount:
@@ -986,7 +970,7 @@ tests:
 
   - it: should copy annotations and automount onto the hook SA copy
     set:
-      deployments:
+      workloads:
         app:
           image: myapp:v1
           serviceAccount:
@@ -1012,7 +996,7 @@ tests:
   # weight, so it precedes every one of them.
   - it: should derive the hook SA copy weight from the lowest consumer weight
     set:
-      deployments:
+      workloads:
         app:
           image: myapp:v1
           serviceAccount:
@@ -1035,7 +1019,7 @@ tests:
   # then — flooring at 0 would sort it AFTER the Job and reintroduce #71.
   - it: should keep the hook SA copy below the Job for a low positive weight
     set:
-      deployments:
+      workloads:
         app:
           image: myapp:v1
           serviceAccount:
@@ -1057,7 +1041,7 @@ tests:
 
   - it: should keep the hook SA copy below the Job for a negative weight
     set:
-      deployments:
+      workloads:
         app:
           image: myapp:v1
           serviceAccount:
@@ -1077,9 +1061,9 @@ tests:
           value: "-3"
         documentIndex: 1
 
-  - it: should not emit a hook SA copy when the deployment SA is externally managed
+  - it: should not emit a hook SA copy when the workload SA is externally managed
     set:
-      deployments:
+      workloads:
         app:
           image: myapp:v1
           serviceAccount:
@@ -1102,7 +1086,7 @@ tests:
 
   - it: should not emit a hook SA copy when the hook overrides serviceAccountName
     set:
-      deployments:
+      workloads:
         app:
           image: myapp:v1
           serviceAccount:
@@ -1121,7 +1105,7 @@ tests:
 
   - it: should not emit a hook SA copy when the hook creates its own SA
     set:
-      deployments:
+      workloads:
         app:
           image: myapp:v1
           serviceAccount:
@@ -1148,7 +1132,7 @@ tests:
   # revision adds the SA, so it reads the copy; post-install finds the real one.
   - it: should emit the hook SA copy for a pre-upgrade hook, not for a post-install one
     set:
-      deployments:
+      workloads:
         app:
           image: myapp:v1
           serviceAccount:
@@ -1183,9 +1167,9 @@ tests:
           value: RELEASE-NAME-global-chart-app-post-install-notify
 
   # pre-delete runs before Helm deletes anything: the real SA is in place.
-  - it: should keep the real deployment SA for a pre-delete hook
+  - it: should keep the real workload SA for a pre-delete hook
     set:
-      deployments:
+      workloads:
         app:
           image: myapp:v1
           serviceAccount:
@@ -1202,10 +1186,10 @@ tests:
           value: RELEASE-NAME-global-chart-app
 
   # The match is by resolved name in both scopes (ADR 0011): a root-level hook
-  # naming the deployment SA gets the copy, even from a deployment with no hooks.
-  - it: should emit the hook SA copy for a root-level hook naming the deployment SA
+  # naming the workload SA gets the copy, even from a workload with no hooks.
+  - it: should emit the hook SA copy for a root-level hook naming the workload SA
     set:
-      deployments:
+      workloads:
         app:
           image: myapp:v1
           serviceAccount:
@@ -1239,9 +1223,9 @@ tests:
           value: Job
 
   # One copy per SA: phases aggregated over every consumer, both scopes.
-  - it: should aggregate the phases of every hook running as the deployment SA copy
+  - it: should aggregate the phases of every hook running as the workload SA copy
     set:
-      deployments:
+      workloads:
         app:
           image: myapp:v1
           serviceAccount:
@@ -1265,9 +1249,9 @@ tests:
           path: metadata.name
           value: app-sa-hook
 
-  - it: should not emit a hook SA copy for a disabled deployment
+  - it: should not emit a hook SA copy for a disabled workload
     set:
-      deployments:
+      workloads:
         app:
           enabled: false
           image: myapp:v1
@@ -1285,9 +1269,9 @@ tests:
           path: spec.template.spec.serviceAccountName
           value: app-sa
 
-  # A deployment's SA bound by an rbacs.roles entry with create: false is still
+  # A workload's SA bound by an rbacs.roles entry with create: false is still
   # created by the release: the Role copy and the pod bind the same copy.
-  - it: should run as the deployment SA copy when an rbacs.roles entry binds that SA
+  - it: should run as the workload SA copy when an rbacs.roles entry binds that SA
     set:
       rbacs:
         roles:
@@ -1296,7 +1280,7 @@ tests:
               create: false
               name: app-sa
             rules: []
-      deployments:
+      workloads:
         app:
           image: myapp:v1
           serviceAccount:
@@ -1344,11 +1328,11 @@ tests:
           value: report-sa-hook
         documentIndex: 1
 
-  # A workload-scope cronjob's own SA: the copy takes the deployment's
+  # A workload-scope cronjob's own SA: the copy takes the workload's
   # component label
-  - it: should copy a deployment cronjob's own SA for a pre-upgrade hook naming it
+  - it: should copy a workload cronjob's own SA for a pre-upgrade hook naming it
     set:
-      deployments:
+      workloads:
         app:
           image: myapp:v1
           cronJobs:
@@ -1380,7 +1364,7 @@ tests:
   # ====== Workload-scope hook: explicit empty should NOT inherit ======
   - it: should not inherit hostAliases when hook sets empty list
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v1
           hostAliases:
@@ -1402,7 +1386,7 @@ tests:
 
   - it: should not inherit podSecurityContext when hook sets empty map
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v1
           podSecurityContext:
@@ -1422,7 +1406,7 @@ tests:
 
   - it: should not inherit container securityContext when hook sets empty map
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v1
           securityContext:
@@ -1442,7 +1426,7 @@ tests:
 
   - it: should not inherit nodeSelector when hook sets empty map
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v1
           nodeSelector:
@@ -1462,7 +1446,7 @@ tests:
 
   - it: should not inherit affinity when hook sets empty map
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v1
           affinity:
@@ -1488,7 +1472,7 @@ tests:
 
   - it: should not inherit tolerations when hook sets empty list
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v1
           tolerations:
@@ -1511,7 +1495,7 @@ tests:
 
   - it: should not inherit imagePullSecrets when hook sets empty list
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v1
           imagePullSecrets:
@@ -1532,7 +1516,7 @@ tests:
   # ====== Workload-scope hook securityContext inheritance ======
   - it: should inherit podSecurityContext from the workload in workload-scope hook
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           serviceAccount:
@@ -1556,7 +1540,7 @@ tests:
 
   - it: should inherit container securityContext from the workload in workload-scope hook
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           serviceAccount:
@@ -1574,10 +1558,10 @@ tests:
         documentIndex: 0
 
   # command/args are deliberately NOT inheritable: a migration hook must never
-  # pick up the deployment's entrypoint (see issue #72).
+  # pick up the workload's entrypoint (see issue #72).
   - it: should not inherit command or args from the workload in workload-scope hook
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           serviceAccount:
@@ -1599,7 +1583,7 @@ tests:
 
   - it: should allow workload-scope hook to override podSecurityContext
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           serviceAccount:
@@ -1620,7 +1604,7 @@ tests:
 
   - it: should allow workload-scope hook to override container securityContext
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           serviceAccount:
@@ -1642,7 +1626,7 @@ tests:
   # ====== Workload-scope hook hostAliases inheritance ======
   - it: should inherit hostAliases from the workload in workload-scope hook
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           serviceAccount:
@@ -1667,7 +1651,7 @@ tests:
 
   - it: should allow workload-scope hook to override hostAliases
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           serviceAccount:
@@ -1691,9 +1675,9 @@ tests:
         documentIndex: 0
 
   # ====== Workload-scope hook envFrom inheritance ======
-  - it: should inherit envFrom from deployment configMap and secret
+  - it: should inherit envFrom from workload configMap and secret
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           serviceAccount:
@@ -1745,9 +1729,9 @@ tests:
               name: RELEASE-NAME-global-chart-backend-hook-secret
         documentIndex: 2
 
-  - it: should copy the deployment configMap and secret data verbatim onto the prereqs
+  - it: should copy the workload configMap and secret data verbatim onto the prereqs
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           configMap:
@@ -1818,9 +1802,9 @@ tests:
           value: "ODA4MA=="
         documentIndex: 1
 
-  - it: should inherit envFromConfigMaps and envFromSecrets from deployment
+  - it: should inherit envFromConfigMaps and envFromSecrets from workload
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           serviceAccount:
@@ -1848,9 +1832,9 @@ tests:
         documentIndex: 0
 
   # ====== Workload-scope hook additionalEnvs inheritance ======
-  - it: should inherit additionalEnvs from deployment
+  - it: should inherit additionalEnvs from workload
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           serviceAccount:
@@ -1874,9 +1858,9 @@ tests:
                 fieldPath: metadata.name
         documentIndex: 0
 
-  - it: should merge deployment additionalEnvs with hook env
+  - it: should merge workload additionalEnvs with hook env
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           serviceAccount:
@@ -1906,9 +1890,9 @@ tests:
         documentIndex: 0
 
   # ====== Workload-scope hook nodeSelector inheritance ======
-  - it: should inherit nodeSelector from deployment
+  - it: should inherit nodeSelector from workload
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           serviceAccount:
@@ -1927,7 +1911,7 @@ tests:
 
   - it: should allow workload-scope hook to override nodeSelector
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           serviceAccount:
@@ -1947,9 +1931,9 @@ tests:
         documentIndex: 0
 
   # ====== Workload-scope hook tolerations inheritance ======
-  - it: should inherit tolerations from deployment
+  - it: should inherit tolerations from workload
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           serviceAccount:
@@ -1975,7 +1959,7 @@ tests:
 
   - it: should allow workload-scope hook to override tolerations
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           serviceAccount:
@@ -2003,9 +1987,9 @@ tests:
         documentIndex: 0
 
   # ====== Workload-scope hook affinity inheritance ======
-  - it: should inherit affinity from deployment
+  - it: should inherit affinity from workload
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           serviceAccount:
@@ -2029,7 +2013,7 @@ tests:
 
   - it: should allow workload-scope hook to override affinity
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           serviceAccount:
@@ -2060,9 +2044,9 @@ tests:
         documentIndex: 0
 
   # ====== Workload-scope hook imagePullSecrets inheritance ======
-  - it: should inherit imagePullSecrets from deployment
+  - it: should inherit imagePullSecrets from workload
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           serviceAccount:
@@ -2082,7 +2066,7 @@ tests:
 
   - it: should allow workload-scope hook to override imagePullSecrets
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           serviceAccount:
@@ -2105,7 +2089,7 @@ tests:
   # ====== Workload-scope hook default resources ======
   - it: should use default resources on workload-scope hook when not specified
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           serviceAccount:
@@ -2126,7 +2110,7 @@ tests:
 
   - it: should use custom resources on workload-scope hook when specified
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           serviceAccount:
@@ -2148,7 +2132,7 @@ tests:
   # ====== Workload-scope hook default annotations ======
   - it: should set correct annotations on workload-scope hook
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           serviceAccount:
@@ -2173,7 +2157,7 @@ tests:
 
   - it: should use custom weight and deletePolicy on workload-scope hook
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           serviceAccount:
@@ -2197,7 +2181,7 @@ tests:
   # ====== Workload-scope hook restartPolicy ======
   - it: should default restartPolicy to Never on workload-scope hook
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           serviceAccount:
@@ -2215,7 +2199,7 @@ tests:
   # ====== Container name for workload-scope hook ======
   - it: should use job name as container name for workload-scope hook
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           serviceAccount:
@@ -2233,7 +2217,7 @@ tests:
   # ====== Mixed: root-level and workload-scope hooks ======
   - it: should render both root-level and workload-scope hooks
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           serviceAccount:
@@ -2254,7 +2238,7 @@ tests:
   # ====== hook weight ordering ======
   - it: should set weight 3 on prerequisite ConfigMap for workload-scope hook
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           configMap:
@@ -2274,7 +2258,7 @@ tests:
 
   - it: should set weight 3 on prerequisite Secret for workload-scope hook
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           secret:
@@ -2294,7 +2278,7 @@ tests:
 
   - it: should set weight 5 on SA for workload-scope hook
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           hooks:
@@ -2314,7 +2298,7 @@ tests:
 
   - it: should set weight 10 on Job for workload-scope hook
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           serviceAccount:
@@ -2333,9 +2317,9 @@ tests:
         documentIndex: 1
 
   # ====== hook type aggregation on prerequisites ======
-  - it: should aggregate all hook types on prerequisite ConfigMap when deployment has multiple hook types
+  - it: should aggregate all hook types on prerequisite ConfigMap when workload has multiple hook types
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           configMap:
@@ -2356,9 +2340,9 @@ tests:
           value: "pre-install,pre-upgrade"
         documentIndex: 1
 
-  - it: should aggregate all hook types on prerequisite Secret when deployment has multiple hook types
+  - it: should aggregate all hook types on prerequisite Secret when workload has multiple hook types
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           secret:
@@ -2408,9 +2392,9 @@ tests:
 
   # ====== Seven-category: default assertions ======
 
-  - it: should render no nodeSelector when neither deployment nor hook sets it
+  - it: should render no nodeSelector when neither workload nor hook sets it
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v1
           serviceAccount:
@@ -2420,7 +2404,7 @@ tests:
               migrate:
                 command: ["./migrate.sh"]
     asserts:
-      # documentIndex 0 is the hook-prerequisite copy of the deployment SA (#71)
+      # documentIndex 0 is the hook-prerequisite copy of the workload SA (#71)
       - isKind:
           of: Job
         documentIndex: 1
@@ -2430,9 +2414,9 @@ tests:
 
   # ====== Hook prerequisite partial tests ======
 
-  - it: should not create prerequisite ConfigMap when deployment has no configMap
+  - it: should not create prerequisite ConfigMap when workload has no configMap
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           serviceAccount:
@@ -2457,9 +2441,9 @@ tests:
           of: Job
         documentIndex: 2
 
-  - it: should create only ConfigMap prereq when deployment has configMap but no secret
+  - it: should create only ConfigMap prereq when workload has configMap but no secret
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           serviceAccount:
@@ -2488,9 +2472,9 @@ tests:
           of: Job
         documentIndex: 2
 
-  - it: should create only Secret prereq when deployment has secret but no configMap
+  - it: should create only Secret prereq when workload has secret but no configMap
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           serviceAccount:
@@ -2521,7 +2505,7 @@ tests:
 
   - it: should share single prereq set across multiple hook commands
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           serviceAccount:
@@ -2562,7 +2546,7 @@ tests:
   # Flooring any of the three at 0 would sort it after the Job.
   - it: should keep the prereq/SA/Job weight ordering for a negative hook weight
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           serviceAccount:
@@ -2616,7 +2600,7 @@ tests:
   # Jobs deliberately do not, they are the record of what ran.
   - it: should clean up prereq ConfigMap and Secret after the hook phase
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           serviceAccount:
@@ -2709,7 +2693,7 @@ tests:
   # ====== dnsConfig NOT inherited in workload-scope hooks ======
   - it: should not inherit dnsConfig from the workload in workload-scope hook
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           dnsConfig:
@@ -2756,7 +2740,7 @@ tests:
       - failedTemplate:
           errorMessage: "hooks.pre-install.migrate.volumes[1]: declares the pod volume 'data', which hooks.pre-install.migrate.volumes[0] already declares, and a pod holds one volume per name. Rename the volumes entry."
 
-  - it: should fail when root-level hook has no image and no fromDeployment
+  - it: should fail when root-level hook has no image and no fromWorkload
     set:
       hooks:
         post-install:
@@ -2764,7 +2748,7 @@ tests:
             command: ["./run.sh"]
     asserts:
       - failedTemplate:
-          errorPattern: "hooks\\.post-install\\.migrate: image is required \\(set hooks\\.post-install\\.migrate\\.image or hooks\\.post-install\\.migrate\\.fromDeployment\\)"
+          errorPattern: "hooks\\.post-install\\.migrate: image is required \\(set hooks\\.post-install\\.migrate\\.image or hooks\\.post-install\\.migrate\\.fromWorkload\\)"
 
   # ====== Root-level SA parity with root-level cronJobs (see cronjob_test.yaml) ======
   - it: should create the ServiceAccount the pod references when root hook sets none
@@ -2869,7 +2853,7 @@ tests:
 
   - it: should create the workload-scope hook SA under an explicit serviceAccountName
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v1
           hooks:
@@ -2902,7 +2886,7 @@ tests:
   # renders, not on a flag inside the helper.
   - it: should apply the hookAnnotations role table to every hook resource
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           serviceAccount:
@@ -2946,7 +2930,7 @@ tests:
           path: metadata.annotations["helm.sh/hook-delete-policy"]
           value: before-hook-creation,hook-succeeded,hook-failed
         documentIndex: 2
-      # the deployment SA copy is plumbing too: role prereq (ADR 0011)
+      # the workload SA copy is plumbing too: role prereq (ADR 0011)
       - isKind:
           of: ServiceAccount
         documentIndex: 0
@@ -2996,10 +2980,10 @@ tests:
   # at the end of this suite.
 
   # The SA copy sorts against the hooks that actually bind the
-  # deployment SA, not against every pre-install hook.
+  # workload SA, not against every pre-install hook.
   - it: should derive the SA copy weight only from SA-binding hooks
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           serviceAccount:
@@ -3022,16 +3006,16 @@ tests:
           value: "-3"
         documentIndex: 0
 
-  # ====== Root-level hooks inherit nothing from deployments ======
+  # ====== Root-level hooks inherit nothing from workloads ======
   # Guards the omission of "deploy" in hook.yaml PART 1's jobPodSpec call: the
   # helper carries the whole inheritance chain, and only the missing key keeps
   # it inactive for root-level hooks (_job-helpers.tpl header, "Inheritance").
-  - it: should inherit nothing from a deployment for a root-level hook
+  - it: should inherit nothing from a workload for a root-level hook
     documentSelector:
       path: kind
       value: Job
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v1
           imagePullSecrets:
@@ -3147,7 +3131,7 @@ tests:
       global:
         commonAnnotations:
           shared: from-global
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           serviceAccount:
@@ -3206,7 +3190,7 @@ tests:
           secretstore: { kind: ClusterSecretStore, name: store }
           secretkey: PASSWORD
           remote: { key: app/password }
-      deployments:
+      workloads:
         app:
           image: nginx:1.25
           secret:
@@ -3274,7 +3258,7 @@ tests:
           secretstore: { kind: ClusterSecretStore, name: store }
           secretkey: PASSWORD
           remote: { key: other/password }
-      deployments:
+      workloads:
         app:
           image: nginx:1.25
           envFromSecrets:
@@ -3512,7 +3496,7 @@ tests:
 
   - it: should render activeDeadlineSeconds on a workload-scope hook Job, and omit it when unset
     set:
-      deployments:
+      workloads:
         app:
           image: nginx:1.25
           hooks:
@@ -3535,7 +3519,7 @@ tests:
           value: RELEASE-NAME-global-chart-app-pre-install-unbounded
 
   # ====== backoffLimit (issue #113) ======
-  # No fallback from the deployment or global: a retry budget is the hook's own.
+  # No fallback from the workload or global: a retry budget is the hook's own.
   - it: should render backoffLimit on a root-level hook Job
     set:
       hooks:
@@ -3553,7 +3537,7 @@ tests:
 
   - it: should render backoffLimit on a workload-scope hook Job, and omit it when unset
     set:
-      deployments:
+      workloads:
         app:
           image: nginx:1.25
           hooks:
@@ -3599,7 +3583,7 @@ tests:
   # form (1.5 is never truncated). set: values reach the template as float64.
   - it: should render a large number in plain digits on the prerequisite ConfigMap copy
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           configMap:
@@ -3663,7 +3647,7 @@ tests:
             serviceAccount:
               name: scaler
             rules: []
-      deployments:
+      workloads:
         app:
           image: myapp:v1
           hooks:
@@ -3780,7 +3764,7 @@ tests:
             serviceAccount:
               name: scaler
             rules: []
-      deployments:
+      workloads:
         app:
           image: myapp:v1
           hooks:
@@ -3797,7 +3781,7 @@ tests:
 
   # ====== Pod-level automountServiceAccountToken (issue #154, ADR 0014) ======
   # The pod field wins over the ServiceAccount's at admission. Chain: the job's
-  # own value > (workload scope only) the deployment's pod-level value > omit.
+  # own value > (workload scope only) the workload's pod-level value > omit.
   - it: should render pod-level automountServiceAccountToken false from a root hook's own field
     documentSelector:
       path: kind
@@ -3814,9 +3798,9 @@ tests:
           path: spec.template.spec.automountServiceAccountToken
           value: false
 
-  - it: should inherit the deployment's pod-level false on a hook running as the SA copy, whose automount stays true
+  - it: should inherit the workload's pod-level false on a hook running as the SA copy, whose automount stays true
     set:
-      deployments:
+      workloads:
         app:
           image: nginx
           automountServiceAccountToken: false
@@ -3837,7 +3821,7 @@ tests:
         documentSelector:
           path: kind
           value: Job
-      # ADR 0014: the deployment value does not reach the SA; the pod field wins
+      # ADR 0014: the workload value does not reach the SA; the pod field wins
       - equal:
           path: automountServiceAccountToken
           value: true
@@ -3845,12 +3829,12 @@ tests:
           path: kind
           value: ServiceAccount
 
-  - it: should let a hook's explicit automountServiceAccountToken true beat the deployment's false
+  - it: should let a hook's explicit automountServiceAccountToken true beat the workload's false
     documentSelector:
       path: kind
       value: Job
     set:
-      deployments:
+      workloads:
         app:
           image: nginx
           automountServiceAccountToken: false
@@ -3910,9 +3894,9 @@ tests:
           value: "-10"
 
   # A workload-scope hook opts out of one list and keeps the other (issue #159)
-  - it: should opt a workload-scope hook out of the deployment's envFromSecrets only
+  - it: should opt a workload-scope hook out of the workload's envFromSecrets only
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           envFromSecrets: [prod-db-admin-credentials]
@@ -3921,7 +3905,7 @@ tests:
             pre-upgrade:
               migrate:
                 command: ["./migrate.sh"]
-                inheritDeploymentEnvFromSecrets: false
+                inheritWorkloadEnvFromSecrets: false
     documentSelector:
       path: kind
       value: Job
@@ -3933,12 +3917,12 @@ tests:
                 name: prod-settings
 
   # ====== priorityClassName (issue #168) ======
-  - it: should inherit priorityClassName from deployment
+  - it: should inherit priorityClassName from workload
     documentSelector:
       path: kind
       value: Job
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           priorityClassName: prod-high
@@ -3956,7 +3940,7 @@ tests:
       path: kind
       value: Job
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           priorityClassName: prod-high
@@ -3975,7 +3959,7 @@ tests:
       path: kind
       value: Job
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           priorityClassName: prod-high
@@ -3988,19 +3972,19 @@ tests:
       - notExists:
           path: spec.template.spec.priorityClassName
 
-  - it: should not inherit priorityClassName on a root-level hook via fromDeployment
+  - it: should not inherit priorityClassName on a root-level hook via fromWorkload
     documentSelector:
       path: kind
       value: Job
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           priorityClassName: prod-high
       hooks:
         post-install:
           migrate:
-            fromDeployment: backend
+            fromWorkload: backend
             command: ["./migrate.sh"]
     asserts:
       - notExists:
@@ -4022,12 +4006,12 @@ tests:
           path: spec.template.spec.priorityClassName
           value: batch-low
 
-  - it: should omit priorityClassName when neither the hook nor its deployment sets it
+  - it: should omit priorityClassName when neither the hook nor its workload sets it
     documentSelector:
       path: kind
       value: Job
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           hooks:
@@ -4042,7 +4026,7 @@ tests:
   # fails there too, with the same message (issue #166).
   - it: should fail on a null secret value in the hook-prerequisite Secret copy
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           secret:
@@ -4053,13 +4037,13 @@ tests:
                 command: ["true"]
     asserts:
       - failedTemplate:
-          errorPattern: "deployments.main.secret.EMPTY: a null value reached a Secret"
+          errorPattern: "workloads.main.secret.EMPTY: a null value reached a Secret"
 
   # The hook-prerequisite ConfigMap copy shares renderConfigMapData, so a null
   # value fails there with the same path as the real ConfigMap.
   - it: should fail on a null configMap value in the hook-prerequisite ConfigMap copy
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           configMap:
@@ -4070,18 +4054,18 @@ tests:
                 command: ["true"]
     asserts:
       - failedTemplate:
-          errorPattern: "deployments.main.configMap.EMPTY: a null value reached a ConfigMap"
+          errorPattern: "workloads.main.configMap.EMPTY: a null value reached a ConfigMap"
 
   # ====== reloader.externalSecrets stays on the workload (ADR 0016) ======
   # Every run creates fresh pods, so a Reloader annotation on a job is noise.
-  - it: should not inherit the deployment's Reloader annotation
+  - it: should not inherit the workload's Reloader annotation
     set:
       externalSecrets:
         app-env:
           secretstore: { kind: ClusterSecretStore, name: store }
           secretkey: KEY
           remote: { key: app/env }
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           externalSecrets:
@@ -4101,14 +4085,14 @@ tests:
 
   # Duplicate mountPath (issue #182): the inherited externalSecrets count, and
   # the message names the job.
-  - it: should fail when a deployment hook's volumeMounts repeat the mountPath of an inherited externalSecrets entry
+  - it: should fail when a workload hook's volumeMounts repeat the mountPath of an inherited externalSecrets entry
     set:
       externalSecrets:
         app-conf:
           secretstore: { kind: ClusterSecretStore, name: store }
           secretkey: KEY
           remote: { key: app }
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           externalSecrets:
@@ -4126,16 +4110,16 @@ tests:
                     mountPath: /etc/app
     asserts:
       - failedTemplate:
-          errorMessage: "deployments.main.hooks.post-install.migrate: externalSecrets 'app-conf' (inherited from deployments.main) mounts on '/etc/app', which volumeMounts[0] already mounts. The API server rejects two mounts on one path in a container: give each its own mountPath."
+          errorMessage: "workloads.main.hooks.post-install.migrate: externalSecrets 'app-conf' (inherited from workloads.main) mounts on '/etc/app', which volumeMounts[0] already mounts. The API server rejects two mounts on one path in a container: give each its own mountPath."
 
-  - it: should fail when an inherited externalSecrets volume takes the name of a deployment hook's volume
+  - it: should fail when an inherited externalSecrets volume takes the name of a workload hook's volume
     set:
       externalSecrets:
         app-conf:
           secretstore: { kind: ClusterSecretStore, name: store }
           secretkey: KEY
           remote: { key: app }
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           externalSecrets:
@@ -4150,7 +4134,7 @@ tests:
                     emptyDir: {}
     asserts:
       - failedTemplate:
-          errorMessage: "deployments.main.externalSecrets[0]: the volume 'es-app-conf' generated for 'app-conf' is already declared by deployments.main.hooks.post-install.migrate.volumes[0]. Mount a key once, and do not name your own volumes after it."
+          errorMessage: "workloads.main.externalSecrets[0]: the volume 'es-app-conf' generated for 'app-conf' is already declared by workloads.main.hooks.post-install.migrate.volumes[0]. Mount a key once, and do not name your own volumes after it."
 
   - it: should fail when a root hook's volumeMounts share a mountPath
     set:
@@ -4171,15 +4155,15 @@ tests:
       - failedTemplate:
           errorPattern: "hooks.post-install.migrate: volumeMounts\\[1\\] mounts on '/data', which volumeMounts\\[0\\] already mounts"
 
-  - it: should fail naming an empty fromDeployment target as empty, not missing
+  - it: should fail naming an empty fromWorkload target as empty, not missing
     set:
-      deployments:
+      workloads:
         backend: {}
       hooks:
         post-install:
           migrate:
-            fromDeployment: backend
+            fromWorkload: backend
             command: ["true"]
     asserts:
       - failedTemplate:
-          errorPattern: "hooks\\.post-install\\.migrate\\.fromDeployment: references deployment 'backend', which is empty: an empty deployments entry renders nothing"
+          errorPattern: "hooks\\.post-install\\.migrate\\.fromWorkload: references workload 'backend', which is empty: an empty workloads entry renders nothing"

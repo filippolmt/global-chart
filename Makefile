@@ -97,11 +97,11 @@ TEST_CASES := \
 	tests/external-ingress.yaml:ingress:external-ingress \
 	tests/rbac.yaml:rbac:rbac \
 	tests/rbac-hooks.yaml:rbac-hooks:rbac-hooks \
-	tests/multi-deployment.yaml:multi:multi-deployment \
+	tests/multi-workload.yaml:multi:multi-workload \
 	tests/service-disabled.yaml:svc-disabled:service-disabled \
 	tests/service-extra-ports.yaml:svc-extra-ports:service-extra-ports \
-	tests/raw-deployment.yaml:raw:raw-deployment \
-	tests/deployment-hooks-cronjobs.yaml:deploy-hooks:deploy-hooks-cj \
+	tests/raw-workload.yaml:raw:raw-workload \
+	tests/workload-hooks-cronjobs.yaml:deploy-hooks:workload-hooks-cj \
 	tests/hooks-sa-inheritance.yaml:hooks-sa:hooks-sa-inheritance \
 	tests/name-collision.yaml:default:name-collision \
 	tests/httproute-basic.yaml:httproute-basic:httproute-basic \
@@ -117,7 +117,7 @@ TEST_CASES := \
 .DEFAULT_GOAL := help
 
 # All phony targets
-.PHONY: help all check lint-chart lint-templates lint-docs lint-shell lint-glossary lint-labels unit-test null-sweep validate-bad-values generate-templates \
+.PHONY: help all check lint-chart render-diff lint-templates lint-docs lint-shell lint-glossary lint-labels unit-test null-sweep validate-bad-values generate-templates \
 	kubeconform kube-linter-manifests kube-linter generate-docs package \
 	install install-test01 render clean clean-all \
 	kind-install kind-cluster kind-keda kind-eso kind-gateway-api kind-argocd kind-delete e2e e2e-dryrun e2e-routes e2e-argocd check-helm-floor
@@ -134,7 +134,7 @@ help: ## Show this help message
 	@echo ""
 	@echo "Examples:"
 	@echo "  make install SCENARIO=test01                                          Install a test scenario"
-	@echo "  make render VALUES=tests/test01/values.01.yaml TEMPLATE=deployment.yaml   Render a single template"
+	@echo "  make render VALUES=tests/test01/values.01.yaml TEMPLATE=workload.yaml   Render a single template"
 	@echo ""
 	@echo "Available scenarios:"
 	@for entry in $(TEST_CASES); do slug="$${entry##*:}"; printf "  %s\n" "$$slug"; done
@@ -194,6 +194,10 @@ unit-test: ## Run helm-unittest via Docker; SUITE=tests/<name>_test.yaml (space-
 	@echo "==> Running helm unit tests..."
 	@docker run --rm -u $$(id -u):$$(id -g) -v $(CURDIR)/$(CHART_DIR)/$(GLOBAL_CHART_NAME):/apps -w /apps $(HELM_UNITTEST_IMAGE) $(foreach f,$(SUITE),-f $(f)) .
 	@echo "==> All unit tests passed!"
+
+render-diff: ## Render every TEST_CASES scenario on BASE (default main) and on the working tree, and diff them; BASE=<ref> picks the base
+	@echo "==> Diffing the rendered manifests against $(or $(BASE),main)..."
+	@python3 tests/render-diff.py $(or $(BASE),main) $(HELM_API_VERSIONS)
 
 validate-bad-values: ## Verify bad-values are rejected: schema/ by values.schema.json, fail/ by the template fail each names, skip-schema/ by both (the fail under --skip-schema-validation)
 	@echo "==> Validating bad-values are correctly rejected..."
@@ -477,7 +481,7 @@ check-helm-floor: kind-cluster ## Assert NOTES.txt warns on a Helm below 3.18.6
 		-v $(HELM_FLOOR_KUBECONFIG):/kubeconfig:ro -e KUBECONFIG=/kubeconfig \
 		-v $(CURDIR)/$(CHART_DIR)/$(GLOBAL_CHART_NAME):/chart:ro \
 		$(HELM_FLOOR_IMAGE) install floor /chart --dry-run=client \
-		--set deployments.web.image=nginx:1.25 2>&1) \
+		--set workloads.web.image=nginx:1.25 2>&1) \
 		|| { echo "FAIL: $(HELM_FLOOR_IMAGE) did not render the chart:"; printf '%s\n' "$$out" | tail -5; exit 1; }; \
 	printf '%s\n' "$$out" | grep -q "is below 3.18.6" \
 		|| { echo "FAIL: NOTES.txt did not warn on $(HELM_FLOOR_IMAGE)"; exit 1; }
@@ -502,7 +506,7 @@ e2e: kind-cluster kind-keda kind-eso check-helm-floor e2e-dryrun ## Install/upgr
 		[ "$$(kubectl -n $$ns get job $$rel-$(GLOBAL_CHART_NAME)-app-pre-install-$$hook -o jsonpath='{.status.succeeded}' 2>/dev/null)" = "1" ] \
 			|| { echo "FAIL: pre-install hook Job '$$hook' did not succeed (issue #71 regression)"; exit 1; }; \
 		[ "$$(kubectl -n $$ns get job $$rel-$(GLOBAL_CHART_NAME)-app-pre-install-$$hook -o jsonpath='{.spec.template.spec.serviceAccountName}')" = "$$rel-$(GLOBAL_CHART_NAME)-app-hook" ] \
-			|| { echo "FAIL: pre-install hook '$$hook' did not run as the deployment SA copy <sa>-hook (ADR 0011)"; exit 1; }; \
+			|| { echo "FAIL: pre-install hook '$$hook' did not run as the workload SA copy <sa>-hook (ADR 0011)"; exit 1; }; \
 	done; \
 	echo "    both pre-install hooks bound to the chart-created ServiceAccount succeeded"; \
 	echo "    ... as its hook copy <sa>-hook, never under the real SA's name (ADR 0011)"; \
@@ -514,7 +518,7 @@ e2e: kind-cluster kind-keda kind-eso check-helm-floor e2e-dryrun ## Install/upgr
 	echo "    ExternalSecret hook copy deleted, its Secret garbage-collected"; \
 	echo "    the negative-weight hook found its prerequisite ConfigMap (weight invariant holds)"; \
 	kubectl -n $$ns wait --for=delete sa/$$rel-$(GLOBAL_CHART_NAME)-app-hook --timeout=60s >/dev/null 2>&1 \
-		|| { echo "FAIL: the deployment SA hook copy survived the hook phase"; kubectl -n $$ns get sa; exit 1; }; \
+		|| { echo "FAIL: the workload SA hook copy survived the hook phase"; kubectl -n $$ns get sa; exit 1; }; \
 	kubectl -n $$ns get sa $$rel-$(GLOBAL_CHART_NAME)-app -o jsonpath='{.metadata.annotations}' | grep -q 'helm.sh/hook' \
 		&& { echo "FAIL: the surviving SA is the hook copy, not the real one"; exit 1; } || true; \
 	echo "    hook-prerequisite SA copy cleaned up, real SA in place"; \
@@ -528,8 +532,8 @@ e2e: kind-cluster kind-keda kind-eso check-helm-floor e2e-dryrun ## Install/upgr
 		|| { echo "FAIL: the real rbacs.roles resources are missing"; exit 1; }; \
 	echo "    rbacs.roles hook copies deleted, real SA/Role/RoleBinding in place"; \
 	[ "$$(kubectl -n $$ns get deploy $$rel-$(GLOBAL_CHART_NAME)-app -o jsonpath='{.spec.template.spec.containers[0].command}')" = '["sh","-c"]' ] \
-		|| { echo "FAIL: deployment command not rendered (issue #72 regression)"; exit 1; }; \
-	echo "    deployment command/args rendered"; \
+		|| { echo "FAIL: Deployment command not rendered (issue #72 regression)"; exit 1; }; \
+	echo "    Deployment command/args rendered"; \
 	cron_sa=$$(kubectl -n $$ns get cronjob $$rel-$(GLOBAL_CHART_NAME)-cleanup -o jsonpath='{.spec.jobTemplate.spec.template.spec.serviceAccountName}'); \
 	kubectl -n $$ns get sa "$$cron_sa" >/dev/null 2>&1 \
 		|| { echo "FAIL: root-level CronJob references ServiceAccount '$$cron_sa', which no manifest creates"; exit 1; }; \
@@ -537,7 +541,7 @@ e2e: kind-cluster kind-keda kind-eso check-helm-floor e2e-dryrun ## Install/upgr
 	echo "==> Waiting for Service endpoints..."; \
 	for d in app web; do \
 		kubectl -n $$ns rollout status deploy/$$rel-$(GLOBAL_CHART_NAME)-$$d --timeout=180s >/dev/null \
-			|| { echo "FAIL: deployment '$$d' never became available"; exit 1; }; \
+			|| { echo "FAIL: Deployment '$$d' never became available"; exit 1; }; \
 		kubectl -n $$ns wait --for=jsonpath='{.endpoints[0].conditions.ready}'=true \
 			endpointslice -l kubernetes.io/service-name=$$rel-$(GLOBAL_CHART_NAME)-$$d --timeout=120s >/dev/null \
 			|| { echo "FAIL: Service '$$d' never got a ready endpoint"; exit 1; }; \
@@ -594,7 +598,7 @@ e2e: kind-cluster kind-keda kind-eso check-helm-floor e2e-dryrun ## Install/upgr
 	helm package ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) -d "$$upgrade_dir" \
 		--version "$$(helm show chart ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) | awk '/^version:/ {print $$2}')-e2e.upgrade" >/dev/null; \
 	helm upgrade $$rel "$$upgrade_dir"/$(GLOBAL_CHART_NAME)-*.tgz -f $(E2E_VALUES) \
-		--set-string deployments.store.podAnnotations.e2e-upgrade=1 \
+		--set-string workloads.store.podAnnotations.e2e-upgrade=1 \
 		--namespace $$ns --timeout 180s >/dev/null; \
 	case "$$(kubectl -n $$ns get sts $$sts -o jsonpath='{.metadata.labels.helm\.sh/chart}')" in *-e2e.upgrade) ;; \
 		*) echo "FAIL: the upgrade did not apply the other chart version"; exit 1 ;; esac; \
@@ -609,12 +613,12 @@ e2e: kind-cluster kind-keda kind-eso check-helm-floor e2e-dryrun ## Install/upgr
 		|| { echo "FAIL: the ServiceAccount was recreated, bound tokens would be invalidated"; exit 1; }; \
 	echo "    upgrade kept the ServiceAccount identity"; \
 	[ "$$(kubectl -n $$ns get job $$rel-$(GLOBAL_CHART_NAME)-app-pre-upgrade-migration -o jsonpath='{.status.succeeded}' 2>/dev/null)" = "1" ] \
-		|| { echo "FAIL: the pre-upgrade hook bound to the deployment SA did not succeed"; exit 1; }; \
+		|| { echo "FAIL: the pre-upgrade hook bound to the workload SA did not succeed"; exit 1; }; \
 	[ "$$(kubectl -n $$ns get job $$rel-$(GLOBAL_CHART_NAME)-app-pre-upgrade-migration -o jsonpath='{.spec.template.spec.serviceAccountName}')" = "$$rel-$(GLOBAL_CHART_NAME)-app-hook" ] \
-		|| { echo "FAIL: the pre-upgrade hook did not run as the deployment SA copy (ADR 0011)"; exit 1; }; \
+		|| { echo "FAIL: the pre-upgrade hook did not run as the workload SA copy (ADR 0011)"; exit 1; }; \
 	kubectl -n $$ns wait --for=delete sa/$$rel-$(GLOBAL_CHART_NAME)-app-hook --timeout=60s >/dev/null 2>&1 \
-		|| { echo "FAIL: the deployment SA hook copy survived the pre-upgrade phase"; kubectl -n $$ns get sa; exit 1; }; \
-	echo "    pre-upgrade hook ran as the deployment SA copy beside the live SA, copy cleaned up (issue #141)"; \
+		|| { echo "FAIL: the workload SA hook copy survived the pre-upgrade phase"; kubectl -n $$ns get sa; exit 1; }; \
+	echo "    pre-upgrade hook ran as the workload SA copy beside the live SA, copy cleaned up (issue #141)"; \
 	[ "$$(kubectl -n $$ns get job $$rel-$(GLOBAL_CHART_NAME)-pre-upgrade-rbac-read -o jsonpath='{.status.succeeded}' 2>/dev/null)" = "1" ] \
 		|| { echo "FAIL: the pre-upgrade hook could not use the rbacs.roles copy (ADR 0010)"; exit 1; }; \
 	echo "    pre-upgrade hook ran as the rbacs.roles SA copy, beside the live one"; \
@@ -677,7 +681,7 @@ install-test01: ## Install test01 (has kubectl pre-step; or use: make install SC
 render: ## Render a single template (usage: make render VALUES=<file> TEMPLATE=<name>)
 	@if [ -z "$(VALUES)" ] || [ -z "$(TEMPLATE)" ]; then \
 		echo "Usage: make render VALUES=<values-file> TEMPLATE=<template-name>"; \
-		echo "Example: make render VALUES=tests/test01/values.01.yaml TEMPLATE=deployment.yaml"; \
+		echo "Example: make render VALUES=tests/test01/values.01.yaml TEMPLATE=workload.yaml"; \
 		exit 1; \
 	fi
 	helm template test-release ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) \

@@ -3,7 +3,7 @@ Validation helpers for global-chart.
 
 Every fail message a user can cause has one shape: "<values path>: <problem>",
 the path being the key that holds the wrong value, as precise as the caller
-knows it (issue #190). A job's path comes from jobValuesPath, a deployment's
+knows it (issue #190). A job's path comes from jobValuesPath, a workload's
 from deploymentValuesPath below: never printf either inline, and pass it to a
 helper as errCtx. Two kinds of message keep another shape, each because it
 has no path to lead with: a helper's own invariant ("<helper>: …", a chart
@@ -15,12 +15,163 @@ checks every fail against them: change both.
 */}}
 
 {{/*
-The values path of a deployment, "deployments.<name>": its single home, as
+The values path of a workload, "workloads.<name>": its single home, as
 jobValuesPath is a job's (and leads a workload-scope job's with it).
 Usage: {{ include "global-chart.deploymentValuesPath" $name }}
 */}}
 {{- define "global-chart.deploymentValuesPath" -}}
-deployments.{{ . }}
+workloads.{{ . }}
+{{- end }}
+
+{{/*
+Fail on every key removed in 4.0.0, wherever it sits and whether or not its
+surface renders: a disabled Ingress, HTTPRoute or workload would carry the old
+key into the next enable (ADR 0023). The one home of that walk and of its
+message, called first from validate/validate.yaml, the first template Helm
+renders (see its header). Each key
+stays declared in the schema with no constraint, so any value reaches its fail
+(ADR 0022); the walk, the declarations and the fixtures go in 5.0.0. A node of
+the wrong type is skipped: the schema, or the template that reads it, rejects
+it.
+  `deployments`                                 → workloads, with the migration guide (issue #221)
+  <hook or cronjob>.fromDeployment              → fromWorkload (issue #221)
+  <hook or cronjob>.inheritDeployment*          → inheritWorkload* (issue #221)
+    at the scope a job key never had, the replacement names the scope it belongs to
+  <ingress host or route backendRef>.deployment → workload (issue #221)
+  <pod spec>.volumes[<i>].type, .secret.name, .persistentVolumeClaim.name
+                                                → the native volume source (issue #230)
+Usage: {{- include "global-chart.validateRemovedKeys" . -}}
+*/}}
+{{- define "global-chart.validateRemovedKeys" -}}
+{{- $v := .Values -}}
+{{- $in := "4.0.0" -}}
+{{- $see := printf "%s/blob/main/CHANGELOG.md#migration-guide-from-3x" .Chart.Home -}}
+{{- include "global-chart.rejectRemovedKeys" (dict "map" $v "errCtx" "" "in" $in "keys" (dict "deployments" "workloads") "see" $see) -}}
+{{- $from := dict "fromDeployment" "fromWorkload" -}}
+{{- $inherit := dict "inheritDeploymentConfigMap" "inheritWorkloadConfigMap" "inheritDeploymentSecret" "inheritWorkloadSecret" "inheritDeploymentEnvFromConfigMaps" "inheritWorkloadEnvFromConfigMaps" "inheritDeploymentEnvFromSecrets" "inheritWorkloadEnvFromSecrets" -}}
+{{- $backend := dict "deployment" "workload" -}}
+{{- /* Both job key families at both scopes: the schema rejects one at the
+       wrong scope, and --skip-schema-validation would let it pass in silence.
+       There the replacement names the scope it belongs to, since it is no
+       more valid where the old key sat */ -}}
+{{- $inheritAtRoot := dict -}}
+{{- range $old, $new := $inherit -}}
+  {{- $_ := set $inheritAtRoot $old (printf "%s on a workload-scope job; a root-scope job inherits nothing" $new) -}}
+{{- end -}}
+{{- $rootJobKeys := merge (dict) $from $inheritAtRoot -}}
+{{- $workloadJobKeys := merge (dict "fromDeployment" "fromWorkload on a root-scope job; a workload-scope job takes its workload's image") $inherit -}}
+{{- include "global-chart.rejectRemovedJobKeys" (dict "cronJobs" $v.cronJobs "hooks" $v.hooks "in" $in "see" $see "keys" $rootJobKeys) -}}
+{{- if kindIs "map" $v.workloads -}}
+  {{- range $name, $w := $v.workloads -}}
+    {{- if kindIs "map" $w -}}
+      {{- include "global-chart.rejectRemovedVolumeKeys" (dict "volumes" $w.volumes "errCtx" (include "global-chart.deploymentValuesPath" $name) "in" $in "see" $see) -}}
+      {{- include "global-chart.rejectRemovedJobKeys" (dict "cronJobs" $w.cronJobs "hooks" $w.hooks "deploymentName" $name "in" $in "see" $see "keys" $workloadJobKeys) -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+{{- if and (kindIs "map" $v.ingress) (kindIs "slice" $v.ingress.hosts) -}}
+  {{- range $i, $host := $v.ingress.hosts -}}
+    {{- include "global-chart.rejectRemovedKeys" (dict "map" $host "errCtx" (printf "ingress.hosts[%d]" $i) "in" $in "keys" $backend) -}}
+  {{- end -}}
+{{- end -}}
+{{- /* httpRoute is one route, httpRoutes and the l4RouteKinds fields maps of
+       them: every backendRef of every rule, enabled or not */ -}}
+{{- $routes := dict -}}
+{{- if kindIs "map" $v.httpRoute -}}
+  {{- $_ := set $routes "httpRoute" $v.httpRoute -}}
+{{- end -}}
+{{- $maps := list "httpRoutes" -}}
+{{- range (include "global-chart.l4RouteKinds" . | fromJsonArray) -}}
+  {{- $maps = append $maps .field -}}
+{{- end -}}
+{{- range $field := $maps -}}
+  {{- $entries := index $v $field -}}
+  {{- if kindIs "map" $entries -}}
+    {{- range $name, $route := $entries -}}
+      {{- $_ := set $routes (printf "%s.%s" $field $name) $route -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+{{- range $ctx, $route := $routes -}}
+  {{- if and (kindIs "map" $route) (kindIs "slice" $route.rules) -}}
+    {{- range $r, $rule := $route.rules -}}
+      {{- if and (kindIs "map" $rule) (kindIs "slice" $rule.backendRefs) -}}
+        {{- range $b, $ref := $rule.backendRefs -}}
+          {{- include "global-chart.rejectRemovedKeys" (dict "map" $ref "errCtx" (printf "%s.rules[%d].backendRefs[%d]" $ctx $r $b) "in" $in "keys" $backend) -}}
+        {{- end -}}
+      {{- end -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+validateRemovedKeys over the hooks and cronJobs of one scope: deploymentName
+empty at root scope, the workload's key at workload scope (jobValuesPath).
+keys are the removed job keys; the volume keys apply too.
+*/}}
+{{- define "global-chart.rejectRemovedJobKeys" -}}
+{{- $args := . -}}
+{{- $jobs := list -}}
+{{- if kindIs "map" .cronJobs -}}
+  {{- range $name, $job := .cronJobs -}}
+    {{- $jobs = append $jobs (dict "job" $job "errCtx" (include "global-chart.jobValuesPath" (dict "kind" "cronjob" "deploymentName" $args.deploymentName "jobName" $name))) -}}
+  {{- end -}}
+{{- end -}}
+{{- if kindIs "map" .hooks -}}
+  {{- range $type, $byName := .hooks -}}
+    {{- if kindIs "map" $byName -}}
+      {{- range $name, $job := $byName -}}
+        {{- $jobs = append $jobs (dict "job" $job "errCtx" (include "global-chart.jobValuesPath" (dict "kind" "hook" "deploymentName" $args.deploymentName "hookType" $type "jobName" $name))) -}}
+      {{- end -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+{{- range $jobs -}}
+  {{- include "global-chart.rejectRemovedKeys" (dict "map" .job "errCtx" .errCtx "in" $args.in "keys" $args.keys) -}}
+  {{- if kindIs "map" .job -}}
+    {{- include "global-chart.rejectRemovedVolumeKeys" (dict "volumes" .job.volumes "errCtx" .errCtx "in" $args.in "see" $args.see) -}}
+  {{- end -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+validateRemovedKeys over the volumes of one pod spec, errCtx its owner's path
+(issue #230): the legacy `type`, of any value, and the `name` aliases of
+secret and persistentVolumeClaim.
+*/}}
+{{- define "global-chart.rejectRemovedVolumeKeys" -}}
+{{- $args := . -}}
+{{- if kindIs "slice" .volumes -}}
+  {{- range $i, $vol := .volumes -}}
+    {{- $ctx := printf "%s.volumes[%d]" $args.errCtx $i -}}
+    {{- include "global-chart.rejectRemovedKeys" (dict "map" $vol "errCtx" $ctx "in" $args.in "keys" (dict "type" "the native volume source without type (emptyDir: {}, configMap.name, secret.secretName, persistentVolumeClaim.claimName)") "see" $args.see) -}}
+    {{- if kindIs "map" $vol -}}
+      {{- range $key, $field := dict "secret" "secretName" "persistentVolumeClaim" "claimName" -}}
+        {{- include "global-chart.rejectRemovedKeys" (dict "map" (get $vol $key) "errCtx" (printf "%s.%s" $ctx $key) "in" $args.in "keys" (dict "name" (printf "%s.%s" $key $field))) -}}
+      {{- end -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+Fail on the first of keys (old → replacement) that map carries:
+"<values path>: removed in <in>, use <replacement>", and "; see <see>" when
+the replacement takes more than a key to explain (CODING_STANDARDS.md). A map
+of another type carries no key. Read only by validateRemovedKeys and its two
+helpers above.
+*/}}
+{{- define "global-chart.rejectRemovedKeys" -}}
+{{- $args := . -}}
+{{- if kindIs "map" .map -}}
+  {{- range $old, $new := .keys -}}
+    {{- if hasKey $args.map $old -}}
+      {{- $path := ternary $old (printf "%s.%s" $args.errCtx $old) (eq $args.errCtx "") -}}
+      {{- fail (printf "%s: removed in %s, use %s%s" $path $args.in $new (ternary (printf "; see %s" $args.see) "" (hasKey $args "see"))) -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
 {{- end }}
 
 {{/*
@@ -30,7 +181,7 @@ surfaces included — a list the chart hands to a manifest verbatim (tolerations
 extraContainers, a container's args) is no more valid with a null in it. A null
 map value is left alone: it is unset, for the chart as for the API server.
 Recursive: a map recurses into each value, a list into each item.
-Usage: {{- include "global-chart.rejectNullInLists" (dict "value" .Values.deployments "errCtx" "deployments") -}}
+Usage: {{- include "global-chart.rejectNullInLists" (dict "value" .Values.workloads "errCtx" "workloads") -}}
 */}}
 {{- define "global-chart.rejectNullInLists" -}}
 {{- $errCtx := .errCtx -}}
@@ -54,7 +205,7 @@ the chart reads carries a null in a field it needs (issue #198). Two parts:
   passthrough lists included, naming its path;
 - the required fields of the items the pod-spec helpers read —
   imagePullSecrets, volumes, volumeMounts, externalSecrets, dnsConfig.options,
-  a deployment's service.extraPorts and mountedConfigFiles — for every owner
+  a workload's service.extraPorts and mountedConfigFiles — for every owner
   podSpecOwners lists, plus global.imagePullSecrets and rbacs.roles.
 Those helpers skip a null item or field instead of reading through it, so this
 is the one error such a null reaches, whatever order Helm renders the templates
@@ -75,7 +226,7 @@ Called from validate.yaml. Emits nothing on success.
     {{- include "global-chart.rejectNullItems" (dict "list" (index $spec $field) "errCtx" (printf "%s.%s" $path $field) "required" $required) -}}
   {{- end -}}
   {{- include "global-chart.rejectNullItems" (dict "list" (default (dict) $spec.dnsConfig).options "errCtx" (printf "%s.dnsConfig.options" $path) "required" (list "name")) -}}
-  {{- if eq $owner.kind "deployment" -}}
+  {{- if eq $owner.kind "workload" -}}
     {{- include "global-chart.rejectNullItems" (dict "list" (default (dict) $spec.service).extraPorts "errCtx" (printf "%s.service.extraPorts" $path) "required" (list "name" "port" "targetPort")) -}}
     {{- $mcf := default (dict) $spec.mountedConfigFiles -}}
     {{- include "global-chart.rejectNullItems" (dict "list" $mcf.files "errCtx" (printf "%s.mountedConfigFiles.files" $path) "required" (list "name")) -}}
@@ -94,10 +245,10 @@ ServiceAccounts, ConfigMaps, Secrets, ExternalSecrets, TriggerAuthentications,
 HTTPRoutes, TCPRoutes and UDPRoutes,
 Roles and RoleBindings, the hook-prerequisite copies included.
 A kind's accumulator holds every name of that kind whatever derived it, because
-collisions cross sources: $cmNames carries the deployment's own ConfigMap, its
+collisions cross sources: $cmNames carries the workload's own ConfigMap, its
 mounted config file ConfigMaps and its hook-prerequisite copy alike. A
-deployment named `<other>-md-cm-<file>` renders a ConfigMap under the very name
-another deployment's mounted file does — two manifests, one name, neither
+workload named `<other>-md-cm-<file>` renders a ConfigMap under the very name
+another workload's mounted file does — two manifests, one name, neither
 invalid on its own.
 Note: the remaining per-workload resources (Service, SA, HPA, ScaledObject,
 PDB, NetworkPolicy) share the workload's own name, so the workload name
@@ -120,7 +271,7 @@ Called from validate.yaml.
 {{- $esOwnedNames := dict -}}
 
 {{- /* 1. Workload resource names (trunc 63) */ -}}
-{{- range $name, $deploy := .Values.deployments -}}
+{{- range $name, $deploy := .Values.workloads -}}
   {{- if $deploy -}}
   {{- if eq (include "global-chart.deploymentEnabled" $deploy) "true" -}}
     {{- $depFullname := include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $name) -}}
@@ -135,11 +286,11 @@ Called from validate.yaml.
       {{- include "global-chart.registerName" (dict "names" $svcNames "kind" "Service" "name" (include "global-chart.headlessServiceName" (dict "root" $root "deploymentName" $name)) "owner" (printf "%s (its headless Service)" (include "global-chart.deploymentValuesPath" $name))) -}}
     {{- end -}}
 
-    {{- /* The deployment's own ConfigMap and Secret both carry $depFullname. They
-           cannot clash with each other or with another deployment's — the name
+    {{- /* The workload's own ConfigMap and Secret both carry $depFullname. They
+           cannot clash with each other or with another workload's — the name
            check above covers that — but they share $cmNames/$secretNames with the
            mounted config file copies and the hook-prerequisite copies, whose names
-           are built by appending a suffix and so CAN land on a plain deployment
+           are built by appending a suffix and so CAN land on a plain workload
            name. */ -}}
     {{- if $deploy.configMap -}}
       {{- include "global-chart.registerName" (dict "names" $cmNames "kind" "ConfigMap" "name" $depFullname "owner" (printf "%s.configMap" (include "global-chart.deploymentValuesPath" $name))) -}}
@@ -148,7 +299,7 @@ Called from validate.yaml.
       {{- include "global-chart.registerName" (dict "names" $secretNames "kind" "Secret" "name" $depFullname "owner" (printf "%s.secret" (include "global-chart.deploymentValuesPath" $name))) -}}
     {{- end -}}
 
-    {{- /* Chart-created deployment ServiceAccount: a root-level job that creates its
+    {{- /* Chart-created workload ServiceAccount: a root-level job that creates its
            own SA can land on this very name (both are <release>-<chart>-<key>) */ -}}
     {{- $deploySA := include "global-chart.deploymentServiceAccount" (dict "root" $root "deploymentName" $name "deployment" $deploy) | fromJson -}}
     {{- include "global-chart.registerSAName" (dict "names" $saNames "sa" $deploySA "owner" (include "global-chart.deploymentValuesPath" $name)) -}}
@@ -197,7 +348,7 @@ Called from validate.yaml.
     {{- /* 1c. Mounted config file ConfigMaps — `files` and `bundles` share one
            name space, so a name used on both sides renders two ConfigMaps under
            one name with different content, and the pod gets whichever applied
-           last. Registered in $cmNames, which also catches two deployments
+           last. Registered in $cmNames, which also catches two workloads
            truncating to the same $depFullname. */ -}}
     {{- $mcf := default (dict) $deploy.mountedConfigFiles -}}
     {{- $mcHint := ". Give one of the two entries a different 'name'." -}}
@@ -407,7 +558,7 @@ creates one under it. Two ServiceAccount manifests sharing a name render fine an
 break the install itself ("already exists"), halfway through the release.
 
 Only *created* SAs are registered: several jobs pointing at one existing SA, or at
-the deployment's, is the normal way to share an identity. The hook-prerequisite
+the workload's, is the normal way to share an identity. The hook-prerequisite
 copies of ADR 0010 and ADR 0011 have their own name, <sa>-hook, and are
 registered too.
 
@@ -444,7 +595,7 @@ enabled entry with kind: StatefulSet:
   would split its name from its Service and HPA, so it fails instead;
 - a claim template becomes a pod volume of its own name, so it must not take a
   name podVolumeNames lists (an externalSecrets volume is resolveExternalSecretRefs'
-  to check, in deployment.yaml);
+  to check, in workload.yaml);
 - some container mounts it (the main one, extraContainers, extraInitContainers),
   or the claim is storage provisioned and never used. A mount with no name could
   be any claim's: its null is validateNullItems', and this check stands down.
@@ -453,7 +604,7 @@ Called from validate.yaml. Emits nothing on success.
 */}}
 {{- define "global-chart.validateStatefulSets" -}}
 {{- $root := . -}}
-{{- range $name, $deploy := .Values.deployments -}}
+{{- range $name, $deploy := .Values.workloads -}}
   {{- if $deploy -}}
   {{- if and (eq (include "global-chart.deploymentEnabled" $deploy) "true") (include "global-chart.isStatefulSet" $deploy) -}}
     {{- $errCtx := include "global-chart.deploymentValuesPath" $name -}}
@@ -509,7 +660,7 @@ Called from validate.yaml. Emits nothing on success.
 {{- $fullname := include "global-chart.fullname" . -}}
 {{- $label := "" -}}
 {{- $service := "" -}}
-{{- range $name, $deploy := .Values.deployments -}}
+{{- range $name, $deploy := .Values.workloads -}}
   {{- if $deploy -}}
   {{- if eq (include "global-chart.deploymentEnabled" $deploy) "true" -}}
     {{- $label = include "global-chart.deploymentValuesPath" $name -}}
@@ -551,7 +702,7 @@ Params:
                HTTPRoute)
   install    - the remedy, a sentence head ("Install KEDA")
   errCtx     - values path of the resource; leads the message
-Usage: {{- include "global-chart.requireCrd" (dict "root" $root "apiVersion" "keda.sh/v1alpha1" "install" "Install KEDA" "errCtx" "deployments.foo.keda") -}}
+Usage: {{- include "global-chart.requireCrd" (dict "root" $root "apiVersion" "keda.sh/v1alpha1" "install" "Install KEDA" "errCtx" "workloads.foo.keda") -}}
 */}}
 {{- define "global-chart.requireCrd" -}}
 {{- $apiVersion := required "requireCrd: apiVersion is required" .apiVersion -}}
@@ -600,7 +751,7 @@ Called from validate.yaml. Emits nothing on success.
 {{- end }}
 
 {{/*
-The active HPA targets of a deployment's `autoscaling` map, as JSON: the ONE
+The active HPA targets of a workload's `autoscaling` map, as JSON: the ONE
 home of "a target is active", read by validateAutoscalingConflict and by
 hpa.yaml to build its metrics list. Never re-derive it inline — two templates
 deriving one fact on their own is how issue #82 happened.
@@ -636,7 +787,7 @@ fundamental error, and fixing it can make the other moot.
 Called from validate.yaml. Emits nothing on success.
 */}}
 {{- define "global-chart.validateAutoscalingConflict" -}}
-{{- range $name, $deploy := .Values.deployments -}}
+{{- range $name, $deploy := .Values.workloads -}}
   {{- if $deploy -}}
   {{- if eq (include "global-chart.deploymentEnabled" $deploy) "true" -}}
     {{- $hpa := default (dict) $deploy.autoscaling -}}
@@ -707,7 +858,7 @@ whether or not the container declares it.
 Called from validate.yaml. Emits nothing on success.
 */}}
 {{- define "global-chart.validateServiceTargetPorts" -}}
-{{- range $name, $deploy := .Values.deployments -}}
+{{- range $name, $deploy := .Values.workloads -}}
   {{- if $deploy -}}
   {{- if eq (include "global-chart.deploymentEnabled" $deploy) "true" -}}
     {{- $svc := default (dict) $deploy.service -}}
@@ -735,7 +886,7 @@ Called from validate.yaml. Emits nothing on success.
 {{- end }}
 
 {{/*
-Validate the Service side of a deployment's ports against what the API server
+Validate the Service side of a workload's ports against what the API server
 rejects (issue #155): an extraPorts entry may not repeat a port name or a
 port+protocol pair of the primary port or of another entry, and may carry
 nodePort only on a NodePort or LoadBalancer Service.
@@ -749,7 +900,7 @@ rendered.
 Called from validate.yaml. Emits nothing on success.
 */}}
 {{- define "global-chart.validateServicePorts" -}}
-{{- range $name, $deploy := .Values.deployments -}}
+{{- range $name, $deploy := .Values.workloads -}}
   {{- if $deploy -}}
   {{- if eq (include "global-chart.deploymentEnabled" $deploy) "true" -}}
     {{- $svc := default (dict) $deploy.service -}}

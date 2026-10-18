@@ -2,7 +2,7 @@
 # An unknown key under keda.advanced.horizontalPodAutoscalerConfig (typo of
 # behavior). Without the closure the derived HPA keeps the default scaling
 # behaviour instead of the intended one.
-deployments:
+workloads:
   web:
     image: nginx:1.25
     keda:

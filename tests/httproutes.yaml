@@ -1,6 +1,6 @@
 # httpRoutes lint scenario (issue #195): two hostnames of one release reaching
-# different deployments, on two Gateways, next to the single httpRoute.
-deployments:
+# different workloads, on two Gateways, next to the single httpRoute.
+workloads:
   nginx:
     image: nginx:1.25
     service:
@@ -19,7 +19,7 @@ httpRoute:
     - app.example.com
   rules:
     - backendRefs:
-        - deployment: nginx
+        - workload: nginx
 
 httpRoutes:
   traccar-web:
@@ -37,7 +37,7 @@ httpRoutes:
               type: PathPrefix
               value: /
         backendRefs:
-          - deployment: traccar
+          - workload: traccar
   legacy-redirect:
     parentRefs:
       - name: direct-gateway

@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Global-chart is a reusable Helm chart providing multi-deployment Kubernetes
+Global-chart is a reusable Helm chart providing multi-workload Kubernetes
 building blocks. `README.md` — feature list and examples. `CHANGELOG.md` —
 version history and migration guides. `docs/adr/` — the decisions behind the
 rules below.
@@ -22,7 +22,8 @@ make generate-docs          # regenerate the helm-docs README
 make e2e                    # install/upgrade/rollback/uninstall on a throwaway kind cluster (runs e2e-dryrun first)
 make e2e-dryrun             # every TEST_CASES scenario, server-side dry run against the real API server and CRDs
 make e2e-argocd             # the same cluster, synced by Argo CD (hook lifecycle under Argo)
-make render VALUES=tests/test01/values.01.yaml TEMPLATE=deployment.yaml
+make render VALUES=tests/test01/values.01.yaml TEMPLATE=workload.yaml
+make render-diff BASE=main  # every scenario renders the same manifests as BASE: the proof a rename or refactor changes none
 ```
 
 Releases: chart-releaser publishes on every push to `main` whose `Chart.yaml`
@@ -77,14 +78,14 @@ is the source of truth, this table is only the routing.
 | `_hook-helpers.tpl` | The `helm.sh/hook*` annotations from the role table, the phase cut `hookReadsPrereqCopy`, the hook-copy consumer scans |
 | `_render-helpers.tpl` | `workloadKind` / `isStatefulSet`, `replicaFloor`, `podVolumeNames`, `printScalar`, `isSet`, null checks (`rejectNull`, `rejectNullItems`, `isNamedEntry`), render blocks, ports, `resolveBackend`, `podSpecOwners`, route lists |
 | `_keda-helpers.tpl` | KEDA names, trigger and `authenticationRef` resolution |
-| `_validate-helpers.tpl` | Values paths, the `fail` shape, cross-resource validators, `validateStatefulSets`, `validatePdbEvictions`, `validateNullItems` / `rejectNullInLists`, `hpaActiveTargets`, `requireCrd` / `requireGatewayApiCrd` |
+| `_validate-helpers.tpl` | Values paths, the `fail` shape, `validateRemovedKeys` (every key removed in 4.0.0, ADR 0023), cross-resource validators, `validateStatefulSets`, `validatePdbEvictions`, `validateNullItems` / `rejectNullInLists`, `hpaActiveTargets`, `requireCrd` / `requireGatewayApiCrd` |
 
 ### Invariants
 
 Each line is the rule; the pointer is where its reasons and edge cases live.
 Read the pointer before changing the domain it names.
 
-1. **Workloads**: each `deployments.<name>` renders its own workload,
+1. **Workloads**: each `workloads.<name>` renders its own workload,
    Service, ServiceAccount, ConfigMap, Secret, HPA, PDB and NetworkPolicy,
    named `{release}-{chart}-{name}`. The workload is a Deployment, or a
    StatefulSet with `kind: StatefulSet` (ADR 0020), which adds a headless
@@ -97,7 +98,7 @@ Read the pointer before changing the domain it names.
    with the workload, and the `envFrom` lists add up. What is inherited, the
    opt-out toggles and the `envFrom` order: the *Inheritance* block of the
    `jobPodSpec` header in `_job-helpers.tpl`.
-3. **Fallback chains**: job > deployment > global, `hasKey` at every level; an
+3. **Fallback chains**: job > workload > global, `hasKey` at every level; an
    explicit `[]` stops the fallback. `CODING_STANDARDS.md`.
 4. **Hooks**: weights and delete policies come only from the role table in
    `_hook-helpers.tpl`, which keeps `prereq < SA < Job` and lets weights go
@@ -116,7 +117,7 @@ Read the pointer before changing the domain it names.
    templates check them, so `failedTemplate` tests stay possible. A *removed
    key* stays declared until the next major, so its `fail` is reached (ADR 0022).
 6. **One replica owner**: `autoscaling` (HPA) and `keda` (ScaledObject)
-   exclude each other per deployment, and either one omits `spec.replicas`
+   exclude each other per workload, and either one omits `spec.replicas`
    (*Replica owner* in `GLOSSARY.md`, ADR 0003, ADR 0012). The owner and the
    fewest pods it keeps: `replicaFloor`.
 7. **No `appVersion`**: `app.kubernetes.io/version` is emitted only when the

@@ -11,7 +11,7 @@ tests:
   # ====== Enable flag ======
   - it: should not render a ScaledObject when keda is not defined
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
     asserts:
@@ -20,7 +20,7 @@ tests:
 
   - it: should not render a ScaledObject when keda.enabled is false
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           keda:
@@ -32,9 +32,9 @@ tests:
       - hasDocuments:
           count: 0
 
-  - it: should not render a ScaledObject when the deployment is disabled
+  - it: should not render a ScaledObject when the workload is disabled
     set:
-      deployments:
+      workloads:
         main:
           enabled: false
           image: nginx:1.25
@@ -48,9 +48,9 @@ tests:
           count: 0
 
   # ====== Base shape ======
-  - it: should render name, labels and scaleTargetRef from the deployment
+  - it: should render name, labels and scaleTargetRef from the workload
     set:
-      deployments:
+      workloads:
         worker:
           image: nginx:1.25
           keda:
@@ -84,7 +84,7 @@ tests:
   # ====== Numeric fields: 0 is a real value, never a missing one ======
   - it: should render minReplicaCount 0 rather than dropping it
     set:
-      deployments:
+      workloads:
         worker:
           image: nginx:1.25
           keda:
@@ -104,7 +104,7 @@ tests:
 
   - it: should omit optional scaling fields that are not set
     set:
-      deployments:
+      workloads:
         worker:
           image: nginx:1.25
           keda:
@@ -132,7 +132,7 @@ tests:
 
   - it: should render every scaling field when set
     set:
-      deployments:
+      workloads:
         worker:
           image: nginx:1.25
           keda:
@@ -187,7 +187,7 @@ tests:
             - parameter: awsAccessKeyID
               name: aws-credentials
               key: AWS_ACCESS_KEY_ID
-      deployments:
+      workloads:
         worker:
           image: nginx:1.25
           keda:
@@ -204,7 +204,7 @@ tests:
 
   - it: should pass an unknown authenticationRef through verbatim
     set:
-      deployments:
+      workloads:
         worker:
           image: nginx:1.25
           keda:
@@ -225,7 +225,7 @@ tests:
         sqs-auth:
           podIdentity:
             provider: aws
-      deployments:
+      workloads:
         worker:
           image: nginx:1.25
           keda:
@@ -252,7 +252,7 @@ tests:
         sqs-auth:
           podIdentity:
             provider: aws
-      deployments:
+      workloads:
         worker:
           image: nginx:1.25
           keda:
@@ -270,7 +270,7 @@ tests:
 
   - it: should leave triggers without authenticationRef untouched
     set:
-      deployments:
+      workloads:
         worker:
           image: nginx:1.25
           keda:
@@ -289,7 +289,7 @@ tests:
         commonAnnotations:
           owner: platform
           shared: from-global
-      deployments:
+      workloads:
         worker:
           image: nginx:1.25
           keda:
@@ -313,7 +313,7 @@ tests:
 
   - it: should omit the annotations block when there is nothing to render
     set:
-      deployments:
+      workloads:
         worker:
           image: nginx:1.25
           keda:
@@ -325,10 +325,10 @@ tests:
       - notExists:
           path: metadata.annotations
 
-  # ====== Multi-deployment ======
-  - it: should render one ScaledObject per KEDA-enabled deployment
+  # ====== Multi-workload ======
+  - it: should render one ScaledObject per KEDA-enabled workload
     set:
-      deployments:
+      workloads:
         worker:
           image: nginx:1.25
           keda:
@@ -356,7 +356,7 @@ tests:
   # global-chart.printScalar.
   - it: should render large replica counts and intervals in plain digits
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           keda:
@@ -396,7 +396,7 @@ tests:
     set:
       kedaTriggerAuthentications:
         sqs-auth: {}
-      deployments:
+      workloads:
         worker:
           image: nginx:1.25
           keda:
@@ -415,7 +415,7 @@ tests:
     release:
       name: rel
     set:
-      deployments:
+      workloads:
         db:
           kind: StatefulSet
           image: nginx:1.25

@@ -2,7 +2,7 @@
 # An unknown key inside a KEDA trigger (typo of metricType). Without the
 # constraint the trigger falls back to the default metric type and scales on
 # the wrong quantity.
-deployments:
+workloads:
   web:
     image: nginx:1.25
     keda:

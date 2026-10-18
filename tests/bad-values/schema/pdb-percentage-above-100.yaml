@@ -1,6 +1,6 @@
 # A PDB percentage above 100%: it rendered, and the API server rejected it at
 # apply (IsNotMoreThan100Percent).
-deployments:
+workloads:
   app:
     image: nginx:1.25
     pdb:

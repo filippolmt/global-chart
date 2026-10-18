@@ -1,8 +1,0 @@
-# A Deployment field on a StatefulSet: the if/then on kind rejects strategy
-# (ADR 0020). A StatefulSet takes updateStrategy.
-deployments:
-  db:
-    kind: StatefulSet
-    image: nginx:1.25
-    strategy:
-      type: Recreate

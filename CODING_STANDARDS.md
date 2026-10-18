@@ -85,7 +85,7 @@ imagePullSecrets:
 **Error messages — `<values path>: <problem>`:**
 ```yaml
 # WRONG: the entry named in prose, the path printed by hand
-{{- fail (printf "PDB for deployment '%s': set only one." $name) }}
+{{- fail (printf "PDB for workload '%s': set only one." $name) }}
 # CORRECT: the path of the key holding the wrong value leads, from its single home
 {{- fail (printf "%s.pdb: set only one." (include "global-chart.deploymentValuesPath" $name)) }}
 ```
@@ -128,14 +128,14 @@ and not the other is the bug (issue #82 is the port version of it).
 
 **Text names a kind only where it holds for that kind alone.** A `fail`
 message, a schema description, NOTES or a comment that holds for every kind of
-a `deployments` entry says *workload* (GLOSSARY); *Deployment* or
+a `workloads` entry says *workload* (GLOSSARY); *Deployment* or
 *StatefulSet* only where the text is true of that kind alone (`strategy`, the
 headless Service). The kind in a message comes from `workloadKind`. The
-`deployments` key and the helper names (`deploymentFullname`) keep their name
-(ADR 0020, issue #221).
+helper names (`deploymentFullname`) and the schema `$defs` names keep theirs:
+they are not part of the values API (ADR 0023).
 
 **A rule that holds for every kind is tested on every kind.** A check or a
-render path that reads a `deployments` entry whatever its kind gets a suite
+render path that reads a `workloads` entry whatever its kind gets a suite
 case with `kind: StatefulSet` beside the Deployment one: the kind changes the
 template's branches, and a rule tested on one kind alone is assumed on the other
 (issue #216).
@@ -157,7 +157,7 @@ reaches is not swept, so a new map or list gets a scenario that sets it.
 - a null **map value** is unset, as Helm itself reads it: a key the chart
   defaults takes its default (`enabled`, `create`, the `inherit*` toggles, a
   job's inherited fields, the enums with a default), a map entry
-  (`httpRoutes.x`, like `deployments.x`) renders nothing. "Set" has one home,
+  (`httpRoutes.x`, like `workloads.x`) renders nothing. "Set" has one home,
   `isSet`; `hasKey` alone hands the null on. Numbers are the exception: a null
   number fails naming its key, through `printScalar` (issue #191);
 - a null **list item** fails, anywhere, passthrough lists included:
@@ -170,6 +170,13 @@ reaches is not swept, so a new map or list gets a scenario that sets it.
 A helper reading such a list skips the item it cannot read
 (`isNamedEntry`, `kindIs "map"`) instead of reading through it: the error is
 then the validator's, whatever order Helm renders the templates in.
+
+**A validator's `fail` is tested in the suite of `validate/validate.yaml`.**
+A helm-unittest suite renders only the templates its `templates:` lists, so a
+`failedTemplate` case in `workload_test.yaml` never sees a check that runs in
+`validate/validate.yaml`: the case passes or fails on something else. A check
+moved from a template into a validator takes its cases to `validate_test.yaml`
+(issue #221 moved them twice).
 
 **A rule the API server enforces is checked against the API server.** A CEL
 rule of a CRD (Gateway API's `RequestRedirect` without `backendRefs`) is
@@ -185,7 +192,7 @@ key.
 naming its replacement** (ADR 0022, issue #205). The rule covers the keys and
 formats a values author writes; a new `fail` on values that never worked, or
 a raised version floor, is a Breaking change with a migration guide and no
-deprecation.
+deprecation. Skipping phase 1 takes an ADR of its own (ADR 0023).
 
 1. **Deprecated**, for at least one released minor: the key keeps working.
    `NOTES.txt` lists every values path that uses it and names the

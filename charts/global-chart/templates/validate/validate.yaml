@@ -1,0 +1,18 @@
+{{- /*
+  Validation template — runs all cross-resource validation checks.
+  Calls fail on error. Renders no Kubernetes resources on success.
+  The include below will fail with an actionable error message if name collisions are detected.
+  It lives one directory down because Helm renders the deepest templates
+  first, then the rest in reverse alphabetical order: here it renders before
+  every other template, templates/tests/ and workload.yaml included, so the
+  helpers those read may rely on what these checks reject.
+*/ -}}
+{{- include "global-chart.validateRemovedKeys" . -}}
+{{- include "global-chart.validateNullItems" . -}}
+{{- include "global-chart.validateFullname" . -}}
+{{- include "global-chart.validateNameCollisions" . -}}
+{{- include "global-chart.validateStatefulSets" . -}}
+{{- include "global-chart.validateRoutingConflict" . -}}
+{{- include "global-chart.validateAutoscalingConflict" . -}}
+{{- include "global-chart.validateServiceTargetPorts" . -}}
+{{- include "global-chart.validateServicePorts" . -}}

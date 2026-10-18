@@ -1,6 +1,6 @@
 # Global-chart
 
-Reusable Helm chart providing multi-deployment Kubernetes building blocks. This file is only a glossary: no implementation details and no design decisions (those live in `docs/adr/`).
+Reusable Helm chart providing multi-workload Kubernetes building blocks. This file is only a glossary: no implementation details and no design decisions (those live in `docs/adr/`).
 
 ## Language
 

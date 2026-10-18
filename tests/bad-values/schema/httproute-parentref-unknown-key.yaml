@@ -2,7 +2,7 @@
 # An unknown key inside an httpRoute.parentRefs entry (typo of sectionName).
 # Without the closure the route attaches to every listener of the gateway
 # instead of the one intended.
-deployments:
+workloads:
   api:
     image: nginx:1.25
 
@@ -13,4 +13,4 @@ httpRoute:
       section: https
   rules:
     - backendRefs:
-        - deployment: api
+        - workload: api

@@ -1,0 +1,9 @@
+# The removed volumes[].type with a non-string value: the schema declares it
+# with no constraint, so the fail still names the replacement (ADR 0022).
+# Expected fail substring: "workloads.web.volumes[0].type: removed in 4.0.0, use the native volume source"
+workloads:
+  web:
+    image: nginx:1.25
+    volumes:
+      - name: data
+        type: 5

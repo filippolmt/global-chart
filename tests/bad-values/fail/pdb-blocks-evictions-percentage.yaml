@@ -1,7 +1,7 @@
 # A minAvailable percentage below 100% that rounds up to the replica count:
 # ceil(60% of 2) = 2, so no pod can be evicted (issue #216, ADR 0021).
-# Expected fail substring: "deployments.app.pdb.minAvailable: 60% allows no voluntary eviction with deployments.app.replicaCount: 2"
-deployments:
+# Expected fail substring: "workloads.app.pdb.minAvailable: 60% allows no voluntary eviction with workloads.app.replicaCount: 2"
+workloads:
   app:
     image: nginx:1.25
     replicaCount: 2

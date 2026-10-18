@@ -1,5 +1,5 @@
 # Lint scenario: verifies collision detection does not false-positive on normal names
-deployments:
+workloads:
   frontend:
     image: nginx:1.25
     service:
@@ -15,5 +15,5 @@ deployments:
 cronJobs:
   backup:
     schedule: "0 2 * * *"
-    fromDeployment: backend
+    fromWorkload: backend
     command: ["./backup.sh"]

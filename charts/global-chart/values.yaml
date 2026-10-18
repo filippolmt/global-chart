@@ -1,11 +1,11 @@
 # Default values for global-chart.
 
-# -- Global values shared across all deployments, cronJobs, and hooks
+# -- Global values shared across all workloads, cronJobs, and hooks
 global:
   # -- Global image registry prefix (e.g., registry.example.com)
   # @default -- `""` (no prefix)
   imageRegistry: ""
-  # -- Global imagePullSecrets (used when deployment/cronJob/hook doesn't specify its own)
+  # -- Global imagePullSecrets (used when workload/cronJob/hook doesn't specify its own)
   # @default -- `[]`
   imagePullSecrets: []
   # -- Global labels applied to metadata.labels of ALL resources (not added to selector labels). A per-resource label of the same name wins; the chart's own `app.kubernetes.io/*` and `helm.sh/chart` labels win over both, since the selectors are built from them
@@ -22,12 +22,12 @@ nameOverride: ""
 # -- Override the chart fullname
 fullnameOverride: ""
 
-# -- Multiple deployments configuration (map of named deployments). Each deployment supports an `enabled` field (bool, default `true`) to skip rendering of the workload and all its sub-resources (Service, ConfigMap, Secret, ServiceAccount, HPA, mounted ConfigMaps, CronJobs, Hooks). An Ingress that references a disabled entry will fail with a clear error.
+# -- The workloads of the release (map of named entries, each a Deployment or a StatefulSet by `kind`). Each entry supports an `enabled` field (bool, default `true`) to skip rendering of the workload and all its sub-resources (Service, ConfigMap, Secret, ServiceAccount, HPA, mounted ConfigMaps, CronJobs, Hooks). An Ingress that references a disabled entry will fail with a clear error.
 # @default -- `{}` (empty map)
-deployments: {}
-  # Example deployment configuration:
+workloads: {}
+  # Example workload configuration:
   # main:
-  #   # -- (bool) Enable or disable this deployment and all its sub-resources (Service, ConfigMap, Secret, SA, HPA). Default: true
+  #   # -- (bool) Enable or disable this workload and all its sub-resources (Service, ConfigMap, Secret, SA, HPA). Default: true
   #   enabled: true
   #
   #   # -- Workload kind: Deployment (default) or StatefulSet (ADR 0020). Changing it on an installed entry replaces the workload
@@ -46,10 +46,10 @@ deployments: {}
   #     tag: "1.23"
   #
   #   # -- Override the image ENTRYPOINT. Omit to keep the image default.
-  #   # Not inherited by this deployment's hooks/cronJobs.
+  #   # Not inherited by this workload's hooks/cronJobs.
   #   command: ["python", "-m", "app.worker"]
   #   # -- Override the image CMD arguments. Omit to keep the image default.
-  #   # Not inherited by this deployment's hooks/cronJobs.
+  #   # Not inherited by this workload's hooks/cronJobs.
   #   args: ["--concurrency", "5"]
   #
   #   # -- List of imagePullSecrets for private registries
@@ -194,7 +194,7 @@ deployments: {}
   #   # -- Number of old ReplicaSets to retain (default: Kubernetes default of 10)
   #   revisionHistoryLimit: 10
   #
-  #   # -- Max time in seconds for deployment to make progress before considered failed
+  #   # -- Max time in seconds for workload to make progress before considered failed
   #   progressDeadlineSeconds: 600
   #
   #   # StatefulSet only (kind: StatefulSet). strategy and progressDeadlineSeconds above are Deployment only.
@@ -227,7 +227,7 @@ deployments: {}
   #
   #   # -- PodDisruptionBudget configuration
   #   pdb:
-  #     # -- Enable PDB for this deployment
+  #     # -- Enable PDB for this workload
   #     enabled: false
   #     # -- Minimum available pods: an integer, or a percentage string ("25%")
   #     minAvailable: 1
@@ -236,7 +236,7 @@ deployments: {}
   #
   #   # -- NetworkPolicy configuration
   #   networkPolicy:
-  #     # -- Enable NetworkPolicy for this deployment
+  #     # -- Enable NetworkPolicy for this workload
   #     enabled: false
   #     # -- Policy types to enforce (Ingress, Egress, or both)
   #     policyTypes:
@@ -303,7 +303,7 @@ deployments: {}
   #   # -- Read Secrets produced by the root externalSecrets map, by KEY (never
   #   # the generated Secret name). Without mountPath: an envFrom source, after
   #   # envFromSecrets. With mountPath: a read-only volume. Inherited by the
-  #   # deployment's hooks and cronJobs (a job's own list, `[]` included,
+  #   # workload's hooks and cronJobs (a job's own list, `[]` included,
   #   # replaces it). pre-* (pre-delete excepted) and post-delete hooks read a
   #   # hook-prerequisite copy of the ExternalSecret, so they work on the first
   #   # install (ADR 0007).
@@ -333,7 +333,7 @@ deployments: {}
   #     files: []      # each: name, filename, targetPath, content
   #     bundles: []
   #
-  #   # -- Hooks defined inside deployment (inherit image, configMap, secret, SA)
+  #   # -- Hooks defined inside the workload (inherit image, configMap, secret, SA)
   #   hooks:
   #     post-upgrade:
   #       migrate:
@@ -341,7 +341,7 @@ deployments: {}
   #         # Inherits: image, configMap, secret, serviceAccount, nodeSelector, tolerations, affinity, priorityClassName
   #         # Can override with explicit values if needed
   #
-  #   # -- CronJobs defined inside deployment (inherit image, configMap, secret, SA)
+  #   # -- CronJobs defined inside workload (inherit image, configMap, secret, SA)
   #   cronJobs:
   #     backup:
   #       schedule: "0 2 * * *"
@@ -357,13 +357,13 @@ deployments: {}
   #       # activeDeadlineSeconds: 900       # kill runaway Jobs
   #       # parallelism: 1
   #       # completions: 1
-  #       # Opt-out of deployment ConfigMap/Secret env injection (defaults: true):
-  #       # inheritDeploymentConfigMap: false
-  #       # inheritDeploymentSecret: false
-  #       # Opt-out of the deployment's envFromConfigMaps/envFromSecrets (defaults:
+  #       # Opt-out of workload ConfigMap/Secret env injection (defaults: true):
+  #       # inheritWorkloadConfigMap: false
+  #       # inheritWorkloadSecret: false
+  #       # Opt-out of the workload's envFromConfigMaps/envFromSecrets (defaults:
   #       # true). The job's own lists add to them, never replace them:
-  #       # inheritDeploymentEnvFromConfigMaps: false
-  #       # inheritDeploymentEnvFromSecrets: false
+  #       # inheritWorkloadEnvFromConfigMaps: false
+  #       # inheritWorkloadEnvFromSecrets: false
 
 # -- Ingress configuration
 ingress:
@@ -379,24 +379,24 @@ ingress:
   # -- Definitions for each host rule
   hosts:
     - host: chart-example.local
-      # -- Name of the deployment to route traffic to (required unless service.name is set).
+      # -- Name of the workload to route traffic to (required unless service.name is set).
       # An optional `portName` next to it picks a TCP port of its Service by name
       # (service.portName or a service.extraPorts[].name); omitted, the primary port
-      deployment: ""
-      # -- Service backend override (use instead of deployment for external services).
-      # Optional `port`, 1-65535: omitted, it is the deployment's service.port, or 80
+      workload: ""
+      # -- Service backend override (use instead of workload for external services).
+      # Optional `port`, 1-65535: omitted, it is the workload's service.port, or 80
       # for a service.name backend
       service:
-        # -- Explicit service name (overrides deployment reference)
+        # -- Explicit service name (overrides workload reference)
         name: ""
       # -- HTTP path definitions for this host
       paths:
         - path: /
           pathType: ImplementationSpecific
 
-    # Example with deployment reference:
+    # Example with workload reference:
     # - host: api.example.local
-    #   deployment: backend  # Routes to deployments.backend's service
+    #   workload: backend  # Routes to workloads.backend's service
     #   paths:
     #     - path: /v1
     #       pathType: Prefix
@@ -436,7 +436,7 @@ httpRoute:
   hostnames: []
 
   # -- Routing rules. Each rule may declare matches, filters, backendRefs, timeouts.
-  # backendRefs accept either `deployment: <name>` (resolves to the chart-managed Service;
+  # backendRefs accept either `workload: <name>` (resolves to the chart-managed Service;
   # an optional `portName` picks service.portName or a service.extraPorts[].name, which
   # must be TCP — omitted, the primary port) or `service: { name, port }` for an external Service.
   rules: []
@@ -447,13 +447,13 @@ httpRoute:
   #           type: PathPrefix
   #           value: /
   #     backendRefs:
-  #       - deployment: api-stable
+  #       - workload: api-stable
   #         weight: 90
-  #       - deployment: api-canary
+  #       - workload: api-canary
   #         weight: 10
 
 # -- HTTPRoutes, one per entry, named `<fullname>-<key>` (issue #195): for a
-# release whose hostnames reach different deployments, or attach to different
+# release whose hostnames reach different workloads, or attach to different
 # Gateways. Each entry has the fields of `httpRoute` without `enabled`: an entry
 # present is a route rendered, so `parentRefs` and `rules` are required. They
 # coexist with `httpRoute`, the single-route shorthand: together they are the
@@ -467,7 +467,7 @@ httpRoutes: {}
   #   hostnames: [traccar.example.com]
   #   rules:
   #     - backendRefs:
-  #         - deployment: traccar
+  #         - workload: traccar
 
 # -- TCPRoutes (gateway.networking.k8s.io/v1, Gateway API v1.6.0 or later), one per entry, named
 # `<fullname>-<key>`: raw TCP ports on an existing Gateway listener, for the
@@ -477,7 +477,7 @@ httpRoutes: {}
 # TCPRoute; an offline render needs
 # `--api-versions gateway.networking.k8s.io/v1/TCPRoute`.
 # Each entry: { annotations?, parentRefs (>= 1), rules (>= 1) }; each rule:
-# { name?, backendRefs (>= 1) }; each backendRef: `deployment: <name>` with an
+# { name?, backendRefs (>= 1) }; each backendRef: `workload: <name>` with an
 # optional `portName` (service.portName or a service.extraPorts[].name; omitted,
 # the primary port), or `service: { name, port }`, plus an optional `weight`.
 # The port picked must be TCP.
@@ -490,7 +490,7 @@ tcpRoutes: {}
   #       sectionName: gps-5027
   #   rules:
   #     - backendRefs:
-  #         - deployment: traccar
+  #         - workload: traccar
   #           portName: teltonika
 
 # -- UDPRoutes (gateway.networking.k8s.io/v1, Gateway API v1.6.0 or later): the same shape as
@@ -499,7 +499,7 @@ tcpRoutes: {}
 # `--api-versions gateway.networking.k8s.io/v1/UDPRoute`.
 udpRoutes: {}
 
-# -- CronJobs configuration (map of named cronJobs). Can also be defined inside deployments to inherit image, configMap, secret, SA.
+# -- CronJobs configuration (map of named cronJobs). Can also be defined inside workloads to inherit image, configMap, secret, SA.
 cronJobs: {}
   # Example:
   # cleanup:
@@ -508,8 +508,8 @@ cronJobs: {}
   #   image:
   #     repository: myapp
   #     tag: v1.0
-  #   # Or reference a deployment's image:
-  #   # fromDeployment: main
+  #   # Or reference a workload's image:
+  #   # fromWorkload: main
   #   command: ["/bin/sh", "-c"]
   #   args: ["./cleanup.sh"]
   #   resources:
@@ -531,14 +531,14 @@ cronJobs: {}
   #   # parallelism: 1
   #   # completions: 1
   #
-  # Note: root-level cronJobs do NOT auto-inherit ConfigMap/Secret from deployments.
+  # Note: root-level cronJobs do NOT auto-inherit ConfigMap/Secret from workloads.
   # Use envFromConfigMaps / envFromSecrets to reference them by name explicitly.
-  # Workload-scope cronJobs (deployments.<name>.cronJobs) DO auto-inherit; use
-  # inheritDeploymentConfigMap/inheritDeploymentSecret: false to opt out, and
-  # inheritDeploymentEnvFromConfigMaps/inheritDeploymentEnvFromSecrets: false
-  # for the deployment's envFromConfigMaps/envFromSecrets.
+  # Workload-scope cronJobs (workloads.<name>.cronJobs) DO auto-inherit; use
+  # inheritWorkloadConfigMap/inheritWorkloadSecret: false to opt out, and
+  # inheritWorkloadEnvFromConfigMaps/inheritWorkloadEnvFromSecrets: false
+  # for the workload's envFromConfigMaps/envFromSecrets.
 
-# -- Hook jobs for chart lifecycle (install/upgrade). Can also be defined inside deployments to inherit image, configMap, secret, SA.
+# -- Hook jobs for chart lifecycle (install/upgrade). Can also be defined inside workloads to inherit image, configMap, secret, SA.
 hooks: {}
   # Example:
   # post-install:
@@ -547,14 +547,14 @@ hooks: {}
   #     image:
   #       repository: myapp
   #       tag: v1.0
-  #     # Or reference a deployment's image:
-  #     # fromDeployment: main
+  #     # Or reference a workload's image:
+  #     # fromWorkload: main
   #     command: ["/bin/sh", "-c"]
   #     args: ["./migrate.sh"]
   #     weight: "10"
   #     deletePolicy: before-hook-creation
   #     # backoffLimit: 0             # retries before Helm sees the failure; k8s default 6
-  #     # Secrets of the externalSecrets map, by key (see deployments.*.externalSecrets).
+  #     # Secrets of the externalSecrets map, by key (see workloads.*.externalSecrets).
   #     # activeDeadlineSeconds: 300  # bounds a pod waiting for a Secret; backoffLimit cannot
   #     # A pre-* (not pre-delete) or post-delete hook reads a hook-prerequisite copy, which exists before the hook runs:
   #     # externalSecrets:
@@ -565,7 +565,7 @@ hooks: {}
 # accept `key`, `property` (a gjson path selecting one key out of a JSON
 # payload), `version` (string or number, quoted on render), `conversionStrategy`,
 # `decodingStrategy` and `metadataPolicy`. `dataFrom` is rendered verbatim.
-# Jobs and deployments read the produced Secret through their own
+# Jobs and workloads read the produced Secret through their own
 # `externalSecrets: [{name: <key>}]` list; for every key a pre-* (pre-delete excepted) or post-delete hook reads, the
 # chart also renders a hook-prerequisite copy producing `<target>-hook`.
 externalSecrets: {}
@@ -620,7 +620,7 @@ externalSecrets: {}
   #         .htpasswd: '{{ htpasswd "stage" .password "bcrypt" }}'
 
 # -- KEDA TriggerAuthentication definitions, shared by the triggers of any
-# deployment. Rendered as `{release}-{chart}-{key}`; reference them from a
+# workload. Rendered as `{release}-{chart}-{key}`; reference them from a
 # trigger by their key here and the chart resolves the full name.
 kedaTriggerAuthentications: {}
   # sqs-auth:

@@ -21,7 +21,7 @@ rbacs:
         - apiGroups: [""]
           resources: ["configmaps"]
           verbs: ["get"]
-deployments:
+workloads:
   odoo:
     image: nginx:1.25
     hooks:

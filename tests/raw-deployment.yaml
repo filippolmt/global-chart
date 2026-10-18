@@ -1,8 +1,0 @@
-# Test deployment with raw image string
-deployments:
-  main:
-    image: ghcr.io/app:v2
-    extraContainers:
-      - name: sidecar
-        image: busybox:latest
-        command: ["sh", "-c", "echo sidecar"]

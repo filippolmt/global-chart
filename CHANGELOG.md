@@ -9,7 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Added
 
-- **`deployments.<name>.kind: StatefulSet`** (issue #211, [ADR 0020](docs/adr/0020-a-workload-kind-on-the-deployments-entry.md)).
+- **`workloads.<name>.kind: StatefulSet`** (issue #211, [ADR 0020](docs/adr/0020-a-workload-kind-on-the-deployments-entry.md)).
   An entry renders a StatefulSet instead of a Deployment. Everything else about
   it stays the same: image, config, Service, HPA/KEDA (`scaleTargetRef.kind`
   follows), PDB, NetworkPolicy, and the hooks and cronJobs that inherit from
@@ -63,6 +63,32 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Removed
 
+- **Breaking: the values keys say *workload*, not *deployment*** (issue #221,
+  [ADR 0023](docs/adr/0023-the-workloads-map-replaces-deployments-in-4-0-0.md)).
+  An entry can be a StatefulSet, so `deployments` named it wrongly. The keys
+  are renamed with no deprecation release, an exception ADR 0023 records:
+
+  | Removed | Replacement |
+  |---------|-------------|
+  | `deployments.<name>` | `workloads.<name>` |
+  | `fromDeployment` | `fromWorkload` |
+  | `inheritDeploymentConfigMap`, `inheritDeploymentSecret`, `inheritDeploymentEnvFromConfigMaps`, `inheritDeploymentEnvFromSecrets` | `inheritWorkload…`, same suffix |
+  | `deployment` in `ingress.hosts[]`, the `httpRoute` / `httpRoutes` and L4 route `backendRefs` | `workload` |
+
+  An old key, of any value, fails the render as `<values path>: removed in
+  4.0.0, use <replacement>`, even under a disabled Ingress, HTTPRoute or
+  workload; `deployments` also links the migration guide.
+  Resource names and selector labels do not change, so no workload is
+  recreated. Messages follow: a values path reads `workloads.<name>`, a
+  reference failure `….workload: references workload '<name>'`. A check
+  matching the old text needs updating.
+  **Action:** rename the keys, per the [migration guide](#migration-guide-from-3x).
+  The template of the workloads is `templates/workload.yaml` (was
+  `templates/deployment.yaml`), and the validation template moves to
+  `templates/validate/validate.yaml`, so that Helm renders it before any other.
+  Only the `# Source:` comment of the output changes: a `helm template
+  --show-only templates/deployment.yaml` in a script needs the new path.
+
 - **Breaking: the legacy `volumes[].type` format** (issue #230, deprecated in
   3.1.0 by #183, [ADR 0022](docs/adr/0022-a-removed-key-stays-declared-until-the-next-major.md)).
   `type: emptyDir|configMap|secret|persistentVolumeClaim` is no longer
@@ -71,7 +97,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   The aliases fail too, naming their replacement:
   `<path>.volumes[<i>].secret.name: removed in 4.0.0, use secret.secretName`
   and `….persistentVolumeClaim.name: removed in 4.0.0, use
-  persistentVolumeClaim.claimName`. The `NOTES.txt` deprecation list goes.
+  persistentVolumeClaim.claimName`, on a disabled workload too (issue #221
+  moved these checks into the walk of every removed key). The `NOTES.txt`
+  deprecation list goes.
   **Action:** rewrite each volume in the native form, per the
   [migration guide](#migration-guide-from-3x).
 
@@ -87,7 +115,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   kind and a name, and the message named the entry's workload, not the Service
   that clashes. The headless name is now checked against the rendered
   Services only, and the failure reads `Name collision: Service '…' generated
-  by deployments.<entry>.service conflicts with deployments.<name> (its
+  by workloads.<entry>.service conflicts with workloads.<name> (its
   headless Service)`.
 - **Two pod volumes of one name fail the render** (issue #214). A `volumes`
   entry named like a volume `mountedConfigFiles` generates (`md-cm-file-<name>`,
@@ -119,12 +147,37 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   reads `%s/…/CHANGELOG.md` in a format string as a path.
   `validate-bad-values` prints its failures and one summary line, not one
   line per fixture.
+- `make render-diff BASE=<ref>` (default `main`) renders every `TEST_CASES`
+  scenario on the base and on the working tree and diffs them: the proof that
+  a rename or a refactor changes no manifest (issue #221). Scenarios pair by
+  values file, a renamed one by namespace; the chart version and the
+  clock-derived `timestamp` annotation are masked.
+- `lint-templates` gains the render-order rule: `templates/validate/validate.yaml`
+  is the first template Helm renders. `lint-glossary` flags "deployment" in
+  lower case for a workload, with a self-check of what it flags and lets
+  through.
+- The scenarios and fixtures named after a deployment are named after a
+  workload: `tests/multi-workload.yaml`, `tests/raw-workload.yaml`,
+  `tests/workload-hooks-cronjobs.yaml`, and the `workload-` prefix in
+  `tests/bad-values/` (issue #221).
 - `lint-templates` gains the kind-fields rule. `lint-docs` tells an untracked
   file from a missing one. The Helm repository steps of `kind-keda` and
   `kind-eso` retry three times.
 
 ### Migration guide from 3.x
 
+- Rename the keys that named a workload a deployment (issue #221). The
+  rename touches only values: resource names stay, nothing is recreated.
+
+  | 3.x | 4.0.0 |
+  |-----|-------|
+  | `deployments:` | `workloads:` |
+  | `fromDeployment: <name>` | `fromWorkload: <name>` |
+  | `inheritDeploymentConfigMap` / `Secret` / `EnvFromConfigMaps` / `EnvFromSecrets` | `inheritWorkloadConfigMap` / `Secret` / `EnvFromConfigMaps` / `EnvFromSecrets` |
+  | `deployment: <name>` in an ingress host or a `backendRefs` item | `workload: <name>` |
+
+  A `--set deployments.<name>…` on the command line or in a CI script needs
+  the same rename.
 - Rewrite every legacy volume, in deployments, hooks and cronJobs of both
   scopes, in the native Kubernetes form: drop `type` and write the source as
   Kubernetes does.

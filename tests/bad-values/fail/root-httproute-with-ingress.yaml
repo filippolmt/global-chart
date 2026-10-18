@@ -1,14 +1,14 @@
 # An httpRoutes entry together with an enabled ingress: two HTTP routing layers
 # answering the same release (issue #195). validateRoutingConflict fails.
 # Expected fail substring: "Both .Values.ingress.enabled and .Values.httpRoutes.web are set"
-deployments:
+workloads:
   api:
     image: nginx:1.25
 ingress:
   enabled: true
   hosts:
     - host: app.example.com
-      deployment: api
+      workload: api
       paths:
         - path: /
 httpRoutes:
@@ -17,4 +17,4 @@ httpRoutes:
       - name: gw
     rules:
       - backendRefs:
-          - deployment: api
+          - workload: api

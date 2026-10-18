@@ -1,7 +1,7 @@
 {{- /* L4 routes (issue #194): one TCPRoute per tcpRoutes entry, one UDPRoute per
        udpRoutes entry. The two kinds share one shape and differ only in kind
        and in the protocol their backends must carry, so they share this
-       template: two copies would drift, the way deployment.yaml and
+       template: two copies would drift, the way workload.yaml and
        service.yaml did over ports (issue #82).
 
        An entry present is a route rendered: there is no enabled flag. They
@@ -14,7 +14,7 @@
 
        parentRefs is a verbatim Gateway API structure, rendered through toYaml
        as in httproute.yaml. backendRefs is rendered field by field, since
-       that is where the chart transforms input (deployment + portName ->
+       that is where the chart transforms input (workload + portName ->
        Service name and port, via resolveBackend).
 
        The required-field fails below repeat what the schema rejects
@@ -25,7 +25,7 @@
 {{- range $spec := (include "global-chart.l4RouteKinds" $root | fromJsonArray) }}
 {{- $kind := $spec.kind }}
 {{- range $key, $route := (index $root.Values $spec.field) }}
-{{- /* A null entry is unset, like a null deployments entry: no route */ -}}
+{{- /* A null entry is unset, like a null workloads entry: no route */ -}}
 {{- if not (kindIs "invalid" $route) }}
 {{- $route = default (dict) $route }}
 {{- $ctx := printf "%s.%s" $spec.field $key }}
@@ -55,7 +55,7 @@ spec:
     {{- $rule = default (dict) $rule }}
     {{- $ruleCtx := printf "%s.rules[%d]" $ctx $ruleIdx }}
     {{- if not $rule.backendRefs }}
-      {{- fail (printf "%s.backendRefs: empty. Provide at least one backendRef (deployment or service)." $ruleCtx) }}
+      {{- fail (printf "%s.backendRefs: empty. Provide at least one backendRef (workload or service)." $ruleCtx) }}
     {{- end }}
     -
       {{- with $rule.name }}

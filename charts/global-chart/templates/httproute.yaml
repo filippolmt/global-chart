@@ -8,7 +8,7 @@
        values.schema.json; field defaults (e.g. path type/value) are owned by
        the Gateway API CRD, not duplicated here. Only backendRefs is rendered
        field-by-field, since that is where the chart transforms input
-       (deployment name -> Service via resolveBackend).
+       (workload name -> Service via resolveBackend).
 
        Guarded like the L4 routes (issue #196), once for all of them: see
        requireGatewayApiCrd. */ -}}
@@ -74,7 +74,7 @@ spec:
       {{- if and $redirects $rule.backendRefs }}
         {{- fail (printf "%s.backendRefs: set on a rule with a RequestRedirect filter, which the API server rejects: a redirect answers the request itself. Drop backendRefs from the rule." $ruleCtx) }}
       {{- else if and (not $redirects) (not $rule.backendRefs) }}
-        {{- fail (printf "%s.backendRefs: empty — provide at least one backendRef (deployment or service)." $ruleCtx) }}
+        {{- fail (printf "%s.backendRefs: empty — provide at least one backendRef (workload or service)." $ruleCtx) }}
       {{- end }}
       {{- if $rule.backendRefs }}
       backendRefs:

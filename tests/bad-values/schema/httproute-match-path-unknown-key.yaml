@@ -1,7 +1,7 @@
 # covers: httpRouteRule/properties/matches/items/properties/path
 # An unknown key inside a matches entry's path (typo of value). Without the
 # closure the path matches the gateway default instead of the intended prefix.
-deployments:
+workloads:
   api:
     image: nginx:1.25
 
@@ -15,4 +15,4 @@ httpRoute:
             type: PathPrefix
             vaule: /api
       backendRefs:
-        - deployment: api
+        - workload: api

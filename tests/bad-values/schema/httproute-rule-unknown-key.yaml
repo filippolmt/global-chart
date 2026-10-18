@@ -2,7 +2,7 @@
 # An unknown key inside an httpRoute rule (typo of matches). Without the
 # constraint the rule matches every path instead of the one intended, and the
 # manifest is valid either way.
-deployments:
+workloads:
   api:
     image: nginx:1.25
 
@@ -16,4 +16,4 @@ httpRoute:
             type: PathPrefix
             value: /v1
       backendRefs:
-        - deployment: api
+        - workload: api

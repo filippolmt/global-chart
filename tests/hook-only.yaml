@@ -1,5 +1,5 @@
-# Hooks only - no deployments
-deployments: {}
+# Hooks only - no workloads
+workloads: {}
 hooks:
   post-install:
     init-db:

@@ -2,7 +2,7 @@
 # governing Service, an HPA and a KEDA ScaledObject targeting StatefulSets, a
 # sidecar mounting a second claim, and a Deployment beside it. Every StatefulSet field is set so
 # that null-sweep reaches it.
-deployments:
+workloads:
   search:
     kind: StatefulSet
     image:

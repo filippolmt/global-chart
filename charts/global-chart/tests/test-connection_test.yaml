@@ -3,11 +3,11 @@ templates:
   - templates/tests/test-connection.yaml
 tests:
   # ====== Primary port defaults ======
-  - it: should target port 80 when the deployment declares no service
+  - it: should target port 80 when the workload declares no service
     release:
       name: myrel
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
     asserts:
@@ -19,7 +19,7 @@ tests:
     release:
       name: myrel
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           service:
@@ -30,11 +30,11 @@ tests:
           value: "http://myrel-global-chart-main:3000/"
 
   # ====== Service disabled ======
-  - it: should skip a deployment whose service is disabled
+  - it: should skip a workload whose service is disabled
     release:
       name: myrel
     set:
-      deployments:
+      workloads:
         alpha:
           image: nginx:1.25
           service:

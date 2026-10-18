@@ -1,0 +1,8 @@
+# keda.enabled with no trigger. The schema's if/then rejects it first; under
+# --skip-schema-validation the template fail stops a ScaledObject KEDA rejects.
+# Expected fail substring: "workloads.app.keda.triggers: empty while keda.enabled is true"
+workloads:
+  app:
+    image: nginx:1.25
+    keda:
+      enabled: true

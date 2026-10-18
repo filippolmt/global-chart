@@ -1,7 +1,7 @@
 {{- $root := . }}
 {{- $firstSvc := "" }}
 {{- $firstPort := 0 }}{{/* placeholder: overwritten with servicePrimaryPort below, and nothing renders unless it is */}}
-{{- $deployments := default (dict) .Values.deployments }}
+{{- $deployments := default (dict) .Values.workloads }}
 {{- range $name := keys $deployments | sortAlpha }}
 {{- $deploy := index $deployments $name }}
 {{- if and $deploy (not $firstSvc) }}

@@ -1,5 +1,5 @@
-# Ingress only (no deployments) - points to external service
-deployments: {}
+# Ingress only (no workloads) - points to external service
+workloads: {}
 ingress:
   enabled: true
   className: "nginx"

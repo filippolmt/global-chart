@@ -3,9 +3,9 @@ templates:
   - templates/NOTES.txt
 tests:
   # ====== Workload enabled flag ======
-  - it: should not list disabled deployment in NOTES
+  - it: should not list disabled workload in NOTES
     set:
-      deployments:
+      workloads:
         main:
           enabled: false
           image: nginx:1.25
@@ -13,9 +13,9 @@ tests:
       - notMatchRegexRaw:
           pattern: "main"
 
-  - it: should render NOTES.txt with deployment info
+  - it: should render NOTES.txt with workload info
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
     asserts:
@@ -26,7 +26,7 @@ tests:
 
   - it: should list services
     set:
-      deployments:
+      workloads:
         api:
           image: nginx:1.25
           service:
@@ -37,7 +37,7 @@ tests:
 
   - it: should show ingress info when enabled
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
       ingress:
@@ -45,7 +45,7 @@ tests:
         className: nginx
         hosts:
           - host: example.com
-            deployment: main
+            workload: main
             paths:
               - path: /
                 pathType: Prefix
@@ -73,7 +73,7 @@ tests:
   # only the absence is testable here; `make check-helm-floor` covers presence.
   - it: should not warn about the Helm floor on a recent Helm
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
     asserts:

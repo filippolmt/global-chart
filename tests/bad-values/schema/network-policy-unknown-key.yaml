@@ -1,9 +1,9 @@
 # covers: networkPolicy
-# An unknown key under deployments.<name>.networkPolicy (typo of policyTypes).
+# An unknown key under workloads.<name>.networkPolicy (typo of policyTypes).
 # Must be rejected by values.schema.json ($defs/networkPolicy is closed).
 # Without the constraint the NetworkPolicy renders with the default policy
 # types and the intended restriction is silently absent.
-deployments:
+workloads:
   web:
     image: nginx:1.25
     networkPolicy:

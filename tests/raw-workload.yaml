@@ -1,0 +1,8 @@
+# Test workload with raw image string
+workloads:
+  main:
+    image: ghcr.io/app:v2
+    extraContainers:
+      - name: sidecar
+        image: busybox:latest
+        command: ["sh", "-c", "echo sidecar"]

@@ -7,6 +7,6 @@ defaults:
     requests:
       cpu: 10m
       memory: 64Mi
-deployments:
+workloads:
   web:
     image: nginx:1.25

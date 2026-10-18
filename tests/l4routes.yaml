@@ -1,6 +1,6 @@
 # L4 routes lint scenario (issue #194): a web port through httpRoute, a TCP and
-# a UDP port of the same deployment through TCPRoute/UDPRoute on another Gateway.
-deployments:
+# a UDP port of the same workload through TCPRoute/UDPRoute on another Gateway.
+workloads:
   traccar:
     image: traccar/traccar:6.6
     service:
@@ -24,7 +24,7 @@ httpRoute:
     - traccar.example.com
   rules:
     - backendRefs:
-        - deployment: traccar
+        - workload: traccar
 
 tcpRoutes:
   gps:
@@ -36,7 +36,7 @@ tcpRoutes:
         sectionName: gps-5027
     rules:
       - backendRefs:
-          - deployment: traccar
+          - workload: traccar
             portName: teltonika
             weight: 1
 
@@ -49,5 +49,5 @@ udpRoutes:
     rules:
       - name: osmand
         backendRefs:
-          - deployment: traccar
+          - workload: traccar
             portName: osmand-udp

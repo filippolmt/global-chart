@@ -1,9 +1,0 @@
-# A volume in the legacy volumes[].type format, removed in 4.0.0 (issue #230,
-# ADR 0022). Must be rejected by global-chart.renderVolume naming the native source.
-# Expected fail substring: "deployments.web.volumes[0].type: removed in 4.0.0, use the native volume source"
-deployments:
-  web:
-    image: nginx:1.25
-    volumes:
-      - name: data
-        type: emptyDir

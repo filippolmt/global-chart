@@ -1,5 +1,5 @@
 # covers: service/properties/extraPorts/items
-deployments:
+workloads:
   main:
     image: nginx:1.25
     service:

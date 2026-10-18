@@ -16,17 +16,17 @@ nodeSelector, tolerations, affinity and priorityClassName. An explicit value
 overrides; an empty `{}`, `[]` or `""` (priorityClassName) stops the
 inheritance. Three exceptions to that shape:
 - envFromConfigMaps / envFromSecrets are additive: the job's own (`[]`
-  included) come after the deployment's and never replace them. The opt-outs
-  are toggles, default true: inheritDeploymentConfigMap /
-  inheritDeploymentSecret break the generated ConfigMap/Secret injection, and
-  inheritDeploymentEnvFromConfigMaps / inheritDeploymentEnvFromSecrets drop the
-  deployment's lists (issue #159). They narrow the secret leak surface of a
+  included) come after the workload's and never replace them. The opt-outs
+  are toggles, default true: inheritWorkloadConfigMap /
+  inheritWorkloadSecret break the generated ConfigMap/Secret injection, and
+  inheritWorkloadEnvFromConfigMaps / inheritWorkloadEnvFromSecrets drop the
+  workload's lists (issue #159). They narrow the secret leak surface of a
   narrow-scope job.
 - externalSecrets is not an envFrom list here: the job's own replaces the
   inherited one.
 - The envFrom order is by proximity, the workload's by type: see *Environment
   source* in GLOSSARY.md. Locked by an `equal` on the whole list in
-  deployment_test.yaml and cronjob_test.yaml; a `contains` passes whatever the
+  workload_test.yaml and cronjob_test.yaml; a `contains` passes whatever the
   order, which is how the two ends drifted unobserved.
 Never inherited:
 - command / args: a migration hook inheriting `python -m app.worker` would
@@ -44,29 +44,29 @@ Accepts a dict with:
                    between the two (dnsConfig inheritance and initContainers).
                    It is the job's kind, NOT its scope: ADR 0001 rejects a
                    `scope` parameter, and this is not one
-  deploy         - the parent deployment map; omit for root-level jobs
+  deploy         - the parent workload map; omit for root-level jobs
   saName         - pre-resolved ServiceAccount name
   imageRef       - pre-resolved image string
   containerName  - name for the container
   configMapRef   - ConfigMap name for envFrom (hooks use hook-config, cronjobs
-                   use deploy name); read only when the deployment has a
+                   use deploy name); read only when the workload has a
                    ConfigMap, so root-level callers omit it
-  secretRef      - same, for the deployment's Secret; root-level callers omit it
+  secretRef      - same, for the workload's Secret; root-level callers omit it
   hookType       - the hook's phase; hooks only. A hook whose phase
                    hookReadsPrereqCopy names (pre-* except pre-delete, and
                    post-delete) reads the hook-prerequisite copy of every
                    externalSecrets entry, any other job the real Secret
                    (ADR 0007)
-  deployName     - the deployment key, for the image it inherits and the fail message of an inherited
+  deployName     - the workload key, for the image it inherits and the fail message of an inherited
                    externalSecrets entry; root-level callers omit it
   errCtx         - values path of the job, from jobValuesPath: leads the fail
                    messages of its own externalSecrets entries, volumes and
                    mounts, and names the job in jobImageSource's
 
 The pod-level `automountServiceAccountToken` follows the usual chain: the job's
-own value, then the deployment's pod-level value, else omitted and the
+own value, then the workload's pod-level value, else omitted and the
 ServiceAccount decides. The pod field wins over the SA's at admission, so the
-deployment's value is never carried into an SA the job creates (ADR 0014,
+workload's value is never carried into an SA the job creates (ADR 0014,
 docs/adr/0014-job-pod-automount-follows-the-inheritance-chain.md).
 */}}
 {{- define "global-chart.jobPodSpec" -}}
@@ -84,7 +84,7 @@ docs/adr/0014-job-pod-automount-follows-the-inheritance-chain.md).
   {{- fail (printf "jobPodSpec: unknown kind %q for %s (expected \"hook\" or \"cronjob\")" (toString .kind) .containerName) -}}
 {{- end -}}
 {{- $isCronJob := eq .kind "cronjob" -}}
-{{- /* ImagePullSecrets: explicit > inherited from deployment > global (hasKey distinguishes unset from empty) */ -}}
+{{- /* ImagePullSecrets: explicit > inherited from workload > global (hasKey distinguishes unset from empty) */ -}}
 {{- $imagePullSecrets := list -}}
 {{- if hasKey $job "imagePullSecrets" -}}
   {{- $imagePullSecrets = $job.imagePullSecrets -}}
@@ -97,13 +97,13 @@ docs/adr/0014-job-pod-automount-follows-the-inheritance-chain.md).
 {{- with (include "global-chart.renderImagePullSecrets" $imagePullSecrets) }}
 {{ . }}
 {{- end }}
-{{- /* HostAliases: explicit > inherited from deployment */ -}}
+{{- /* HostAliases: explicit > inherited from workload */ -}}
 {{- $hostAliases := ternary $job.hostAliases $deploy.hostAliases (eq (include "global-chart.isSet" (list $job "hostAliases")) "true") -}}
 {{- with $hostAliases }}
 hostAliases:
   {{- toYaml . | nindent 2 }}
 {{- end }}
-{{- /* PodSecurityContext: explicit > inherited from deployment */ -}}
+{{- /* PodSecurityContext: explicit > inherited from workload */ -}}
 {{- $podSecCtx := ternary $job.podSecurityContext $deploy.podSecurityContext (eq (include "global-chart.isSet" (list $job "podSecurityContext")) "true") -}}
 {{- with $podSecCtx }}
 securityContext:
@@ -132,7 +132,7 @@ containers:
 - name: {{ $containerName }}
   image: {{ $imageRef | quote }}
   {{- /* The pullPolicy follows the image to wherever it came from: a
-         root-level fromDeployment copies the deployment's pullPolicy with its
+         root-level fromWorkload copies the workload's pullPolicy with its
          image (issue #160) */ -}}
   {{- $imageSource := include "global-chart.jobImageSource" (dict "root" $root "job" $job "deployName" .deployName "errCtx" .errCtx) | fromJson }}
   imagePullPolicy: {{ include "global-chart.imagePullPolicy" (dict "override" $job.imagePullPolicy "image" $imageSource.image) | quote }}
@@ -144,22 +144,22 @@ containers:
   args:
     {{- toYaml $job.args | nindent 4 }}
   {{- end }}
-  {{- /* Container securityContext: explicit > inherited from deployment */ -}}
+  {{- /* Container securityContext: explicit > inherited from workload */ -}}
   {{- $secCtx := ternary $job.securityContext $deploy.securityContext (eq (include "global-chart.isSet" (list $job "securityContext")) "true") -}}
   {{- with $secCtx }}
   securityContext:
     {{- toYaml . | nindent 4 }}
   {{- end }}
-  {{- /* EnvFrom, by proximity: deployment's configMap/secret, deployment's envFromConfigMaps/envFromSecrets and inherited externalSecrets, then the job's own */ -}}
+  {{- /* EnvFrom, by proximity: workload's configMap/secret, workload's envFromConfigMaps/envFromSecrets and inherited externalSecrets, then the job's own */ -}}
   {{- /* Opt-out flags, default true, set false to break inheritance:
-         inheritDeploymentSecret/inheritDeploymentConfigMap for the generated
-         Secret/ConfigMap, inheritDeploymentEnvFromSecrets/-ConfigMaps for the
-         deployment's envFromSecrets/envFromConfigMaps (issue #159). The job's
+         inheritWorkloadSecret/inheritWorkloadConfigMap for the generated
+         Secret/ConfigMap, inheritWorkloadEnvFromSecrets/-ConfigMaps for the
+         workload's envFromSecrets/envFromConfigMaps (issue #159). The job's
          own lists add to what it inherits, they never replace it */ -}}
-  {{- $inheritCM := ternary $job.inheritDeploymentConfigMap true (eq (include "global-chart.isSet" (list $job "inheritDeploymentConfigMap")) "true") -}}
-  {{- $inheritSec := ternary $job.inheritDeploymentSecret true (eq (include "global-chart.isSet" (list $job "inheritDeploymentSecret")) "true") -}}
-  {{- $inheritEnvFromCMs := ternary $job.inheritDeploymentEnvFromConfigMaps true (eq (include "global-chart.isSet" (list $job "inheritDeploymentEnvFromConfigMaps")) "true") -}}
-  {{- $inheritEnvFromSecrets := ternary $job.inheritDeploymentEnvFromSecrets true (eq (include "global-chart.isSet" (list $job "inheritDeploymentEnvFromSecrets")) "true") -}}
+  {{- $inheritCM := ternary $job.inheritWorkloadConfigMap true (eq (include "global-chart.isSet" (list $job "inheritWorkloadConfigMap")) "true") -}}
+  {{- $inheritSec := ternary $job.inheritWorkloadSecret true (eq (include "global-chart.isSet" (list $job "inheritWorkloadSecret")) "true") -}}
+  {{- $inheritEnvFromCMs := ternary $job.inheritWorkloadEnvFromConfigMaps true (eq (include "global-chart.isSet" (list $job "inheritWorkloadEnvFromConfigMaps")) "true") -}}
+  {{- $inheritEnvFromSecrets := ternary $job.inheritWorkloadEnvFromSecrets true (eq (include "global-chart.isSet" (list $job "inheritWorkloadEnvFromSecrets")) "true") -}}
   {{- $deployEnvFromCMs := ternary $deploy.envFromConfigMaps list $inheritEnvFromCMs -}}
   {{- $deployEnvFromSecrets := ternary $deploy.envFromSecrets list $inheritEnvFromSecrets -}}
   {{- $hasDeployConfigMap := and $inheritCM $deploy.configMap (gt (len $deploy.configMap) 0) -}}
@@ -226,7 +226,7 @@ containers:
         name: {{ . | quote }}
     {{- end }}
   {{- end }}
-  {{- /* Env: deployment's additionalEnvs + job's env */ -}}
+  {{- /* Env: workload's additionalEnvs + job's env */ -}}
   {{- $envVars := list -}}
   {{- if $deploy.additionalEnvs -}}
     {{- $envVars = $deploy.additionalEnvs -}}
@@ -248,7 +248,7 @@ containers:
 {{- if or $job.volumes $esMounted }}
 volumes:
   {{- range $i, $v := $job.volumes }}
-  {{- include "global-chart.renderVolume" (dict "volume" $v "errCtx" (printf "%s.volumes[%d]" $.errCtx $i) "chartHome" $root.Chart.Home) | nindent 2 }}
+  {{- include "global-chart.renderVolume" (dict "volume" $v "errCtx" (printf "%s.volumes[%d]" $.errCtx $i)) | nindent 2 }}
   {{- end }}
   {{- with $esMounted }}
   {{- include "global-chart.renderExternalSecretVolumes" . | nindent 2 }}
@@ -257,31 +257,31 @@ volumes:
 {{- with $saName }}
 serviceAccountName: {{ . | quote }}
 {{- end }}
-{{- /* Pod-level token automount: explicit > inherited from deployment > omit (ADR 0014) */ -}}
+{{- /* Pod-level token automount: explicit > inherited from workload > omit (ADR 0014) */ -}}
 {{- if hasKey $job "automountServiceAccountToken" }}
 automountServiceAccountToken: {{ $job.automountServiceAccountToken }}
 {{- else if hasKey $deploy "automountServiceAccountToken" }}
 automountServiceAccountToken: {{ $deploy.automountServiceAccountToken }}
 {{- end }}
-{{- /* NodeSelector: explicit > inherited from deployment */ -}}
+{{- /* NodeSelector: explicit > inherited from workload */ -}}
 {{- $nodeSelector := ternary $job.nodeSelector $deploy.nodeSelector (eq (include "global-chart.isSet" (list $job "nodeSelector")) "true") -}}
 {{- with $nodeSelector }}
 nodeSelector:
   {{- toYaml . | nindent 2 }}
 {{- end }}
-{{- /* Affinity: explicit > inherited from deployment */ -}}
+{{- /* Affinity: explicit > inherited from workload */ -}}
 {{- $affinity := ternary $job.affinity $deploy.affinity (eq (include "global-chart.isSet" (list $job "affinity")) "true") -}}
 {{- with $affinity }}
 affinity:
   {{- toYaml . | nindent 2 }}
 {{- end }}
-{{- /* Tolerations: explicit > inherited from deployment */ -}}
+{{- /* Tolerations: explicit > inherited from workload */ -}}
 {{- $tolerations := ternary $job.tolerations $deploy.tolerations (eq (include "global-chart.isSet" (list $job "tolerations")) "true") -}}
 {{- with $tolerations }}
 tolerations:
   {{- toYaml . | nindent 2 }}
 {{- end }}
-{{- /* PriorityClassName: explicit > inherited from deployment; "" stops it */ -}}
+{{- /* PriorityClassName: explicit > inherited from workload; "" stops it */ -}}
 {{- $priorityClassName := ternary $job.priorityClassName $deploy.priorityClassName (eq (include "global-chart.isSet" (list $job "priorityClassName")) "true") -}}
 {{- with $priorityClassName }}
 priorityClassName: {{ . | quote }}
@@ -291,7 +291,7 @@ restartPolicy: {{ default "Never" (ternary $job.restartPolicy "" (eq (include "g
 
 {{/*
 The externalSecrets references of a cronjob/hook, split by level: the list the
-job inherits from its deployment and the one it declares itself. hasKey decides,
+job inherits from its workload and the one it declares itself. hasKey decides,
 like every other inheritable field: a job that sets externalSecrets — `[]`
 included — inherits none. Root-level jobs pass no deploy and inherit nothing.
 Returns JSON {inherited: [...], own: [...]}; callers do `include ... | fromJson`.
@@ -314,8 +314,8 @@ site used to rebuild it with its own printf, and a job reported by two paths —
 resolver, render and validator — could be named two ways.
   hooks.<type>.<name>                      root-level hook
   cronJobs.<name>                          root-level cronjob
-  deployments.<d>.hooks.<type>.<name>      workload-scope hook
-  deployments.<d>.cronJobs.<name>          workload-scope cronjob
+  workloads.<d>.hooks.<type>.<name>      workload-scope hook
+  workloads.<d>.cronJobs.<name>          workload-scope cronjob
 Bind it once per job (`$errCtx`) and reuse it; never printf the path inline.
 Params: kind ("hook" | "cronjob") · deploymentName (omit or "" at root level) ·
 hookType (hooks only) · jobName (the job's key) — the same names as
@@ -339,23 +339,23 @@ Choose the image value (a string or a repository/tag map) a cronjob/hook runs:
 the one home of the resolution order, read by jobImageString for the image and
 by jobPodSpec for the pullPolicy, so the two follow one source (issue #160).
 Returns JSON {"image": <value or null>, "from": <entry>}: "from" is the values
-path of the deployment the image was taken from ("deployments.<name>"), empty
-when it is the job's own; fails only on a fromDeployment naming no deployment.
+path of the workload the image was taken from ("workloads.<name>"), empty
+when it is the job's own; fails only on a fromWorkload naming no workload.
 
 Accepts a dict with:
   root    - top-level chart context
   job     - the cronjob/hook command map
-  deployName - the parent deployment's key (omit for root-level jobs): the
-               helper reads the deployment from it, and names it in "from"
+  deployName - the parent workload's key (omit for root-level jobs): the
+               helper reads the workload from it, and names it in "from"
   errCtx  - values path of the job, from jobValuesPath (required): names the job
             in the failure messages
 
 Resolution order:
   1. explicit job.image
-  2. deployments[deployName].image (workload-scope: inherit parent; takes precedence
-                              so a workload-scope job's fromDeployment is ignored,
+  2. workloads[deployName].image (workload-scope: inherit parent; takes precedence
+                              so a workload-scope job's fromWorkload is ignored,
                               matching prior behavior)
-  3. job.fromDeployment      (root-level only: lookup + fail if missing)
+  3. job.fromWorkload      (root-level only: lookup + fail if missing)
 */}}
 {{- define "global-chart.jobImageSource" -}}
 {{- $job := .job -}}
@@ -364,16 +364,16 @@ Resolution order:
 {{- if hasKey $job "image" -}}
   {{- $image = dict "image" $job.image "from" "" -}}
 {{- else if .deployName -}}
-  {{- $image = dict "image" (index .root.Values.deployments .deployName).image "from" (include "global-chart.deploymentValuesPath" .deployName) -}}
-{{- else if $job.fromDeployment -}}
-  {{- $dep := index (default (dict) .root.Values.deployments) $job.fromDeployment -}}
+  {{- $image = dict "image" (index .root.Values.workloads .deployName).image "from" (include "global-chart.deploymentValuesPath" .deployName) -}}
+{{- else if $job.fromWorkload -}}
+  {{- $dep := index (default (dict) .root.Values.workloads) $job.fromWorkload -}}
   {{- if not $dep -}}
-    {{- if hasKey (default (dict) .root.Values.deployments) $job.fromDeployment -}}
-      {{- fail (printf "%s.fromDeployment: references deployment '%s', which is empty: an empty deployments entry renders nothing. Fill the entry, or drop the reference." $errCtx $job.fromDeployment) -}}
+    {{- if hasKey (default (dict) .root.Values.workloads) $job.fromWorkload -}}
+      {{- fail (printf "%s.fromWorkload: references workload '%s', which is empty: an empty workloads entry renders nothing. Fill the entry, or drop the reference." $errCtx $job.fromWorkload) -}}
     {{- end -}}
-    {{- fail (printf "%s.fromDeployment: references deployment '%s', which does not exist in .Values.deployments" $errCtx $job.fromDeployment) -}}
+    {{- fail (printf "%s.fromWorkload: references workload '%s', which does not exist in .Values.workloads" $errCtx $job.fromWorkload) -}}
   {{- end -}}
-  {{- $image = dict "image" $dep.image "from" (include "global-chart.deploymentValuesPath" $job.fromDeployment) -}}
+  {{- $image = dict "image" $dep.image "from" (include "global-chart.deploymentValuesPath" $job.fromWorkload) -}}
 {{- end -}}
 {{- $image | toJson -}}
 {{- end -}}
@@ -383,7 +383,7 @@ Resolve the image string for a cronjob/hook command, from jobImageSource.
 Returns the image string, and fails when none resolves: the one home of the
 "image is required" message, which callers used to spell out each with its own
 printf. Takes the same dict as jobImageSource. An imageString fail leads with
-the path of the image: the job's own, or the deployment's it inherits, "(inherited
+the path of the image: the job's own, or the workload's it inherits, "(inherited
 by <job>)" (issues #188, #190).
 */}}
 {{- define "global-chart.jobImageString" -}}
@@ -399,7 +399,7 @@ by <job>)" (issues #188, #190).
   {{- if .deployName -}}
     {{- fail (printf "%s: image is required" $errCtx) -}}
   {{- else -}}
-    {{- fail (printf "%s: image is required (set %s.image or %s.fromDeployment)" $errCtx $errCtx $errCtx) -}}
+    {{- fail (printf "%s: image is required (set %s.image or %s.fromWorkload)" $errCtx $errCtx $errCtx) -}}
   {{- end -}}
 {{- end -}}
 {{- $img -}}
@@ -416,7 +416,7 @@ not at all:
 - suspend                 — no default
 - concurrencyPolicy       — "Forbid"
 - successfulJobsHistoryLimit, failedJobsHistoryLimit — 2 each
-Nothing falls back to the deployment or global: they describe this schedule.
+Nothing falls back to the workload or global: they describe this schedule.
 Every value goes through global-chart.printScalar (issue #132), unquoted:
 concurrencyPolicy is a schema enum (Allow/Forbid/Replace), a plain YAML string.
 Params: job (the job map) · errCtx (the job's jobValuesPath).
@@ -442,7 +442,7 @@ errCtx is the job's jobValuesPath: a null the job sets fails naming its key.
 {{/*
 The Job spec fields a job sets verbatim, for both kinds and both scopes (issue
 #113). Each renders only when the job sets it — hasKey, so 0 is kept — and
-nothing falls back to the deployment or global: a retry budget or a deadline is
+nothing falls back to the workload or global: a retry budget or a deadline is
 the job's own. Every field is an integer, printed through
 global-chart.printScalar (_render-helpers.tpl), the one home of the rule for
 numbers from values: a

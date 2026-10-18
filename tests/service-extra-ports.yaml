@@ -1,5 +1,5 @@
-# Test deployment with multi-port Service (Odoo HTTP + gevent pattern, see issue #52)
-deployments:
+# Test workload with multi-port Service (Odoo HTTP + gevent pattern, see issue #52)
+workloads:
   odoo:
     image:
       repository: odoo

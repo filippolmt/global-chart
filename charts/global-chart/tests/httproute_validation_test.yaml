@@ -1,7 +1,7 @@
 suite: httproute validation tests
 templates:
   - templates/httproute.yaml
-  - templates/validate.yaml
+  - templates/validate/validate.yaml
   - templates/ingress.yaml
 # The CRD-missing path lives in gateway-api-crd-check_test.yaml.
 capabilities:
@@ -11,7 +11,7 @@ tests:
   # ====== 1. parentRefs missing (key absent) ======
   - it: should fail when httpRoute.enabled is true and parentRefs is missing
     set:
-      deployments:
+      workloads:
         api:
           image: nginx:1.25
       httpRoute:
@@ -22,7 +22,7 @@ tests:
                   type: PathPrefix
                   value: /
             backendRefs:
-              - deployment: api
+              - workload: api
     asserts:
       - failedTemplate:
           errorMessage: "httpRoute.parentRefs: empty while httpRoute.enabled is true. Provide at least one parentRef pointing to an existing Gateway (the chart does not create Gateways)."
@@ -31,7 +31,7 @@ tests:
   # ====== 2. parentRefs explicitly empty list ======
   - it: should fail when httpRoute.parentRefs is an empty list
     set:
-      deployments:
+      workloads:
         api:
           image: nginx:1.25
       httpRoute:
@@ -43,7 +43,7 @@ tests:
                   type: PathPrefix
                   value: /
             backendRefs:
-              - deployment: api
+              - workload: api
     asserts:
       - failedTemplate:
           errorMessage: "httpRoute.parentRefs: empty while httpRoute.enabled is true. Provide at least one parentRef pointing to an existing Gateway (the chart does not create Gateways)."
@@ -52,7 +52,7 @@ tests:
   # ====== 3. rules missing (key absent) ======
   - it: should fail when httpRoute.enabled is true and rules is missing
     set:
-      deployments:
+      workloads:
         api:
           image: nginx:1.25
       httpRoute:
@@ -67,7 +67,7 @@ tests:
   # ====== 4. rules explicitly empty list ======
   - it: should fail when httpRoute.rules is an empty list
     set:
-      deployments:
+      workloads:
         api:
           image: nginx:1.25
       httpRoute:
@@ -83,7 +83,7 @@ tests:
   # ====== 5. rule with empty backendRefs ======
   - it: should fail when a rule has empty backendRefs
     set:
-      deployments:
+      workloads:
         api:
           image: nginx:1.25
       httpRoute:
@@ -98,13 +98,13 @@ tests:
             backendRefs: []
     asserts:
       - failedTemplate:
-          errorMessage: "httpRoute.rules[0].backendRefs: empty — provide at least one backendRef (deployment or service)."
+          errorMessage: "httpRoute.rules[0].backendRefs: empty — provide at least one backendRef (workload or service)."
         template: templates/httproute.yaml
 
-  # ====== 6. backendRef → nonexistent deployment ======
-  - it: should fail when backendRef references a non-existent deployment
+  # ====== 6. backendRef → nonexistent workload ======
+  - it: should fail when backendRef references a non-existent workload
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
       httpRoute:
@@ -117,16 +117,16 @@ tests:
                   type: PathPrefix
                   value: /
             backendRefs:
-              - deployment: frontend
+              - workload: frontend
     asserts:
       - failedTemplate:
-          errorMessage: "httpRoute.rules[0].backendRefs[0].deployment: references deployment 'frontend', which does not exist in .Values.deployments"
+          errorMessage: "httpRoute.rules[0].backendRefs[0].workload: references workload 'frontend', which does not exist in .Values.workloads"
         template: templates/httproute.yaml
 
-  # ====== 7. backendRef → deployment with enabled: false ======
-  - it: should fail when backendRef references a deployment with enabled false
+  # ====== 7. backendRef → workload with enabled: false ======
+  - it: should fail when backendRef references a workload with enabled false
     set:
-      deployments:
+      workloads:
         frontend:
           enabled: false
           image: nginx:1.25
@@ -140,16 +140,16 @@ tests:
                   type: PathPrefix
                   value: /
             backendRefs:
-              - deployment: frontend
+              - workload: frontend
     asserts:
       - failedTemplate:
-          errorMessage: "httpRoute.rules[0].backendRefs[0].deployment: references deployment 'frontend', which has enabled: false (its Service will not be created)"
+          errorMessage: "httpRoute.rules[0].backendRefs[0].workload: references workload 'frontend', which has enabled: false (its Service will not be created)"
         template: templates/httproute.yaml
 
-  # ====== 8. backendRef → deployment with service.enabled: false ======
-  - it: should fail when backendRef references a deployment with service.enabled false
+  # ====== 8. backendRef → workload with service.enabled: false ======
+  - it: should fail when backendRef references a workload with service.enabled false
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           service:
@@ -164,16 +164,16 @@ tests:
                   type: PathPrefix
                   value: /
             backendRefs:
-              - deployment: backend
+              - workload: backend
     asserts:
       - failedTemplate:
-          errorMessage: "httpRoute.rules[0].backendRefs[0].deployment: references deployment 'backend', which has service.enabled: false. Enable the service or remove the reference."
+          errorMessage: "httpRoute.rules[0].backendRefs[0].workload: references workload 'backend', which has service.enabled: false. Enable the service or remove the reference."
         template: templates/httproute.yaml
 
-  # ====== 9. backendRef → neither deployment nor service.name ======
-  - it: should fail when backendRef has neither deployment nor service.name
+  # ====== 9. backendRef → neither workload nor service.name ======
+  - it: should fail when backendRef has neither workload nor service.name
     set:
-      deployments:
+      workloads:
         api:
           image: nginx:1.25
       httpRoute:
@@ -189,13 +189,13 @@ tests:
               - {}
     asserts:
       - failedTemplate:
-          errorMessage: "httpRoute.rules[0].backendRefs[0]: must specify either 'deployment' (name of a deployment) or 'service.name' (explicit service name)"
+          errorMessage: "httpRoute.rules[0].backendRefs[0]: must specify either 'workload' (name of a workload) or 'service.name' (explicit service name)"
         template: templates/httproute.yaml
 
   # ====== 10. ingress.enabled and httpRoute.enabled both true (routing conflict) ======
   - it: should fail when both ingress.enabled and httpRoute.enabled are true
     set:
-      deployments:
+      workloads:
         api:
           image: nginx:1.25
           service:
@@ -204,7 +204,7 @@ tests:
         enabled: true
         hosts:
           - host: app.example.com
-            deployment: api
+            workload: api
             paths:
               - path: /
                 pathType: Prefix
@@ -220,16 +220,16 @@ tests:
                   type: PathPrefix
                   value: /
             backendRefs:
-              - deployment: api
+              - workload: api
     asserts:
       - failedTemplate:
           errorMessage: "Both .Values.ingress.enabled and .Values.httpRoute.enabled are true. The chart supports only one HTTP routing layer per release. Disable one (set enabled: false) to proceed."
-        template: templates/validate.yaml
+        template: templates/validate/validate.yaml
 
   # ====== 11. ingress only — no fail, Ingress rendered ======
   - it: should render Ingress only when ingress.enabled is true and httpRoute.enabled is false
     set:
-      deployments:
+      workloads:
         api:
           image: nginx:1.25
           service:
@@ -238,7 +238,7 @@ tests:
         enabled: true
         hosts:
           - host: app.example.com
-            deployment: api
+            workload: api
             paths:
               - path: /
                 pathType: Prefix
@@ -246,7 +246,7 @@ tests:
         enabled: false
     asserts:
       - notFailedTemplate: {}
-        template: templates/validate.yaml
+        template: templates/validate/validate.yaml
       - notFailedTemplate: {}
         template: templates/ingress.yaml
       - notFailedTemplate: {}
@@ -261,7 +261,7 @@ tests:
   # ====== 12. httpRoute only — no fail, HTTPRoute rendered ======
   - it: should render HTTPRoute only when httpRoute.enabled is true and ingress.enabled is false
     set:
-      deployments:
+      workloads:
         api:
           image: nginx:1.25
           service:
@@ -280,10 +280,10 @@ tests:
                   type: PathPrefix
                   value: /
             backendRefs:
-              - deployment: api
+              - workload: api
     asserts:
       - notFailedTemplate: {}
-        template: templates/validate.yaml
+        template: templates/validate/validate.yaml
       - notFailedTemplate: {}
         template: templates/httproute.yaml
       - notFailedTemplate: {}
@@ -295,9 +295,9 @@ tests:
           count: 0
         template: templates/ingress.yaml
 
-  - it: should fail naming an empty backendRef deployment as empty, not missing
+  - it: should fail naming an empty backendRef workload as empty, not missing
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
         frontend: {}
@@ -311,8 +311,8 @@ tests:
                   type: PathPrefix
                   value: /
             backendRefs:
-              - deployment: frontend
+              - workload: frontend
     asserts:
       - failedTemplate:
-          errorPattern: "httpRoute\\.rules\\[0\\]\\.backendRefs\\[0\\]\\.deployment: references deployment 'frontend', which is empty: an empty deployments entry renders nothing"
+          errorPattern: "httpRoute\\.rules\\[0\\]\\.backendRefs\\[0\\]\\.workload: references workload 'frontend', which is empty: an empty workloads entry renders nothing"
         template: templates/httproute.yaml

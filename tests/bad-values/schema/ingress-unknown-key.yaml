@@ -2,7 +2,7 @@
 # An unknown key under ingress (typo of className). Must be rejected by
 # values.schema.json ($defs/ingress is closed). Without the constraint the
 # Ingress renders with no ingressClassName and no controller claims it.
-deployments:
+workloads:
   web:
     image: nginx:1.25
 
@@ -11,7 +11,7 @@ ingress:
   classname: nginx
   hosts:
     - host: example.com
-      deployment: web
+      workload: web
       paths:
         - path: /
           pathType: Prefix

@@ -1,4 +1,4 @@
-deployments:
+workloads:
   main:
     replicaCount: 1
     image:

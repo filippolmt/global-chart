@@ -63,7 +63,7 @@ kedaTriggerAuthentications:
         name: e2e-keda-credentials
         key: username
 
-deployments:
+workloads:
   app:
     image: busybox:1.36
     command: ["sh", "-c"]

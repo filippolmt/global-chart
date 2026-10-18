@@ -4,6 +4,6 @@
 # if it had been repointed.
 global:
   imageRegistri: registry.example.com
-deployments:
+workloads:
   web:
     image: nginx:1.25

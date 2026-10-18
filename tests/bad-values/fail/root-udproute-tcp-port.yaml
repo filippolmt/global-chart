@@ -1,8 +1,8 @@
-# A UDPRoute whose backendRef falls back on the deployment's primary port, TCP
+# A UDPRoute whose backendRef falls back on the workload's primary port, TCP
 # by default. Kubernetes accepts the route and the traffic never arrives;
 # resolveBackend fails on the protocol (issue #194).
-# Expected fail substring: "udpRoutes.gps.rules[0].backendRefs[0]: resolves to the TCP port 'http' of deployment 'traccar'"
-deployments:
+# Expected fail substring: "udpRoutes.gps.rules[0].backendRefs[0]: resolves to the TCP port 'http' of workload 'traccar'"
+workloads:
   traccar:
     image: traccar/traccar:6.6
 udpRoutes:
@@ -11,4 +11,4 @@ udpRoutes:
       - name: gw
     rules:
       - backendRefs:
-          - deployment: traccar
+          - workload: traccar

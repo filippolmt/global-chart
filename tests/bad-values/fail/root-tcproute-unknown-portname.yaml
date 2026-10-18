@@ -1,8 +1,8 @@
-# A tcpRoutes backendRef naming a port the deployment's Service does not have.
+# A tcpRoutes backendRef naming a port the workload's Service does not have.
 # resolveBackend fails, listing the ports it has (issue #194).
 # Expected fail substring: "tcpRoutes.gps.rules[0].backendRefs[0].portName: 'teltonika' names no port"
 # Expected fail substring: "(ports: http)"
-deployments:
+workloads:
   traccar:
     image: traccar/traccar:6.6
 tcpRoutes:
@@ -11,5 +11,5 @@ tcpRoutes:
       - name: gw
     rules:
       - backendRefs:
-          - deployment: traccar
+          - workload: traccar
             portName: teltonika

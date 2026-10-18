@@ -11,7 +11,7 @@ tests:
     release:
       name: myrel
     set:
-      deployments:
+      workloads:
         api:
           image: nginx:1.25
           service:
@@ -27,7 +27,7 @@ tests:
                   type: PathPrefix
                   value: /
             backendRefs:
-              - deployment: api
+              - workload: api
     asserts:
       - isKind:
           of: HTTPRoute
@@ -61,7 +61,7 @@ tests:
   # ====== 3. Disabled (unset) ======
   - it: should not render when httpRoute is not set
     set:
-      deployments:
+      workloads:
         api:
           image: nginx:1.25
     asserts:
@@ -71,7 +71,7 @@ tests:
   # ====== 4. parentRefs single ======
   - it: should render single parentRef with name only
     set:
-      deployments:
+      workloads:
         api:
           image: nginx:1.25
       httpRoute:
@@ -84,7 +84,7 @@ tests:
                   type: PathPrefix
                   value: /
             backendRefs:
-              - deployment: api
+              - workload: api
     asserts:
       - equal:
           path: spec.parentRefs[0].name
@@ -95,7 +95,7 @@ tests:
   # ====== 5. parentRefs full ======
   - it: should render parentRef with name, namespace, sectionName, port, kind, group
     set:
-      deployments:
+      workloads:
         api:
           image: nginx:1.25
       httpRoute:
@@ -113,7 +113,7 @@ tests:
                   type: PathPrefix
                   value: /
             backendRefs:
-              - deployment: api
+              - workload: api
     asserts:
       - equal:
           path: spec.parentRefs[0].name
@@ -137,7 +137,7 @@ tests:
   # ====== 6. parentRefs multiple ======
   - it: should render multiple parentRefs
     set:
-      deployments:
+      workloads:
         api:
           image: nginx:1.25
       httpRoute:
@@ -154,7 +154,7 @@ tests:
                   type: PathPrefix
                   value: /
             backendRefs:
-              - deployment: api
+              - workload: api
     asserts:
       - equal:
           path: spec.parentRefs[0].name
@@ -169,7 +169,7 @@ tests:
   # ====== 7. hostnames present ======
   - it: should render hostnames as YAML list
     set:
-      deployments:
+      workloads:
         api:
           image: nginx:1.25
       httpRoute:
@@ -185,7 +185,7 @@ tests:
                   type: PathPrefix
                   value: /
             backendRefs:
-              - deployment: api
+              - workload: api
     asserts:
       - equal:
           path: spec.hostnames[0]
@@ -197,7 +197,7 @@ tests:
   # ====== 8. hostnames absent ======
   - it: should omit hostnames key when not provided
     set:
-      deployments:
+      workloads:
         api:
           image: nginx:1.25
       httpRoute:
@@ -210,7 +210,7 @@ tests:
                   type: PathPrefix
                   value: /
             backendRefs:
-              - deployment: api
+              - workload: api
     asserts:
       - notExists:
           path: spec.hostnames
@@ -218,7 +218,7 @@ tests:
   # ====== 9. path match — Exact ======
   - it: should render path match type Exact
     set:
-      deployments:
+      workloads:
         api:
           image: nginx:1.25
       httpRoute:
@@ -231,7 +231,7 @@ tests:
                   type: Exact
                   value: /healthz
             backendRefs:
-              - deployment: api
+              - workload: api
     asserts:
       - equal:
           path: spec.rules[0].matches[0].path.type
@@ -243,7 +243,7 @@ tests:
   # ====== 10. path match — PathPrefix ======
   - it: should render path match type PathPrefix
     set:
-      deployments:
+      workloads:
         api:
           image: nginx:1.25
       httpRoute:
@@ -256,7 +256,7 @@ tests:
                   type: PathPrefix
                   value: /api
             backendRefs:
-              - deployment: api
+              - workload: api
     asserts:
       - equal:
           path: spec.rules[0].matches[0].path.type
@@ -268,7 +268,7 @@ tests:
   # ====== 11. path match — RegularExpression ======
   - it: should render path match type RegularExpression
     set:
-      deployments:
+      workloads:
         api:
           image: nginx:1.25
       httpRoute:
@@ -281,7 +281,7 @@ tests:
                   type: RegularExpression
                   value: ^/api/v[0-9]+/.*$
             backendRefs:
-              - deployment: api
+              - workload: api
     asserts:
       - equal:
           path: spec.rules[0].matches[0].path.type
@@ -293,7 +293,7 @@ tests:
   # ====== 12. header match ======
   - it: should render header match with name, value, type
     set:
-      deployments:
+      workloads:
         api:
           image: nginx:1.25
       httpRoute:
@@ -307,7 +307,7 @@ tests:
                     value: gold
                     type: Exact
             backendRefs:
-              - deployment: api
+              - workload: api
     asserts:
       - equal:
           path: spec.rules[0].matches[0].headers[0].name
@@ -322,7 +322,7 @@ tests:
   # ====== 13. method match ======
   - it: should render HTTP method match
     set:
-      deployments:
+      workloads:
         api:
           image: nginx:1.25
       httpRoute:
@@ -333,7 +333,7 @@ tests:
           - matches:
               - method: POST
             backendRefs:
-              - deployment: api
+              - workload: api
     asserts:
       - equal:
           path: spec.rules[0].matches[0].method
@@ -342,7 +342,7 @@ tests:
   # ====== 14. filter — RequestRedirect ======
   - it: should pass through RequestRedirect filter via toYaml
     set:
-      deployments:
+      workloads:
         api:
           image: nginx:1.25
       httpRoute:
@@ -382,7 +382,7 @@ tests:
   # ====== 15. filter — URLRewrite ======
   - it: should pass through URLRewrite filter
     set:
-      deployments:
+      workloads:
         api:
           image: nginx:1.25
       httpRoute:
@@ -402,7 +402,7 @@ tests:
                     type: ReplacePrefixMatch
                     replacePrefixMatch: /
             backendRefs:
-              - deployment: api
+              - workload: api
     asserts:
       - equal:
           path: spec.rules[0].filters[0].type
@@ -417,7 +417,7 @@ tests:
   # ====== 16. filter — RequestHeaderModifier (add/set/remove) ======
   - it: should pass through RequestHeaderModifier with add, set, remove
     set:
-      deployments:
+      workloads:
         api:
           image: nginx:1.25
       httpRoute:
@@ -441,7 +441,7 @@ tests:
                   remove:
                     - X-Internal-Auth
             backendRefs:
-              - deployment: api
+              - workload: api
     asserts:
       - equal:
           path: spec.rules[0].filters[0].type
@@ -459,7 +459,7 @@ tests:
   # ====== 17. filter — ResponseHeaderModifier ======
   - it: should pass through ResponseHeaderModifier
     set:
-      deployments:
+      workloads:
         api:
           image: nginx:1.25
       httpRoute:
@@ -481,7 +481,7 @@ tests:
                     - name: X-Trace-Id
                       value: abc123
             backendRefs:
-              - deployment: api
+              - workload: api
     asserts:
       - equal:
           path: spec.rules[0].filters[0].type
@@ -493,12 +493,12 @@ tests:
           path: spec.rules[0].filters[0].responseHeaderModifier.add[0].value
           value: abc123
 
-  # ====== 18. backendRef — deployment resolves to chart-named Service ======
-  - it: should resolve deployment-ref to deploymentFullname Service and inherit port
+  # ====== 18. backendRef — workload resolves to chart-named Service ======
+  - it: should resolve a workload ref to deploymentFullname Service and inherit port
     release:
       name: myrel
     set:
-      deployments:
+      workloads:
         api:
           image: nginx:1.25
           service:
@@ -513,7 +513,7 @@ tests:
                   type: PathPrefix
                   value: /
             backendRefs:
-              - deployment: api
+              - workload: api
     asserts:
       - equal:
           path: spec.rules[0].backendRefs[0].name
@@ -551,7 +551,7 @@ tests:
     release:
       name: myrel
     set:
-      deployments:
+      workloads:
         api-stable:
           image: api:1.0
           service:
@@ -570,9 +570,9 @@ tests:
                   type: PathPrefix
                   value: /
             backendRefs:
-              - deployment: api-stable
+              - workload: api-stable
                 weight: 90
-              - deployment: api-canary
+              - workload: api-canary
                 weight: 10
     asserts:
       - equal:
@@ -591,7 +591,7 @@ tests:
   # ====== 21. backendRef — weight 0 rendered explicitly (not omitted) ======
   - it: should render weight 0 (not omit it as falsy)
     set:
-      deployments:
+      workloads:
         api-stable:
           image: api:1.0
           service:
@@ -610,9 +610,9 @@ tests:
                   type: PathPrefix
                   value: /
             backendRefs:
-              - deployment: api-stable
+              - workload: api-stable
                 weight: 100
-              - deployment: api-dark
+              - workload: api-dark
                 weight: 0
     asserts:
       - equal:
@@ -622,7 +622,7 @@ tests:
   # ====== 22. timeouts — request ======
   - it: should render timeouts.request
     set:
-      deployments:
+      workloads:
         api:
           image: nginx:1.25
       httpRoute:
@@ -635,7 +635,7 @@ tests:
                   type: PathPrefix
                   value: /
             backendRefs:
-              - deployment: api
+              - workload: api
             timeouts:
               request: 30s
     asserts:
@@ -646,7 +646,7 @@ tests:
   # ====== 23. timeouts — backendRequest ======
   - it: should render timeouts.backendRequest
     set:
-      deployments:
+      workloads:
         api:
           image: nginx:1.25
       httpRoute:
@@ -659,7 +659,7 @@ tests:
                   type: PathPrefix
                   value: /
             backendRefs:
-              - deployment: api
+              - workload: api
             timeouts:
               backendRequest: 10s
     asserts:
@@ -673,7 +673,7 @@ tests:
       global:
         commonAnnotations:
           cost-center: "platform"
-      deployments:
+      workloads:
         api:
           image: nginx:1.25
       httpRoute:
@@ -688,7 +688,7 @@ tests:
                   type: PathPrefix
                   value: /
             backendRefs:
-              - deployment: api
+              - workload: api
     asserts:
       - equal:
           path: metadata.annotations["gateway.networking.k8s.io/owner"]
@@ -703,7 +703,7 @@ tests:
       global:
         commonLabels:
           team: platform
-      deployments:
+      workloads:
         api:
           image: nginx:1.25
       httpRoute:
@@ -716,7 +716,7 @@ tests:
                   type: PathPrefix
                   value: /
             backendRefs:
-              - deployment: api
+              - workload: api
     asserts:
       - equal:
           path: metadata.labels["app.kubernetes.io/managed-by"]
@@ -731,7 +731,7 @@ tests:
   # ====== 26. per-backendRef filters ======
   - it: should render filters under backendRefs[]
     set:
-      deployments:
+      workloads:
         api:
           image: nginx:1.25
       httpRoute:
@@ -744,7 +744,7 @@ tests:
                   type: PathPrefix
                   value: /
             backendRefs:
-              - deployment: api
+              - workload: api
                 filters:
                   - type: RequestHeaderModifier
                     requestHeaderModifier:
@@ -762,7 +762,7 @@ tests:
   # ====== 27. matches passthrough — chart does not inject CRD defaults ======
   - it: should pass path matches through verbatim, leaving type to the Gateway API CRD default
     set:
-      deployments:
+      workloads:
         api:
           image: nginx:1.25
       httpRoute:
@@ -774,7 +774,7 @@ tests:
               - path:
                   value: /api
             backendRefs:
-              - deployment: api
+              - workload: api
     asserts:
       - equal:
           path: spec.rules[0].matches[0].path.value
@@ -785,7 +785,7 @@ tests:
   # ====== 28. explicit empty path value preserved (not coerced to /) ======
   - it: should preserve an explicitly empty path value instead of defaulting to /
     set:
-      deployments:
+      workloads:
         api:
           image: nginx:1.25
       httpRoute:
@@ -798,7 +798,7 @@ tests:
                   type: Exact
                   value: ""
             backendRefs:
-              - deployment: api
+              - workload: api
     asserts:
       - equal:
           path: spec.rules[0].matches[0].path.type
@@ -812,7 +812,7 @@ tests:
   # prints as 1e+06 at a million: the schema's own maximum for a weight.
   - it: should render the maximum weight in plain digits
     set:
-      deployments:
+      workloads:
         api:
           image: nginx:1.25
       httpRoute:
@@ -821,7 +821,7 @@ tests:
           - name: public-gw
         rules:
           - backendRefs:
-              - deployment: api
+              - workload: api
                 weight: 1000000
     asserts:
       - equal:
@@ -832,11 +832,11 @@ tests:
           value: 80
 
   # ====== portName (issue #194) ======
-  - it: should route a backendRef to a named extra port of the deployment's Service
+  - it: should route a backendRef to a named extra port of the workload's Service
     release:
       name: myrel
     set:
-      deployments:
+      workloads:
         api:
           image: nginx:1.25
           service:
@@ -850,7 +850,7 @@ tests:
         parentRefs: [{ name: gw }]
         rules:
           - backendRefs:
-              - deployment: api
+              - workload: api
                 portName: web
     asserts:
       - equal:
@@ -861,7 +861,7 @@ tests:
 
   - it: should fail a backendRef portName the Service lacks
     set:
-      deployments:
+      workloads:
         api:
           image: nginx:1.25
       httpRoute:
@@ -869,16 +869,16 @@ tests:
         parentRefs: [{ name: gw }]
         rules:
           - backendRefs:
-              - deployment: api
+              - workload: api
                 portName: web
     asserts:
       - failedTemplate:
-          errorMessage: "httpRoute.rules[0].backendRefs[0].portName: 'web' names no port of the Service of deployment 'api' (ports: http). Use the name of service.portName or of a service.extraPorts entry."
+          errorMessage: "httpRoute.rules[0].backendRefs[0].portName: 'web' names no port of the Service of workload 'api' (ports: http). Use the name of service.portName or of a service.extraPorts entry."
 
   # ====== RequestRedirect excludes backendRefs (Gateway API CEL rule) ======
   - it: should fail a RequestRedirect rule that also carries backendRefs
     set:
-      deployments:
+      workloads:
         api:
           image: nginx:1.25
       httpRoute:
@@ -889,7 +889,7 @@ tests:
               - type: RequestRedirect
                 requestRedirect: { statusCode: 301, scheme: https }
             backendRefs:
-              - deployment: api
+              - workload: api
     asserts:
       - failedTemplate:
           errorMessage: "httpRoute.rules[0].backendRefs: set on a rule with a RequestRedirect filter, which the API server rejects: a redirect answers the request itself. Drop backendRefs from the rule."
@@ -899,18 +899,18 @@ tests:
     release:
       name: myrel
     set:
-      deployments:
+      workloads:
         nginx: { image: nginx:1.25 }
         traccar: { image: traccar/traccar:6.6, service: { port: 8082 } }
       httpRoutes:
         web:
           parentRefs: [{ name: gw-a }]
           hostnames: [app.example.com]
-          rules: [{ backendRefs: [{ deployment: nginx }] }]
+          rules: [{ backendRefs: [{ workload: nginx }] }]
         traccar:
           parentRefs: [{ name: gw-b }]
           hostnames: [traccar.example.com]
-          rules: [{ backendRefs: [{ deployment: traccar }] }]
+          rules: [{ backendRefs: [{ workload: traccar }] }]
     asserts:
       - hasDocuments:
           count: 2
@@ -939,16 +939,16 @@ tests:
     release:
       name: myrel
     set:
-      deployments:
+      workloads:
         api: { image: nginx:1.25 }
       httpRoute:
         enabled: true
         parentRefs: [{ name: gw }]
-        rules: [{ backendRefs: [{ deployment: api }] }]
+        rules: [{ backendRefs: [{ workload: api }] }]
       httpRoutes:
         admin:
           parentRefs: [{ name: gw }]
-          rules: [{ backendRefs: [{ deployment: api }] }]
+          rules: [{ backendRefs: [{ workload: api }] }]
     asserts:
       - hasDocuments:
           count: 2
@@ -966,21 +966,21 @@ tests:
       httpRoutes:
         web:
           parentRefs: [{ name: gw }]
-          rules: [{ backendRefs: [{ deployment: ghost }] }]
+          rules: [{ backendRefs: [{ workload: ghost }] }]
     asserts:
       - failedTemplate:
-          errorMessage: "httpRoutes.web.rules[0].backendRefs[0].deployment: references deployment 'ghost', which does not exist in .Values.deployments"
+          errorMessage: "httpRoutes.web.rules[0].backendRefs[0].workload: references workload 'ghost', which does not exist in .Values.workloads"
 
   - it: should name the httpRoutes entry when a redirect rule carries backendRefs
     set:
-      deployments:
+      workloads:
         api: { image: nginx:1.25 }
       httpRoutes:
         old:
           parentRefs: [{ name: gw }]
           rules:
             - filters: [{ type: RequestRedirect, requestRedirect: { statusCode: 301 } }]
-              backendRefs: [{ deployment: api }]
+              backendRefs: [{ workload: api }]
     asserts:
       - failedTemplate:
           errorPattern: "httpRoutes\\.old\\.rules\\[0\\]\\.backendRefs: set on a rule with a RequestRedirect filter"

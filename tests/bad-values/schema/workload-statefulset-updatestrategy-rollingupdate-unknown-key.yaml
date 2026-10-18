@@ -1,0 +1,11 @@
+# covers: statefulSetUpdateStrategy/properties/rollingUpdate
+# An unknown key under updateStrategy.rollingUpdate: maxUnavailable is alpha on
+# a StatefulSet and left out (ADR 0020).
+workloads:
+  db:
+    kind: StatefulSet
+    image: nginx:1.25
+    updateStrategy:
+      type: RollingUpdate
+      rollingUpdate:
+        maxUnavailable: 1

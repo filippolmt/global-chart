@@ -1,0 +1,8 @@
+# A StatefulSet name of 53 characters. Pods carry controller-revision-hash:
+# <name>-<hash>, the hash up to 10 characters, and a label value holds 63: past
+# 52 a pod is created or not depending on the hash (ADR 0020).
+# Expected fail substring: "workloads.aaaaaaaaaaaaaaaaaaaaaaaaaaaaa: a StatefulSet name is at most 52 characters"
+workloads:
+  aaaaaaaaaaaaaaaaaaaaaaaaaaaaa:
+    kind: StatefulSet
+    image: nginx:1.25

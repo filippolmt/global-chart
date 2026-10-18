@@ -1,7 +1,7 @@
 # An HPA owns the replicas: at minReplicas, where the workload idles, the PDB
 # allows no voluntary eviction (issue #216, ADR 0021).
-# Expected fail substring: "deployments.app.pdb.minAvailable: 1 allows no voluntary eviction with deployments.app.autoscaling.minReplicas: 1"
-deployments:
+# Expected fail substring: "workloads.app.pdb.minAvailable: 1 allows no voluntary eviction with workloads.app.autoscaling.minReplicas: 1"
+workloads:
   app:
     image: nginx:1.25
     autoscaling:

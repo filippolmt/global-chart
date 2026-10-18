@@ -1,9 +1,9 @@
 Thank you for installing {{ include "global-chart.fullname" . }}!
 
-{{- if .Values.deployments }}
+{{- if .Values.workloads }}
 
 Workloads created:
-{{- range $name, $deploy := .Values.deployments }}
+{{- range $name, $deploy := .Values.workloads }}
 {{- if $deploy }}
 {{- if eq (include "global-chart.deploymentEnabled" $deploy) "true" }}
   - {{ $name }}
@@ -13,7 +13,7 @@ Workloads created:
 {{- end }}
 
 {{- $svcList := list }}
-{{- range $name, $deploy := .Values.deployments }}
+{{- range $name, $deploy := .Values.workloads }}
 {{- if $deploy }}
 {{- if eq (include "global-chart.deploymentEnabled" $deploy) "true" }}
 {{- $svc := default (dict) $deploy.service }}
@@ -91,7 +91,7 @@ CronJobs:
 
 {{- $pdbList := list }}
 {{- $npList := list }}
-{{- range $name, $deploy := .Values.deployments }}
+{{- range $name, $deploy := .Values.workloads }}
 {{- if $deploy }}
 {{- if eq (include "global-chart.deploymentEnabled" $deploy) "true" }}
 {{- $pdb := default (dict) $deploy.pdb }}

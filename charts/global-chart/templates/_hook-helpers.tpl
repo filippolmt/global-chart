@@ -15,7 +15,7 @@ and hookReadsServiceAccountCopy in _serviceaccount-helpers.tpl.
 Why the plumbing deletes itself: hook resources are not part of the release
 manifest, so Helm never deletes them at uninstall. The prereq ConfigMap/Secret
 and the chart-created hook ServiceAccounts therefore carry their own delete
-policy; the prereq Secret holds the deployment's secret data and must not
+policy; the prereq Secret holds the workload's secret data and must not
 outlive the release. Hook Jobs keep plain before-hook-creation: a completed
 Job is the record of what ran. A hook's explicit deletePolicy reaches what the
 hook owns, its Job and its ServiceAccount; the copies have a fixed policy per
@@ -34,7 +34,7 @@ Usage: {{ include "global-chart.effectiveHookWeight" $command }}
 
 {{/*
 Minimum effective hook weight across a hooks map.
-Param: hooks - map hookType -> jobName -> command (a deployment's .hooks, or a
+Param: hooks - map hookType -> jobName -> command (a workload's .hooks, or a
         synthetic subset of it when only some hooks count)
 Usage: {{ include "global-chart.minHookWeight" (dict "hooks" $deploy.hooks) }}
 */}}
@@ -89,7 +89,7 @@ Usage:
 {{- fail (printf "hookAnnotations: unknown role %q (expected one of: %s)" .role (keys $table | sortAlpha | join ", ")) -}}
 {{- end -}}
 {{- if and (not $row.ownedByHook) (hasKey . "command") -}}
-{{- fail (printf "hookAnnotations: role %q is plumbing shared by every hook of the deployment, so an explicit deletePolicy would have no owner. Call it with a weight, not a command." .role) -}}
+{{- fail (printf "hookAnnotations: role %q is plumbing shared by every hook of the workload, so an explicit deletePolicy would have no owner. Call it with a weight, not a command." .role) -}}
 {{- end -}}
 {{- /* An explicit deletePolicy belongs to the hook, so it reaches only the roles
        a hook owns — the guard above is what keeps that true. The prereq copies are
@@ -135,7 +135,7 @@ Every hook that reads the hook-prerequisite copies, in both scopes: the one
 enumeration the consumer scans below walk. Fills `out` in place, keyed by the
 hook's values path (jobValuesPath, unique across both scopes), with
 {hookType, jobName, command, fullname, deploy, deployName} — deploy and
-deployName absent at root level. Disabled deployments are skipped: they render
+deployName absent at root level. Disabled workloads are skipped: they render
 no hook. Only the phases hookReadsPrereqCopy names.
 Params: root · out (the accumulator dict, mutated in place).
 Usage: {{- $hooks := dict }}{{- include "global-chart.prereqCopyHooks" (dict "root" $root "out" $hooks) }}
@@ -144,7 +144,7 @@ Usage: {{- $hooks := dict }}{{- include "global-chart.prereqCopyHooks" (dict "ro
 {{- $root := .root -}}
 {{- $out := .out -}}
 {{- $scopes := list (dict "hooks" $root.Values.hooks) -}}
-{{- range $deployName, $deploy := $root.Values.deployments -}}
+{{- range $deployName, $deploy := $root.Values.workloads -}}
   {{- if and $deploy (eq (include "global-chart.deploymentEnabled" $deploy) "true") -}}
     {{- $scopes = append $scopes (dict "hooks" $deploy.hooks "deploy" $deploy "deployName" $deployName) -}}
   {{- end -}}

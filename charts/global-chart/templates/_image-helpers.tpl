@@ -4,10 +4,10 @@ Image helpers for global-chart.
 
 {{/*
 Render an image reference from either a plain string or a map with repository/tag/digest.
-  {{ include "global-chart.imageString" (dict "image" $deploy.image "global" $root.Values.global "errCtx" "deployments.web.image") }}
+  {{ include "global-chart.imageString" (dict "image" $deploy.image "global" $root.Values.global "errCtx" "workloads.web.image") }}
 errCtx (required) is the values path of the image and leads every fail message, in the
-shape "<values path>: <problem>" (issues #188, #190): deployments.<name>.image, a job's
-<jobValuesPath>.image, or, for an inherited image, "deployments.<name>.image (inherited
+shape "<values path>: <problem>" (issues #188, #190): workloads.<name>.image, a job's
+<jobValuesPath>.image, or, for an inherited image, "workloads.<name>.image (inherited
 by <jobValuesPath>)", which jobImageString builds.
 When global.imageRegistry is set, the registry is prepended to both string and map images
 unless the first path segment already looks like a registry (contains "." or ":" or equals "localhost").

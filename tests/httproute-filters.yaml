@@ -1,5 +1,5 @@
 # HTTPRoute lint scenario — RequestRedirect, URLRewrite, Request/ResponseHeaderModifier filters.
-deployments:
+workloads:
   api:
     image: nginx:1.25
     service:
@@ -52,4 +52,4 @@ httpRoute:
               - name: X-Content-Type-Options
                 value: nosniff
       backendRefs:
-        - deployment: api
+        - workload: api

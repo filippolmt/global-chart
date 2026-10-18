@@ -1,0 +1,11 @@
+# covers: statefulSetUpdateStrategy
+# An unknown key under a StatefulSet's updateStrategy (typo of rollingUpdate).
+# Without the constraint the partition is dropped and every pod is updated at once.
+workloads:
+  db:
+    kind: StatefulSet
+    image: nginx:1.25
+    updateStrategy:
+      type: RollingUpdate
+      rollingupdate:
+        partition: 2

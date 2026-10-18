@@ -64,7 +64,7 @@ empty-string reason given there.
 {{- end }}
 
 {{/*
-Common labels (for non-deployment resources like Ingress)
+Common labels (for resources that belong to no workload, like Ingress)
 */}}
 {{- define "global-chart.labels" -}}
 {{- include "global-chart.mergeLabels" (dict "root" . "owned" (include "global-chart.chartOwnedLabels" .)) -}}
@@ -88,7 +88,7 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{/*
-Create a deployment-specific fully qualified name.
+Create a workload-specific fully qualified name.
 Usage: {{ include "global-chart.deploymentFullname" (dict "root" . "deploymentName" $name) }}
 */}}
 {{- define "global-chart.deploymentFullname" -}}
@@ -96,7 +96,7 @@ Usage: {{ include "global-chart.deploymentFullname" (dict "root" . "deploymentNa
 {{- end }}
 
 {{/*
-<fullname>-<deployment key> before the 63-character cut: what deploymentFullname
+<fullname>-<workload key> before the 63-character cut: what deploymentFullname
 truncates, and what validateStatefulSets holds to 52 for a StatefulSet (ADR 0020).
 Usage: {{ include "global-chart.deploymentUntruncatedName" (dict "root" . "deploymentName" $name) }}
 */}}
@@ -105,7 +105,7 @@ Usage: {{ include "global-chart.deploymentUntruncatedName" (dict "root" . "deplo
 {{- end }}
 
 {{/*
-Selector labels for a specific deployment (includes deployment name for uniqueness).
+Selector labels for a specific workload (includes workload name for uniqueness).
 Usage: {{ include "global-chart.deploymentSelectorLabels" (dict "root" . "deploymentName" $name) }}
 */}}
 {{- define "global-chart.deploymentSelectorLabels" -}}
@@ -115,7 +115,7 @@ app.kubernetes.io/component: {{ .deploymentName }}
 {{- end }}
 
 {{/*
-Common labels for a specific deployment.
+Common labels for a specific workload.
 Usage: {{ include "global-chart.deploymentLabels" (dict "root" . "deploymentName" $name) }}
 Pass an optional "own" map (podLabels) to fold it into the same merge instead of
 appending a second block after this one.
@@ -134,9 +134,9 @@ app.kubernetes.io/managed-by: {{ .root.Release.Service }}
 {{- end }}
 
 {{/*
-Check if a deployment is enabled. Defaults to true if the field is not set.
+Check if a workload is enabled. Defaults to true if the field is not set.
 Usage: {{ include "global-chart.deploymentEnabled" $deploy }}
-Input: the deployment map. The caller has already guarded it against nil —
+Input: the workload map. The caller has already guarded it against nil —
 `hasKey` on nil fails, and every call site sits inside `{{- if $deploy }}`.
 Returns the string "true" or "false".
 */}}
@@ -145,12 +145,12 @@ Returns the string "true" or "false".
 {{- end }}
 
 {{/*
-Check if a deployment's Service is enabled. Defaults to true if the field is not
+Check if a workload's Service is enabled. Defaults to true if the field is not
 set. Sits next to deploymentEnabled because it answers the same question one
 level down, takes its argument the same way, and every call site asks both in
 the same breath.
 Usage: {{ include "global-chart.serviceEnabled" $svc }}
-Input: the deployment's service map, already defaulted to (dict) by the caller.
+Input: the workload's service map, already defaulted to (dict) by the caller.
 Returns the string "true" or "false".
 */}}
 {{- define "global-chart.serviceEnabled" -}}
@@ -192,7 +192,7 @@ the real name's own limit — 253 for the Role, used verbatim and a DNS
 subdomain; 63 for the RoleBinding and the ServiceAccount, the limit their real
 names are truncated to. One helper per kind, each the single home of its
 constant. The ServiceAccount one serves every SA the release creates, a
-deployment's and an rbacs.roles entry's alike. A name already at its limit
+workload's and an rbacs.roles entry's alike. A name already at its limit
 truncates back onto the real one; validateNameCollisions catches it, because a
 copy sharing the real name would be deleted with it under hook-succeeded.
 Usage: {{ include "global-chart.rbacRoleHookName" $role.name }}
@@ -263,7 +263,7 @@ Usage: {{ include "global-chart.rootCronJobName" (dict "root" . "name" $name) }}
 {{- end -}}
 
 {{/*
-Workload-scope CronJob name (includes deployment name for uniqueness).
+Workload-scope CronJob name (includes workload name for uniqueness).
 Truncated to 52 chars (see rootCronJobName).
 Usage: {{ include "global-chart.deploymentCronJobName" (dict "root" . "deploymentName" $deployName "jobName" $name) }}
 */}}
@@ -273,7 +273,7 @@ Usage: {{ include "global-chart.deploymentCronJobName" (dict "root" . "deploymen
 {{- end -}}
 
 {{/*
-Workload-scope Hook Job name (includes deployment name + hook type for uniqueness).
+Workload-scope Hook Job name (includes workload name + hook type for uniqueness).
 Canonical form: a single `trunc 63` over the full 4-part name. The collision
 validator MUST use this exact decomposition — an earlier validator variant
 truncated deploymentFullname first and re-truncated. The two only differ at a
@@ -287,7 +287,7 @@ Usage: {{ include "global-chart.deploymentHookName" (dict "root" . "deploymentNa
 {{- end -}}
 
 {{/*
-Hook-prerequisite ConfigMap name for a deployment.
+Hook-prerequisite ConfigMap name for a workload.
 Usage: {{ include "global-chart.hookPrereqConfigName" (dict "deploymentFullname" $deployFullname) }}
 */}}
 {{- define "global-chart.hookPrereqConfigName" -}}
@@ -295,7 +295,7 @@ Usage: {{ include "global-chart.hookPrereqConfigName" (dict "deploymentFullname"
 {{- end -}}
 
 {{/*
-Hook-prerequisite Secret name for a deployment.
+Hook-prerequisite Secret name for a workload.
 Usage: {{ include "global-chart.hookPrereqSecretName" (dict "deploymentFullname" $deployFullname) }}
 */}}
 {{- define "global-chart.hookPrereqSecretName" -}}

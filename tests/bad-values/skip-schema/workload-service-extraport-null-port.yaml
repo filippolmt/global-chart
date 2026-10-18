@@ -1,0 +1,12 @@
+# A null extraPorts port (issue #185). The schema rejects it first; under
+# --skip-schema-validation, servicePrimaryPort keeps "<nil>" out of the
+# manifest and names the key (issue #191). A null inside a list survives the
+# values merge in Helm 3 and 4.
+# Expected fail substring: "workloads.app.service.extraPorts[0].port: null"
+workloads:
+  app:
+    image: nginx:1.25
+    service:
+      extraPorts:
+        - name: metrics
+          port: null

@@ -1,5 +1,5 @@
-# Test deployment with service disabled
-deployments:
+# Test workload with service disabled
+workloads:
   main:
     image:
       repository: busybox

@@ -14,7 +14,7 @@ kedaTriggerAuthentications:
     podIdentity:
       provider: aws
 
-deployments:
+workloads:
   # Chart-managed TriggerAuthentication, scale-to-zero, paused-replicas annotation.
   worker:
     image:
@@ -68,7 +68,7 @@ deployments:
           authenticationRef:
             name: externally-managed-auth
 
-  # Native HPA still works alongside KEDA-scaled deployments in the same release.
+  # Native HPA still works alongside KEDA-scaled workloads in the same release.
   legacy:
     image:
       repository: nginx

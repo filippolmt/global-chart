@@ -20,7 +20,7 @@ global:
     # The chart's identity labels win, or the pod template stops matching its selector.
     app.kubernetes.io/component: hijacked
 
-deployments:
+workloads:
   main:
     image:
       repository: nginx
@@ -71,7 +71,7 @@ ingress:
     shared.example.com/owner: from-ingress
   hosts:
     - host: annotations.example.com
-      deployment: main
+      workload: main
       paths:
         - path: /
           pathType: Prefix

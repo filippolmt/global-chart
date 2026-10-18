@@ -10,7 +10,7 @@ a rule below cannot recognise: a check that sees nothing is not a pass.
   explicit false into true. A boolean defaults through `hasKey … | ternary`.
 - values-mutation: `set` on a map reached from `.Values` mutates the values
   every later template reads: on `.Values…` itself, or on a variable bound to
-  it (`$d := index .Values.deployments $n`, `range $k, $d := .Values.x`, and
+  it (`$d := index .Values.workloads $n`, `range $k, $d := .Values.x`, and
   anything bound from such a variable, within one define). A variable bound
   through `deepCopy` is a copy, and so is one built by `dict`, `list`,
   `append`, `include` or `fromJson`.
@@ -26,7 +26,7 @@ a rule below cannot recognise: a check that sees nothing is not a pass.
   (`notes_test.yaml` for NOTES.txt), and every file in `tests/` but
   `__snapshot__/` is a `*_test.yaml` suite: helm-unittest skips any other name
   without a word, so a misnamed suite (`pdb_tests.yaml`) never runs.
-- kind-fields: the backstop guard's `$kindOnly` in deployment.yaml lists, per
+- kind-fields: the backstop guard's `$kindOnly` in workload.yaml lists, per
   kind, the fields the other kind rejects, and the `if/then/else` on `kind` of
   `$defs/deployment` rejects the same ones with `false` (ADR 0020). The two are
   one partition written twice, the guard being what --skip-schema-validation
@@ -39,8 +39,16 @@ a rule below cannot recognise: a check that sees nothing is not a pass.
   global-chart.workloadKind.
 - chart-home: the `home` URL of Chart.yaml is never written in a template: a
   link (the migration guide a removal `fail` names, NOTES) reads `.Chart.Home`,
-  so it follows Chart.yaml. A helper called with a dict gets it as `chartHome`
-  from the caller's root (renderVolume, issue #230).
+  so it follows Chart.yaml. A helper called with a dict gets the link from the
+  caller's root (validateRemovedKeys passes it as `see`, issue #221).
+- render-order: templates/validate/validate.yaml is the first template Helm
+  renders. Helm sorts by depth, deepest first, then in reverse lexical order
+  (sortTemplates in pkg/engine), and stops at the first error. A helper that
+  skips what a validator rejects needs no order (CODING_STANDARDS.md); one
+  that reads through it does, and the deployment.yaml -> workload.yaml rename
+  of issue #221 surfaced about fifteen: renamed ahead of the validators, each
+  crashed with no values path. This keeps the validators first while such a
+  helper exists. Partials (`_*`) render nothing and are left out.
 
 Comments (`{{/* … */}}`) are stripped before matching, so a rule may be named in
 prose. Matching runs over the whole file, so an expression split across lines
@@ -113,10 +121,10 @@ def fail_shape(message, top_keys, helpers):
 def kind_fields(chart, schema):
     """The kind-fields rule. shortcut: reads one if/then/else, which holds two
     kinds; the DaemonSet (issue #215) turns it into one branch per kind."""
-    text = blank_comments((chart / "templates" / "deployment.yaml").read_text())
+    text = blank_comments((chart / "templates" / "workload.yaml").read_text())
     m = KIND_ONLY.search(text)
     if not m:
-        return ["templates/deployment.yaml: kind-fields: no `$kindOnly := dict …` to compare with the schema"]
+        return ["templates/workload.yaml: kind-fields: no `$kindOnly := dict …` to compare with the schema"]
     guard = {kind: set(re.findall(r'"(\w+)"', fields)) for kind, fields in KIND_LIST.findall(m.group(1))}
     dep = schema["$defs"]["deployment"]
 
@@ -128,12 +136,12 @@ def kind_fields(chart, schema):
         return ["values.schema.json: kind-fields: $defs/deployment has no if/then/else on kind to compare with $kindOnly"]
     other = next((k for k in guard if k != kind), None)
     if other is None or len(guard) != 2:
-        return [f"templates/deployment.yaml: kind-fields: $kindOnly must name two kinds, one of them {kind}; read {sorted(guard)}"]
+        return [f"templates/workload.yaml: kind-fields: $kindOnly must name two kinds, one of them {kind}; read {sorted(guard)}"]
     schema_side = {other: rejected("then"), kind: rejected("else")}
     problems = []
     for k in sorted(set(guard) | set(schema_side)):
         if guard.get(k, set()) != schema_side.get(k, set()):
-            problems.append(f"templates/deployment.yaml: kind-fields: {k}-only fields differ: $kindOnly {sorted(guard.get(k, set()))}, schema {sorted(schema_side.get(k, set()))}")
+            problems.append(f"templates/workload.yaml: kind-fields: {k}-only fields differ: $kindOnly {sorted(guard.get(k, set()))}, schema {sorted(schema_side.get(k, set()))}")
     return problems
 
 
@@ -152,6 +160,17 @@ def workload_kind(chart):
                 continue
             problems.append(f"{path.relative_to(chart)}:{lineno(text, m.start())}: workload-kind: {m.group(0)} written by hand; read the kind from global-chart.workloadKind")
     return problems
+
+
+def render_order(chart):
+    """The render-order rule."""
+    names = sorted((str(p.relative_to(chart.parent)) for p in (chart / "templates").rglob("*")
+                    if p.is_file() and not p.name.startswith("_")),
+                   key=lambda n: (n.count("/"), n), reverse=True)
+    first = f"{chart.name}/templates/validate/validate.yaml"
+    if not names or names[0] != first:
+        return [f"templates: render-order: Helm renders {names[0] if names else 'nothing'} first, not {first}; move it so the validators run before every template"]
+    return []
 
 
 def main(chart):
@@ -197,6 +216,7 @@ def main(chart):
             problems.append(f"{path.relative_to(chart)}: template-suite: not a *_test.yaml suite, so helm-unittest never runs it")
     problems += kind_fields(chart, schema)
     problems += workload_kind(chart)
+    problems += render_order(chart)
     if problems:
         print("    FAIL: templates break a mechanical rule of CODING_STANDARDS.md:")
         for p in problems:

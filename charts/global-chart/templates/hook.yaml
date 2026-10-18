@@ -1,7 +1,7 @@
 {{/*
   Hooks can be defined in two places:
-  1. Root level: .Values.hooks (standalone, optional fromDeployment for image)
-  2. Inside deployments: .Values.deployments.<name>.hooks (inherits image, configMap, secret, SA from deployment)
+  1. Root level: .Values.hooks (standalone, optional fromWorkload for image)
+  2. Inside workloads: .Values.workloads.<name>.hooks (inherits image, configMap, secret, SA from workload)
   Part 0 renders the hook-prerequisite copy of the ServiceAccounts those hooks
   run as.
 */}}
@@ -10,7 +10,7 @@
 
 {{- /*
   PART 0: hook-prerequisite copy of every ServiceAccount the release creates
-  that a hook runs as (ADR 0010, ADR 0011) — a deployment's, an rbacs.roles
+  that a hook runs as (ADR 0010, ADR 0011) — a workload's, an rbacs.roles
   entry's or a cronjob's.
 
   Such a SA is a normal resource: Helm creates it after the pre-* hooks and
@@ -53,11 +53,11 @@ automountServiceAccountToken: {{ $sa.automount }}
 {{- /* A null weight would count as 0 (int nil), not the default 10 */ -}}
 {{- if hasKey $command "weight" }}{{- include "global-chart.rejectNull" (dict "value" $command.weight "errCtx" (printf "%s.weight" $errCtx)) }}{{- end }}
 
-{{- /* Resolve image: explicit > fromDeployment > error (see jobImageString helper) */ -}}
+{{- /* Resolve image: explicit > fromWorkload > error (see jobImageString helper) */ -}}
 {{- $imageRef := include "global-chart.jobImageString" (dict "root" $root "job" $command "errCtx" $errCtx) }}
 
 {{- /* ServiceAccount: explicit > create own (see jobServiceAccount helper; no
-       deployment to inherit from at root level) */ -}}
+       workload to inherit from at root level) */ -}}
 {{- $sa := include "global-chart.jobServiceAccount" (dict "root" $root "job" $command "jobFullname" $hookFullname "errCtx" $errCtx) | fromJson -}}
 {{- /* The copy of the SA, when the hook runs as one (ADR 0010, ADR 0011) */ -}}
 {{- $saName := include "global-chart.hookServiceAccountName" (dict "root" $root "hookType" $hookType "sa" $sa) -}}
@@ -113,11 +113,11 @@ spec:
 {{- end }}
 
 {{/* ====== PART 2: workload-scope hooks (inherit from the workload) ====== */}}
-{{- range $deployName, $deploy := .Values.deployments }}
+{{- range $deployName, $deploy := .Values.workloads }}
 {{- if $deploy }}
 {{- if and (eq (include "global-chart.deploymentEnabled" $deploy) "true") $deploy.hooks }}
 
-{{- /* Compute the workload's values ONCE per deployment (before hookType/command loops) */ -}}
+{{- /* Compute the workload's values ONCE per workload (before hookType/command loops) */ -}}
 {{- $deployFullname := include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $deployName) -}}
 {{- $hasDeployConfigMap := and $deploy.configMap (gt (len $deploy.configMap) 0) -}}
 {{- $hasDeploySecret := and $deploy.secret (gt (len $deploy.secret) 0) -}}
@@ -129,11 +129,11 @@ spec:
 {{- $minJobWeight := include "global-chart.minHookWeight" (dict "hooks" $deploy.hooks) -}}
 
 {{- /*
-  Hook-specific ConfigMap/Secret: duplicates of the deployment's generated ConfigMap/Secret
+  Hook-specific ConfigMap/Secret: duplicates of the workload's generated ConfigMap/Secret
   with hook annotations so they exist BEFORE the Job runs.
   Normal (non-hook) ConfigMap/Secret are NOT updated until after hooks complete,
   so the Job would reference stale values without these hook copies.
-  Rendered ONCE per deployment (not per hook command) with ALL hook types aggregated.
+  Rendered ONCE per workload (not per hook command) with ALL hook types aggregated.
   Weight order: prereq < SA < Job, per the role table in hookAnnotations.
 */ -}}
 {{- if $hasDeployConfigMap }}
@@ -194,10 +194,10 @@ data:
 {{- $errCtx := $hook.errCtx }}
 {{- if hasKey $command "weight" }}{{- include "global-chart.rejectNull" (dict "value" $command.weight "errCtx" (printf "%s.weight" $errCtx)) }}{{- end }}
 
-{{- /* Resolve image: explicit in hook > inherited from deployment (see jobImageString helper) */ -}}
+{{- /* Resolve image: explicit in hook > inherited from workload (see jobImageString helper) */ -}}
 {{- $imageRef := include "global-chart.jobImageString" (dict "root" $root "job" $command "deployName" $deployName "errCtx" $errCtx) }}
 
-{{- /* ServiceAccount: explicit in hook > inherited from deployment > create new for hook (see jobServiceAccount helper) */ -}}
+{{- /* ServiceAccount: explicit in hook > inherited from workload > create new for hook (see jobServiceAccount helper) */ -}}
 {{- $sa := $hook.sa -}}
 {{- /* The copy of the SA, when the hook runs as one (ADR 0010, ADR 0011) */ -}}
 {{- $saName := include "global-chart.hookServiceAccountName" (dict "root" $root "hookType" $hookType "sa" $sa) -}}
@@ -205,7 +205,7 @@ data:
 {{- $saAutomount := $sa.automount -}}
 {{- $saAnnotations := $sa.annotations -}}
 
-{{- /* Create SA only if needed (not using deployment's or explicit existing);
+{{- /* Create SA only if needed (not using workload's or explicit existing);
        it sorts before its Job — hookAnnotations owns the offset */ -}}
 {{- if $saCreate }}
 ---

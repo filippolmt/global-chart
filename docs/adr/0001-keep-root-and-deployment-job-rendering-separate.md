@@ -22,7 +22,9 @@ root-level jobs are standalone (no inheritance; image via `fromDeployment` or
 explicit; their own SA), while deployment-level jobs inherit image, ConfigMap,
 Secret, ServiceAccount, dnsConfig, nodeSelector, tolerations and affinity from
 their parent deployment, and add hook-prerequisite ConfigMap/Secret copies with
-a weight-ordering invariant (`prereq w-7 < SA w-5 < Job w`). Merging them behind
+a weight-ordering invariant (`prereq w-7 < SA w-5 < Job w`). *Amended by issue #221
+(ADR 0023):* since 4.0.0 the image comes via `fromWorkload` and the jobs sit under
+`.Values.workloads.<name>`. Merging them behind
 one interface would trade readability for DRY and create a leaky abstraction in
 a templating language with no debugger and whitespace-sensitive output.
 

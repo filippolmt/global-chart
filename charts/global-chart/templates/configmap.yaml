@@ -1,5 +1,5 @@
 {{- $root := . }}
-{{- range $name, $deploy := .Values.deployments }}
+{{- range $name, $deploy := .Values.workloads }}
 {{- if $deploy }}
 {{- if and (eq (include "global-chart.deploymentEnabled" $deploy) "true") $deploy.configMap }}
 {{- $depFullname := include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $name) }}

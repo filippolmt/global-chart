@@ -93,7 +93,7 @@ message, read by printScalar's dict form, servicePrimaryPort and
 resolveBackend, rejectNullServicePorts and hook.yaml's weight. A null is a value nobody wrote: printed, it becomes "<nil>" or
 0. rejectNullDataValue keeps its own wording for the ConfigMap/Secret maps,
 which hold strings only. Renders nothing when the value is set.
-Usage: {{- include "global-chart.rejectNull" (dict "value" $v "errCtx" "deployments.web.revisionHistoryLimit") -}}
+Usage: {{- include "global-chart.rejectNull" (dict "value" $v "errCtx" "workloads.web.revisionHistoryLimit") -}}
 */}}
 {{- define "global-chart.rejectNull" -}}
 {{- if kindIs "invalid" .value -}}
@@ -140,20 +140,20 @@ Usage: {{- include "global-chart.rejectNullItems" (dict "list" $hosts "errCtx" "
 {{- end }}
 
 {{/*
-The Kubernetes kind a deployments entry renders as (ADR 0020): its own kind, or
-Deployment. The one home of that default, read by deployment.yaml, hpa.yaml,
+The Kubernetes kind a workloads entry renders as (ADR 0020): its own kind, or
+Deployment. The one home of that default, read by workload.yaml, hpa.yaml,
 scaledobject.yaml and, through isStatefulSet, by service.yaml and the validators.
 Usage: {{ include "global-chart.workloadKind" $deploy }}
-Input: the deployment map, guarded against nil like deploymentEnabled's.
+Input: the workload map, guarded against nil like deploymentEnabled's.
 */}}
 {{- define "global-chart.workloadKind" -}}
 {{- ternary .kind "Deployment" (eq (include "global-chart.isSet" (list . "kind")) "true") -}}
 {{- end }}
 
 {{/*
-The replica owner of a deployments entry (GLOSSARY, ADR 0003, ADR 0012) and the
+The replica owner of a workloads entry (GLOSSARY, ADR 0003, ADR 0012) and the
 fewest pods it keeps. The one home of whether the workload keeps spec.replicas
-(deployment.yaml) and of the floor a PDB is measured against
+(workload.yaml) and of the floor a PDB is measured against
 (validatePdbEvictions, issue #216). Whether an HPA or a ScaledObject renders,
 and whether both are enabled at once, stay with hpa.yaml, scaledobject.yaml and
 validateAutoscalingConflict: this helper takes the HPA first and cannot see a
@@ -182,7 +182,7 @@ Returns: JSON {"owner": …, "count": …, "path": …, "default": …}.
 {{- end }}
 
 {{/*
-Whether a deployments entry renders a StatefulSet: the one home of the
+Whether a workloads entry renders a StatefulSet: the one home of the
 comparison every StatefulSet-only branch makes. Returns "true" or "".
 Usage: {{- if include "global-chart.isStatefulSet" $deploy }}
 */}}
@@ -203,7 +203,7 @@ map. An unnamed volumes entry is skipped (isNamedEntry): its null is
 validateNullItems' to report.
 Usage: {{ $names := include "global-chart.podVolumeNames" (dict "values" $deploy "errCtx" $errCtx) | fromJson }}
 Params:
-  values - the deployment or job map that declares the volumes
+  values - the workload or job map that declares the volumes
   errCtx - its values path, which leads every path below
 Output: JSON map of volume name to the values path that declares it.
 */}}
@@ -236,46 +236,35 @@ Render a single volume entry: { name, <any-k8s-volume-source> }, verbatim but
 for the name. $defs/volumes stays open (ADR 0017) and requires a non-empty
 name, so the required below fires only under --skip-schema-validation, where a
 fixture in tests/bad-values/skip-schema/ holds it. errCtx is the values path of
-the entry, <owner>.volumes[<i>], which leads every fail message (issue #190); chartHome
-is .Chart.Home, the base of the migration guide link.
-Removed keys (ADR 0022, issue #230): the legacy `type` and the aliases
-`secret.name` / `persistentVolumeClaim.name`, removed in 4.0.0, fail naming
-their replacement; the schema declares them with no constraint so any value
-reaches the fail. Those fails, their declarations and fixtures go in 5.0.0.
-Usage: {{ include "global-chart.renderVolume" (dict "volume" $v "errCtx" (printf "%s.volumes[%d]" $errCtx $i) "chartHome" $root.Chart.Home) }}
+the entry, <owner>.volumes[<i>], which leads every fail message (issue #190).
+The keys removed in 4.0.0 (issue #230) are validateRemovedKeys' to reject:
+this helper renders them as written and the error is the validator's,
+whatever order Helm renders the templates in (CODING_STANDARDS.md).
+Usage: {{ include "global-chart.renderVolume" (dict "volume" $v "errCtx" (printf "%s.volumes[%d]" $errCtx $i)) }}
 */}}
 {{- define "global-chart.renderVolume" -}}
 {{- $vol := .volume -}}
 {{- $path := required "renderVolume: errCtx is required (the values path of the volume)" .errCtx -}}
-{{- if hasKey $vol "type" }}
-  {{- fail (printf "%s.type: removed in 4.0.0, use the native volume source without type (emptyDir: {}, configMap.name, secret.secretName, persistentVolumeClaim.claimName); see %s/blob/main/CHANGELOG.md#migration-guide-from-3x" $path .chartHome) }}
-{{- end }}
-{{- range $key, $replacement := dict "secret" "secretName" "persistentVolumeClaim" "claimName" }}
-  {{- $block := get $vol $key }}
-  {{- if and (kindIs "map" $block) (hasKey $block "name") }}
-    {{- fail (printf "%s.%s.name: removed in 4.0.0, use %s.%s" $path $key $key $replacement) }}
-  {{- end }}
-{{- end -}}
 - name: {{ required (printf "%s: a volume needs a 'name'" $path) $vol.name }}
 {{- toYaml (omit $vol "name") | nindent 2 }}
 {{- end }}
 
 {{/*
 Every owner of a pod spec the release renders, in both scopes, as a JSON list
-of {path, kind, spec}: each enabled deployment (kind "deployment"), then every
-non-empty hook and cronjob — root-level, and those of each enabled deployment —
+of {path, kind, spec}: each enabled workload (kind "workload"), then every
+non-empty hook and cronjob — root-level, and those of each enabled workload —
 with their values path from deploymentValuesPath / jobValuesPath. The single
 home of that enumeration, read by validateNullItems: a
-disabled deployment and an empty job render nothing, so neither reads them.
+disabled workload and an empty job render nothing, so neither reads them.
 The specs come back through JSON: numbers are float64 (see the file header).
 Usage: {{- range (include "global-chart.podSpecOwners" . | fromJsonArray) }}
 */}}
 {{- define "global-chart.podSpecOwners" -}}
 {{- $scopes := list (dict "hooks" .Values.hooks "cronJobs" .Values.cronJobs "deployName" "") -}}
 {{- $out := list -}}
-{{- range $name, $deploy := (default (dict) .Values.deployments) -}}
+{{- range $name, $deploy := (default (dict) .Values.workloads) -}}
   {{- if and (kindIs "map" $deploy) $deploy (eq (include "global-chart.deploymentEnabled" $deploy) "true") -}}
-    {{- $out = append $out (dict "path" (include "global-chart.deploymentValuesPath" $name) "kind" "deployment" "spec" $deploy) -}}
+    {{- $out = append $out (dict "path" (include "global-chart.deploymentValuesPath" $name) "kind" "workload" "spec" $deploy) -}}
     {{- $scopes = append $scopes (dict "hooks" $deploy.hooks "cronJobs" $deploy.cronJobs "deployName" $name) -}}
   {{- end -}}
 {{- end -}}
@@ -401,7 +390,7 @@ chart never emits it, so there is nothing to collide with.
 {{- end }}
 
 {{/*
-A deployment's own annotations, as JSON, for renderAnnotations' `own`: its
+A workload's own annotations, as JSON, for renderAnnotations' `own`: its
 `annotations` unchanged, plus — when reloader.externalSecrets is on (issue #175,
 ADR 0016) — secret.reloader.stakater.com/reload listing the targets of its
 referenced externalSecrets. Single home of "the field is on" and of its one
@@ -416,8 +405,8 @@ would drop the targets in silence, "own wins over common" a shared list. A
 target the user already listed, quoted or bare, is not listed twice.
 Params:
   root   - chart context
-  deploy - the deployment's values
-  name   - the deployment's key, for the fail message
+  deploy - the workload's values
+  name   - the workload's key, for the fail message
   es     - its resolveExternalSecretRefs result
 Usage: {{- $own := include "global-chart.deploymentOwnAnnotations" (dict "root" $root "deploy" $deploy "name" $name "es" $es) | fromJson }}
 */}}
@@ -425,7 +414,7 @@ Usage: {{- $own := include "global-chart.deploymentOwnAnnotations" (dict "root" 
 {{- $own := deepCopy (default (dict) .deploy.annotations) -}}
 {{- if (default (dict) .deploy.reloader).externalSecrets -}}
   {{- if not .es.targets -}}
-    {{- fail (printf "%s.reloader.externalSecrets: true, but the deployment references no externalSecrets, so Reloader has no Secret to watch. Reference an externalSecrets entry or disable the field." (include "global-chart.deploymentValuesPath" .name)) -}}
+    {{- fail (printf "%s.reloader.externalSecrets: true, but the workload references no externalSecrets, so Reloader has no Secret to watch. Reference an externalSecrets entry or disable the field." (include "global-chart.deploymentValuesPath" .name)) -}}
   {{- end -}}
   {{- $key := "secret.reloader.stakater.com/reload" -}}
   {{- $common := default (dict) (default (dict) .root.Values.global).commonAnnotations -}}
@@ -464,7 +453,7 @@ Usage: {{- include "global-chart.renderConfigMapData" (dict "data" $deploy.confi
 Map/slice values are serialized with toYaml into a block scalar, everything else
 printed through printScalar and quoted — a bare toString turned 10000000 into
 "1e+07" (issue #132). A null value fails, naming
-deployments.<deploymentName>.configMap.<key>, before it reaches printScalar,
+workloads.<deploymentName>.configMap.<key>, before it reaches printScalar,
 whose own null message cannot name the key:
 ConfigMap.data is map[string]string, so every value has to render as a YAML
 string or the API server rejects the manifest.
@@ -496,7 +485,7 @@ Render the body of a Secret "data:" block: one "key: <base64>" line per entry, a
 indent 0. The caller owns the "data:" key and applies its own nindent 2.
 Usage: {{- include "global-chart.renderSecretData" (dict "data" $deploy.secret "deploymentName" $name) | nindent 2 }}
 Strings are base64-encoded as-is, everything else through toYaml first. A null
-fails, naming deployments.<deploymentName>.secret.<key>: toYaml nil is the
+fails, naming workloads.<deploymentName>.secret.<key>: toYaml nil is the
 string "null", and the app would read those four characters as its secret
 (issue #166). renderConfigMapData fails on a null the same way.
 Returns empty string on an empty map; callers guard on the map being non-empty.
@@ -563,7 +552,7 @@ header.
   {{- $entries = append $entries (dict "errCtx" "httpRoute" "name" (include "global-chart.gatewayRouteName" (dict "root" .)) "route" $single "single" true) -}}
 {{- end -}}
 {{- range $key, $route := (default (dict) .Values.httpRoutes) -}}
-  {{- /* A null entry is unset, like a null deployments entry: no route */ -}}
+  {{- /* A null entry is unset, like a null workloads entry: no route */ -}}
   {{- if not (kindIs "invalid" $route) -}}
   {{- $entries = append $entries (dict "errCtx" (printf "httpRoutes.%s" $key) "name" (include "global-chart.gatewayRouteName" (dict "root" $ "key" $key)) "route" (default (dict) $route) "single" false) -}}
   {{- end -}}
@@ -596,7 +585,7 @@ Usage:
 Inputs (dict):
   - root        (required) — Helm root context (the chart "." passed in)
   - ref         (required) — host entry (ingress) or backendRef (httpRoute, tcpRoutes, udpRoutes) map;
-                             supports .service.name/.port, and .deployment with an optional .portName
+                             supports .service.name/.port, and .workload with an optional .portName
   - errCtx      (required) — values path of ref (ingress.hosts[<i>], httpRoute.rules[<i>].backendRefs[<j>]);
                              leads every fail message, "<values path>: <problem>" (issue #190).
   - protocol    (required) — the protocol the consumer forwards: "TCP" for ingress, httpRoute and
@@ -604,15 +593,15 @@ Inputs (dict):
 
 Resolution priority (mirrors the historical inline ingress logic):
   1. Explicit service override: ref.service.name set      → {name=ref.service.name, port=ref.service.port|80}
-  2. Workload reference:        ref.deployment set        → {name=deploymentFullname, port=the Service port named
+  2. Workload reference:        ref.workload set          → {name=deploymentFullname, port=the Service port named
                                                              ref.portName, or the primary port}
-                                with validations: deployment exists, enabled, service.enabled != false
+                                with validations: workload exists, enabled, service.enabled != false
   3. Otherwise: fail with actionable message.
 
-portName (issue #194) names a port of the deployment's Service — the primary
+portName (issue #194) names a port of the workload's Service — the primary
 port's name (servicePrimaryPort, "http" by default) or an extraPorts[].name —
 and resolves to its number, since a Gateway API backendRef carries numbers only.
-It is the single home of picking a deployment's port, so ingress, httpRoute and
+It is the single home of picking a workload's port, so ingress, httpRoute and
 the L4 routes all get it. Rejected alongside a service carrying a name or a
 port (a foreign Service carries its own port) and on a name the Service lacks. The port picked, primary
 included, must carry the consumer's protocol: Kubernetes accepts a TCP route to
@@ -635,7 +624,7 @@ Numbers come back float64: see the file header.
          ingress default host carries it), so it does not conflict; a name or
          a port does: either one says which port to reach, and so does portName */ -}}
   {{- if and $ref.service (or $ref.service.name (hasKey $ref.service "port")) -}}
-    {{- fail (printf "%s.portName: set together with service. portName picks a port of a deployment's Service; a service backend carries its own port. Drop one of them." $path) -}}
+    {{- fail (printf "%s.portName: set together with service. portName picks a port of a workload's Service; a service backend carries its own port. Drop one of them." $path) -}}
   {{- end -}}
 {{- end -}}
 
@@ -643,7 +632,7 @@ Numbers come back float64: see the file header.
        This 80 is deliberately NOT servicePrimaryPort's: ref.service is an
        arbitrary Service in the cluster, with only name/port — no portName, no
        targetPort. Its default merely coincides with the chart's primary port;
-       sharing a home would couple a deployment's primary port to a foreign
+       sharing a home would couple a workload's primary port to a foreign
        Service's. */ -}}
 {{- if and (hasKey $ref "service") $ref.service $ref.service.name -}}
   {{- $svcName = $ref.service.name -}}
@@ -652,21 +641,21 @@ Numbers come back float64: see the file header.
   {{- end -}}
   {{- $svcPort = ternary $ref.service.port 80 (hasKey $ref.service "port") -}}
 {{- /* Priority 2: workload reference */ -}}
-{{- else if $ref.deployment -}}
-  {{- $depName := $ref.deployment -}}
-  {{- $deploy := index (default (dict) $root.Values.deployments) $depName -}}
+{{- else if $ref.workload -}}
+  {{- $depName := $ref.workload -}}
+  {{- $deploy := index (default (dict) $root.Values.workloads) $depName -}}
   {{- if not $deploy -}}
-    {{- if hasKey (default (dict) $root.Values.deployments) $depName -}}
-      {{- fail (printf "%s.deployment: references deployment '%s', which is empty: an empty deployments entry renders nothing. Fill the entry, or drop the reference." $path $depName) -}}
+    {{- if hasKey (default (dict) $root.Values.workloads) $depName -}}
+      {{- fail (printf "%s.workload: references workload '%s', which is empty: an empty workloads entry renders nothing. Fill the entry, or drop the reference." $path $depName) -}}
     {{- end -}}
-    {{- fail (printf "%s.deployment: references deployment '%s', which does not exist in .Values.deployments" $path $depName) -}}
+    {{- fail (printf "%s.workload: references workload '%s', which does not exist in .Values.workloads" $path $depName) -}}
   {{- end -}}
   {{- if ne (include "global-chart.deploymentEnabled" $deploy) "true" -}}
-    {{- fail (printf "%s.deployment: references deployment '%s', which has enabled: false (its Service will not be created)" $path $depName) -}}
+    {{- fail (printf "%s.workload: references workload '%s', which has enabled: false (its Service will not be created)" $path $depName) -}}
   {{- end -}}
   {{- $depSvc := default (dict) $deploy.service -}}
   {{- if ne (include "global-chart.serviceEnabled" $depSvc) "true" -}}
-    {{- fail (printf "%s.deployment: references deployment '%s', which has service.enabled: false. Enable the service or remove the reference." $path $depName) -}}
+    {{- fail (printf "%s.workload: references workload '%s', which has service.enabled: false. Enable the service or remove the reference." $path $depName) -}}
   {{- end -}}
   {{- $svcName = include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $depName) -}}
   {{- $depSvcCtx := printf "%s.service" (include "global-chart.deploymentValuesPath" $depName) -}}
@@ -677,19 +666,19 @@ Numbers come back float64: see the file header.
   {{- end -}}
   {{- $portName := ternary $ref.portName (first $svcPorts).name (hasKey $ref "portName") -}}
   {{- if not (hasKey $ports $portName) -}}
-    {{- fail (printf "%s.portName: '%s' names no port of the Service of deployment '%s' (ports: %s). Use the name of service.portName or of a service.extraPorts entry." $path $portName $depName (keys $ports | sortAlpha | join ", ")) -}}
+    {{- fail (printf "%s.portName: '%s' names no port of the Service of workload '%s' (ports: %s). Use the name of service.portName or of a service.extraPorts entry." $path $portName $depName (keys $ports | sortAlpha | join ", ")) -}}
   {{- end -}}
   {{- $picked := index $ports $portName -}}
   {{- if ne $picked.protocol $protocol -}}
     {{- /* The path is the key that picked the port: portName when set, the
            backend itself when it fell back on the primary port */ -}}
     {{- $protoCtx := ternary (printf "%s.portName" $path) $path (hasKey $ref "portName") -}}
-    {{- fail (printf "%s: resolves to the %s port '%s' of deployment '%s', but this backend forwards %s. Kubernetes accepts the route and the traffic never arrives. Pick a %s port with portName." $protoCtx $picked.protocol $portName $depName $protocol $protocol) -}}
+    {{- fail (printf "%s: resolves to the %s port '%s' of workload '%s', but this backend forwards %s. Kubernetes accepts the route and the traffic never arrives. Pick a %s port with portName." $protoCtx $picked.protocol $portName $depName $protocol $protocol) -}}
   {{- end -}}
   {{- $svcPort = $picked.port -}}
-{{- /* Priority 3: Error - must specify deployment or service */ -}}
+{{- /* Priority 3: Error - must specify workload or service */ -}}
 {{- else -}}
-  {{- fail (printf "%s: must specify either 'deployment' (name of a deployment) or 'service.name' (explicit service name)" $path) -}}
+  {{- fail (printf "%s: must specify either 'workload' (name of a workload) or 'service.name' (explicit service name)" $path) -}}
 {{- end -}}
 
 {{- dict "name" $svcName "port" $svcPort | toJson -}}
@@ -724,8 +713,8 @@ version: {{ include "global-chart.printScalar" (dict "value" $remote.version "er
 {{- end }}
 
 {{/*
-Container ports for a deployment's pod spec, derived from its Service definition.
-Single source of truth for the pod side of the Service: deployment.yaml renders
+Container ports for a workload's pod spec, derived from its Service definition.
+Single source of truth for the pod side of the Service: workload.yaml renders
 this list, and validateServiceTargetPorts checks named targetPorts against it,
 so the two can never drift — that drift is what made service.targetPort unusable
 (issue #82).
@@ -768,7 +757,7 @@ Numbers come back float64: see the file header.
 {{- end }}
 
 {{/*
-The primary port of a deployment's Service: the single home of its four
+The primary port of a workload's Service: the single home of its four
 defaults (`port` 80, `name` "http", `protocol` TCP, `targetPort` following the
 name). Consumed by service.yaml, containerPorts, validateServiceTargetPorts,
 validateServicePorts,
@@ -781,10 +770,10 @@ custom portName and no targetPort, "http" would name a port nothing declares.
 Only the primary port is here. extraPorts entries have name/port/targetPort all
 required by the schema; their one default, the protocol, lives in
 extraPortProtocol.
-Every consumer of a deployment's ports reaches this helper before it prints
+Every consumer of a workload's ports reaches this helper before it prints
 one, so it runs rejectNullServicePorts first: the one call that covers them all.
 Usage: {{ $primary := include "global-chart.servicePrimaryPort" (dict "service" $svc "errCtx" (printf "%s.service" $errCtx)) | fromJson }}
-Input: the deployment's service map, already defaulted to (dict) by the caller,
+Input: the workload's service map, already defaulted to (dict) by the caller,
 and errCtx, its values path.
 Output: JSON of the form {"port":80,"name":"http","protocol":"TCP","targetPort":"http"}
 Numbers come back float64: see the file header.
@@ -802,7 +791,7 @@ Numbers come back float64: see the file header.
 {{- end }}
 
 {{/*
-Every port of a deployment's Service, in the order service.yaml renders them:
+Every port of a workload's Service, in the order service.yaml renders them:
 the primary port first (from servicePrimaryPort), then each extraPorts entry
 with its protocol from extraPortProtocol. The single home of that enumeration
 on the Service side, read by validateServicePorts and resolveBackend; the pod
@@ -826,13 +815,13 @@ the file header.
 {{- end }}
 
 {{/*
-Fail on a null in a deployment's Service ports, naming its key (issue #191): a
+Fail on a null in a workload's Service ports, naming its key (issue #191): a
 port, targetPort, portName or protocol of the primary port, and any key of an
 extraPorts entry. The single home of that check. servicePrimaryPort runs it,
 because every consumer of the ports (service.yaml, containerPorts, the
 validators, resolveBackend, the connection test) reaches servicePrimaryPort
 before it prints one; so they print the ports bare, already checked.
-Usage: {{- include "global-chart.rejectNullServicePorts" (dict "service" $svc "errCtx" "deployments.web.service") -}}
+Usage: {{- include "global-chart.rejectNullServicePorts" (dict "service" $svc "errCtx" "workloads.web.service") -}}
 */}}
 {{- define "global-chart.rejectNullServicePorts" -}}
 {{- $svc := .service -}}
@@ -860,10 +849,10 @@ Usage: {{ include "global-chart.extraPortProtocol" $extraPort }}
 {{- end }}
 
 {{/*
-The type of a deployment's Service: its own, or ClusterIP. The one home of that
+The type of a workload's Service: its own, or ClusterIP. The one home of that
 default, read by service.yaml and validateServicePorts.
 Usage: {{ include "global-chart.serviceType" $svc }}
-Input: the deployment's service map, already defaulted to (dict) by the caller.
+Input: the workload's service map, already defaulted to (dict) by the caller.
 */}}
 {{- define "global-chart.serviceType" -}}
 {{- ternary .type "ClusterIP" (eq (include "global-chart.isSet" (list . "type")) "true") -}}
@@ -1022,7 +1011,7 @@ The volumeMounts of a pod's main container, in render order, as a JSON list of
 volumeMount maps: the user's volumeMounts, the mountedConfigFiles files and
 bundles (a workload's only), then the mounted externalSecrets entries, the
 inherited before the own. The single home of which mounts land on the
-container: deployment.yaml and jobPodSpec render this list, and
+container: workload.yaml and jobPodSpec render this list, and
 validateMountPaths checks it for a repeated mountPath (issue #182), so a new
 mount source cannot reach the manifest unchecked.
 Callers do `include ... | fromJsonArray` and toYaml the result.
@@ -1065,7 +1054,7 @@ Params:
 {{/*
 The volumes of the mounted externalSecrets entries, one per entry of a
 resolveExternalSecretRefs `mounted` list, as list items at indent 0. Shared by
-deployment.yaml and jobPodSpec, so the two render the same Secret volume.
+workload.yaml and jobPodSpec, so the two render the same Secret volume.
 Usage: {{- include "global-chart.renderExternalSecretVolumes" $mounted | nindent 2 }}
 */}}
 {{- define "global-chart.renderExternalSecretVolumes" -}}
@@ -1098,3 +1087,15 @@ Usage: {{ include "global-chart.externalSecretRewritesTarget" $secret }}
 {{- define "global-chart.externalSecretRewritesTarget" -}}
 {{- has (include "global-chart.externalSecretCreationPolicy" .) (list "Owner" "Orphan") -}}
 {{- end -}}
+
+{{/*
+The relPath of a mountedConfigFiles bundle file, required (issue #157): the
+ConfigMap key (its base) and the projected path both come from it. The one
+home of that check, read by mounted-configmap.yaml and workload.yaml: no
+validator covers it, so each reader fails with the same message and the
+render order does not matter.
+Usage: {{ include "global-chart.mountedBundleRelPath" (dict "file" $f "errCtx" $errCtx "bundleIndex" $bi "fileIndex" $fi) }}
+*/}}
+{{- define "global-chart.mountedBundleRelPath" -}}
+{{- required (printf "%s.mountedConfigFiles.bundles[%d].files[%d].relPath: required" .errCtx .bundleIndex .fileIndex) .file.relPath -}}
+{{- end }}
