@@ -94,6 +94,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 - `make unit-test SUITE=tests/<name>_test.yaml` runs only the named suites.
 - `make lint-labels`, run in CI, checks that the labels of
   `docs/agents/triage-labels.md` exist on GitHub.
+- `make lint-chart` prints one `OK:` line per scenario and fails one that hits
+  a template `fail` other than the offline CRD check, which `helm lint` logs at
+  INFO and passes.
+- `lint-templates`' template-suite rule fails a file in
+  `charts/global-chart/tests/` that is not a `*_test.yaml` suite:
+  helm-unittest never runs it.
 - `lint-templates` gains the kind-fields rule. `lint-docs` tells an untracked
   file from a missing one. The Helm repository steps of `kind-keda` and
   `kind-eso` retry three times.

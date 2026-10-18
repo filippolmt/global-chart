@@ -150,10 +150,18 @@ check: lint-chart lint-templates lint-docs lint-shell lint-glossary unit-test va
 
 lint-chart: ## Lint chart with all test values files
 	@echo "==> Linting chart with all test cases..."
+	@# helm lint logs a template fail at INFO and passes: the one fail a valid
+	@# scenario may hit offline is the CRD check, any other is a finding.
 	@set -e; for entry in $(TEST_CASES); do \
 		values="$${entry%%:*}"; \
-		echo "    Linting with $${values}"; \
-		helm lint $(STRICT) -f "$${values}" ./$(CHART_DIR)/$(GLOBAL_CHART_NAME); \
+		if ! out=$$(helm lint $(STRICT) -f "$${values}" ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) 2>&1); then \
+			echo "    FAIL: $${values}"; printf '%s\n' "$$out"; exit 1; \
+		fi; \
+		other=$$(printf '%s\n' "$$out" | grep 'funcMap fail' | grep -v 'needs the CRD' || true); \
+		if [ -n "$$other" ]; then \
+			echo "    FAIL: $${values} hits a template fail other than the CRD check:"; printf '%s\n' "$$other"; exit 1; \
+		fi; \
+		echo "    OK: $${values}"; \
 	done
 	@echo "==> All lint checks passed!"
 
