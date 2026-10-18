@@ -58,6 +58,9 @@ jobs:
       - name: Check the scenarios cover the schema
         run: make scenario-coverage
 
+      - name: Check every schema property carries a description
+        run: make schema-descriptions
+
       - name: Sweep nulls under --skip-schema-validation
         run: make null-sweep
 

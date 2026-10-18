@@ -150,6 +150,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Tests
 
+- New `make schema-descriptions`, in `make check` and CI (issue #203): every
+  property of `values.schema.json` carries a non-empty `description`. The
+  properties without one sit in `tests/schema-descriptions-baseline.txt`, which
+  only shrinks: a new property without a description fails, and so does a
+  baseline line whose property has one now. `--self-test` checks the walk and
+  the ratchet on a small schema. The fields every release uses now carry one —
+  `workloads.<name>` (image, service, resources, probes, hooks, cronJobs and
+  the rest of the entry), every hook and cronjob field, the root keys and
+  `global` — so the baseline holds 198 of 407 properties, down from 360.
 - New `make scenario-coverage`, in `make check` and CI: every map or list node
   the schema declares is set by a `TEST_CASES` scenario, and every type a node
   accepts beside another is used by one, so the checks over the scenarios see
