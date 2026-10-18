@@ -26,6 +26,10 @@ with no constraint, and `rejectRemovedKeys` fails with
 failure also links the *Migration guide* in `CHANGELOG.md`, since the other
 renames come with it. Helm renders `validate.yaml` before any other template, so
 an old values file meets that failure first (checked on Helm 4.3.1). The
+other keys fail where they are read, like the volume keys of issue #230: on
+a surface that renders nothing (`enabled: false` on the Ingress, an
+HTTPRoute or a workload) the old key is not read, and it fails once the
+surface is enabled. The
 failures, the declarations and their fixtures go in 5.0.0.
 
 **There is no deprecation minor.** This is an exception to phase 1 of the

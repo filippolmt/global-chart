@@ -606,7 +606,7 @@ Resolution priority (mirrors the historical inline ingress logic):
   1. Explicit service override: ref.service.name set      → {name=ref.service.name, port=ref.service.port|80}
   2. Workload reference:        ref.workload set          → {name=deploymentFullname, port=the Service port named
                                                              ref.portName, or the primary port}
-                                with validations: deployment exists, enabled, service.enabled != false
+                                with validations: workload exists, enabled, service.enabled != false
   3. Otherwise: fail with actionable message.
 
 portName (issue #194) names a port of the deployment's Service — the primary
@@ -688,7 +688,7 @@ Numbers come back float64: see the file header.
     {{- fail (printf "%s: resolves to the %s port '%s' of workload '%s', but this backend forwards %s. Kubernetes accepts the route and the traffic never arrives. Pick a %s port with portName." $protoCtx $picked.protocol $portName $depName $protocol $protocol) -}}
   {{- end -}}
   {{- $svcPort = $picked.port -}}
-{{- /* Priority 3: Error - must specify deployment or service */ -}}
+{{- /* Priority 3: Error - must specify workload or service */ -}}
 {{- else -}}
   {{- fail (printf "%s: must specify either 'workload' (name of a workload) or 'service.name' (explicit service name)" $path) -}}
 {{- end -}}

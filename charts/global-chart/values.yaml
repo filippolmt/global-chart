@@ -1,6 +1,6 @@
 # Default values for global-chart.
 
-# -- Global values shared across all deployments, cronJobs, and hooks
+# -- Global values shared across all workloads, cronJobs, and hooks
 global:
   # -- Global image registry prefix (e.g., registry.example.com)
   # @default -- `""` (no prefix)
@@ -22,12 +22,12 @@ nameOverride: ""
 # -- Override the chart fullname
 fullnameOverride: ""
 
-# -- Multiple deployments configuration (map of named deployments). Each deployment supports an `enabled` field (bool, default `true`) to skip rendering of the workload and all its sub-resources (Service, ConfigMap, Secret, ServiceAccount, HPA, mounted ConfigMaps, CronJobs, Hooks). An Ingress that references a disabled entry will fail with a clear error.
+# -- The workloads of the release (map of named entries, each a Deployment or a StatefulSet by `kind`). Each entry supports an `enabled` field (bool, default `true`) to skip rendering of the workload and all its sub-resources (Service, ConfigMap, Secret, ServiceAccount, HPA, mounted ConfigMaps, CronJobs, Hooks). An Ingress that references a disabled entry will fail with a clear error.
 # @default -- `{}` (empty map)
 workloads: {}
-  # Example deployment configuration:
+  # Example workload configuration:
   # main:
-  #   # -- (bool) Enable or disable this deployment and all its sub-resources (Service, ConfigMap, Secret, SA, HPA). Default: true
+  #   # -- (bool) Enable or disable this workload and all its sub-resources (Service, ConfigMap, Secret, SA, HPA). Default: true
   #   enabled: true
   #
   #   # -- Workload kind: Deployment (default) or StatefulSet (ADR 0020). Changing it on an installed entry replaces the workload
@@ -227,7 +227,7 @@ workloads: {}
   #
   #   # -- PodDisruptionBudget configuration
   #   pdb:
-  #     # -- Enable PDB for this deployment
+  #     # -- Enable PDB for this workload
   #     enabled: false
   #     # -- Minimum available pods: an integer, or a percentage string ("25%")
   #     minAvailable: 1
@@ -236,7 +236,7 @@ workloads: {}
   #
   #   # -- NetworkPolicy configuration
   #   networkPolicy:
-  #     # -- Enable NetworkPolicy for this deployment
+  #     # -- Enable NetworkPolicy for this workload
   #     enabled: false
   #     # -- Policy types to enforce (Ingress, Egress, or both)
   #     policyTypes:
@@ -303,7 +303,7 @@ workloads: {}
   #   # -- Read Secrets produced by the root externalSecrets map, by KEY (never
   #   # the generated Secret name). Without mountPath: an envFrom source, after
   #   # envFromSecrets. With mountPath: a read-only volume. Inherited by the
-  #   # deployment's hooks and cronJobs (a job's own list, `[]` included,
+  #   # workload's hooks and cronJobs (a job's own list, `[]` included,
   #   # replaces it). pre-* (pre-delete excepted) and post-delete hooks read a
   #   # hook-prerequisite copy of the ExternalSecret, so they work on the first
   #   # install (ADR 0007).
@@ -333,7 +333,7 @@ workloads: {}
   #     files: []      # each: name, filename, targetPath, content
   #     bundles: []
   #
-  #   # -- Hooks defined inside deployment (inherit image, configMap, secret, SA)
+  #   # -- Hooks defined inside the workload (inherit image, configMap, secret, SA)
   #   hooks:
   #     post-upgrade:
   #       migrate:
@@ -531,7 +531,7 @@ cronJobs: {}
   #   # parallelism: 1
   #   # completions: 1
   #
-  # Note: root-level cronJobs do NOT auto-inherit ConfigMap/Secret from deployments.
+  # Note: root-level cronJobs do NOT auto-inherit ConfigMap/Secret from workloads.
   # Use envFromConfigMaps / envFromSecrets to reference them by name explicitly.
   # Workload-scope cronJobs (workloads.<name>.cronJobs) DO auto-inherit; use
   # inheritWorkloadConfigMap/inheritWorkloadSecret: false to opt out, and

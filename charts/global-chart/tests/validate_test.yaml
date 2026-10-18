@@ -2,7 +2,7 @@ suite: cross-resource validation tests
 templates:
   - templates/validate.yaml
 tests:
-  # ====== Keys removed in 4.0.0 (issue #221, ADR 0022) ======
+  # ====== Keys removed in 4.0.0 (issue #221, ADR 0023) ======
   - it: should fail naming workloads when values carry the removed deployments map
     set:
       deployments:
@@ -1412,7 +1412,7 @@ tests:
         api: { image: nginx:1.25 }
       ingress:
         enabled: true
-        hosts: [{ host: example.com, deployment: api, paths: [{ path: / }] }]
+        hosts: [{ host: example.com, workload: api, paths: [{ path: / }] }]
       httpRoutes:
         web:
           parentRefs: [{ name: gw }]

@@ -15,7 +15,7 @@ checks every fail against them: change both.
 */}}
 
 {{/*
-The values path of a deployment, "workloads.<name>": its single home, as
+The values path of a workload, "workloads.<name>": its single home, as
 jobValuesPath is a job's (and leads a workload-scope job's with it).
 Usage: {{ include "global-chart.deploymentValuesPath" $name }}
 */}}
@@ -25,11 +25,13 @@ workloads.{{ . }}
 
 {{/*
 Fail on a key renamed in 4.0.0 (issue #221, ADR 0023): "<values path>: removed
-in 4.0.0, use <replacement>", the one home of that message. The schema declares
+in 4.0.0, use <replacement>", for the keys of that rename (renderVolume
+fails its own removed volume keys, issue #230). The schema declares
 each key with no constraint, so any value reaches this fail (ADR 0022); the
 fail, the declarations and the fixtures go in 5.0.0. Callers: validate.yaml
 (deployments), jobImageSource (fromDeployment), jobPodSpec
-(inheritDeployment*), resolveBackend (deployment).
+(inheritDeployment*), resolveBackend (deployment). Like every read site, it
+checks only what renders: a disabled surface never reaches it (ADR 0023).
 Usage: {{- include "global-chart.rejectRemovedKeys" (dict "map" $job "errCtx" $errCtx "keys" (dict "fromDeployment" "fromWorkload")) -}}
 */}}
 {{- define "global-chart.rejectRemovedKeys" -}}

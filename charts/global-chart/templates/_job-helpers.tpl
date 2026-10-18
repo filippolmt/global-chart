@@ -132,7 +132,7 @@ containers:
 - name: {{ $containerName }}
   image: {{ $imageRef | quote }}
   {{- /* The pullPolicy follows the image to wherever it came from: a
-         root-level fromWorkload copies the deployment's pullPolicy with its
+         root-level fromWorkload copies the workload's pullPolicy with its
          image (issue #160) */ -}}
   {{- $imageSource := include "global-chart.jobImageSource" (dict "root" $root "job" $job "deployName" .deployName "errCtx" .errCtx) | fromJson }}
   imagePullPolicy: {{ include "global-chart.imagePullPolicy" (dict "override" $job.imagePullPolicy "image" $imageSource.image) | quote }}
@@ -341,7 +341,7 @@ the one home of the resolution order, read by jobImageString for the image and
 by jobPodSpec for the pullPolicy, so the two follow one source (issue #160).
 Returns JSON {"image": <value or null>, "from": <entry>}: "from" is the values
 path of the deployment the image was taken from ("workloads.<name>"), empty
-when it is the job's own; fails only on a fromWorkload naming no deployment.
+when it is the job's own; fails only on a fromWorkload naming no workload.
 
 Accepts a dict with:
   root    - top-level chart context
