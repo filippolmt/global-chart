@@ -249,10 +249,10 @@ Usage: {{ include "global-chart.renderVolume" (dict "volume" $v "errCtx" (printf
 {{- if hasKey $vol "type" }}
   {{- fail (printf "%s.type: removed in 4.0.0, use the native volume source without type (emptyDir: {}, configMap.name, secret.secretName, persistentVolumeClaim.claimName); see https://github.com/filippolmt/global-chart/blob/main/CHANGELOG.md#migration-guide-from-3x" $path) }}
 {{- end }}
-{{- range $src, $replacement := dict "secret" "secretName" "persistentVolumeClaim" "claimName" }}
-  {{- $block := get $vol $src }}
+{{- range $key, $replacement := dict "secret" "secretName" "persistentVolumeClaim" "claimName" }}
+  {{- $block := get $vol $key }}
   {{- if and (kindIs "map" $block) (hasKey $block "name") }}
-    {{- fail (printf "%s.%s.name: removed in 4.0.0, use %s.%s" $path $src $src $replacement) }}
+    {{- fail (printf "%s.%s.name: removed in 4.0.0, use %s.%s" $path $key $key $replacement) }}
   {{- end }}
 {{- end -}}
 - name: {{ required (printf "%s: a volume needs a 'name'" $path) $vol.name }}
