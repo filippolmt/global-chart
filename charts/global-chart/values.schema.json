@@ -1020,7 +1020,7 @@
           "additionalProperties": { "type": "string" }
         },
         "priorityClassName": {
-          "description": "Name of an existing PriorityClass for the job pod. Workload scope: explicit > inherited from the workload. Explicit null or \"\" stops the inheritance. Root scope: only this value.",
+          "description": "Name of an existing PriorityClass for the job pod. Workload scope: explicit > inherited from the workload. \"\" stops the inheritance; null is unset, so the workload's value is inherited. Root scope: only this value.",
           "$ref": "#/$defs/optionalObjectName"
         },
         "tolerations": { "description": "The pod's tolerations. Workload scope: the workload's when unset; [] stops the inheritance.", "type": "array", "items": { "$ref": "#/$defs/toleration" } },
