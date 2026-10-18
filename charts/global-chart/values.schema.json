@@ -103,7 +103,7 @@
           "items": { "$ref": "#/$defs/imagePullSecret" }
         },
         "commonLabels": {
-          "description": "Labels added to metadata.labels of every resource, never to the selector labels. A per-resource label of the same name wins; the chart's own app.kubernetes.io/* and helm.sh/chart labels win over both.",
+          "description": "Labels added to metadata.labels of every resource, never to the selector labels. The chart's own app.kubernetes.io/* and helm.sh/chart labels win over them, and a per-resource label (podLabels) wins over both.",
           "type": "object",
           "additionalProperties": { "type": "string" }
         },
@@ -345,7 +345,7 @@
           "additionalProperties": { "type": "string" }
         },
         "extraPorts": {
-          "description": "More ports of the same Service, after the primary one. Names and port+protocol pairs are unique across the primary port and every entry. A numeric targetPort is also declared on the container, under the entry's name.",
+          "description": "More ports of the same Service, after the primary one. Names and port+protocol pairs are unique across the primary port and every entry. A numeric targetPort is also declared on the container, under the entry's name, unless the container already declares that number and protocol.",
           "type": "array",
           "items": {
             "type": "object",
@@ -353,7 +353,7 @@
               "name": { "description": "Port name, on the Service and, for a numeric targetPort, on the container.", "$ref": "#/$defs/ianaSvcName" },
               "port": { "description": "Port the Service exposes.", "type": "integer", "minimum": 1, "maximum": 65535 },
               "targetPort": {
-                "description": "The pod port it forwards to: a number, declared on the container under the entry's name, or the name of a declared container port.",
+                "description": "The pod port it forwards to: a number, declared on the container under the entry's name unless that number and protocol already are, or the name of a declared container port.",
                 "anyOf": [{ "const": "" }, { "$ref": "#/$defs/portNumberOrName" }]
               },
               "protocol": {
@@ -829,7 +829,7 @@
           "additionalProperties": { "type": "string" }
         },
         "podLabels": {
-          "description": "Labels on the pod template, merged over global.commonLabels. The chart's own labels, the selector labels among them, win on a shared key.",
+          "description": "Labels on the pod template, merged over global.commonLabels and the chart's own labels, this one winning: a key that overrides a selector label makes the template stop matching the workload's selector, which the API server rejects.",
           "type": "object",
           "additionalProperties": { "type": "string" }
         },
@@ -909,7 +909,7 @@
         },
         "mountedConfigFiles": { "description": "Files the chart renders as ConfigMaps and mounts into the main container. Never inherited by the workload's hooks and cronjobs.", "$ref": "#/$defs/mountedConfigFiles" },
         "hooks": {
-          "description": "Workload-scope Helm hooks: hooks.<hook type>.<name>, each a Job run at that phase. They inherit the workload's image, ServiceAccount, ConfigMap, Secret, envFrom lists, scheduling and security context, never command or args.",
+          "description": "Workload-scope Helm hooks: hooks.<hook type>.<name>, each a Job run at that phase. They inherit the workload's image, ServiceAccount, configMap, secret, envFrom lists, externalSecrets, additionalEnvs, imagePullSecrets, hostAliases, security contexts, automountServiceAccountToken and placement (nodeSelector, tolerations, affinity, priorityClassName); never command, args or mountedConfigFiles.",
           "type": "object",
           "propertyNames": { "$ref": "#/$defs/hookType" },
           "additionalProperties": {
@@ -919,7 +919,7 @@
           }
         },
         "cronJobs": {
-          "description": "Workload-scope CronJobs keyed by name. They inherit the workload's image, ServiceAccount, ConfigMap, Secret, envFrom lists, scheduling and security context, never command or args.",
+          "description": "Workload-scope CronJobs keyed by name. They inherit the workload's image, ServiceAccount, configMap, secret, envFrom lists, externalSecrets, additionalEnvs, imagePullSecrets, hostAliases, security contexts, automountServiceAccountToken and placement (nodeSelector, tolerations, affinity, priorityClassName), and dnsConfig; never command, args or mountedConfigFiles.",
           "type": "object",
           "propertyNames": { "$ref": "#/$defs/jobName" },
           "additionalProperties": { "$ref": "#/$defs/deploymentCronJob" }

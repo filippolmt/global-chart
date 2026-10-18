@@ -13,9 +13,13 @@ not followed, its target is walked where it is defined. A property is named by
 its JSON pointer relative to `$defs` (`deployment/properties/image`), or from
 the schema root (`properties/global`). A property under `if`, `then`, `else` or
 `not` that refines one declared beside the condition (`strategy: false` for a
-StatefulSet) is skipped: the declaration beside it carries the description. A
-removed key (ADR 0022) is a property too: its description names the
-replacement.
+StatefulSet) is skipped, not what it holds: the declaration beside it carries
+the description. Beside means in the same node: a condition inside an `allOf`
+branch that refines the node holding the branch is walked (shortcut: no such
+condition exists today; resolve the refinement through the branch when one
+lands). A removed key (ADR 0022) is a property too: its description names the
+replacement. The schema under `additionalProperties` or `patternProperties` is
+a map's value, not a property: the map's own property describes it.
 
 The ratchet. tests/schema-descriptions-baseline.txt lists the properties of the
 day the check arrived that carried no description. A property missing from both
@@ -25,16 +29,18 @@ undescribed property fails too, so the file only shrinks: delete the line.
 Usage: check-schema-descriptions.py <schema file> <baseline file>
        check-schema-descriptions.py --self-test
 """
+import importlib.util
 import json
 import pathlib
 import sys
 
-SCHEMA_MAPS = {"properties", "patternProperties", "$defs", "dependentSchemas"}
-SCHEMA_LISTS = {"allOf", "anyOf", "oneOf", "prefixItems"}
-SCHEMA_ONE = {"items", "additionalProperties", "unevaluatedProperties", "unevaluatedItems",
-              "if", "then", "else", "not", "propertyNames", "contains"}
-
-
+# The schema keywords and the pointer form have one home: check-closure-coverage.py.
+spec = importlib.util.spec_from_file_location(
+    "closure", pathlib.Path(__file__).parent / "bad-values" / "check-closure-coverage.py")
+closure = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(closure)
+SCHEMA_MAPS, SCHEMA_LISTS, SCHEMA_ONE, pointer = (
+    closure.SCHEMA_MAPS, closure.SCHEMA_LISTS, closure.SCHEMA_ONE, closure.pointer)
 CONDITIONS = {"if", "then", "else", "not"}
 
 
@@ -46,9 +52,7 @@ def properties(node, keys=(), refined=()):
     for key, value in node.items():
         if key in SCHEMA_MAPS and isinstance(value, dict):
             for name, sub in value.items():
-                if key == "properties":
-                    if name in refined:
-                        continue
+                if key == "properties" and name not in refined:
                     yield keys + (key, name), sub
                 yield from properties(sub, keys + (key, name))
         elif key in SCHEMA_LISTS and isinstance(value, list):
@@ -57,11 +61,6 @@ def properties(node, keys=(), refined=()):
         elif key in SCHEMA_ONE:
             yield from properties(value, keys + (key,),
                                   node.get("properties", {}).keys() if key in CONDITIONS else ())
-
-
-def pointer(keys):
-    rel = keys[1:] if keys[:1] == ("$defs",) else keys
-    return "/".join(map(str, rel))
 
 
 def undescribed(schema):
@@ -95,11 +94,13 @@ def self_test():
                   "then": {"properties": {"i": {"description": 1}}}},
             "z": {"properties": {"j": {"description": "J."}},
                   "if": {"properties": {"j": {"const": 1}}},
-                  "then": {"properties": {"j": False, "k": {}}}},
+                  "then": {"properties": {"j": False, "k": {}}},
+                  "else": {"properties": {"j": {"properties": {"l": {}}}}}},
         },
     }
     want = {"properties/b", "properties/c", "properties/d", "properties/d/properties/e",
-            "x/items/properties/g", "y/allOf/0/properties/h", "y/then/properties/i", "z/then/properties/k"}
+            "x/items/properties/g", "y/allOf/0/properties/h", "y/then/properties/i", "z/then/properties/k",
+            "z/else/properties/j/properties/l"}
     got = undescribed(schema)
     assert got == want, f"undescribed: got {sorted(got)}, want {sorted(want)}"
     assert problems(want, want, "b.txt") == []

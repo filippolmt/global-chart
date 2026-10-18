@@ -8,7 +8,7 @@ global:
   # -- Global imagePullSecrets (used when workload/cronJob/hook doesn't specify its own)
   # @default -- `[]`
   imagePullSecrets: []
-  # -- Global labels applied to metadata.labels of ALL resources (not added to selector labels). A per-resource label of the same name wins; the chart's own `app.kubernetes.io/*` and `helm.sh/chart` labels win over both, since the selectors are built from them
+  # -- Global labels applied to metadata.labels of ALL resources (not added to selector labels). The chart's own `app.kubernetes.io/*` and `helm.sh/chart` labels win over them, since the selectors are built from them; a per-resource label (podLabels) wins over both
   # @default -- `{}`
   commonLabels: {}
   # -- Global annotations applied to metadata.annotations of ALL resources (including pod templates). A per-resource annotation of the same name wins, empty string included. The `helm.sh/hook*` annotations the chart emits itself are ignored here

@@ -27,7 +27,7 @@ Kubernetes: `>=1.27.0-0`
 | global | object | `{"commonAnnotations":{},"commonLabels":{},"imagePullSecrets":[],"imageRegistry":""}` | Global values shared across all workloads, cronJobs, and hooks |
 | global.imageRegistry | string | `""` (no prefix) | Global image registry prefix (e.g., registry.example.com) |
 | global.imagePullSecrets | list | `[]` | Global imagePullSecrets (used when workload/cronJob/hook doesn't specify its own) |
-| global.commonLabels | object | `{}` | Global labels applied to metadata.labels of ALL resources (not added to selector labels). A per-resource label of the same name wins; the chart's own `app.kubernetes.io/*` and `helm.sh/chart` labels win over both, since the selectors are built from them |
+| global.commonLabels | object | `{}` | Global labels applied to metadata.labels of ALL resources (not added to selector labels). The chart's own `app.kubernetes.io/*` and `helm.sh/chart` labels win over them, since the selectors are built from them; a per-resource label (podLabels) wins over both |
 | global.commonAnnotations | object | `{}` | Global annotations applied to metadata.annotations of ALL resources (including pod templates). A per-resource annotation of the same name wins, empty string included. The `helm.sh/hook*` annotations the chart emits itself are ignored here |
 | nameOverride | string | `""` | Override the chart name. Sets `app.kubernetes.io/name`, which is part of the workload's immutable `spec.selector`: decide it before the first install, or every existing workload has to be deleted and recreated to change it. |
 | fullnameOverride | string | `""` | Override the chart fullname |
