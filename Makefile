@@ -117,7 +117,7 @@ TEST_CASES := \
 .DEFAULT_GOAL := help
 
 # All phony targets
-.PHONY: help all check lint-chart render-diff lint-templates lint-docs lint-shell lint-glossary lint-labels unit-test null-sweep validate-bad-values generate-templates \
+.PHONY: help all check lint-chart render-diff lint-templates lint-docs lint-shell lint-glossary lint-labels unit-test null-sweep scenario-coverage validate-bad-values generate-templates \
 	kubeconform kube-linter-manifests kube-linter generate-docs package \
 	install install-test01 render clean clean-all \
 	kind-install kind-cluster kind-keda kind-eso kind-gateway-api kind-argocd kind-delete e2e e2e-dryrun e2e-routes e2e-argocd check-helm-floor
@@ -143,10 +143,10 @@ help: ## Show this help message
 # Main targets
 # ============================================================================
 
-all: lint-chart lint-templates lint-docs lint-shell lint-glossary unit-test validate-bad-values null-sweep generate-templates kubeconform kube-linter ## Lint, template rules, doc pointers, unit tests, bad-values, null sweep, then generate, validate and lint the manifests
+all: lint-chart lint-templates lint-docs lint-shell lint-glossary unit-test validate-bad-values scenario-coverage null-sweep generate-templates kubeconform kube-linter ## Lint, template rules, doc pointers, unit tests, bad-values, scenario coverage, null sweep, then generate, validate and lint the manifests
 	@echo "==> make all: every check passed"
 
-check: lint-chart lint-templates lint-docs lint-shell lint-glossary unit-test validate-bad-values null-sweep ## The development loop: lint, template rules, doc pointers, unit tests, bad-values, null sweep (no manifest validation)
+check: lint-chart lint-templates lint-docs lint-shell lint-glossary unit-test validate-bad-values scenario-coverage null-sweep ## The development loop: lint, template rules, doc pointers, unit tests, bad-values, scenario coverage, null sweep (no manifest validation)
 
 lint-chart: ## Lint chart with all test values files
 	@echo "==> Linting chart with all test cases..."
@@ -181,10 +181,15 @@ lint-glossary: ## The phrases GLOSSARY.md avoids with one reading only stay out 
 	@echo "==> Checking glossary terms..."
 	@python3 tests/lint-glossary.py
 
-null-sweep: ## Null every values node of every scenario in turn: each must render or fail naming its path
-	@echo "==> Sweeping nulls under --skip-schema-validation..."
+null-sweep: ## Null every values node of every scenario in turn, then give each map and list the wrong type: each must render or fail naming its path
+	@echo "==> Sweeping nulls and wrong types under --skip-schema-validation..."
 	@python3 tests/bad-values/null-sweep.py ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) \
 		$(foreach e,$(TEST_CASES),$(firstword $(subst :, ,$(e)))) -- $(HELM_API_VERSIONS)
+
+scenario-coverage: ## Every map or list node of the schema is set by a scenario, every type a node accepts used by one (new gaps fail; the baseline only shrinks)
+	@echo "==> Checking the scenarios cover the schema..."
+	@python3 tests/check-scenario-coverage.py ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) tests/scenario-coverage-baseline.txt \
+		$(foreach e,$(TEST_CASES),$(firstword $(subst :, ,$(e))))
 
 lint-labels: ## Every triage label docs/agents/triage-labels.md names exists on GitHub (needs gh; not in check, which stays offline)
 	@echo "==> Checking triage labels..."
@@ -678,16 +683,18 @@ install-test01: ## Install test01 (has kubectl pre-step; or use: make install SC
 # Render (single template debugging)
 # ============================================================================
 
-render: ## Render a single template (usage: make render VALUES=<file> TEMPLATE=<name>)
-	@if [ -z "$(VALUES)" ] || [ -z "$(TEMPLATE)" ]; then \
-		echo "Usage: make render VALUES=<values-file> TEMPLATE=<template-name>"; \
+render: ## Render a values file, with the CRD API versions (usage: make render VALUES=<file> [TEMPLATE=<name>] [SKIP_SCHEMA=1])
+	@if [ -z "$(VALUES)" ]; then \
+		echo "Usage: make render VALUES=<values-file> [TEMPLATE=<template-name>] [SKIP_SCHEMA=1]"; \
 		echo "Example: make render VALUES=tests/test01/values.01.yaml TEMPLATE=workload.yaml"; \
+		echo "TEMPLATE left out renders the whole chart; SKIP_SCHEMA=1 adds --skip-schema-validation"; \
 		exit 1; \
 	fi
 	helm template test-release ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) \
 		-f $(VALUES) \
 		$(HELM_API_VERSIONS) \
-		-s templates/$(TEMPLATE)
+		$(if $(TEMPLATE),-s templates/$(TEMPLATE)) \
+		$(if $(SKIP_SCHEMA),--skip-schema-validation)
 
 # ============================================================================
 # Cleanup

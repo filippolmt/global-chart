@@ -1,0 +1,10 @@
+# An envFromConfigMaps item written as a map. The schema wants a string; under
+# --skip-schema-validation it rendered a configMapRef named "map[a:1]", Go's
+# print of the map, until validateValueTypes named it (issue #235). The sweep
+# gives scalar items no wrong type: this fixture is its only guard.
+# Expected fail substring: "workloads.web.envFromConfigMaps[0]: a map, where the chart reads a string"
+workloads:
+  web:
+    image: nginx:1.25
+    envFromConfigMaps:
+      - a: 1

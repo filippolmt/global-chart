@@ -2,6 +2,27 @@ suite: cross-resource validation tests
 templates:
   - templates/validate/validate.yaml
 tests:
+  # ====== Value types (issue #235) ======
+  - it: should accept imagePullSecrets in the string form, at every scope valuesShape reads
+    set:
+      global:
+        imagePullSecrets: [regcred]
+      hooks:
+        pre-install:
+          seed:
+            image: "busybox:1.36"
+            imagePullSecrets: [regcred]
+      workloads:
+        main:
+          image: "nginx:1.25"
+          imagePullSecrets: [regcred, {name: other}]
+          cronJobs:
+            nightly:
+              schedule: "0 0 * * *"
+              imagePullSecrets: [regcred]
+    asserts:
+      - notFailedTemplate: {}
+
   # ====== Volume keys removed in 4.0.0 (issue #230, ADR 0022) ======
   # ====== Removed legacy volumes[].type format (issue #230, ADR 0022) ======
   - it: should fail naming the native source when a volume carries the removed type

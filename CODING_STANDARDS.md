@@ -9,9 +9,11 @@ Two kinds of rule:
   not. `make lint-templates` (`tests/lint-templates.py`, its docstring lists
   them): `default true` on a boolean, `set` on `.Values`, the shape of a
   `fail` message, a suite per template. `make null-sweep` nulls every values
-  node of every scenario. `make e2e-dryrun` sends every scenario to a real API
-  server. `lint-templates`' kind-fields rule holds the backstop guard's
-  `$kindOnly` to the schema's `if/then/else` on `kind`, and its workload-kind
+  node of every scenario, then gives each map and list the wrong type, and
+  holds `valuesShape` to the schema's types. `make e2e-dryrun` sends every
+  scenario to a real API server. `lint-templates`' kind-fields rule holds the
+  backstop guard's `$kindOnly` to the schema's `if/then/else` on `kind`, and
+  its workload-kind
   rule keeps a quoted kind (`"Deployment"`) in `workloadKind`, `isStatefulSet`
   and `$kindOnly`. `make lint-glossary` keeps out the phrases GLOSSARY.md
   avoids with one reading only. The rules stay written
@@ -149,8 +151,18 @@ one key picked the wrong value among several, the path ends on it
 **A guard the schema shadows is a fallback guard.** When the schema already
 rejects a value and a template `fail` repeats it, the `fail` is what a user on
 `--skip-schema-validation` sees, and it gets a `tests/bad-values/skip-schema/`
-fixture. `make null-sweep` covers the scenarios; a values node no scenario
-reaches is not swept, so a new map or list gets a scenario that sets it.
+fixture. `make null-sweep` covers the scenarios; `make scenario-coverage` fails
+a map or list node no scenario sets, and a type a node accepts that none uses. A
+map or list a template reads goes in `valuesShape` (`_validate-helpers.tpl`),
+and the sweep's type pass fails a raw error on one it misses (issue #235).
+
+**A mirror of the schema is held to it by a check.** A helper or script that
+restates what `values.schema.json` declares — `$kindOnly`, `valuesShape` —
+ships with a check that fails when the two diverge (`lint-templates`'
+kind-fields rule, `make null-sweep`'s schema check). A mirror built from what
+the scenarios happen to set misses the forms none of them uses: `valuesShape`
+read an `imagePullSecrets` item as a map only, and the string form failed
+every render (issue #235).
 
 **A null means one thing per kind of node** (issue #198):
 

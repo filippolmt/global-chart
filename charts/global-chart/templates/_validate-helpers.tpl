@@ -15,6 +15,16 @@ checks every fail against them: change both.
 */}}
 
 {{/*
+The values path of a map entry: "<map path>.<key>", the key alone at the
+root (an empty map path). The single home of that join, read by the walks
+over values maps: rejectRemovedKeys, checkValueType, rejectNullInLists.
+Usage: {{ include "global-chart.childValuesPath" (list $errCtx $key) }}
+*/}}
+{{- define "global-chart.childValuesPath" -}}
+{{- if eq (index . 0) "" -}}{{ index . 1 }}{{- else -}}{{ index . 0 }}.{{ index . 1 }}{{- end -}}
+{{- end }}
+
+{{/*
 The values path of a workload, "workloads.<name>": its single home, as
 jobValuesPath is a job's (and leads a workload-scope job's with it).
 Usage: {{ include "global-chart.deploymentValuesPath" $name }}
@@ -31,8 +41,8 @@ message, called first from validate/validate.yaml, the first template Helm
 renders (see its header). Each key
 stays declared in the schema with no constraint, so any value reaches its fail
 (ADR 0022); the walk, the declarations and the fixtures go in 5.0.0. A node of
-the wrong type is skipped: the schema, or the template that reads it, rejects
-it.
+the wrong type is skipped: the schema, or validateValueTypes right after,
+rejects it.
   `deployments`                                 → workloads, with the migration guide (issue #221)
   <hook or cronjob>.fromDeployment              → fromWorkload (issue #221)
   <hook or cronjob>.inheritDeployment*          → inheritWorkload* (issue #221)
@@ -167,10 +177,165 @@ helpers above.
 {{- if kindIs "map" .map -}}
   {{- range $old, $new := .keys -}}
     {{- if hasKey $args.map $old -}}
-      {{- $path := ternary $old (printf "%s.%s" $args.errCtx $old) (eq $args.errCtx "") -}}
+      {{- $path := include "global-chart.childValuesPath" (list $args.errCtx $old) -}}
       {{- fail (printf "%s: removed in %s, use %s%s" $path $args.in $new (ternary (printf "; see %s" $args.see) "" (hasKey $args "see"))) -}}
     {{- end -}}
   {{- end -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+Fail on a values node of the wrong type where a template reads into it,
+naming its path (issue #235): `<values path>: a number, where the chart reads
+a map`. The schema rejects every such node; under --skip-schema-validation a
+template that ranges over a number, or reads a field off a list, dies on a raw
+Go error naming a template line, and a map given as a list can render in
+silence (`envFromConfigMaps: {x: 3}` became a configMapRef named "3").
+valuesShape below is the single home of which nodes are read and as what. A
+node is in it if and only if its wrong type ends on a raw error or a silent
+wrong render: a passthrough node the chart hands to toYaml unread
+(tolerations, resources, a container list) stays out, as its wrong type
+renders and the API server rejects it. Each node reads exactly the types the
+schema accepts there, null aside, or a valid value fails (an imagePullSecrets
+item is a map or a string). Called second from validate/validate.yaml, after
+validateRemovedKeys, so the helpers every later check and template reads may
+take these types for granted; they stay unguarded. A null is skipped: a null
+map value is unset (issue #198), a null list item validateNullItems'.
+`make null-sweep` holds valuesShape to the schema, then gives each map and
+list node of each scenario the wrong type: a node in valuesShape must fail
+here, one outside it must render or fail naming its path. A silent wrong
+render outside it is invisible to any sweep: such a node joins valuesShape by
+hand, with a skip-schema/ fixture.
+Usage: {{- include "global-chart.validateValueTypes" . -}}
+*/}}
+{{- define "global-chart.validateValueTypes" -}}
+{{- $shape := include "global-chart.valuesShape" . | fromYaml -}}
+{{- include "global-chart.checkValueType" (dict "value" .Values "shape" $shape "errCtx" "") -}}
+{{- end }}
+
+{{/*
+The types the templates read the values as, mirroring the values: a map of
+the keys read, `*` standing for every key of a map of named entries; a
+one-item list for a list whose items are read, the item its shape; a leaf
+naming the types read, `|` between two (an image is a map or a string). A
+node under a leaf is not read as a container. The pod-spec owners (a workload,
+its hooks and cronjobs, the root ones) mirror podSpecOwners: an owner added
+there joins this tree too, or `make null-sweep` fails each one a scenario
+reaches. Read only by validateValueTypes.
+*/}}
+{{- define "global-chart.valuesShape" -}}
+global:
+  commonAnnotations: map
+  commonLabels: map
+  imagePullSecrets: [map|string]
+workloads:
+  "*":
+    # the fields a workload shares with its jobs; a job adds env below
+    <<: &podSpec
+      annotations: map
+      dnsConfig: {nameservers: list, searches: list, options: [map]}
+      envFromConfigMaps: [string]
+      envFromSecrets: [string]
+      externalSecrets: [map]
+      image: map|string
+      imagePullSecrets: [map|string]
+      serviceAccount: {annotations: map}
+      volumeMounts: [map]
+      volumes: [map]
+    additionalEnvs: list
+    autoscaling: {behavior: map}
+    configMap: map
+    extraContainers: [{volumeMounts: list}]
+    extraInitContainers: [{volumeMounts: list}]
+    keda: {annotations: map, triggers: [{authenticationRef: map}]}
+    mountedConfigFiles: {files: [map], bundles: [{files: [map]}]}
+    networkPolicy: map
+    pdb: map
+    persistentVolumeClaimRetentionPolicy: map
+    podAnnotations: map
+    podLabels: map
+    podRecreation: map
+    reloader: map
+    secret: map
+    service: {annotations: map, extraPorts: [map]}
+    updateStrategy: {rollingUpdate: map}
+    volumeClaimTemplates: [{labels: map}]
+    hooks: {"*": {"*": &job {<<: *podSpec, env: list}}}
+    cronJobs: {"*": *job}
+hooks: {"*": {"*": *job}}
+cronJobs: {"*": *job}
+externalSecrets:
+  "*":
+    annotations: map
+    data: [{remote: map}]
+    dataFrom: [{sourceRef: map}]
+    remote: map
+    secretstore: map
+    target: map
+kedaTriggerAuthentications: {"*": map}
+rbacs: {roles: [{serviceAccount: {annotations: map}}]}
+ingress:
+  annotations: map
+  hosts: [{paths: [map], service: map}]
+  tls: [{hosts: list}]
+httpRoute: &httpRoute
+  annotations: map
+  hostnames: list
+  parentRefs: [map]
+  rules: [{backendRefs: [{service: map}], filters: [map]}]
+httpRoutes: {"*": *httpRoute}
+{{- range (include "global-chart.l4RouteKinds" . | fromJsonArray) }}
+{{ .field }}:
+  "*":
+    annotations: map
+    parentRefs: [map]
+    rules: [{backendRefs: [{service: map}]}]
+{{- end }}
+{{- end }}
+
+{{/*
+Check one values node against its shape, then recurse into the entries the
+shape names. Read only by validateValueTypes.
+*/}}
+{{- define "global-chart.checkValueType" -}}
+{{- $args := . -}}
+{{- if not (kindIs "invalid" .value) -}}
+  {{- $want := list "map" -}}
+  {{- if kindIs "slice" .shape -}}
+    {{- $want = list "list" -}}
+  {{- else if kindIs "string" .shape -}}
+    {{- $want = splitList "|" .shape -}}
+  {{- end -}}
+  {{- $got := include "global-chart.valueType" .value -}}
+  {{- if not (has $got $want) -}}
+    {{- fail (printf "%s: a %s, where the chart reads a %s" .errCtx $got (join " or a " $want)) -}}
+  {{- end -}}
+  {{- if kindIs "map" .shape -}}
+    {{- range $key, $item := $args.value -}}
+      {{- $child := ternary (index $args.shape $key) (index $args.shape "*") (hasKey $args.shape $key) -}}
+      {{- if $child -}}
+        {{- include "global-chart.checkValueType" (dict "value" $item "shape" $child "errCtx" (include "global-chart.childValuesPath" (list $args.errCtx $key))) -}}
+      {{- end -}}
+    {{- end -}}
+  {{- else if kindIs "slice" .shape -}}
+    {{- range $i, $item := $args.value -}}
+      {{- include "global-chart.checkValueType" (dict "value" $item "shape" (first $args.shape) "errCtx" (printf "%s[%d]" $args.errCtx $i)) -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+The type of a values node in the words of the values author, not Go's
+(`float64`): map, list, string, boolean or number. Read only by
+checkValueType.
+*/}}
+{{- define "global-chart.valueType" -}}
+{{- if kindIs "map" . -}}map
+{{- else if kindIs "slice" . -}}list
+{{- else if kindIs "string" . -}}string
+{{- else if kindIs "bool" . -}}boolean
+{{- else -}}number
 {{- end -}}
 {{- end }}
 
@@ -193,7 +358,7 @@ Usage: {{- include "global-chart.rejectNullInLists" (dict "value" .Values.worklo
   {{- end -}}
 {{- else if kindIs "map" .value -}}
   {{- range $key, $item := .value -}}
-    {{- include "global-chart.rejectNullInLists" (dict "value" $item "errCtx" (ternary $key (printf "%s.%s" $errCtx $key) (eq $errCtx ""))) -}}
+    {{- include "global-chart.rejectNullInLists" (dict "value" $item "errCtx" (include "global-chart.childValuesPath" (list $errCtx $key))) -}}
   {{- end -}}
 {{- end -}}
 {{- end }}
@@ -209,10 +374,11 @@ the chart reads carries a null in a field it needs (issue #198). Two parts:
   podSpecOwners lists, plus global.imagePullSecrets and rbacs.roles.
 Those helpers skip a null item or field instead of reading through it, so this
 is the one error such a null reaches, whatever order Helm renders the templates
-in (isNamedEntry is their skip). Runs first in validate.yaml. A root-level list
-only one template reads (ingress, externalSecrets data, keda triggers, route
-rules) gets its required fields checked by that template, which has the path at
-hand.
+in (isNamedEntry is their skip). Runs in validate.yaml right after
+validateValueTypes, which leaves it lists and maps of the type it reads. A
+root-level list only one template reads (ingress, externalSecrets data, keda
+triggers, route rules) gets its required fields checked by that template,
+which has the path at hand.
 Called from validate.yaml. Emits nothing on success.
 */}}
 {{- define "global-chart.validateNullItems" -}}

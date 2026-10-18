@@ -105,6 +105,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Fixed
 
+- **A values node of the wrong type fails naming its path** (issue #235). Under
+  `--skip-schema-validation`, a map or list a template reads given as a number,
+  a string or the other container (`hooks: {pre-install: 3}`,
+  `ingress.hosts: 5`, `workloads: [web]`) stopped the render on a raw Go error
+  naming a template line, and `envFromConfigMaps: {x: 3}` rendered a
+  configMapRef named `"3"` without an error. The render now fails as
+  `hooks.pre-install: a number, where the chart reads a map`. A null still
+  means unset, and a passthrough node the chart hands on unread (tolerations,
+  resources) is left to the API server, as before. The schema now declares
+  `volumeMounts` of an `extraContainers` or `extraInitContainers` item an
+  array or null, since the StatefulSet check reads it: any other value was
+  rejected by the API server at apply. An `envFromConfigMaps` or
+  `envFromSecrets` item that is not a string fails too: a map rendered a
+  ConfigMap name such as `map[a:1]`.
 - **A PDB percentage above 100% is rejected by the schema.** `pdb.minAvailable`
   and `pdb.maxUnavailable` accepted any `"<digits>%"`, so `"150%"` rendered
   and the API server refused it at apply. They now take `0%` to `100%`, without
@@ -127,6 +141,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Tests
 
+- New `make scenario-coverage`, in `make check` and CI: every map or list node
+  the schema declares is set by a `TEST_CASES` scenario, and every type a node
+  accepts beside another is used by one, so the checks over the scenarios see
+  it. The day's 129 gaps sit in `tests/scenario-coverage-baseline.txt`, which
+  only shrinks; `tests/workload-hooks-cronjobs.yaml` now sets `imagePullSecrets`
+  in the string form (the gap behind the #235 review). `make render` takes
+  `TEMPLATE` as optional and `SKIP_SCHEMA=1`.
+- `make null-sweep` gains a type pass (issue #235): each map and list node of
+  each scenario is given a number and the other container in turn, and must
+  render or fail naming its path; a node `valuesShape` names must fail with
+  its message. The sweep first holds every `valuesShape` node to the types the
+  schema accepts there, so a valid value cannot fail it (a schema branch with
+  no type is a finding), and checks that every pod-spec owner
+  `podSpecOwners` lists has a pod spec in `valuesShape`. A Go fmt error (`%!`)
+  in a message counts as a raw error.
 - `make e2e-dryrun` replaces `make e2e-routes`, which stays as an alias. It
   sends every `TEST_CASES` scenario to the kind API server as a server-side dry
   run, not only those that render a route, so the rules between fields of a

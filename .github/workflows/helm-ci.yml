@@ -55,6 +55,9 @@ jobs:
       - name: Validate bad-values rejected
         run: make validate-bad-values
 
+      - name: Check the scenarios cover the schema
+        run: make scenario-coverage
+
       - name: Sweep nulls under --skip-schema-validation
         run: make null-sweep
 

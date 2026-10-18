@@ -481,10 +481,11 @@
       "additionalProperties": false
     },
     "container": {
-      "description": "A Kubernetes Container, passed through to the manifest. Open on purpose (ADR 0006): only env is held, to envVar, so a numeric value fails here and not at apply (issue #148).",
+      "description": "A Kubernetes Container, passed through to the manifest. Open on purpose (ADR 0006): only env is held, to envVar, so a numeric value fails here and not at apply (issue #148), and volumeMounts is declared an array because validateStatefulSets reads it (issue #235), null kept as it passed while undeclared.",
       "type": "object",
       "properties": {
-        "env": { "type": "array", "items": { "$ref": "#/$defs/envVar" } }
+        "env": { "type": "array", "items": { "$ref": "#/$defs/envVar" } },
+        "volumeMounts": { "type": ["array", "null"] }
       }
     },
     "envVar": {
