@@ -117,7 +117,7 @@ TEST_CASES := \
 .DEFAULT_GOAL := help
 
 # All phony targets
-.PHONY: help all check lint-chart lint-templates lint-docs lint-labels unit-test null-sweep validate-bad-values generate-templates \
+.PHONY: help all check lint-chart lint-templates lint-docs lint-shell lint-labels unit-test null-sweep validate-bad-values generate-templates \
 	kubeconform kube-linter-manifests kube-linter generate-docs package \
 	install install-test01 render clean clean-all \
 	kind-install kind-cluster kind-keda kind-eso kind-gateway-api kind-argocd kind-delete e2e e2e-dryrun e2e-routes e2e-argocd check-helm-floor
@@ -143,9 +143,9 @@ help: ## Show this help message
 # Main targets
 # ============================================================================
 
-all: lint-chart lint-templates lint-docs unit-test validate-bad-values null-sweep generate-templates kubeconform kube-linter ## Lint, template rules, doc pointers, unit tests, bad-values, null sweep, then generate, validate and lint the manifests
+all: lint-chart lint-templates lint-docs lint-shell unit-test validate-bad-values null-sweep generate-templates kubeconform kube-linter ## Lint, template rules, doc pointers, unit tests, bad-values, null sweep, then generate, validate and lint the manifests
 
-check: lint-chart lint-templates lint-docs unit-test validate-bad-values null-sweep ## The development loop: lint, template rules, doc pointers, unit tests, bad-values, null sweep (no manifest validation)
+check: lint-chart lint-templates lint-docs lint-shell unit-test validate-bad-values null-sweep ## The development loop: lint, template rules, doc pointers, unit tests, bad-values, null sweep (no manifest validation)
 
 lint-chart: ## Lint chart with all test values files
 	@echo "==> Linting chart with all test cases..."
@@ -163,6 +163,10 @@ lint-templates: ## Check the mechanical rules of CODING_STANDARDS.md on the temp
 lint-docs: ## Check that every file a document or a comment points at exists
 	@echo "==> Checking documentation pointers..."
 	@python3 tests/lint-docs.py
+
+lint-shell: ## A value piped onward in the Makefile or a script goes through printf, not echo
+	@echo "==> Checking shell pipes..."
+	@python3 tests/lint-shell.py
 
 null-sweep: ## Null every values node of every scenario in turn: each must render or fail naming its path
 	@echo "==> Sweeping nulls under --skip-schema-validation..."
@@ -201,7 +205,7 @@ validate-bad-values: ## Verify bad-values are rejected: schema/ by values.schema
 			echo "    FAIL: $$f is rejected by values.schema.json; it belongs in tests/bad-values/schema/"; \
 			exit 1; \
 		else \
-			echo "$$subs" | while IFS= read -r sub; do \
+			printf '%s\n' "$$subs" | while IFS= read -r sub; do \
 				printf '%s' "$$out" | grep -qF -- "$$sub" || { echo "    FAIL: $$f was rejected, but not by the fail it expects: missing \"$$sub\""; echo "          got: $$out"; exit 1; }; \
 			done; \
 			echo "    OK: $$f rejected by the expected template fail"; \
@@ -218,7 +222,7 @@ validate-bad-values: ## Verify bad-values are rejected: schema/ by values.schema
 			echo "    FAIL: $$f should have been rejected under --skip-schema-validation but was accepted"; \
 			exit 1; \
 		else \
-			echo "$$subs" | while IFS= read -r sub; do \
+			printf '%s\n' "$$subs" | while IFS= read -r sub; do \
 				printf '%s' "$$out" | grep -qF -- "$$sub" || { echo "    FAIL: $$f was rejected, but not by the fail it expects: missing \"$$sub\""; echo "          got: $$out"; exit 1; }; \
 			done; \
 			echo "    OK: $$f rejected by the schema, and by the expected template fail without it"; \
@@ -464,8 +468,8 @@ check-helm-floor: kind-cluster ## Assert NOTES.txt warns on a Helm below 3.18.6
 		-v $(CURDIR)/$(CHART_DIR)/$(GLOBAL_CHART_NAME):/chart:ro \
 		$(HELM_FLOOR_IMAGE) install floor /chart --dry-run=client \
 		--set deployments.web.image=nginx:1.25 2>&1) \
-		|| { echo "FAIL: $(HELM_FLOOR_IMAGE) did not render the chart:"; echo "$$out" | tail -5; exit 1; }; \
-	echo "$$out" | grep -q "is below 3.18.6" \
+		|| { echo "FAIL: $(HELM_FLOOR_IMAGE) did not render the chart:"; printf '%s\n' "$$out" | tail -5; exit 1; }; \
+	printf '%s\n' "$$out" | grep -q "is below 3.18.6" \
 		|| { echo "FAIL: NOTES.txt did not warn on $(HELM_FLOOR_IMAGE)"; exit 1; }
 	@echo "    warning shown below the floor"
 

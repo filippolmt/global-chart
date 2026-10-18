@@ -38,6 +38,9 @@ jobs:
       - name: Check documentation pointers
         run: make lint-docs
 
+      - name: Check shell pipes
+        run: make lint-shell
+
       - name: Check triage labels exist
         run: make lint-labels
         env:

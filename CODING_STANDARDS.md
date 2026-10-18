@@ -101,6 +101,16 @@ missing row renders a null annotation instead of stopping
 **Every template must have a corresponding `*_test.yaml`** in
 `charts/global-chart/tests/`
 
+## Check scripts (`tests/*.py`)
+
+A check reports every problem as a `    FAIL: <where>: <what>` line and exits 1,
+and a pass as one `    OK:` line. Input it cannot read (a format that moved, a
+tool that is missing or unauthenticated) is a FAIL naming what it expected,
+never a traceback: a crash reads as a bug in the check, not as the finding.
+A check proves it can fail: a probe or a fixture makes it go red once. A known
+limit carries `shortcut: <the limit>, <when to upgrade>`. `make lint-shell`
+holds the shell side: a value piped onward goes through `printf '%s\n'`.
+
 ## Judgement rules
 
 **One home per enumeration.** A list of things that more than one template
