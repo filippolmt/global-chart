@@ -44,7 +44,7 @@ SCHEMA_MAPS, SCHEMA_LISTS, SCHEMA_ONE, pointer = (
 CONDITIONS = {"if", "then", "else", "not"}
 
 
-def properties(node, keys=(), refined=()):
+def walk_properties(node, keys=(), refined=()):
     """Yield (keys, schema) for every property; keys is its full JSON path.
     refined: the names a condition refines, declared (and described) beside it."""
     if not isinstance(node, dict):
@@ -54,18 +54,18 @@ def properties(node, keys=(), refined=()):
             for name, sub in value.items():
                 if key == "properties" and name not in refined:
                     yield keys + (key, name), sub
-                yield from properties(sub, keys + (key, name))
+                yield from walk_properties(sub, keys + (key, name))
         elif key in SCHEMA_LISTS and isinstance(value, list):
             for i, sub in enumerate(value):
-                yield from properties(sub, keys + (key, i))
+                yield from walk_properties(sub, keys + (key, i))
         elif key in SCHEMA_ONE:
-            yield from properties(value, keys + (key,),
-                                  node.get("properties", {}).keys() if key in CONDITIONS else ())
+            beside = node.get("properties", {}).keys() if key in CONDITIONS else ()
+            yield from walk_properties(value, keys + (key,), beside)
 
 
 def undescribed(schema):
     out = set()
-    for keys, sub in properties(schema):
+    for keys, sub in walk_properties(schema):
         desc = sub.get("description") if isinstance(sub, dict) else None
         if not (isinstance(desc, str) and desc.strip()):
             out.add(pointer(keys))
@@ -126,7 +126,7 @@ def main(argv):
         for p in found:
             print(f"          - {p}")
         sys.exit(1)
-    total = sum(1 for _ in properties(schema))
+    total = sum(1 for _ in walk_properties(schema))
     print(f"    OK: {total} schema properties, {len(missing)} without a description, all in {baseline_file.name}")
 
 

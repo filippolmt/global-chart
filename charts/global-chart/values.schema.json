@@ -824,7 +824,7 @@
           "additionalProperties": { "type": "string" }
         },
         "podAnnotations": {
-          "description": "Annotations on the pod template, merged over global.commonAnnotations and the chart's checksum annotations, this one winning.",
+          "description": "Annotations on the pod template, merged over global.commonAnnotations and the annotations the chart adds to roll the pods on a change of a watched source (checksum/config and the like), this one winning.",
           "type": "object",
           "additionalProperties": { "type": "string" }
         },
@@ -903,7 +903,7 @@
           "description": "Roll the pods on every render.",
           "type": "object",
           "properties": {
-            "enabled": { "description": "true adds a timestamp annotation to the pod template, so every helm upgrade rolls the pods: with pullPolicy: Always, a moved tag is pulled again. Changes to configMap, secret and mountedConfigFiles roll the pods without it.", "type": "boolean" }
+            "enabled": { "description": "true adds a timestamp annotation to the pod template, so every helm upgrade rolls the pods: with pullPolicy: Always, a moved tag is pulled again. A change to configMap, secret, mountedConfigFiles, or the spec of a referenced externalSecrets entry, rolls the pods without it.", "type": "boolean" }
           },
           "additionalProperties": false
         },

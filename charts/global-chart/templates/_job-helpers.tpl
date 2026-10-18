@@ -10,11 +10,12 @@ not already have. Same widening as `jobServiceAccount`, in
 _serviceaccount-helpers.tpl (see ADR 0001).
 
 Inheritance, workload scope. A job inherits image, configMap, secret,
-ServiceAccount, the envFrom lists, externalSecrets, imagePullSecrets,
-hostAliases, podSecurityContext, securityContext, dnsConfig (cronjobs only),
-nodeSelector, tolerations, affinity and priorityClassName. An explicit value
-overrides; an empty `{}`, `[]` or `""` (priorityClassName) stops the
-inheritance. Three exceptions to that shape:
+ServiceAccount, the envFrom lists, externalSecrets, additionalEnvs,
+imagePullSecrets, hostAliases, podSecurityContext, securityContext,
+automountServiceAccountToken, dnsConfig (cronjobs only), nodeSelector,
+tolerations, affinity and priorityClassName. An explicit value overrides; an
+empty `{}`, `[]` or `""` (priorityClassName) stops the inheritance. Four
+exceptions to that shape:
 - envFromConfigMaps / envFromSecrets are additive: the job's own (`[]`
   included) come after the workload's and never replace them. The opt-outs
   are toggles, default true: inheritWorkloadConfigMap /
@@ -24,6 +25,8 @@ inheritance. Three exceptions to that shape:
   narrow-scope job.
 - externalSecrets is not an envFrom list here: the job's own replaces the
   inherited one.
+- additionalEnvs is additive too, with no opt-out: the job's own env comes
+  after the workload's additionalEnvs.
 - The envFrom order is by proximity, the workload's by type: see *Environment
   source* in GLOSSARY.md. Locked by an `equal` on the whole list in
   workload_test.yaml and cronjob_test.yaml; a `contains` passes whatever the
@@ -36,6 +39,11 @@ Never inherited:
   config file* in GLOSSARY.md), and one can carry credentials. A job that needs
   one declares its own volumes / volumeMounts; the generated ConfigMap name is
   not a public interface, so values never hardcode it.
+- volumes / volumeMounts: the job renders its own only.
+- resources: the job's own, else defaults.resources; a job's `{}` renders
+  none (renderResources).
+- The probes, lifecycle and the rest of the main container's runtime fields:
+  a job has no field for them.
 
 Accepts a dict with:
   root           - top-level chart context (for global values, defaults)

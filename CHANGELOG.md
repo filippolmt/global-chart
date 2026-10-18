@@ -114,6 +114,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Fixed
 
+- **The `global.commonLabels` comment in `values.yaml` states the precedence
+  `mergeLabels` applies** (issue #203 review): a per-resource label
+  (`podLabels`) wins over the chart's own labels, which win over
+  `commonLabels`. It said the chart's labels won over both. Documentation
+  only: no manifest changes.
 - **A values node of the wrong type fails naming its path** (issue #235). Under
   `--skip-schema-validation`, a map or list a template reads given as a number,
   a string or the other container (`hooks: {pre-install: 3}`,
