@@ -35,9 +35,9 @@ The bump is its own release PR.
 
 The Makefile carries the rest. Three rules about when to run what:
 
-- Templates or values changed → `make lint-chart` and `make unit-test`; a map
-  or list a template reads, `valuesShape`, the schema or a scenario changed →
-  also `make null-sweep`, which `make check` leaves out.
+- Templates or values changed → `make lint-chart` and `make unit-test`;
+  `valuesShape`, a type in `values.schema.json`, or a new map or list a
+  template reads → also `make null-sweep`.
 - Schema or user-visible values changed (new fields, defaults, descriptions) →
   also `make generate-docs`, to refresh `charts/global-chart/README.md`.
 - Runtime behaviour touched — `hook.yaml`, hook weights, delete policies,
@@ -153,7 +153,8 @@ exceptions, each owned by a name helper in `_helpers.tpl` (the StatefulSet's by
 booleans, `printScalar` for numbers, `hasKey` for inheritance, the
 `<values path>: <problem>` shape of a `fail`, one home per enumeration. Read it
 before writing a template or helper. The mechanical rules are checked by
-`make lint-templates` and `make null-sweep`; `make check` runs the fast loop.
+`make lint-templates` and `make null-sweep`; `make check` runs the fast loop,
+which leaves `null-sweep` out.
 
 ## Agent skills
 

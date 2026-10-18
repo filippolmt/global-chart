@@ -472,7 +472,7 @@ An offline render (`helm template`, a GitOps pre-render) needs
 # Show all available commands
 make help
 
-# Run full pipeline: lint, unit tests, bad-values, generate, kubeconform, kube-linter
+# Run full pipeline: lint, template rules, doc pointers, shell pipes, glossary, unit tests, bad-values, scenario coverage, null sweep, generate, kubeconform, kube-linter
 make all
 
 # Individual targets
