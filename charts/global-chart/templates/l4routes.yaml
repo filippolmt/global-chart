@@ -1,7 +1,7 @@
 {{- /* L4 routes (issue #194): one TCPRoute per tcpRoutes entry, one UDPRoute per
        udpRoutes entry. The two kinds share one shape and differ only in kind
        and in the protocol their backends must carry, so they share this
-       template: two copies would drift, the way deployment.yaml and
+       template: two copies would drift, the way workload.yaml and
        service.yaml did over ports (issue #82).
 
        An entry present is a route rendered: there is no enabled flag. They

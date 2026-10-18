@@ -26,7 +26,7 @@ inheritance. Three exceptions to that shape:
   inherited one.
 - The envFrom order is by proximity, the workload's by type: see *Environment
   source* in GLOSSARY.md. Locked by an `equal` on the whole list in
-  deployment_test.yaml and cronjob_test.yaml; a `contains` passes whatever the
+  workload_test.yaml and cronjob_test.yaml; a `contains` passes whatever the
   order, which is how the two ends drifted unobserved.
 Never inherited:
 - command / args: a migration hook inheriting `python -m app.worker` would

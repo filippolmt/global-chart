@@ -52,7 +52,7 @@ An explicit, non-empty sa.name wins over both.
 {{/*
 A workload's ServiceAccount. Created by default, as <deploymentFullname>; with
 create: false and no name, name is "": no SA is named. The workload then runs
-as "default", which deployment.yaml renders, and a workload-scope job creates
+as "default", which workload.yaml renders, and a workload-scope job creates
 its own SA instead of inheriting one. The resolver cannot return "default"
 itself: a job would then inherit it as if the workload had named it, and an
 explicit `name: default` must stay inheritable.

@@ -1,6 +1,6 @@
 suite: workload reloader.externalSecrets (issue #175, ADR 0016)
 templates:
-  - templates/deployment.yaml
+  - templates/workload.yaml
 release:
   name: rel
 set:

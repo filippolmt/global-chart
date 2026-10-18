@@ -1,7 +1,7 @@
 suite: httproute validation tests
 templates:
   - templates/httproute.yaml
-  - templates/validate.yaml
+  - templates/validate/validate.yaml
   - templates/ingress.yaml
 # The CRD-missing path lives in gateway-api-crd-check_test.yaml.
 capabilities:
@@ -224,7 +224,7 @@ tests:
     asserts:
       - failedTemplate:
           errorMessage: "Both .Values.ingress.enabled and .Values.httpRoute.enabled are true. The chart supports only one HTTP routing layer per release. Disable one (set enabled: false) to proceed."
-        template: templates/validate.yaml
+        template: templates/validate/validate.yaml
 
   # ====== 11. ingress only — no fail, Ingress rendered ======
   - it: should render Ingress only when ingress.enabled is true and httpRoute.enabled is false
@@ -246,7 +246,7 @@ tests:
         enabled: false
     asserts:
       - notFailedTemplate: {}
-        template: templates/validate.yaml
+        template: templates/validate/validate.yaml
       - notFailedTemplate: {}
         template: templates/ingress.yaml
       - notFailedTemplate: {}
@@ -283,7 +283,7 @@ tests:
               - workload: api
     asserts:
       - notFailedTemplate: {}
-        template: templates/validate.yaml
+        template: templates/validate/validate.yaml
       - notFailedTemplate: {}
         template: templates/httproute.yaml
       - notFailedTemplate: {}

@@ -83,6 +83,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   reference failure `….workload: references workload '<name>'`. A check
   matching the old text needs updating.
   **Action:** rename the keys, per the [migration guide](#migration-guide-from-3x).
+  The template of the workloads is `templates/workload.yaml` (was
+  `templates/deployment.yaml`), and the validation template moves to
+  `templates/validate/validate.yaml`, so that Helm renders it before any other.
+  Only the `# Source:` comment of the output changes: a `helm template
+  --show-only templates/deployment.yaml` in a script needs the new path.
 
 - **Breaking: the legacy `volumes[].type` format** (issue #230, deprecated in
   3.1.0 by #183, [ADR 0022](docs/adr/0022-a-removed-key-stays-declared-until-the-next-major.md)).

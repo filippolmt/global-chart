@@ -27,9 +27,8 @@ workloads.{{ . }}
 Fail on every key removed in 4.0.0, wherever it sits and whether or not its
 surface renders: a disabled Ingress, HTTPRoute or workload would carry the old
 key into the next enable (ADR 0023). The one home of that walk and of its
-message, called from validate.yaml. Helm renders the deepest templates first,
-then the rest in reverse alphabetical order: only templates/tests/ comes
-before validate.yaml, and it renders nothing from an old values file. Each key
+message, called first from validate/validate.yaml, the first template Helm
+renders (see its header). Each key
 stays declared in the schema with no constraint, so any value reaches its fail
 (ADR 0022); the walk, the declarations and the fixtures go in 5.0.0. A node of
 the wrong type is skipped: the schema, or the template that reads it, rejects
@@ -585,7 +584,7 @@ enabled entry with kind: StatefulSet:
   would split its name from its Service and HPA, so it fails instead;
 - a claim template becomes a pod volume of its own name, so it must not take a
   name podVolumeNames lists (an externalSecrets volume is resolveExternalSecretRefs'
-  to check, in deployment.yaml);
+  to check, in workload.yaml);
 - some container mounts it (the main one, extraContainers, extraInitContainers),
   or the claim is storage provisioned and never used. A mount with no name could
   be any claim's: its null is validateNullItems', and this check stands down.

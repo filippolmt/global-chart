@@ -1,6 +1,6 @@
 suite: workload template tests
 templates:
-  - templates/deployment.yaml
+  - templates/workload.yaml
 tests:
   # ====== enabled flag ======
   - it: should not render workload when enabled is false
@@ -1457,7 +1457,7 @@ tests:
           pattern: "myapp/api:1\\.25"
 
   # NOTE: Deploy-level CronJob/Hook image-required checks (cronjob.yaml:175, hook.yaml:259)
-  # are unreachable in practice because deployment.yaml catches missing image first. Skipped.
+  # are unreachable in practice because workload.yaml catches missing image first. Skipped.
 
   - it: should fail when image map has repository but no tag or digest
     set:

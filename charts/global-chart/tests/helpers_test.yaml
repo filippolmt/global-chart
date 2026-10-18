@@ -1,6 +1,6 @@
 suite: helper template tests
 templates:
-  - templates/deployment.yaml
+  - templates/workload.yaml
 tests:
   # ====== imageString: string format ======
   - it: should render image from string

@@ -7,5 +7,5 @@ workloads:
     mountedConfigFiles:
       files:
         - name: null
-          mountPath: /etc/app/app.conf
+          targetPath: /etc/app/app.conf
           content: "a = 1"

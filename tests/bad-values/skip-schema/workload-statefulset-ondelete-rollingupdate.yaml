@@ -1,5 +1,5 @@
 # rollingUpdate with type OnDelete, under --skip-schema-validation: the backstop
-# guard in deployment.yaml names it.
+# guard in workload.yaml names it.
 # Expected fail substring: "workloads.db.updateStrategy.rollingUpdate: only allowed with type RollingUpdate, and the type is OnDelete."
 workloads:
   db:

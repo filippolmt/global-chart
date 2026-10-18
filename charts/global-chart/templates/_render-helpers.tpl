@@ -141,7 +141,7 @@ Usage: {{- include "global-chart.rejectNullItems" (dict "list" $hosts "errCtx" "
 
 {{/*
 The Kubernetes kind a workloads entry renders as (ADR 0020): its own kind, or
-Deployment. The one home of that default, read by deployment.yaml, hpa.yaml,
+Deployment. The one home of that default, read by workload.yaml, hpa.yaml,
 scaledobject.yaml and, through isStatefulSet, by service.yaml and the validators.
 Usage: {{ include "global-chart.workloadKind" $deploy }}
 Input: the workload map, guarded against nil like deploymentEnabled's.
@@ -153,7 +153,7 @@ Input: the workload map, guarded against nil like deploymentEnabled's.
 {{/*
 The replica owner of a workloads entry (GLOSSARY, ADR 0003, ADR 0012) and the
 fewest pods it keeps. The one home of whether the workload keeps spec.replicas
-(deployment.yaml) and of the floor a PDB is measured against
+(workload.yaml) and of the floor a PDB is measured against
 (validatePdbEvictions, issue #216). Whether an HPA or a ScaledObject renders,
 and whether both are enabled at once, stay with hpa.yaml, scaledobject.yaml and
 validateAutoscalingConflict: this helper takes the HPA first and cannot see a
@@ -712,7 +712,7 @@ version: {{ include "global-chart.printScalar" (dict "value" $remote.version "er
 
 {{/*
 Container ports for a workload's pod spec, derived from its Service definition.
-Single source of truth for the pod side of the Service: deployment.yaml renders
+Single source of truth for the pod side of the Service: workload.yaml renders
 this list, and validateServiceTargetPorts checks named targetPorts against it,
 so the two can never drift — that drift is what made service.targetPort unusable
 (issue #82).
@@ -1009,7 +1009,7 @@ The volumeMounts of a pod's main container, in render order, as a JSON list of
 volumeMount maps: the user's volumeMounts, the mountedConfigFiles files and
 bundles (a workload's only), then the mounted externalSecrets entries, the
 inherited before the own. The single home of which mounts land on the
-container: deployment.yaml and jobPodSpec render this list, and
+container: workload.yaml and jobPodSpec render this list, and
 validateMountPaths checks it for a repeated mountPath (issue #182), so a new
 mount source cannot reach the manifest unchecked.
 Callers do `include ... | fromJsonArray` and toYaml the result.
@@ -1052,7 +1052,7 @@ Params:
 {{/*
 The volumes of the mounted externalSecrets entries, one per entry of a
 resolveExternalSecretRefs `mounted` list, as list items at indent 0. Shared by
-deployment.yaml and jobPodSpec, so the two render the same Secret volume.
+workload.yaml and jobPodSpec, so the two render the same Secret volume.
 Usage: {{- include "global-chart.renderExternalSecretVolumes" $mounted | nindent 2 }}
 */}}
 {{- define "global-chart.renderExternalSecretVolumes" -}}
@@ -1085,3 +1085,14 @@ Usage: {{ include "global-chart.externalSecretRewritesTarget" $secret }}
 {{- define "global-chart.externalSecretRewritesTarget" -}}
 {{- has (include "global-chart.externalSecretCreationPolicy" .) (list "Owner" "Orphan") -}}
 {{- end -}}
+
+{{/*
+The relPath of a mountedConfigFiles bundle file, required (issue #157): the
+ConfigMap key (its base) and the projected path both come from it. The one
+home of that check, read by mounted-configmap.yaml and workload.yaml, since
+either may render first.
+Usage: {{ include "global-chart.mountedBundleRelPath" (dict "file" $f "errCtx" $errCtx "bundleIndex" $bi "fileIndex" $fi) }}
+*/}}
+{{- define "global-chart.mountedBundleRelPath" -}}
+{{- required (printf "%s.mountedConfigFiles.bundles[%d].files[%d].relPath: required" .errCtx .bundleIndex .fileIndex) .file.relPath -}}
+{{- end }}

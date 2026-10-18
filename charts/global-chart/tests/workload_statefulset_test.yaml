@@ -1,6 +1,6 @@
 suite: workload kind StatefulSet (issue #211, ADR 0020)
 templates:
-  - templates/deployment.yaml
+  - templates/workload.yaml
 release:
   name: rel
 set:

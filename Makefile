@@ -134,7 +134,7 @@ help: ## Show this help message
 	@echo ""
 	@echo "Examples:"
 	@echo "  make install SCENARIO=test01                                          Install a test scenario"
-	@echo "  make render VALUES=tests/test01/values.01.yaml TEMPLATE=deployment.yaml   Render a single template"
+	@echo "  make render VALUES=tests/test01/values.01.yaml TEMPLATE=workload.yaml   Render a single template"
 	@echo ""
 	@echo "Available scenarios:"
 	@for entry in $(TEST_CASES); do slug="$${entry##*:}"; printf "  %s\n" "$$slug"; done
@@ -677,7 +677,7 @@ install-test01: ## Install test01 (has kubectl pre-step; or use: make install SC
 render: ## Render a single template (usage: make render VALUES=<file> TEMPLATE=<name>)
 	@if [ -z "$(VALUES)" ] || [ -z "$(TEMPLATE)" ]; then \
 		echo "Usage: make render VALUES=<values-file> TEMPLATE=<template-name>"; \
-		echo "Example: make render VALUES=tests/test01/values.01.yaml TEMPLATE=deployment.yaml"; \
+		echo "Example: make render VALUES=tests/test01/values.01.yaml TEMPLATE=workload.yaml"; \
 		exit 1; \
 	fi
 	helm template test-release ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) \

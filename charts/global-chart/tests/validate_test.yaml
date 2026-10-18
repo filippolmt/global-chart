@@ -1,6 +1,6 @@
 suite: cross-resource validation tests
 templates:
-  - templates/validate.yaml
+  - templates/validate/validate.yaml
 tests:
   # ====== Volume keys removed in 4.0.0 (issue #230, ADR 0022) ======
   # ====== Removed legacy volumes[].type format (issue #230, ADR 0022) ======

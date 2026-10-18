@@ -27,10 +27,9 @@ failure also links the *Migration guide* in `CHANGELOG.md`, since the other
 renames come with it. One walk, `validateRemovedKeys`, checks every key
 wherever it sits, whether its surface renders or not: an old key under a
 disabled Ingress, HTTPRoute or workload would otherwise wait, silent, for the
-next enable. It runs first in `validate.yaml`. Helm renders the deepest templates
-first, then the rest in reverse alphabetical order: only `templates/tests/`
-comes before `validate.yaml`, and it renders nothing from an old values file,
-which so meets these failures before any other (checked on Helm 4.3.1). The walk, the declarations and their fixtures go in
+next enable. It runs first in `templates/validate/validate.yaml`, the first
+template Helm renders, so an old values file meets these failures before any
+other (checked on Helm 4.3.1). The walk, the declarations and their fixtures go in
 5.0.0.
 
 **There is no deprecation minor.** This is an exception to phase 1 of the

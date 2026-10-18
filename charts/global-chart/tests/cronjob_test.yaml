@@ -1291,7 +1291,7 @@ tests:
             secretRef:
               name: RELEASE-NAME-global-chart-backend
 
-  # The twin of "should order envFrom by type" in deployment_test.yaml, on the
+  # The twin of "should order envFrom by type" in workload_test.yaml, on the
   # same four sources. A job orders **by proximity**: everything the workload
   # hands it first, then everything it declares itself, so the nearest declarer
   # wins. That is not the workload's order and is not meant to be — a job has

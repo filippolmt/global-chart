@@ -22,7 +22,7 @@ make generate-docs          # regenerate the helm-docs README
 make e2e                    # install/upgrade/rollback/uninstall on a throwaway kind cluster (runs e2e-dryrun first)
 make e2e-dryrun             # every TEST_CASES scenario, server-side dry run against the real API server and CRDs
 make e2e-argocd             # the same cluster, synced by Argo CD (hook lifecycle under Argo)
-make render VALUES=tests/test01/values.01.yaml TEMPLATE=deployment.yaml
+make render VALUES=tests/test01/values.01.yaml TEMPLATE=workload.yaml
 ```
 
 Releases: chart-releaser publishes on every push to `main` whose `Chart.yaml`

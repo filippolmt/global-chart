@@ -26,7 +26,7 @@ a rule below cannot recognise: a check that sees nothing is not a pass.
   (`notes_test.yaml` for NOTES.txt), and every file in `tests/` but
   `__snapshot__/` is a `*_test.yaml` suite: helm-unittest skips any other name
   without a word, so a misnamed suite (`pdb_tests.yaml`) never runs.
-- kind-fields: the backstop guard's `$kindOnly` in deployment.yaml lists, per
+- kind-fields: the backstop guard's `$kindOnly` in workload.yaml lists, per
   kind, the fields the other kind rejects, and the `if/then/else` on `kind` of
   `$defs/deployment` rejects the same ones with `false` (ADR 0020). The two are
   one partition written twice, the guard being what --skip-schema-validation
@@ -113,10 +113,10 @@ def fail_shape(message, top_keys, helpers):
 def kind_fields(chart, schema):
     """The kind-fields rule. shortcut: reads one if/then/else, which holds two
     kinds; the DaemonSet (issue #215) turns it into one branch per kind."""
-    text = blank_comments((chart / "templates" / "deployment.yaml").read_text())
+    text = blank_comments((chart / "templates" / "workload.yaml").read_text())
     m = KIND_ONLY.search(text)
     if not m:
-        return ["templates/deployment.yaml: kind-fields: no `$kindOnly := dict …` to compare with the schema"]
+        return ["templates/workload.yaml: kind-fields: no `$kindOnly := dict …` to compare with the schema"]
     guard = {kind: set(re.findall(r'"(\w+)"', fields)) for kind, fields in KIND_LIST.findall(m.group(1))}
     dep = schema["$defs"]["deployment"]
 
@@ -128,12 +128,12 @@ def kind_fields(chart, schema):
         return ["values.schema.json: kind-fields: $defs/deployment has no if/then/else on kind to compare with $kindOnly"]
     other = next((k for k in guard if k != kind), None)
     if other is None or len(guard) != 2:
-        return [f"templates/deployment.yaml: kind-fields: $kindOnly must name two kinds, one of them {kind}; read {sorted(guard)}"]
+        return [f"templates/workload.yaml: kind-fields: $kindOnly must name two kinds, one of them {kind}; read {sorted(guard)}"]
     schema_side = {other: rejected("then"), kind: rejected("else")}
     problems = []
     for k in sorted(set(guard) | set(schema_side)):
         if guard.get(k, set()) != schema_side.get(k, set()):
-            problems.append(f"templates/deployment.yaml: kind-fields: {k}-only fields differ: $kindOnly {sorted(guard.get(k, set()))}, schema {sorted(schema_side.get(k, set()))}")
+            problems.append(f"templates/workload.yaml: kind-fields: {k}-only fields differ: $kindOnly {sorted(guard.get(k, set()))}, schema {sorted(schema_side.get(k, set()))}")
     return problems
 
 
