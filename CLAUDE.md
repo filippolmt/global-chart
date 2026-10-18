@@ -74,9 +74,9 @@ is the source of truth, this table is only the routing.
 | `_job-helpers.tpl` | The one pod spec of every hook and cronjob, both scopes: image resolution, CronJob and Job spec fields, `jobValuesPath` |
 | `_serviceaccount-helpers.tpl` | Every ServiceAccount rendered or bound (`resolveServiceAccount`, the job resolver) and the SA side of the hook copies (ADR 0010, 0011) |
 | `_hook-helpers.tpl` | The `helm.sh/hook*` annotations from the role table, the phase cut `hookReadsPrereqCopy`, the hook-copy consumer scans |
-| `_render-helpers.tpl` | `workloadKind` / `isStatefulSet`, `podVolumeNames`, `printScalar`, `isSet`, null checks (`rejectNull`, `rejectNullItems`, `isNamedEntry`), render blocks, ports, `resolveBackend`, `podSpecOwners`, route lists |
+| `_render-helpers.tpl` | `workloadKind` / `isStatefulSet`, `replicaFloor`, `podVolumeNames`, `printScalar`, `isSet`, null checks (`rejectNull`, `rejectNullItems`, `isNamedEntry`), render blocks, ports, `resolveBackend`, `podSpecOwners`, route lists |
 | `_keda-helpers.tpl` | KEDA names, trigger and `authenticationRef` resolution |
-| `_validate-helpers.tpl` | Values paths, the `fail` shape, cross-resource validators, `validateStatefulSets`, `validateNullItems` / `rejectNullInLists`, `hpaActiveTargets`, `requireCrd` / `requireGatewayApiCrd` |
+| `_validate-helpers.tpl` | Values paths, the `fail` shape, cross-resource validators, `validateStatefulSets`, `validatePdbEvictions`, `validateNullItems` / `rejectNullInLists`, `hpaActiveTargets`, `requireCrd` / `requireGatewayApiCrd` |
 
 ### Invariants
 
@@ -115,7 +115,8 @@ Read the pointer before changing the domain it names.
    templates check them, so `failedTemplate` tests stay possible.
 6. **One replica owner**: `autoscaling` (HPA) and `keda` (ScaledObject)
    exclude each other per deployment, and either one omits `spec.replicas`
-   (*Replica owner* in `GLOSSARY.md`, ADR 0003, ADR 0012).
+   (*Replica owner* in `GLOSSARY.md`, ADR 0003, ADR 0012). The owner and the
+   fewest pods it keeps: `replicaFloor`.
 7. **No `appVersion`**: `app.kubernetes.io/version` is emitted only when the
    consumer sets it through `global.commonLabels`; selectors never carry it.
 8. **Ports**: the *primary port* has one source per side, `servicePrimaryPort`

@@ -1,0 +1,16 @@
+# KEDA owns the replicas: at minReplicaCount the PDB allows no voluntary
+# eviction (issue #216, ADR 0021).
+# Expected fail substring: "deployments.app.pdb.minAvailable: 1 allows no voluntary eviction with deployments.app.keda.minReplicaCount: 1"
+deployments:
+  app:
+    image: nginx:1.25
+    keda:
+      enabled: true
+      minReplicaCount: 1
+      triggers:
+        - type: cpu
+          metadata:
+            value: "50"
+    pdb:
+      enabled: true
+      minAvailable: 1

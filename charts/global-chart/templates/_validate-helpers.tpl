@@ -653,6 +653,49 @@ Called from validate.yaml. Emits nothing on success.
 {{- end }}
 
 {{/*
+Fail a PDB whose minAvailable allows no voluntary eviction at the replica
+owner's floor (issue #216, ADR 0021): kubectl drain and cluster-autoscaler
+scale-down never finish on the node, and Kubernetes accepts the manifest in
+silence.
+- Only the form whose effect depends on the count fails: minAvailable as an
+  integer >= the floor, or a percentage below 100% that rounds up to it.
+  maxUnavailable: 0, "0%" and minAvailable: "100%" block at any count and are
+  taken as meant; maxUnavailable never fails;
+- percentages round up, as the disruption controller does
+  (GetScaledValueFromIntOrPercent(…, true));
+- the floor comes from replicaFloor, where an autoscaled workload idles. A
+  floor of 0 skips the check: a workload with no pods blocks nothing.
+shortcut: a KEDA floor of 0 skips the check though the workload blocks at 1
+pod, upgrade if a scale-to-zero workload reports a stuck drain.
+shortcut: under --skip-schema-validation a string count or a minAvailable digit
+string with no "%" skips the check, as the schema rejects both, upgrade if
+either gets a fallback guard.
+Called from pdb.yaml, after minAvailable has gone through printScalar, so a
+null has already failed naming its key. Emits nothing on success.
+Usage: {{- include "global-chart.validatePdbEvictions" (dict "deploy" $deploy "pdb" $pdb "errCtx" $errCtx) }}
+*/}}
+{{- define "global-chart.validatePdbEvictions" -}}
+{{- $floor := include "global-chart.replicaFloor" (dict "deploy" .deploy "errCtx" .errCtx) | fromJson -}}
+{{- $min := .pdb.minAvailable -}}
+{{- if and (kindIs "float64" $floor.count) (ge (int $floor.count) 1) (not (kindIs "invalid" $min)) -}}
+  {{- $count := int $floor.count -}}
+  {{- $needed := -1 -}}
+  {{- if kindIs "string" $min -}}
+    {{- $pct := trimSuffix "%" $min | atoi -}}
+    {{- if and (hasSuffix "%" $min) (lt $pct 100) -}}
+      {{- $needed = div (add (mul $pct $count) 99) 100 -}}
+    {{- end -}}
+  {{- else -}}
+    {{- $needed = int $min -}}
+  {{- end -}}
+  {{- if ge $needed $count -}}
+    {{- $at := ternary (printf "the default of %d replicas" $count) (printf "%s: %d" $floor.path $count) $floor.default -}}
+    {{- fail (printf "%s.pdb.minAvailable: %s allows no voluntary eviction with %s, so kubectl drain and cluster-autoscaler scale-down never finish on its node. Lower it, or set maxUnavailable: 0 instead to block evictions on purpose." .errCtx (include "global-chart.printScalar" $min) $at) -}}
+  {{- end -}}
+{{- end -}}
+{{- end }}
+
+{{/*
 Validate that every named Service targetPort resolves to a container port the
 chart declares.
 

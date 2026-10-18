@@ -151,6 +151,37 @@ Input: the deployment map, guarded against nil like deploymentEnabled's.
 {{- end }}
 
 {{/*
+The replica owner of a deployments entry (GLOSSARY, ADR 0003, ADR 0012) and the
+fewest pods it keeps. The one home of whether the workload keeps spec.replicas
+(deployment.yaml) and of the floor a PDB is measured against
+(validatePdbEvictions, issue #216). Whether an HPA or a ScaledObject renders,
+and whether both are enabled at once, stay with hpa.yaml, scaledobject.yaml and
+validateAutoscalingConflict: this helper takes the HPA first and cannot see a
+conflict.
+- "workload": replicaCount, or 2 when absent;
+- "hpa": autoscaling.minReplicas (hpa.yaml fails it when absent);
+- "keda": keda.minReplicaCount, or 0 when absent, KEDA's own default.
+`count` is the value as values carry it, a null included: printScalar at the
+reader fails it naming `path`, the key that set it. `default` is true when no
+key set it, so a message names the default, not a key the user never wrote.
+A DaemonSet (issue #215) has no replica owner: it needs an owner of its own here.
+Usage: {{- $floor := include "global-chart.replicaFloor" (dict "deploy" $deploy "errCtx" $errCtx) | fromJson }}
+Returns: JSON {"owner": …, "count": …, "path": …, "default": …}.
+*/}}
+{{- define "global-chart.replicaFloor" -}}
+{{- $deploy := .deploy -}}
+{{- $hpa := default (dict) $deploy.autoscaling -}}
+{{- $keda := default (dict) $deploy.keda -}}
+{{- if $hpa.enabled -}}
+{{- dict "owner" "hpa" "count" $hpa.minReplicas "path" (printf "%s.autoscaling.minReplicas" .errCtx) "default" false | toJson -}}
+{{- else if $keda.enabled -}}
+{{- dict "owner" "keda" "count" (ternary $keda.minReplicaCount 0 (hasKey $keda "minReplicaCount")) "path" (printf "%s.keda.minReplicaCount" .errCtx) "default" (not (hasKey $keda "minReplicaCount")) | toJson -}}
+{{- else -}}
+{{- dict "owner" "workload" "count" (ternary $deploy.replicaCount 2 (hasKey $deploy "replicaCount")) "path" (printf "%s.replicaCount" .errCtx) "default" (not (hasKey $deploy "replicaCount")) | toJson -}}
+{{- end -}}
+{{- end }}
+
+{{/*
 Whether a deployments entry renders a StatefulSet: the one home of the
 comparison every StatefulSet-only branch makes. Returns "true" or "".
 Usage: {{- if include "global-chart.isStatefulSet" $deploy }}
