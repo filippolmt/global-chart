@@ -61,6 +61,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   entry's own kind instead of always `Deployment`. Only the text changes: a
   check matching the old NOTES heading or the old failure text needs updating.
 
+### Removed
+
+- **Breaking: the legacy `volumes[].type` format** (issue #230, deprecated in
+  3.1.0 by #183, [ADR 0022](docs/adr/0022-a-removed-key-stays-declared-until-the-next-major.md)).
+  `type: emptyDir|configMap|secret|persistentVolumeClaim` is no longer
+  translated: a volume carrying `type`, of any value, fails the render with
+  `<path>.volumes[<i>].type: removed in 4.0.0, use the native volume source`.
+  The aliases fail too, naming their replacement:
+  `<path>.volumes[<i>].secret.name: removed in 4.0.0, use secret.secretName`
+  and `….persistentVolumeClaim.name: removed in 4.0.0, use
+  persistentVolumeClaim.claimName`. The `NOTES.txt` deprecation list goes.
+  **Action:** rewrite each volume in the native form, per the
+  [migration guide](#migration-guide-from-3x).
+
 ### Fixed
 
 - **A PDB percentage above 100% is rejected by the schema.** `pdb.minAvailable`
@@ -103,6 +117,42 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 - `lint-templates` gains the kind-fields rule. `lint-docs` tells an untracked
   file from a missing one. The Helm repository steps of `kind-keda` and
   `kind-eso` retry three times.
+
+### Migration guide from 3.x
+
+- Rewrite every legacy volume, in deployments, hooks and cronJobs of both
+  scopes, in the native Kubernetes form: drop `type` and write the source as
+  Kubernetes does.
+
+  | Legacy | Native |
+  |--------|--------|
+  | `type: emptyDir` | `emptyDir: {}` |
+  | `type: configMap` + `configMap.name` | `configMap.name` |
+  | `type: secret` + `secret.secretName` | `secret.secretName` |
+  | `type: secret` + `secret.name` | `secret.secretName` |
+  | `type: persistentVolumeClaim` + `persistentVolumeClaim.claimName` | `persistentVolumeClaim.claimName` |
+  | `type: persistentVolumeClaim` + `persistentVolumeClaim.name` | `persistentVolumeClaim.claimName` |
+
+  ```yaml
+  # Legacy (removed)
+  volumes:
+    - name: creds
+      type: secret
+      secret:
+        name: app-creds
+  # Native
+  volumes:
+    - name: creds
+      secret:
+        secretName: app-creds
+  ```
+
+  The legacy form rendered only the source's name: any other key under it
+  (`items`, `defaultMode`, `readOnly`, …) was dropped. The native form renders
+  every key, so check them when you migrate.
+- Clusters on Kubernetes 1.23–1.26: upgrade to 1.27 or later first.
+- A PDB whose `minAvailable` reaches the replica floor: lower it, or replace it
+  with `maxUnavailable: 0` to block evictions on purpose.
 
 ## [3.3.0] — 2026-10-08
 
@@ -316,7 +366,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   so a typo fails only at render. `NOTES.txt` lists every legacy volume of the
   release by values path. **Action:** drop `type` and write the native
   Kubernetes source; see the [migration
-  table](README.md#deprecated-the-legacy-volumestype-format).
+  table](#migration-guide-from-3x).
 
 ### Fixed
 
@@ -362,7 +412,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   `--skip-schema-validation` meanwhile.
 - `helm install` / `helm upgrade` now list every legacy `volumes[].type` entry
   in `NOTES.txt`. Nothing changes in the manifests; migrate them with the
-  [table](README.md#deprecated-the-legacy-volumestype-format) before 4.0.0.
+  [table](#migration-guide-from-3x) before 4.0.0.
 - A keda `authenticationRef` naming an empty `kedaTriggerAuthentications`
   entry now fails the upgrade: the ScaledObject it rendered pointed at nothing.
   Fill the entry or drop the reference.

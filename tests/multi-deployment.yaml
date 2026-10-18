@@ -144,9 +144,8 @@ deployments:
 
     volumes:
       - name: cache-volume
-        type: emptyDir
+        emptyDir: {}
       - name: config-volume
-        type: configMap
         configMap:
           name: backend-extra-config
 

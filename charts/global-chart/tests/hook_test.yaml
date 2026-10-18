@@ -516,7 +516,7 @@ tests:
                 mountPath: /data
             volumes:
               - name: data
-                type: emptyDir
+                emptyDir: {}
     asserts:
       - contains:
           path: spec.template.spec.containers[0].volumeMounts
@@ -530,6 +530,22 @@ tests:
             name: data
             emptyDir: {}
         documentIndex: 1
+
+  - it: should fail on the removed type in a hook volume, with the hook's path
+    set:
+      deployments:
+        main:
+          image: "nginx:1.25"
+          hooks:
+            pre-install:
+              migrate:
+                command: ["true"]
+                volumes:
+                  - name: myvol
+                    type: secret
+    asserts:
+      - failedTemplate:
+          errorPattern: "deployments\\.main\\.hooks\\.pre-install\\.migrate\\.volumes\\[0\\]\\.type: removed in 4\\.0\\.0"
 
   # ====== Root-level hook with explicit serviceAccountName ======
   - it: should skip SA creation when serviceAccountName is explicitly set

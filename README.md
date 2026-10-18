@@ -17,7 +17,7 @@ The chart supports **multiple deployments** in a single release, each with indep
   First-class Service configuration (with per-service annotations) plus optional Ingress with TLS, class annotations, and routes to specific deployments. DNS options and host aliases can be defined per-deployment.
   HTTP reaches the deployments through one routing layer, Ingress or Gateway API HTTPRoutes (`httpRoute` for one, `httpRoutes` for one per entry), never both. Ports that are not HTTP go through TCPRoutes and UDPRoutes (`tcpRoutes`, `udpRoutes`), alongside either (see [Exposing a TCP or UDP port](#exposing-a-tcp-or-udp-port-through-a-gateway)). A `deployment:` backend picks a port of its Service by name with `portName`.
 - **Configuration distribution**
-  Inline ConfigMap/Secret data, mounted config files (single file) or bundles (projected lists of files), and volume templates (configMap/secret/emptyDir/PVC or native K8s spec) are supported.
+  Inline ConfigMap/Secret data, mounted config files (single file) or bundles (projected lists of files), and `volumes` in the native Kubernetes form (any volume source) are supported.
 - **Lifecycle and batch**
   Helm hook jobs and CronJobs can be defined in two ways:
   - **Root level** (`hooks.*`, `cronJobs.*`): Standalone, use `fromDeployment` to copy image and its `pullPolicy` from a deployment
@@ -465,44 +465,6 @@ serves `v1` for each kind the release uses. Check with
 An offline render (`helm template`, a GitOps pre-render) needs
 `--api-versions gateway.networking.k8s.io/v1/TCPRoute` and/or
 `--api-versions gateway.networking.k8s.io/v1/UDPRoute`.
-
-## Deprecated: the legacy `volumes[].type` format
-
-`volumes[]` accepts any Kubernetes volume source verbatim (the native form). It
-also accepts a legacy form, `type: emptyDir|configMap|secret|persistentVolumeClaim`,
-that the chart translates. The legacy form is **deprecated** and is removed in
-4.0.0 (issue #183): the schema cannot check it, so a typo in `type` or in an
-alias fails only at render, and `helm lint` passes it. `helm install` and
-`helm upgrade` list every legacy volume of the release in `NOTES.txt`.
-
-Drop `type` and write the source as Kubernetes does:
-
-| Legacy | Native |
-|--------|--------|
-| `type: emptyDir` | `emptyDir: {}` |
-| `type: configMap` + `configMap.name` | `configMap.name` |
-| `type: secret` + `secret.secretName` | `secret.secretName` |
-| `type: secret` + `secret.name` | `secret.secretName` |
-| `type: persistentVolumeClaim` + `persistentVolumeClaim.claimName` | `persistentVolumeClaim.claimName` |
-| `type: persistentVolumeClaim` + `persistentVolumeClaim.name` | `persistentVolumeClaim.claimName` |
-
-```yaml
-# Legacy (deprecated)
-volumes:
-  - name: creds
-    type: secret
-    secret:
-      name: app-creds
-# Native
-volumes:
-  - name: creds
-    secret:
-      secretName: app-creds
-```
-
-The legacy form renders only the source's name: any other key under it
-(`items`, `defaultMode`, `readOnly`, …) was dropped. The native form renders
-every key, so check them when you migrate.
 
 ## Local development
 

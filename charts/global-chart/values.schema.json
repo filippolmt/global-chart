@@ -182,14 +182,24 @@
       "additionalProperties": false
     },
     "volumes": {
-      "description": "Kubernetes volumes. Open: about thirty volume sources, and the list grows (ADR 0017). Each item declares the fields a template reads: name (renderVolume and the externalSecrets volume collision check) and the legacy type (renderVolume, whose fail owns its vocabulary; deprecated, removed in 4.0.0, issue #183).",
+      "description": "Kubernetes volumes, each a native volume source. Open: about thirty volume sources, and the list grows (ADR 0017). Each item declares the fields a template reads: name (renderVolume and the externalSecrets volume collision check) and the keys removed in 4.0.0 that renderVolume rejects naming their replacement (ADR 0022).",
       "type": "array",
       "items": {
         "type": "object",
         "required": ["name"],
         "properties": {
           "name": { "type": "string", "minLength": 1 },
-          "type": { "type": "string" }
+          "type": { "description": "removed in 4.0.0, issue #183: write the native volume source." },
+          "secret": {
+            "properties": {
+              "name": { "description": "removed in 4.0.0, issue #183: use secret.secretName." }
+            }
+          },
+          "persistentVolumeClaim": {
+            "properties": {
+              "name": { "description": "removed in 4.0.0, issue #183: use persistentVolumeClaim.claimName." }
+            }
+          }
         }
       }
     },
