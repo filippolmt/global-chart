@@ -160,29 +160,42 @@ Usage: {{- if include "global-chart.isStatefulSet" $deploy }}
 {{- end }}
 
 {{/*
-The names of the volumes a deployment's pod declares before its claim
-templates: every volumes entry, and the volumes its mountedConfigFiles
-generate. A claim template becomes a pod volume of its own name, so
-validateStatefulSets checks each against these. An unnamed volumes entry is
-skipped (isNamedEntry): its null is validateNullItems' to report.
-Usage: {{ $names := include "global-chart.podVolumeNames" $deploy | fromJson }}
+The names of the volumes a pod declares before its claim templates and its
+externalSecrets volumes: every volumes entry, and the volumes its
+mountedConfigFiles generate (a Deployment's only: a job has none). Fails when
+a volumes entry takes the name of another or of a generated volume (issue
+#214): the API server would reject the pod at apply time. Two files of one
+name are validateNameCollisions' to report. A claim template becomes a pod
+volume of its own name, so validateStatefulSets checks each against these,
+and resolveExternalSecretRefs checks each externalSecrets volume against the
+map. An unnamed volumes entry is skipped (isNamedEntry): its null is
+validateNullItems' to report.
+Usage: {{ $names := include "global-chart.podVolumeNames" (dict "values" $deploy "errCtx" $errCtx) | fromJson }}
+Params:
+  values - the deployment or job map that declares the volumes
+  errCtx - its values path, which leads every path below
 Output: JSON map of volume name to the values path that declares it.
 */}}
 {{- define "global-chart.podVolumeNames" -}}
+{{- $errCtx := .errCtx -}}
 {{- $names := dict -}}
-{{- range $i, $v := (default (list) .volumes) -}}
-  {{- if include "global-chart.isNamedEntry" $v -}}
-  {{- $_ := set $names $v.name (printf "volumes[%d]" $i) -}}
-  {{- end -}}
-{{- end -}}
-{{- $mcf := default (dict) .mountedConfigFiles -}}
+{{- $mcf := default (dict) .values.mountedConfigFiles -}}
 {{- range $i, $f := (default (list) $mcf.files) -}}
   {{- if include "global-chart.isNamedEntry" $f -}}
-  {{- $_ := set $names (include "global-chart.mountedFileVolumeName" (dict "fileName" $f.name)) (printf "mountedConfigFiles.files[%d]" $i) -}}
+  {{- $_ := set $names (include "global-chart.mountedFileVolumeName" (dict "fileName" $f.name)) (printf "%s.mountedConfigFiles.files[%d]" $errCtx $i) -}}
   {{- end -}}
 {{- end -}}
 {{- range $i, $b := (default (list) $mcf.bundles) -}}
-  {{- $_ := set $names (include "global-chart.mountedBundleVolumeName" (dict "bundleIndex" $i)) (printf "mountedConfigFiles.bundles[%d]" $i) -}}
+  {{- $_ := set $names (include "global-chart.mountedBundleVolumeName" (dict "bundleIndex" $i)) (printf "%s.mountedConfigFiles.bundles[%d]" $errCtx $i) -}}
+{{- end -}}
+{{- range $i, $v := (default (list) .values.volumes) -}}
+  {{- if include "global-chart.isNamedEntry" $v -}}
+  {{- $path := printf "%s.volumes[%d]" $errCtx $i -}}
+  {{- if hasKey $names (toString $v.name) -}}
+    {{- fail (printf "%s: declares the pod volume '%s', which %s already declares, and a pod holds one volume per name. Rename the volumes entry." $path $v.name (index $names (toString $v.name))) -}}
+  {{- end -}}
+  {{- $_ := set $names (toString $v.name) $path -}}
+  {{- end -}}
 {{- end -}}
 {{- $names | toJson -}}
 {{- end }}
@@ -960,22 +973,22 @@ A reference names a key of the root externalSecrets map, never a Secret name:
 the generated names are not a public interface (ADR 0007). Fails at render
 time, rather than at apply time far from the cause, on a key that names
 nothing, on a mounted key that is not a DNS-1123 label, and on a generated
-volume name the pod already declares — a user volume or the same key mounted
-twice.
+volume name the pod already declares — a volume of `taken` or the same key
+mounted twice.
 Params:
   root    - chart context
   refs    - the list of references
   hook    - true to read the hook-prerequisite copy's Secret instead of the real one
-  volumes - the volumes the pod declares itself, for the collision check
+  taken   - podVolumeNames' map of the volumes the pod declares itself, plus a
+            StatefulSet's claim templates: the collision check names their path
   errCtx  - values path of the list's owner, for the fail message
 */}}
 {{- define "global-chart.resolveExternalSecretRefs" -}}
 {{- $root := .root -}}
 {{- $readsCopy := and (hasKey . "hook") .hook -}}
-{{- $taken := dict -}}
-{{- range (default (list) .volumes) -}}{{- if kindIs "map" . -}}{{- $_ := set $taken (toString .name) true -}}{{- end -}}{{- end -}}
+{{- $taken := deepCopy (default (dict) .taken) -}}
 {{- $out := dict "env" (list) "mounted" (list) "specs" (list) "targets" (list) -}}
-{{- range $ref := (default (list) .refs) -}}
+{{- range $i, $ref := (default (list) .refs) -}}
   {{- /* A null ref, or a null name, is validateNullItems' to report */ -}}
   {{- if include "global-chart.isNamedEntry" $ref -}}
   {{- $secret := index (default (dict) $root.Values.externalSecrets) $ref.name -}}
@@ -995,9 +1008,9 @@ Params:
       {{- fail (printf "externalSecrets.%s: cannot be mounted, its volume name '%s' is not a DNS-1123 label of at most 63 characters. Rename the key, or inject it without a mountPath." $ref.name $volumeName) -}}
     {{- end -}}
     {{- if hasKey $taken $volumeName -}}
-      {{- fail (printf "%s.externalSecrets: the volume '%s' generated for '%s' is already declared in this pod. Mount a key once, and do not name your own volumes after it." $.errCtx $volumeName $ref.name) -}}
+      {{- fail (printf "%s.externalSecrets[%d]: the volume '%s' generated for '%s' is already declared by %s. Mount a key once, and do not name your own volumes after it." $.errCtx $i $volumeName $ref.name (index $taken $volumeName)) -}}
     {{- end -}}
-    {{- $_ := set $taken $volumeName true -}}
+    {{- $_ := set $taken $volumeName (printf "%s.externalSecrets[%d]" $.errCtx $i) -}}
     {{- $_ := set $out "mounted" (append $out.mounted (dict "key" $ref.name "secretName" $secretName "volumeName" $volumeName "mountPath" $ref.mountPath)) -}}
   {{- else -}}
     {{- $_ := set $out "env" (append $out.env $secretName) -}}

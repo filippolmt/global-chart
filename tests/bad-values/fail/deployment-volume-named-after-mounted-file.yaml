@@ -1,0 +1,15 @@
+# A volumes entry named after the volume a mounted config file generates: the
+# pod would carry two volumes of one name (issue #214).
+# Expected fail substring: "deployments.web.volumes[0]: declares the pod volume 'md-cm-file-app', which deployments.web.mountedConfigFiles.files[0] already declares"
+deployments:
+  web:
+    image: nginx:1.25
+    mountedConfigFiles:
+      files:
+        - name: app
+          filename: app.yaml
+          targetPath: /etc/app.yaml
+          content: "a: 1"
+    volumes:
+      - name: md-cm-file-app
+        emptyDir: {}

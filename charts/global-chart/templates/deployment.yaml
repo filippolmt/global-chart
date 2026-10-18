@@ -30,18 +30,18 @@ kind; it changes name only together with the map (issue #215).
 {{- end }}
 {{- end }}
 {{- end }}
-{{- /* Each claim template becomes a pod volume of its name, which an
-       externalSecrets volume must not take either. The other rules on claims
-       are validateStatefulSets' (ADR 0020). */}}
-{{- $claimVolumes := list }}
-{{- range (default (list) $deploy.volumeClaimTemplates) }}
-{{- if include "global-chart.isNamedEntry" . }}
-{{- $claimVolumes = append $claimVolumes (dict "name" .name) }}
+{{- /* The pod's volume names, unique (issue #214). Each claim template becomes
+       a pod volume of its name, which an externalSecrets volume must not take
+       either. The other rules on claims are validateStatefulSets' (ADR 0020). */}}
+{{- $podVolumes := include "global-chart.podVolumeNames" (dict "values" $deploy "errCtx" $errCtx) | fromJson }}
+{{- range $i, $claim := (default (list) $deploy.volumeClaimTemplates) }}
+{{- if include "global-chart.isNamedEntry" $claim }}
+{{- $_ := set $podVolumes $claim.name (printf "%s.volumeClaimTemplates[%d]" $errCtx $i) }}
 {{- end }}
 {{- end }}
 {{- /* externalSecrets: the Deployment always reads the real Secret, never the
        hook copy (ADR 0007). Resolved once, for the pod's checksum and its env/volumes */ -}}
-{{- $es := include "global-chart.resolveExternalSecretRefs" (dict "root" $root "refs" $deploy.externalSecrets "hook" false "volumes" (concat (default (list) $deploy.volumes) $claimVolumes) "errCtx" $errCtx) | fromJson }}
+{{- $es := include "global-chart.resolveExternalSecretRefs" (dict "root" $root "refs" $deploy.externalSecrets "hook" false "taken" $podVolumes "errCtx" $errCtx) | fromJson }}
 ---
 apiVersion: apps/v1
 kind: {{ $kind }}

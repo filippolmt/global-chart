@@ -43,6 +43,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   Clusters on 1.23–1.26 are past their end of life, and Helm refuses to install
   the chart there.
 
+### Fixed
+
+- **Two pod volumes of one name fail the render** (issue #214). A `volumes`
+  entry named like a volume `mountedConfigFiles` generates (`md-cm-file-<name>`,
+  `md-cm-bundle-<i>`), or like another `volumes` entry, rendered a pod the API
+  server rejected at apply time. Now the render fails naming both values paths,
+  for a deployment and for a hook or cronjob. The `externalSecrets` volume
+  collision check reads the same names, and its message now names the volume
+  it collides with.
+
 ### Tests
 
 - `make e2e-dryrun` replaces `make e2e-routes`, which stays as an alias. It

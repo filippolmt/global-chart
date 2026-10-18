@@ -950,6 +950,24 @@ tests:
       - failedTemplate:
           errorPattern: "cronJobs\\.cleanup\\.fromDeployment: references deployment 'ghost', which does not exist in \\.Values\\.deployments"
 
+  - it: should fail when two volumes entries of a deployment-level cronjob share a name
+    set:
+      deployments:
+        web:
+          image: nginx:1.25
+          cronJobs:
+            sync:
+              schedule: "0 * * * *"
+              command: ["true"]
+              volumes:
+                - name: data
+                  emptyDir: {}
+                - name: data
+                  emptyDir: {}
+    asserts:
+      - failedTemplate:
+          errorMessage: "deployments.web.cronJobs.sync.volumes[1]: declares the pod volume 'data', which deployments.web.cronJobs.sync.volumes[0] already declares, and a pod holds one volume per name. Rename the volumes entry."
+
   - it: should fail when root-level cronJob has no image and no fromDeployment
     set:
       cronJobs:

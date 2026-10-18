@@ -2724,6 +2724,22 @@ tests:
           path: spec.template.spec.restartPolicy
           value: Never
 
+  - it: should fail when two volumes entries of a hook share a name
+    set:
+      hooks:
+        pre-install:
+          migrate:
+            image: myapp:v1
+            command: ["true"]
+            volumes:
+              - name: data
+                emptyDir: {}
+              - name: data
+                emptyDir: {}
+    asserts:
+      - failedTemplate:
+          errorMessage: "hooks.pre-install.migrate.volumes[1]: declares the pod volume 'data', which hooks.pre-install.migrate.volumes[0] already declares, and a pod holds one volume per name. Rename the volumes entry."
+
   - it: should fail when root-level hook has no image and no fromDeployment
     set:
       hooks:
@@ -3420,7 +3436,7 @@ tests:
                 mountPath: /etc/app
     asserts:
       - failedTemplate:
-          errorPattern: "hooks.pre-install.migrate.externalSecrets: the volume 'es-app-conf' generated for 'app-conf' is already declared"
+          errorMessage: "hooks.pre-install.migrate.externalSecrets[0]: the volume 'es-app-conf' generated for 'app-conf' is already declared by hooks.pre-install.migrate.volumes[0]. Mount a key once, and do not name your own volumes after it."
 
   - it: should fail when the same key is mounted twice
     set:
@@ -3440,7 +3456,7 @@ tests:
                 mountPath: /etc/b
     asserts:
       - failedTemplate:
-          errorPattern: "hooks.pre-install.migrate.externalSecrets: the volume 'es-app-conf' generated for 'app-conf' is already declared"
+          errorMessage: "hooks.pre-install.migrate.externalSecrets[1]: the volume 'es-app-conf' generated for 'app-conf' is already declared by hooks.pre-install.migrate.externalSecrets[0]. Mount a key once, and do not name your own volumes after it."
 
   - it: should fail when a mounted key is not a DNS-1123 label
     set:
@@ -4095,6 +4111,30 @@ tests:
     asserts:
       - failedTemplate:
           errorMessage: "deployments.main.hooks.post-install.migrate: externalSecrets 'app-conf' (inherited from deployments.main) mounts on '/etc/app', which volumeMounts[0] already mounts. The API server rejects two mounts on one path in a container: give each its own mountPath."
+
+  - it: should fail when an inherited externalSecrets volume takes the name of a deployment hook's volume
+    set:
+      externalSecrets:
+        app-conf:
+          secretstore: { kind: ClusterSecretStore, name: store }
+          secretkey: KEY
+          remote: { key: app }
+      deployments:
+        main:
+          image: nginx:1.25
+          externalSecrets:
+            - name: app-conf
+              mountPath: /etc/app
+          hooks:
+            post-install:
+              migrate:
+                command: ["true"]
+                volumes:
+                  - name: es-app-conf
+                    emptyDir: {}
+    asserts:
+      - failedTemplate:
+          errorMessage: "deployments.main.externalSecrets[0]: the volume 'es-app-conf' generated for 'app-conf' is already declared by deployments.main.hooks.post-install.migrate.volumes[0]. Mount a key once, and do not name your own volumes after it."
 
   - it: should fail when a root hook's volumeMounts share a mountPath
     set:

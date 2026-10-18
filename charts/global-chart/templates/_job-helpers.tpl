@@ -175,8 +175,10 @@ containers:
   {{- /* Only a deployment-level job inherits: at root level the path is never read */ -}}
   {{- $inheritedCtx := "" -}}
   {{- with .deployName -}}{{- $inheritedCtx = include "global-chart.deploymentValuesPath" . -}}{{- end -}}
-  {{- $esInherited := include "global-chart.resolveExternalSecretRefs" (dict "root" $root "refs" $esRefs.inherited "hook" $esReadsCopy "volumes" $job.volumes "errCtx" $inheritedCtx) | fromJson -}}
-  {{- $esOwn := include "global-chart.resolveExternalSecretRefs" (dict "root" $root "refs" $esRefs.own "hook" $esReadsCopy "volumes" $job.volumes "errCtx" .errCtx) | fromJson -}}
+  {{- /* Only volumes: a job renders no mountedConfigFiles, so none may count (issue #214) */ -}}
+  {{- $podVolumes := include "global-chart.podVolumeNames" (dict "values" (pick $job "volumes") "errCtx" .errCtx) | fromJson -}}
+  {{- $esInherited := include "global-chart.resolveExternalSecretRefs" (dict "root" $root "refs" $esRefs.inherited "hook" $esReadsCopy "taken" $podVolumes "errCtx" $inheritedCtx) | fromJson -}}
+  {{- $esOwn := include "global-chart.resolveExternalSecretRefs" (dict "root" $root "refs" $esRefs.own "hook" $esReadsCopy "taken" $podVolumes "errCtx" .errCtx) | fromJson -}}
   {{- $esEnvInherited := $esInherited.env -}}
   {{- $esEnvOwn := $esOwn.env -}}
   {{- $esMounted := concat $esInherited.mounted $esOwn.mounted -}}
