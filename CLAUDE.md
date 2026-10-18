@@ -112,7 +112,8 @@ Read the pointer before changing the domain it names.
    the docstring of `tests/bad-values/check-closure-coverage.py` before adding
    one. A *naming key* is constrained by `propertyNames`, or by a `$ref` on a
    list field (ADR 0008). `mountedConfigFiles` items carry no `required`: the
-   templates check them, so `failedTemplate` tests stay possible.
+   templates check them, so `failedTemplate` tests stay possible. A *removed
+   key* stays declared until the next major, so its `fail` is reached (ADR 0022).
 6. **One replica owner**: `autoscaling` (HPA) and `keda` (ScaledObject)
    exclude each other per deployment, and either one omits `spec.replicas`
    (*Replica owner* in `GLOSSARY.md`, ADR 0003, ADR 0012). The owner and the

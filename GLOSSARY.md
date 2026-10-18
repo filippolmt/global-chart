@@ -77,6 +77,10 @@ _Avoid_: free field, raw section, blob, pass-through (with the hyphen)
 A chart check that rejects a value the schema already rejects, and that therefore never fires under normal conditions. It is not dead code: when the installer skips schema validation (the way out foreseen for when Kubernetes adds a field before the chart knows it), it is the only protection left, and its message is the only one the user sees. A backstop guard is worth as much as its test: if no test makes it fire, nobody knows whether it still works. A guard that could never fire even without the schema, because the condition is excluded elsewhere in the chart, is dead code instead.
 _Avoid_: dead guard, redundant guard, duplicate check
 
+**Removed key**:
+A key or format the chart read until a major release took it away. For that one major the chart still recognises it, only to reject it with a message naming what replaced it; from the next major on it is an unknown key like any other. Before a key is removed it is deprecated for at least one minor release: it still works, and the chart warns and names the replacement.
+_Avoid_: dropped key, obsolete key
+
 **Values author**:
 Whoever writes a release's values without knowing the chart's internal rules, typically assisted by an LLM. The chart guides them only through what it rejects and what it describes: an error that does not name the path, or a field without a description, does not exist for them. A field where the chart accepts anything is, for them, the place to move what is rejected elsewhere.
 _Avoid_: user, consumer, developer (when whoever writes the values is meant)
