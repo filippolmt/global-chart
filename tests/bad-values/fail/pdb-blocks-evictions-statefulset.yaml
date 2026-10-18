@@ -1,7 +1,7 @@
 # A StatefulSet with one pod and minAvailable: 1 allows no voluntary eviction,
 # as a Deployment does (issue #216, ADR 0021).
-# Expected fail substring: "deployments.app.pdb.minAvailable: 1 allows no voluntary eviction with deployments.app.replicaCount: 1"
-deployments:
+# Expected fail substring: "workloads.app.pdb.minAvailable: 1 allows no voluntary eviction with workloads.app.replicaCount: 1"
+workloads:
   app:
     kind: StatefulSet
     image: nginx:1.25

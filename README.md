@@ -8,22 +8,22 @@ The chart supports **multiple deployments** in a single release, each with indep
 ## Chart scope at a glance
 
 - **Multi-deployment support**
-  Define multiple independent deployments under `deployments.*`. Each gets its own Service, ConfigMap, Secret, ServiceAccount, HPA, PDB, and NetworkPolicy.
+  Define multiple independent workloads under `workloads.*`. Each gets its own Service, ConfigMap, Secret, ServiceAccount, HPA, PDB, and NetworkPolicy.
 - **StatefulSets**
-  `kind: StatefulSet` on a `deployments` entry renders a StatefulSet instead of a Deployment, with one claim per pod from `volumeClaimTemplates` and a headless governing Service (see [Stateful workloads](#stateful-workloads-kind-statefulset)). Everything else about the entry stays the same.
+  `kind: StatefulSet` on a `workloads` entry renders a StatefulSet instead of a Deployment, with one claim per pod from `volumeClaimTemplates` and a headless governing Service (see [Stateful workloads](#stateful-workloads-kind-statefulset)). Everything else about the entry stays the same.
 - **Workload primitives**
   Image can be a string (`nginx:1.25`) or a map (`repository/tag/digest`), held by the schema to the reference grammar the kubelet parses; `tag` is a string, so quote a numeric-looking one (`"1.20"`). Probes, resources, autoscaling (HPA), scheduling constraints, extra containers/init containers, pod recreation bumps, and ConfigMap/Secret `envFrom` are all configurable. `command`/`args` override the image entrypoint per deployment, so one image can back several workloads (web, worker, …); they are never inherited by the deployment's hooks/cronJobs.
 - **Networking**
   First-class Service configuration (with per-service annotations) plus optional Ingress with TLS, class annotations, and routes to specific deployments. DNS options and host aliases can be defined per-deployment.
-  HTTP reaches the deployments through one routing layer, Ingress or Gateway API HTTPRoutes (`httpRoute` for one, `httpRoutes` for one per entry), never both. Ports that are not HTTP go through TCPRoutes and UDPRoutes (`tcpRoutes`, `udpRoutes`), alongside either (see [Exposing a TCP or UDP port](#exposing-a-tcp-or-udp-port-through-a-gateway)). A `deployment:` backend picks a port of its Service by name with `portName`.
+  HTTP reaches the deployments through one routing layer, Ingress or Gateway API HTTPRoutes (`httpRoute` for one, `httpRoutes` for one per entry), never both. Ports that are not HTTP go through TCPRoutes and UDPRoutes (`tcpRoutes`, `udpRoutes`), alongside either (see [Exposing a TCP or UDP port](#exposing-a-tcp-or-udp-port-through-a-gateway)). A `workload:` backend picks a port of its Service by name with `portName`.
 - **Configuration distribution**
   Inline ConfigMap/Secret data, mounted config files (single file) or bundles (projected lists of files), and `volumes` in the native Kubernetes form (any volume source) are supported.
 - **Lifecycle and batch**
   Helm hook jobs and CronJobs can be defined in two ways:
-  - **Root level** (`hooks.*`, `cronJobs.*`): Standalone, use `fromDeployment` to copy image and its `pullPolicy` from a deployment
-  - **Inside deployments** (`deployments.*.hooks`, `deployments.*.cronJobs`): Inherit image, configMap, secret, serviceAccount, hostAliases, podSecurityContext, securityContext, dnsConfig (cronJobs), nodeSelector, tolerations, affinity, priorityClassName, and more from the parent deployment
+  - **Root level** (`hooks.*`, `cronJobs.*`): Standalone, use `fromWorkload` to copy image and its `pullPolicy` from a deployment
+  - **Inside workloads** (`workloads.*.hooks`, `workloads.*.cronJobs`): Inherit image, configMap, secret, serviceAccount, hostAliases, podSecurityContext, securityContext, dnsConfig (cronJobs), nodeSelector, tolerations, affinity, priorityClassName, and more from the parent deployment
   - `priorityClassName` is inherited too: a cronjob of a deployment with a preempting PriorityClass can evict other pods on every run. Set `priorityClassName: ""` on the job (or a lower class) to stop it
-  - A workload-scope job's `envFrom` adds its own `envFromConfigMaps` / `envFromSecrets` after the workload's, never replacing them. To drop what it inherits, set `false` on `inheritDeploymentConfigMap` / `inheritDeploymentSecret` (the generated ConfigMap/Secret) or `inheritDeploymentEnvFromConfigMaps` / `inheritDeploymentEnvFromSecrets` (the workload's lists)
+  - A workload-scope job's `envFrom` adds its own `envFromConfigMaps` / `envFromSecrets` after the workload's, never replacing them. To drop what it inherits, set `false` on `inheritWorkloadConfigMap` / `inheritWorkloadSecret` (the generated ConfigMap/Secret) or `inheritWorkloadEnvFromConfigMaps` / `inheritWorkloadEnvFromSecrets` (the workload's lists)
   - Hook prerequisite ConfigMap/Secret are created automatically with correct weight ordering
   - A `pre-*` or `post-delete` hook can read a Secret produced by the release's own `externalSecrets`: reference it by key (see [Reading an ExternalSecret from a hook](#reading-an-externalsecret-from-a-hook))
 - **Secret management**
@@ -69,7 +69,7 @@ exists, because changing them later fails the upgrade:
 |----------------|-------|------------|
 | `app.kubernetes.io/name` | the **chart** name, `global-chart` | `nameOverride` |
 | `app.kubernetes.io/instance` | the release name | `helm upgrade --install <name>` |
-| `app.kubernetes.io/component` | the key under `deployments` | renaming that key |
+| `app.kubernetes.io/component` | the key under `workloads` | renaming that key |
 
 `app.kubernetes.io/name` defaults to the chart name rather than to your
 application's name — that is what a generic chart knows about itself. The
@@ -89,7 +89,7 @@ Deployment.apps "dify-api" is invalid: spec.selector: ... field is immutable
 
 The only way through is to delete the workload and let Helm recreate it
 (safe for stateless workloads, a real outage window for everything else). The
-same applies to renaming a key under `deployments`: `web` → `frontend` orphans
+same applies to renaming a key under `workloads`: `web` → `frontend` orphans
 the old workload and creates a new one.
 
 Adopting a workload that another chart already manages hits the same wall
@@ -105,7 +105,7 @@ StatefulSet adds its own immutable fields: `volumeClaimTemplates`,
 ## Stateful workloads: `kind: StatefulSet`
 
 A database, a search engine or a message broker keeps state per pod. A
-`deployments` entry with `kind: StatefulSet` renders a StatefulSet: each pod has
+`workloads` entry with `kind: StatefulSet` renders a StatefulSet: each pod has
 a stable name (`<fullname>-<key>-0`, `-1`, …) and, for each
 `volumeClaimTemplates` entry, a claim of its own that follows it across
 restarts. The rest of the entry (image, config, Service, HPA/KEDA, PDB,
@@ -113,7 +113,7 @@ NetworkPolicy, hooks and cronJobs) works as on a Deployment. See
 [ADR 0020](docs/adr/0020-a-workload-kind-on-the-deployments-entry.md).
 
 ```yaml
-deployments:
+workloads:
   search:
     kind: StatefulSet
     image: docker.elastic.co/elasticsearch/elasticsearch:8.15.0
@@ -174,7 +174,7 @@ deployments:
 ## Example: Multi-deployment with inherited hooks/cronJobs
 
 ```yaml
-deployments:
+workloads:
   backend:
     image: myapp/backend:v2.0
     replicaCount: 2
@@ -206,7 +206,7 @@ deployments:
     service:
       enabled: false # Workers don't need a service
 
-# Root-level hooks (standalone, must specify image or fromDeployment)
+# Root-level hooks (standalone, must specify image or fromWorkload)
 hooks:
   post-upgrade:
     notify:
@@ -218,7 +218,7 @@ ingress:
   enabled: true
   hosts:
     - host: api.example.com
-      deployment: backend
+      workload: backend
       paths:
         - path: /
 ```
@@ -242,7 +242,7 @@ externalSecrets:
     data:
       - { secretkey: PASSWORD, remote: { key: app, property: password } }
 
-deployments:
+workloads:
   app:
     image: myapp:v1
     externalSecrets:
@@ -299,10 +299,10 @@ created on every run.
 
 The first two need a controller that watches the Secret itself. With
 [Stakater Reloader](https://github.com/stakater/Reloader) installed, opt in per
-deployment:
+workload:
 
 ```yaml
-deployments:
+workloads:
   app:
     image: myapp:v1
     externalSecrets:
@@ -348,7 +348,7 @@ rbacs:
           resources: ["deployments", "deployments/scale"]
           verbs: ["get", "patch"]
 
-deployments:
+workloads:
   app:
     image: myapp:v1
     hooks:
@@ -394,14 +394,14 @@ httpRoute:
   parentRefs: [{ name: shared-gateway, namespace: envoy-gateway-system }]
   hostnames: [app.example.com]
   rules:
-    - backendRefs: [{ deployment: nginx }]
+    - backendRefs: [{ workload: nginx }]
 
 httpRoutes:
   traccar-web:
     parentRefs: [{ name: shared-gateway, namespace: envoy-gateway-system }]
     hostnames: [traccar.example.com]
     rules:
-      - backendRefs: [{ deployment: traccar }]
+      - backendRefs: [{ workload: traccar }]
 ```
 
 ## Exposing a TCP or UDP port through a Gateway
@@ -414,7 +414,7 @@ listeners. Here the web UI of Traccar goes through `httpRoute` on a proxied
 Gateway, and the GPS trackers' binary protocol through a TCPRoute on another:
 
 ```yaml
-deployments:
+workloads:
   traccar:
     service:
       port: 8082          # web UI and API
@@ -429,7 +429,7 @@ httpRoute:
   parentRefs: [{ name: shared-gateway, namespace: envoy-gateway-system }]
   hostnames: [traccar.example.com]
   rules:
-    - backendRefs: [{ deployment: traccar }]
+    - backendRefs: [{ workload: traccar }]
 
 tcpRoutes:
   gps:
@@ -439,7 +439,7 @@ tcpRoutes:
         sectionName: gps-5027   # one TCP listener per port on the Gateway
     rules:
       - backendRefs:
-          - deployment: traccar
+          - workload: traccar
             portName: teltonika
 ```
 

@@ -1,4 +1,4 @@
-deployments:
+workloads:
   main:
     image:
       repository: nginx

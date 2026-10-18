@@ -5,7 +5,7 @@ tests:
   # ====== Workload enabled flag ======
   - it: should not render HPA when deployment enabled is false
     set:
-      deployments:
+      workloads:
         main:
           enabled: false
           image: nginx:1.25
@@ -21,7 +21,7 @@ tests:
   # ====== Nil safety: deployment without autoscaling key ======
   - it: should not render HPA when autoscaling is not defined
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
     asserts:
@@ -35,7 +35,7 @@ tests:
   # reach the API server, which defaults it to CPU 80%: render nothing instead.
   - it: should not render an HPA with no active target even outside validate.yaml
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           autoscaling:
@@ -48,7 +48,7 @@ tests:
 
   - it: should render only the memory metric when CPU is off
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           autoscaling:
@@ -70,7 +70,7 @@ tests:
 
   - it: should render only the CPU metric when memory is 0, from a digit string
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           autoscaling:
@@ -93,7 +93,7 @@ tests:
   # ====== Basic HPA with CPU metric ======
   - it: should render HPA with CPU metric
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           autoscaling:
@@ -120,7 +120,7 @@ tests:
   # ====== HPA with both CPU and Memory metrics ======
   - it: should render HPA with both CPU and memory metrics
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           autoscaling:
@@ -143,7 +143,7 @@ tests:
 
   - it: should fail when autoscaling.minReplicas is not set
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           autoscaling:
@@ -152,11 +152,11 @@ tests:
             targetCPUUtilizationPercentage: 80
     asserts:
       - failedTemplate:
-          errorMessage: "deployments.main.autoscaling.minReplicas: required when HPA is enabled"
+          errorMessage: "workloads.main.autoscaling.minReplicas: required when HPA is enabled"
 
   - it: should fail when autoscaling.maxReplicas is not set
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           autoscaling:
@@ -165,12 +165,12 @@ tests:
             targetCPUUtilizationPercentage: 80
     asserts:
       - failedTemplate:
-          errorMessage: "deployments.main.autoscaling.maxReplicas: required when HPA is enabled"
+          errorMessage: "workloads.main.autoscaling.maxReplicas: required when HPA is enabled"
 
   # ====== Workload annotations stay on the workload (issue #112) ======
   - it: should not propagate the workload's own annotations to its HPA
     set:
-      deployments:
+      workloads:
         web:
           image: nginx:1.25
           annotations:
@@ -193,7 +193,7 @@ tests:
   # global-chart.printScalar.
   - it: should render large replica bounds in plain digits
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           autoscaling:
@@ -211,7 +211,7 @@ tests:
 
   - it: should render a large averageUtilization in plain digits
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           autoscaling:
@@ -233,7 +233,7 @@ tests:
     release:
       name: rel
     set:
-      deployments:
+      workloads:
         db:
           kind: StatefulSet
           image: nginx:1.25

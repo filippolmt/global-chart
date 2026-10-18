@@ -84,7 +84,7 @@ is the source of truth, this table is only the routing.
 Each line is the rule; the pointer is where its reasons and edge cases live.
 Read the pointer before changing the domain it names.
 
-1. **Workloads**: each `deployments.<name>` renders its own workload,
+1. **Workloads**: each `workloads.<name>` renders its own workload,
    Service, ServiceAccount, ConfigMap, Secret, HPA, PDB and NetworkPolicy,
    named `{release}-{chart}-{name}`. The workload is a Deployment, or a
    StatefulSet with `kind: StatefulSet` (ADR 0020), which adds a headless

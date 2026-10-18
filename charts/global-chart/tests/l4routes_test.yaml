@@ -10,10 +10,26 @@ capabilities:
 release:
   name: myrel
 tests:
+  - it: should fail naming workload when a backendRef carries the removed deployment
+    set:
+      workloads:
+        api:
+          image: nginx:1.25
+      tcpRoutes:
+        db:
+          parentRefs:
+            - name: direct-gw
+          rules:
+            - backendRefs:
+                - deployment: api
+    asserts:
+      - failedTemplate:
+          errorMessage: "tcpRoutes.db.rules[0].backendRefs[0].deployment: removed in 4.0.0, use workload"
+
   # ====== Rendering ======
   - it: should render nothing when tcpRoutes and udpRoutes are empty
     set:
-      deployments:
+      workloads:
         api:
           image: nginx:1.25
     asserts:
@@ -22,7 +38,7 @@ tests:
 
   - it: should render a TCPRoute to the primary port when portName is omitted
     set:
-      deployments:
+      workloads:
         api:
           image: nginx:1.25
           service:
@@ -35,7 +51,7 @@ tests:
               sectionName: tcp-8080
           rules:
             - backendRefs:
-                - deployment: api
+                - workload: api
     asserts:
       - hasDocuments:
           count: 1
@@ -62,7 +78,7 @@ tests:
 
   - it: should resolve portName to the number of a service.extraPorts entry
     set:
-      deployments:
+      workloads:
         traccar:
           image: traccar/traccar:6.6
           service:
@@ -77,7 +93,7 @@ tests:
             - name: direct-gw
           rules:
             - backendRefs:
-                - deployment: traccar
+                - workload: traccar
                   portName: teltonika
                   weight: 1000000
     asserts:
@@ -90,7 +106,7 @@ tests:
 
   - it: should resolve portName to the primary port by its name
     set:
-      deployments:
+      workloads:
         api:
           image: nginx:1.25
           service:
@@ -106,7 +122,7 @@ tests:
             - name: direct-gw
           rules:
             - backendRefs:
-                - deployment: api
+                - workload: api
                   portName: grpc
     asserts:
       - equal:
@@ -115,7 +131,7 @@ tests:
 
   - it: should render a UDPRoute to a UDP extra port, with the rule name
     set:
-      deployments:
+      workloads:
         traccar:
           image: traccar/traccar:6.6
           service:
@@ -131,7 +147,7 @@ tests:
           rules:
             - name: osmand
               backendRefs:
-                - deployment: traccar
+                - workload: traccar
                   portName: osmand
     asserts:
       - isKind:
@@ -149,7 +165,7 @@ tests:
 
   - it: should render one route per entry, and a TCPRoute and a UDPRoute may share a key
     set:
-      deployments:
+      workloads:
         dns:
           image: coredns/coredns:1.12.0
           service:
@@ -163,14 +179,14 @@ tests:
       tcpRoutes:
         dns:
           parentRefs: [{ name: gw-a }]
-          rules: [{ backendRefs: [{ deployment: dns }] }]
+          rules: [{ backendRefs: [{ workload: dns }] }]
         dns-b:
           parentRefs: [{ name: gw-b }]
-          rules: [{ backendRefs: [{ deployment: dns }] }]
+          rules: [{ backendRefs: [{ workload: dns }] }]
       udpRoutes:
         dns:
           parentRefs: [{ name: gw-a }]
-          rules: [{ backendRefs: [{ deployment: dns, portName: dns-udp }] }]
+          rules: [{ backendRefs: [{ workload: dns, portName: dns-udp }] }]
     asserts:
       - hasDocuments:
           count: 3
@@ -216,7 +232,7 @@ tests:
         commonAnnotations:
           team: platform
           owner: common
-      deployments:
+      workloads:
         api:
           image: nginx:1.25
       tcpRoutes:
@@ -224,7 +240,7 @@ tests:
           annotations:
             owner: fleet
           parentRefs: [{ name: gw }]
-          rules: [{ backendRefs: [{ deployment: api }] }]
+          rules: [{ backendRefs: [{ workload: api }] }]
     asserts:
       - equal:
           path: metadata.annotations
@@ -235,7 +251,7 @@ tests:
   # ====== Backend resolution failures ======
   - it: should fail on a portName the deployment's Service lacks, listing its ports
     set:
-      deployments:
+      workloads:
         traccar:
           image: traccar/traccar:6.6
           service:
@@ -246,27 +262,27 @@ tests:
       tcpRoutes:
         gps:
           parentRefs: [{ name: gw }]
-          rules: [{ backendRefs: [{ deployment: traccar, portName: osmand }] }]
+          rules: [{ backendRefs: [{ workload: traccar, portName: osmand }] }]
     asserts:
       - failedTemplate:
-          errorMessage: "tcpRoutes.gps.rules[0].backendRefs[0].portName: 'osmand' names no port of the Service of deployment 'traccar' (ports: http, teltonika). Use the name of service.portName or of a service.extraPorts entry."
+          errorMessage: "tcpRoutes.gps.rules[0].backendRefs[0].portName: 'osmand' names no port of the Service of workload 'traccar' (ports: http, teltonika). Use the name of service.portName or of a service.extraPorts entry."
 
   - it: should fail a UDPRoute that falls back on the TCP primary port
     set:
-      deployments:
+      workloads:
         api:
           image: nginx:1.25
       udpRoutes:
         gps:
           parentRefs: [{ name: gw }]
-          rules: [{ backendRefs: [{ deployment: api }] }]
+          rules: [{ backendRefs: [{ workload: api }] }]
     asserts:
       - failedTemplate:
-          errorMessage: "udpRoutes.gps.rules[0].backendRefs[0]: resolves to the TCP port 'http' of deployment 'api', but this backend forwards UDP. Kubernetes accepts the route and the traffic never arrives. Pick a UDP port with portName."
+          errorMessage: "udpRoutes.gps.rules[0].backendRefs[0]: resolves to the TCP port 'http' of workload 'api', but this backend forwards UDP. Kubernetes accepts the route and the traffic never arrives. Pick a UDP port with portName."
 
   - it: should fail a TCPRoute to a UDP extra port
     set:
-      deployments:
+      workloads:
         traccar:
           image: traccar/traccar:6.6
           service:
@@ -278,14 +294,14 @@ tests:
       tcpRoutes:
         gps:
           parentRefs: [{ name: gw }]
-          rules: [{ backendRefs: [{ deployment: traccar, portName: osmand }] }]
+          rules: [{ backendRefs: [{ workload: traccar, portName: osmand }] }]
     asserts:
       - failedTemplate:
-          errorPattern: "tcpRoutes\\.gps\\.rules\\[0\\]\\.backendRefs\\[0\\]\\.portName: resolves to the UDP port 'osmand' of deployment 'traccar', but this backend forwards TCP"
+          errorPattern: "tcpRoutes\\.gps\\.rules\\[0\\]\\.backendRefs\\[0\\]\\.portName: resolves to the UDP port 'osmand' of workload 'traccar', but this backend forwards TCP"
 
   - it: should fail portName together with service
     set:
-      deployments:
+      workloads:
         api:
           image: nginx:1.25
       tcpRoutes:
@@ -293,26 +309,26 @@ tests:
           parentRefs: [{ name: gw }]
           rules:
             - backendRefs:
-                - deployment: api
+                - workload: api
                   portName: http
                   service: { name: other, port: 80 }
     asserts:
       - failedTemplate:
-          errorMessage: "tcpRoutes.db.rules[0].backendRefs[0].portName: set together with service. portName picks a port of a deployment's Service; a service backend carries its own port. Drop one of them."
+          errorMessage: "tcpRoutes.db.rules[0].backendRefs[0].portName: set together with service. portName picks a port of a workload's Service; a service backend carries its own port. Drop one of them."
 
   - it: should fail on an unknown deployment
     set:
       tcpRoutes:
         db:
           parentRefs: [{ name: gw }]
-          rules: [{ backendRefs: [{ deployment: ghost }] }]
+          rules: [{ backendRefs: [{ workload: ghost }] }]
     asserts:
       - failedTemplate:
-          errorMessage: "tcpRoutes.db.rules[0].backendRefs[0].deployment: references deployment 'ghost', which does not exist in .Values.deployments"
+          errorMessage: "tcpRoutes.db.rules[0].backendRefs[0].workload: references workload 'ghost', which does not exist in .Values.workloads"
 
   - it: should fail on a deployment whose Service is disabled
     set:
-      deployments:
+      workloads:
         api:
           image: nginx:1.25
           service:
@@ -320,10 +336,10 @@ tests:
       tcpRoutes:
         db:
           parentRefs: [{ name: gw }]
-          rules: [{ backendRefs: [{ deployment: api }] }]
+          rules: [{ backendRefs: [{ workload: api }] }]
     asserts:
       - failedTemplate:
-          errorPattern: "tcpRoutes\\.db\\.rules\\[0\\]\\.backendRefs\\[0\\]\\.deployment: references deployment 'api', which has service\\.enabled: false"
+          errorPattern: "tcpRoutes\\.db\\.rules\\[0\\]\\.backendRefs\\[0\\]\\.workload: references workload 'api', which has service\\.enabled: false"
 
   # ====== Schema ======
   - it: should reject a route without parentRefs (schema)
@@ -354,7 +370,7 @@ tests:
 
   - it: should fail portName together with a service that sets only a port
     set:
-      deployments:
+      workloads:
         api:
           image: nginx:1.25
       tcpRoutes:
@@ -362,7 +378,7 @@ tests:
           parentRefs: [{ name: gw }]
           rules:
             - backendRefs:
-                - deployment: api
+                - workload: api
                   portName: http
                   service: { port: 9000 }
     asserts:
@@ -373,7 +389,7 @@ tests:
     release:
       name: myrel
     set:
-      deployments:
+      workloads:
         api:
           image: nginx:1.25
       tcpRoutes:
@@ -381,7 +397,7 @@ tests:
           parentRefs: [{ name: gw }]
           rules:
             - backendRefs:
-                - deployment: api
+                - workload: api
                   portName: http
                   service: { name: "" }
     asserts:

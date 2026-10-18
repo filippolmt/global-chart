@@ -24,7 +24,7 @@ fullnameOverride: ""
 
 # -- Multiple deployments configuration (map of named deployments). Each deployment supports an `enabled` field (bool, default `true`) to skip rendering of the workload and all its sub-resources (Service, ConfigMap, Secret, ServiceAccount, HPA, mounted ConfigMaps, CronJobs, Hooks). An Ingress that references a disabled entry will fail with a clear error.
 # @default -- `{}` (empty map)
-deployments: {}
+workloads: {}
   # Example deployment configuration:
   # main:
   #   # -- (bool) Enable or disable this deployment and all its sub-resources (Service, ConfigMap, Secret, SA, HPA). Default: true
@@ -358,12 +358,12 @@ deployments: {}
   #       # parallelism: 1
   #       # completions: 1
   #       # Opt-out of deployment ConfigMap/Secret env injection (defaults: true):
-  #       # inheritDeploymentConfigMap: false
-  #       # inheritDeploymentSecret: false
+  #       # inheritWorkloadConfigMap: false
+  #       # inheritWorkloadSecret: false
   #       # Opt-out of the deployment's envFromConfigMaps/envFromSecrets (defaults:
   #       # true). The job's own lists add to them, never replace them:
-  #       # inheritDeploymentEnvFromConfigMaps: false
-  #       # inheritDeploymentEnvFromSecrets: false
+  #       # inheritWorkloadEnvFromConfigMaps: false
+  #       # inheritWorkloadEnvFromSecrets: false
 
 # -- Ingress configuration
 ingress:
@@ -382,7 +382,7 @@ ingress:
       # -- Name of the deployment to route traffic to (required unless service.name is set).
       # An optional `portName` next to it picks a TCP port of its Service by name
       # (service.portName or a service.extraPorts[].name); omitted, the primary port
-      deployment: ""
+      workload: ""
       # -- Service backend override (use instead of deployment for external services).
       # Optional `port`, 1-65535: omitted, it is the deployment's service.port, or 80
       # for a service.name backend
@@ -396,7 +396,7 @@ ingress:
 
     # Example with deployment reference:
     # - host: api.example.local
-    #   deployment: backend  # Routes to deployments.backend's service
+    #   workload: backend  # Routes to workloads.backend's service
     #   paths:
     #     - path: /v1
     #       pathType: Prefix
@@ -436,7 +436,7 @@ httpRoute:
   hostnames: []
 
   # -- Routing rules. Each rule may declare matches, filters, backendRefs, timeouts.
-  # backendRefs accept either `deployment: <name>` (resolves to the chart-managed Service;
+  # backendRefs accept either `workload: <name>` (resolves to the chart-managed Service;
   # an optional `portName` picks service.portName or a service.extraPorts[].name, which
   # must be TCP — omitted, the primary port) or `service: { name, port }` for an external Service.
   rules: []
@@ -447,9 +447,9 @@ httpRoute:
   #           type: PathPrefix
   #           value: /
   #     backendRefs:
-  #       - deployment: api-stable
+  #       - workload: api-stable
   #         weight: 90
-  #       - deployment: api-canary
+  #       - workload: api-canary
   #         weight: 10
 
 # -- HTTPRoutes, one per entry, named `<fullname>-<key>` (issue #195): for a
@@ -467,7 +467,7 @@ httpRoutes: {}
   #   hostnames: [traccar.example.com]
   #   rules:
   #     - backendRefs:
-  #         - deployment: traccar
+  #         - workload: traccar
 
 # -- TCPRoutes (gateway.networking.k8s.io/v1, Gateway API v1.6.0 or later), one per entry, named
 # `<fullname>-<key>`: raw TCP ports on an existing Gateway listener, for the
@@ -477,7 +477,7 @@ httpRoutes: {}
 # TCPRoute; an offline render needs
 # `--api-versions gateway.networking.k8s.io/v1/TCPRoute`.
 # Each entry: { annotations?, parentRefs (>= 1), rules (>= 1) }; each rule:
-# { name?, backendRefs (>= 1) }; each backendRef: `deployment: <name>` with an
+# { name?, backendRefs (>= 1) }; each backendRef: `workload: <name>` with an
 # optional `portName` (service.portName or a service.extraPorts[].name; omitted,
 # the primary port), or `service: { name, port }`, plus an optional `weight`.
 # The port picked must be TCP.
@@ -490,7 +490,7 @@ tcpRoutes: {}
   #       sectionName: gps-5027
   #   rules:
   #     - backendRefs:
-  #         - deployment: traccar
+  #         - workload: traccar
   #           portName: teltonika
 
 # -- UDPRoutes (gateway.networking.k8s.io/v1, Gateway API v1.6.0 or later): the same shape as
@@ -509,7 +509,7 @@ cronJobs: {}
   #     repository: myapp
   #     tag: v1.0
   #   # Or reference a deployment's image:
-  #   # fromDeployment: main
+  #   # fromWorkload: main
   #   command: ["/bin/sh", "-c"]
   #   args: ["./cleanup.sh"]
   #   resources:
@@ -533,9 +533,9 @@ cronJobs: {}
   #
   # Note: root-level cronJobs do NOT auto-inherit ConfigMap/Secret from deployments.
   # Use envFromConfigMaps / envFromSecrets to reference them by name explicitly.
-  # Workload-scope cronJobs (deployments.<name>.cronJobs) DO auto-inherit; use
-  # inheritDeploymentConfigMap/inheritDeploymentSecret: false to opt out, and
-  # inheritDeploymentEnvFromConfigMaps/inheritDeploymentEnvFromSecrets: false
+  # Workload-scope cronJobs (workloads.<name>.cronJobs) DO auto-inherit; use
+  # inheritWorkloadConfigMap/inheritWorkloadSecret: false to opt out, and
+  # inheritWorkloadEnvFromConfigMaps/inheritWorkloadEnvFromSecrets: false
   # for the deployment's envFromConfigMaps/envFromSecrets.
 
 # -- Hook jobs for chart lifecycle (install/upgrade). Can also be defined inside deployments to inherit image, configMap, secret, SA.
@@ -548,13 +548,13 @@ hooks: {}
   #       repository: myapp
   #       tag: v1.0
   #     # Or reference a deployment's image:
-  #     # fromDeployment: main
+  #     # fromWorkload: main
   #     command: ["/bin/sh", "-c"]
   #     args: ["./migrate.sh"]
   #     weight: "10"
   #     deletePolicy: before-hook-creation
   #     # backoffLimit: 0             # retries before Helm sees the failure; k8s default 6
-  #     # Secrets of the externalSecrets map, by key (see deployments.*.externalSecrets).
+  #     # Secrets of the externalSecrets map, by key (see workloads.*.externalSecrets).
   #     # activeDeadlineSeconds: 300  # bounds a pod waiting for a Secret; backoffLimit cannot
   #     # A pre-* (not pre-delete) or post-delete hook reads a hook-prerequisite copy, which exists before the hook runs:
   #     # externalSecrets:

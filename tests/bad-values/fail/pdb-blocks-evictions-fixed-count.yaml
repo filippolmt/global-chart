@@ -1,7 +1,7 @@
 # A PDB whose integer minAvailable reaches the fixed replica count allows no
 # voluntary eviction: kubectl drain never finishes (issue #216, ADR 0021).
-# Expected fail substring: "deployments.app.pdb.minAvailable: 1 allows no voluntary eviction with deployments.app.replicaCount: 1"
-deployments:
+# Expected fail substring: "workloads.app.pdb.minAvailable: 1 allows no voluntary eviction with workloads.app.replicaCount: 1"
+workloads:
   app:
     image: nginx:1.25
     replicaCount: 1

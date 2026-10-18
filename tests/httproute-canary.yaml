@@ -1,5 +1,5 @@
 # HTTPRoute lint scenario — multiple weighted backendRefs (canary 90/10 split).
-deployments:
+workloads:
   api-stable:
     image: api:1.0
     service:
@@ -25,7 +25,7 @@ httpRoute:
             type: PathPrefix
             value: /
       backendRefs:
-        - deployment: api-stable
+        - workload: api-stable
           weight: 90
-        - deployment: api-canary
+        - workload: api-canary
           weight: 10

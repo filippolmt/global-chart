@@ -1,8 +1,8 @@
 # covers: kedaScaledObject/properties/advanced
-# An unknown key under deployments.<name>.keda.advanced (typo of
+# An unknown key under workloads.<name>.keda.advanced (typo of
 # restoreToOriginalReplicaCount). Without the closure the replicas are not
 # restored when the ScaledObject is removed.
-deployments:
+workloads:
   web:
     image: nginx:1.25
     keda:

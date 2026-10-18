@@ -1,6 +1,6 @@
 # covers: networkPolicyPeer/properties/ipBlock
 # An unknown key in an ipBlock (typo of except): the excluded range is admitted.
-deployments:
+workloads:
   app:
     image: nginx:1.25
     networkPolicy:

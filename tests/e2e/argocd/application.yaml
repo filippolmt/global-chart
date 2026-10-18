@@ -33,7 +33,7 @@ spec:
             secretstore: { kind: ClusterSecretStore, name: e2e-fake }
             secretkey: E2E_TOKEN
             remote: { key: e2e/token }
-        deployments:
+        workloads:
           app:
             image: busybox:1.36
             command: ["sh", "-c"]

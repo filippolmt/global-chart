@@ -1,6 +1,6 @@
 # The map form's repository follows the same grammar as the string form
 # (issue #173): lowercase path components, no tag inside it.
-deployments:
+workloads:
   web:
     image:
       repository: "myorg/My_App"

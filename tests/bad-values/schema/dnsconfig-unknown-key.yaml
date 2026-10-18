@@ -2,7 +2,7 @@
 # An unknown key under a dnsConfig block (typo of nameservers). Without the
 # constraint the pod keeps the cluster resolvers and the intended override is
 # silently absent.
-deployments:
+workloads:
   web:
     image: nginx:1.25
     dnsConfig:

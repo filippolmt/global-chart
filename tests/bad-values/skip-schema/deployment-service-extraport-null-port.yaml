@@ -2,8 +2,8 @@
 # --skip-schema-validation, servicePrimaryPort keeps "<nil>" out of the
 # manifest and names the key (issue #191). A null inside a list survives the
 # values merge in Helm 3 and 4.
-# Expected fail substring: "deployments.app.service.extraPorts[0].port: null"
-deployments:
+# Expected fail substring: "workloads.app.service.extraPorts[0].port: null"
+workloads:
   app:
     image: nginx:1.25
     service:

@@ -1,7 +1,7 @@
 # covers: labelSelector
 # An unknown key in a label selector (typo of matchLabels). Dropped, the
 # selector is empty and matches every pod.
-deployments:
+workloads:
   app:
     image: nginx:1.25
     networkPolicy:

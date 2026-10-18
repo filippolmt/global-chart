@@ -1,6 +1,6 @@
 # A tag carrying @<digest> together with image.digest (ADR 0018). digest would
 # win and drop the tag's pin in silence; the pair is rejected even when equal.
-deployments:
+workloads:
   web:
     image:
       repository: nginx

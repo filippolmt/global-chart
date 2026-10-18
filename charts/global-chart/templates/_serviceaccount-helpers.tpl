@@ -30,7 +30,7 @@ time.
   sits in the resolver, not in _validate-helpers.tpl, because every render path
   of a job — hook.yaml, cronjob.yaml and the validator — goes through it, so no
   path can use the contradictory values before the check has run. Same reason
-  jobImageSource owns its fromDeployment fail.
+  jobImageSource owns its fromWorkload fail.
 The names these default to come from the naming helpers in _helpers.tpl.
 */}}
 
@@ -200,7 +200,7 @@ Usage: {{ $releaseSAs := include "global-chart.releaseServiceAccounts" $root | f
 {{- define "global-chart.releaseServiceAccounts" -}}
 {{- $root := . -}}
 {{- $out := dict -}}
-{{- range $deployName, $deploy := $root.Values.deployments -}}
+{{- range $deployName, $deploy := $root.Values.workloads -}}
   {{- if and $deploy (eq (include "global-chart.deploymentEnabled" $deploy) "true") -}}
     {{- $sa := include "global-chart.deploymentServiceAccount" (dict "root" $root "deploymentName" $deployName "deployment" $deploy) | fromJson -}}
     {{- if $sa.create -}}

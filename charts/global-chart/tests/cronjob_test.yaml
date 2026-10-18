@@ -2,6 +2,20 @@ suite: cronjob template tests
 templates:
   - templates/cronjob.yaml
 tests:
+  - it: should fail naming inheritWorkloadSecret when a workload-scope cronjob carries the removed inheritDeploymentSecret
+    set:
+      workloads:
+        app:
+          image: myapp:v1
+          cronJobs:
+            sync:
+              schedule: "0 * * * *"
+              command: ["./sync.sh"]
+              inheritDeploymentSecret: false
+    asserts:
+      - failedTemplate:
+          errorMessage: "workloads.app.cronJobs.sync.inheritDeploymentSecret: removed in 4.0.0, use inheritWorkloadSecret"
+
   # ====== Root-level CronJob naming (52 char truncation) ======
   - it: should truncate root-level cronjob name to 52 chars
     documentSelector:
@@ -10,13 +24,13 @@ tests:
     release:
       name: my-very-long-release-name
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
       cronJobs:
         very-long-cronjob-name-that-exceeds:
           schedule: "0 2 * * *"
-          fromDeployment: main
+          fromWorkload: main
           command: ["echo", "test"]
     asserts:
       - isKind:
@@ -47,13 +61,13 @@ tests:
           path: spec.jobTemplate.spec.template.spec.containers[0].image
           value: "myapp/backup:v1"
 
-  # ====== Root-level CronJob with fromDeployment ======
-  - it: should resolve image from fromDeployment
+  # ====== Root-level CronJob with fromWorkload ======
+  - it: should resolve image from fromWorkload
     documentSelector:
       path: kind
       value: CronJob
     set:
-      deployments:
+      workloads:
         api:
           image:
             repository: myapp/api
@@ -61,7 +75,7 @@ tests:
       cronJobs:
         cleanup:
           schedule: "0 4 * * *"
-          fromDeployment: api
+          fromWorkload: api
           command: ["./cleanup.sh"]
     asserts:
       - equal:
@@ -88,7 +102,7 @@ tests:
   # ====== Workload enabled flag ======
   - it: should not render workload-scope cronjob when deployment enabled is false
     set:
-      deployments:
+      workloads:
         backend:
           enabled: false
           image: myapp:v2
@@ -105,7 +119,7 @@ tests:
       path: kind
       value: CronJob
     set:
-      deployments:
+      workloads:
         backend:
           image:
             repository: myapp/backend
@@ -133,7 +147,7 @@ tests:
 
   - it: should name a workload-scope cronjob image by its values path (issue #188)
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           cronJobs:
@@ -144,12 +158,12 @@ tests:
               command: ["./backup.sh"]
     asserts:
       - failedTemplate:
-          errorMessage: "deployments.backend.cronJobs.db-backup.image: sets a digest without a repository (expected repository@digest)"
+          errorMessage: "workloads.backend.cronJobs.db-backup.image: sets a digest without a repository (expected repository@digest)"
 
   # ====== Workload-scope CronJob inheritance ======
   - it: should inherit image from parent deployment
     set:
-      deployments:
+      workloads:
         backend:
           image:
             repository: myapp/backend
@@ -187,7 +201,7 @@ tests:
     release:
       name: myrel
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp/backend:v1
           serviceAccount:
@@ -226,7 +240,7 @@ tests:
   # ====== CronJob labels ======
   - it: should include component label on workload-scope cronjob
     set:
-      deployments:
+      workloads:
         worker:
           image: myapp:v1
           serviceAccount:
@@ -250,7 +264,7 @@ tests:
   # ====== Workload-scope CronJob hostAliases inheritance ======
   - it: should inherit hostAliases from the workload in workload-scope cronjob
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v1
           hostAliases:
@@ -277,7 +291,7 @@ tests:
 
   - it: should allow cronjob to override inherited hostAliases
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v1
           hostAliases:
@@ -301,7 +315,7 @@ tests:
   # ====== Workload-scope CronJob: explicit empty should NOT inherit ======
   - it: should not inherit hostAliases when cronjob sets empty list
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v1
           hostAliases:
@@ -323,7 +337,7 @@ tests:
 
   - it: should not inherit podSecurityContext when cronjob sets empty map
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v1
           podSecurityContext:
@@ -343,7 +357,7 @@ tests:
 
   - it: should not inherit container securityContext when cronjob sets empty map
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v1
           securityContext:
@@ -364,7 +378,7 @@ tests:
   # ====== Workload-scope CronJob: explicit empty should NOT inherit (nodeSelector, affinity, tolerations, imagePullSecrets) ======
   - it: should allow cronjob to override nodeSelector with empty map
     set:
-      deployments:
+      workloads:
         backend:
           image: "myapp:v1"
           nodeSelector:
@@ -384,7 +398,7 @@ tests:
 
   - it: should allow cronjob to override tolerations with empty list
     set:
-      deployments:
+      workloads:
         backend:
           image: "myapp:v1"
           tolerations:
@@ -407,7 +421,7 @@ tests:
 
   - it: should allow cronjob to override affinity with empty map
     set:
-      deployments:
+      workloads:
         backend:
           image: "myapp:v1"
           affinity:
@@ -433,7 +447,7 @@ tests:
 
   - it: should allow cronjob to override imagePullSecrets with empty list
     set:
-      deployments:
+      workloads:
         backend:
           image: "myapp:v1"
           imagePullSecrets:
@@ -457,13 +471,13 @@ tests:
       path: kind
       value: CronJob
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
       cronJobs:
         backup:
           schedule: "0 2 * * *"
-          fromDeployment: main
+          fromWorkload: main
           command: ["echo", "backup"]
           podSecurityContext:
             runAsUser: 1000
@@ -478,13 +492,13 @@ tests:
       path: kind
       value: CronJob
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
       cronJobs:
         backup:
           schedule: "0 2 * * *"
-          fromDeployment: main
+          fromWorkload: main
           command: ["echo", "backup"]
           securityContext:
             runAsNonRoot: true
@@ -497,7 +511,7 @@ tests:
   # ====== Workload-scope CronJob securityContext inheritance ======
   - it: should inherit podSecurityContext from the workload in workload-scope cronjob
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v1
           podSecurityContext:
@@ -518,7 +532,7 @@ tests:
 
   - it: should inherit container securityContext from the workload in workload-scope cronjob
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v1
           securityContext:
@@ -537,7 +551,7 @@ tests:
   # the deployment's entrypoint (see issue #72).
   - it: should not inherit command or args from the workload in workload-scope cronjob
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v1
           command: ["python", "-m", "app.worker"]
@@ -558,7 +572,7 @@ tests:
   # ====== Workload-scope CronJob dnsConfig inheritance ======
   - it: should inherit dnsConfig from the workload in workload-scope cronjob
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v1
           dnsConfig:
@@ -587,7 +601,7 @@ tests:
   # value and the resolver fell back to ndots:5 (issue #136).
   - it: should keep an inherited dnsConfig option value of 0 in a workload-scope cronjob
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v1
           dnsConfig:
@@ -697,7 +711,7 @@ tests:
     release:
       name: myrel
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp/backend:v1
           cronJobs:
@@ -718,7 +732,7 @@ tests:
 
   - it: should render successfulJobsHistoryLimit 0 on workload-scope cronjob
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           cronJobs:
@@ -737,7 +751,7 @@ tests:
 
   - it: should render failedJobsHistoryLimit 0 on workload-scope cronjob
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           cronJobs:
@@ -803,7 +817,7 @@ tests:
 
   - it: should inherit affinity from the workload in workload-scope cronjob
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v1
           affinity:
@@ -833,7 +847,7 @@ tests:
 
   - it: should use cronJob podSecurityContext when both deployment and cronJob set it
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v1
           podSecurityContext:
@@ -855,7 +869,7 @@ tests:
 
   - it: should use cronJob securityContext when both deployment and cronJob set it
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v1
           securityContext:
@@ -880,7 +894,7 @@ tests:
 
   - it: should inherit imagePullSecrets from the workload in workload-scope cronjob
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v1
           imagePullSecrets:
@@ -900,7 +914,7 @@ tests:
 
   - it: should use cronJob imagePullSecrets when both deployment and cronJob set it
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v1
           imagePullSecrets:
@@ -922,7 +936,7 @@ tests:
 
   - it: should render no nodeSelector when neither deployment nor cronjob sets it
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v1
           cronJobs:
@@ -939,20 +953,20 @@ tests:
 
   # ====== Negative tests: fail/required paths ======
 
-  - it: should fail when fromDeployment references non-existent deployment
+  - it: should fail when fromWorkload references non-existent deployment
     set:
       cronJobs:
         cleanup:
           schedule: "0 * * * *"
-          fromDeployment: ghost
+          fromWorkload: ghost
           command: ["./run.sh"]
     asserts:
       - failedTemplate:
-          errorPattern: "cronJobs\\.cleanup\\.fromDeployment: references deployment 'ghost', which does not exist in \\.Values\\.deployments"
+          errorPattern: "cronJobs\\.cleanup\\.fromWorkload: references workload 'ghost', which does not exist in \\.Values\\.workloads"
 
   - it: should fail when two volumes entries of a workload-scope cronjob share a name
     set:
-      deployments:
+      workloads:
         web:
           image: nginx:1.25
           cronJobs:
@@ -966,9 +980,9 @@ tests:
                   emptyDir: {}
     asserts:
       - failedTemplate:
-          errorMessage: "deployments.web.cronJobs.sync.volumes[1]: declares the pod volume 'data', which deployments.web.cronJobs.sync.volumes[0] already declares, and a pod holds one volume per name. Rename the volumes entry."
+          errorMessage: "workloads.web.cronJobs.sync.volumes[1]: declares the pod volume 'data', which workloads.web.cronJobs.sync.volumes[0] already declares, and a pod holds one volume per name. Rename the volumes entry."
 
-  - it: should fail when root-level cronJob has no image and no fromDeployment
+  - it: should fail when root-level cronJob has no image and no fromWorkload
     set:
       cronJobs:
         cleanup:
@@ -976,7 +990,7 @@ tests:
           command: ["./run.sh"]
     asserts:
       - failedTemplate:
-          errorPattern: "cronJobs\\.cleanup: image is required \\(set cronJobs\\.cleanup\\.image or cronJobs\\.cleanup\\.fromDeployment\\)"
+          errorPattern: "cronJobs\\.cleanup: image is required \\(set cronJobs\\.cleanup\\.image or cronJobs\\.cleanup\\.fromWorkload\\)"
 
   # ====== global.commonLabels ======
   - it: should render global.commonLabels on cronjob metadata
@@ -997,7 +1011,7 @@ tests:
   # ====== Workload-scope CronJob SA inheritance (existing SA) ======
   - it: should inherit existing SA name from deployment when create=false
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           serviceAccount:
@@ -1103,7 +1117,7 @@ tests:
   # ====== issue #48: empty metadata blocks (workload-scope) ======
   - it: should NOT render empty jobTemplate.metadata for workload-scope cronjob
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           cronJobs:
@@ -1220,7 +1234,7 @@ tests:
   # ====== issue #48: CronJob spec hardening fields (workload-scope) ======
   - it: should render hardening fields on workload-scope cronjob
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           cronJobs:
@@ -1265,7 +1279,7 @@ tests:
   # ====== issue #48: secret/configmap inheritance opt-out (workload-scope cronjob) ======
   - it: should auto-inherit deployment configMap and secret in env (default)
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           configMap:
@@ -1300,7 +1314,7 @@ tests:
   # pair, the deployment's generated Secret against its envFromConfigMaps.
   - it: should order envFrom by proximity, the deployment's sources before its own
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           configMap:
@@ -1331,9 +1345,9 @@ tests:
             - secretRef:
                 name: external-secret
 
-  - it: should opt out of deployment secret inheritance when inheritDeploymentSecret=false
+  - it: should opt out of deployment secret inheritance when inheritWorkloadSecret=false
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           configMap:
@@ -1344,7 +1358,7 @@ tests:
             cleanup:
               schedule: "0 4 * * *"
               command: ["./cleanup.sh"]
-              inheritDeploymentSecret: false
+              inheritWorkloadSecret: false
     documentIndex: 0
     asserts:
       - isKind:
@@ -1360,12 +1374,12 @@ tests:
             secretRef:
               name: RELEASE-NAME-global-chart-backend
 
-  # inheritDeploymentSecret covers only the generated Secret: the deployment's
+  # inheritWorkloadSecret covers only the generated Secret: the deployment's
   # envFromSecrets / envFromConfigMaps have their own opt-outs (issue #159),
   # independent of the job's own lists and of externalSecrets.
   - it: should opt out of the deployment's envFromSecrets and envFromConfigMaps
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           envFromSecrets: [prod-db-admin-credentials]
@@ -1374,8 +1388,8 @@ tests:
             report:
               schedule: "0 3 * * *"
               command: ["true"]
-              inheritDeploymentEnvFromSecrets: false
-              inheritDeploymentEnvFromConfigMaps: false
+              inheritWorkloadEnvFromSecrets: false
+              inheritWorkloadEnvFromConfigMaps: false
               envFromSecrets: [report-token]
     documentIndex: 0
     asserts:
@@ -1387,7 +1401,7 @@ tests:
 
   - it: should keep the deployment's envFrom lists ahead of the job's own by default
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           envFromSecrets: [prod-db-admin-credentials]
@@ -1409,9 +1423,9 @@ tests:
             - secretRef:
                 name: report-token
 
-  - it: should opt out of deployment configMap inheritance when inheritDeploymentConfigMap=false
+  - it: should opt out of deployment configMap inheritance when inheritWorkloadConfigMap=false
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           configMap:
@@ -1422,7 +1436,7 @@ tests:
             cleanup:
               schedule: "0 4 * * *"
               command: ["./cleanup.sh"]
-              inheritDeploymentConfigMap: false
+              inheritWorkloadConfigMap: false
     documentIndex: 0
     asserts:
       - isKind:
@@ -1440,7 +1454,7 @@ tests:
 
   - it: should opt out of both inheritances when both flags=false
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v2
           configMap:
@@ -1451,8 +1465,8 @@ tests:
             cleanup:
               schedule: "0 4 * * *"
               command: ["./cleanup.sh"]
-              inheritDeploymentConfigMap: false
-              inheritDeploymentSecret: false
+              inheritWorkloadConfigMap: false
+              inheritWorkloadSecret: false
               envFromSecrets: ["narrow-scope-token"]
     documentIndex: 0
     asserts:
@@ -1577,7 +1591,7 @@ tests:
 
   - it: should create the workload-scope cronjob SA under an explicit serviceAccountName
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v1
           cronJobs:
@@ -1618,7 +1632,7 @@ tests:
 
   - it: should fail when a workload-scope cronjob names its ServiceAccount twice with different names
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v1
           cronJobs:
@@ -1630,11 +1644,11 @@ tests:
                 name: migrator
     asserts:
       - failedTemplate:
-          errorMessage: "deployments.backend.cronJobs.backup: names its ServiceAccount twice, with different names: serviceAccountName \"runner\" and serviceAccount.name \"migrator\". Keep only one of the two fields (or set the same name in both)."
+          errorMessage: "workloads.backend.cronJobs.backup: names its ServiceAccount twice, with different names: serviceAccountName \"runner\" and serviceAccount.name \"migrator\". Keep only one of the two fields (or set the same name in both)."
 
   - it: should accept a workload-scope cronjob naming the same ServiceAccount in both fields
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v1
           cronJobs:
@@ -1668,7 +1682,7 @@ tests:
       path: kind
       value: CronJob
     set:
-      deployments:
+      workloads:
         backend:
           image: myapp:v1
           imagePullSecrets:
@@ -1784,7 +1798,7 @@ tests:
           secretstore: { kind: ClusterSecretStore, name: store }
           secretkey: app.conf
           remote: { key: app/conf }
-      deployments:
+      workloads:
         app:
           image: nginx:1.25
           envFromSecrets:
@@ -1846,7 +1860,7 @@ tests:
 
   - it: should fail when a cronjob names an unknown ExternalSecret key
     set:
-      deployments:
+      workloads:
         app:
           image: nginx:1.25
           cronJobs:
@@ -1856,7 +1870,7 @@ tests:
                 - name: missing
     asserts:
       - failedTemplate:
-          errorPattern: "deployments\\.app\\.cronJobs\\.nightly\\.externalSecrets: references 'missing', which is not a key of externalSecrets"
+          errorPattern: "workloads\\.app\\.cronJobs\\.nightly\\.externalSecrets: references 'missing', which is not a key of externalSecrets"
 
   # ====== Truncation never leaves a trailing dot (issue #120) ======
   # 51 a's + ".b-x" cut at 52 ends on the dot; trimSuffix "-" used to keep it.
@@ -1909,7 +1923,7 @@ tests:
 
   - it: should render large workload-scope cronjob integers in plain digits
     set:
-      deployments:
+      workloads:
         app:
           image: nginx:1.25
           cronJobs:
@@ -1980,7 +1994,7 @@ tests:
       path: kind
       value: CronJob
     set:
-      deployments:
+      workloads:
         app:
           image: nginx
           automountServiceAccountToken: false
@@ -1998,7 +2012,7 @@ tests:
       path: kind
       value: CronJob
     set:
-      deployments:
+      workloads:
         app:
           image: nginx
           automountServiceAccountToken: false
@@ -2019,7 +2033,7 @@ tests:
       path: kind
       value: CronJob
     set:
-      deployments:
+      workloads:
         app:
           image: nginx
           automountServiceAccountToken: false
@@ -2038,7 +2052,7 @@ tests:
       path: kind
       value: CronJob
     set:
-      deployments:
+      workloads:
         app:
           image: nginx
           cronJobs:
@@ -2051,7 +2065,7 @@ tests:
 
   - it: should keep a cronjob's own automountServiceAccountToken on both its created SA and its pod
     set:
-      deployments:
+      workloads:
         app:
           image: nginx
           cronJobs:
@@ -2081,7 +2095,7 @@ tests:
       path: kind
       value: CronJob
     set:
-      deployments:
+      workloads:
         backend:
           image: "myapp:v1"
           priorityClassName: prod-high
@@ -2099,7 +2113,7 @@ tests:
       path: kind
       value: CronJob
     set:
-      deployments:
+      workloads:
         backend:
           image: "myapp:v1"
           priorityClassName: prod-high
@@ -2118,7 +2132,7 @@ tests:
       path: kind
       value: CronJob
     set:
-      deployments:
+      workloads:
         backend:
           image: "myapp:v1"
           priorityClassName: prod-high
@@ -2131,19 +2145,19 @@ tests:
       - notExists:
           path: spec.jobTemplate.spec.template.spec.priorityClassName
 
-  - it: should not inherit priorityClassName on a root-level cronjob via fromDeployment
+  - it: should not inherit priorityClassName on a root-level cronjob via fromWorkload
     documentSelector:
       path: kind
       value: CronJob
     set:
-      deployments:
+      workloads:
         backend:
           image: "myapp:v1"
           priorityClassName: prod-high
       cronJobs:
         cleanup:
           schedule: "0 2 * * *"
-          fromDeployment: backend
+          fromWorkload: backend
           command: ["./cleanup.sh"]
     asserts:
       - notExists:
@@ -2170,7 +2184,7 @@ tests:
       path: kind
       value: CronJob
     set:
-      deployments:
+      workloads:
         backend:
           image: "myapp:v1"
           cronJobs:
@@ -2190,7 +2204,7 @@ tests:
           secretstore: { kind: ClusterSecretStore, name: store }
           secretkey: KEY
           remote: { key: app/env }
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           externalSecrets:

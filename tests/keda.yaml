@@ -14,7 +14,7 @@ kedaTriggerAuthentications:
     podIdentity:
       provider: aws
 
-deployments:
+workloads:
   # Chart-managed TriggerAuthentication, scale-to-zero, paused-replicas annotation.
   worker:
     image:

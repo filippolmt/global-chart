@@ -2,7 +2,7 @@
 # rejects it first; under --skip-schema-validation resolveBackend fails naming
 # the key instead of printing "<nil>".
 # Expected fail substring: "ingress.hosts[0].service.port: null"
-deployments:
+workloads:
   web:
     image: nginx:1.25
 ingress:

@@ -2,7 +2,7 @@
 # An unknown key inside a matches entry's queryParams item (typo of type).
 # Without the closure the parameter matches exactly instead of by the intended
 # regular expression.
-deployments:
+workloads:
   api:
     image: nginx:1.25
 
@@ -17,4 +17,4 @@ httpRoute:
               value: "^v[0-9]+$"
               tpye: RegularExpression
       backendRefs:
-        - deployment: api
+        - workload: api

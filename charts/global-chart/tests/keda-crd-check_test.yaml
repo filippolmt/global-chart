@@ -10,7 +10,7 @@ tests:
   - it: should fail when a KEDA-enabled deployment finds no keda.sh CRD
     template: templates/scaledobject.yaml
     set:
-      deployments:
+      workloads:
         worker:
           image: nginx:1.25
           keda:
@@ -20,12 +20,12 @@ tests:
                 metadata: { timezone: UTC, start: "0 0 * * *", end: "59 23 * * *", desiredReplicas: "3" }
     asserts:
       - failedTemplate:
-          errorPattern: "deployments\\.worker\\.keda: needs the CRD keda\\.sh/v1alpha1, which is not registered in the cluster"
+          errorPattern: "workloads\\.worker\\.keda: needs the CRD keda\\.sh/v1alpha1, which is not registered in the cluster"
 
   - it: should point at the --api-versions escape for offline rendering
     template: templates/scaledobject.yaml
     set:
-      deployments:
+      workloads:
         worker:
           image: nginx:1.25
           keda:
@@ -50,7 +50,7 @@ tests:
 
   - it: should not check the CRD when KEDA is not used
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
     asserts:

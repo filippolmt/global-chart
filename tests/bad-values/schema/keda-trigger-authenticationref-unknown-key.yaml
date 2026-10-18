@@ -2,7 +2,7 @@
 # An unknown key inside a KEDA trigger's authenticationRef (typo of kind).
 # Without the closure the reference falls back to a namespaced
 # TriggerAuthentication instead of the intended cluster-scoped one.
-deployments:
+workloads:
   web:
     image: nginx:1.25
     keda:

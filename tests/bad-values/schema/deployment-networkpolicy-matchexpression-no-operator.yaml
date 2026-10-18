@@ -1,6 +1,6 @@
 # A matchExpressions entry without an operator is rejected by the API server
 # at apply; the schema catches it at lint.
-deployments:
+workloads:
   app:
     image: nginx:1.25
     networkPolicy:

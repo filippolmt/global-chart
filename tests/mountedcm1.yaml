@@ -1,4 +1,4 @@
-deployments:
+workloads:
   main:
     image:
       repository: nginx
@@ -114,7 +114,7 @@ hooks:
         kubernetes.io/e2e-az-name: e2e-az1
   pre-upgrade:
     deploy:
-      fromDeployment: main
+      fromWorkload: main
       command: ["sh", "-c"]
       args: ["echo", "ciao"]
       weight: 10
@@ -125,7 +125,7 @@ hooks:
           secret:
             secretName: mysql-0-secret
     s3fs:
-      fromDeployment: main
+      fromWorkload: main
       command: ["bin/sh", "-c"]
       args: ["echo", "ciao"]
       weight: 20
@@ -139,7 +139,7 @@ cronJobs:
     tolerations: []
     annotations: {}
     schedule: "00 12 * * 1-5"
-    fromDeployment: main
+    fromWorkload: main
     serviceAccountName:
     successfulJobsHistoryLimit: 2
     failedJobsHistoryLimit: 2
@@ -160,7 +160,7 @@ cronJobs:
           secretName: mysql-0-secret
   testcron:
     schedule: "00 12 * * 1-5"
-    fromDeployment: main
+    fromWorkload: main
     command: ["sh", "-c"]
     args: ["echo", "ciao"]
     affinity: *affinity

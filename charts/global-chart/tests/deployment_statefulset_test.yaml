@@ -4,7 +4,7 @@ templates:
 release:
   name: rel
 set:
-  deployments:
+  workloads:
     db:
       kind: StatefulSet
       image: "nginx:1.25"
@@ -32,7 +32,7 @@ tests:
   # created or not depending on the hash. Fail, never truncate.
   - it: should accept a StatefulSet name of 52 characters
     set:
-      deployments:
+      workloads:
         db:
           enabled: false
         aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:
@@ -53,7 +53,7 @@ tests:
           team: search
         commonAnnotations:
           owner: search
-      deployments:
+      workloads:
         db:
           volumeMounts:
             - name: data
@@ -91,7 +91,7 @@ tests:
   # "" asks for no dynamic provisioning; absent takes the default class
   - it: should tell an empty storageClassName from an absent one
     set:
-      deployments:
+      workloads:
         db:
           volumeMounts:
             - { name: a, mountPath: /a }
@@ -122,7 +122,7 @@ tests:
 
   - it: should take the retention policy, the update strategy and the pod management policy from the values
     set:
-      deployments:
+      workloads:
         db:
           persistentVolumeClaimRetentionPolicy:
             whenScaled: Delete
@@ -160,7 +160,7 @@ tests:
 
   - it: should render no StatefulSet field on a Deployment
     set:
-      deployments.db.kind: Deployment
+      workloads.db.kind: Deployment
     asserts:
       - isKind:
           of: Deployment
@@ -174,7 +174,7 @@ tests:
   # A claim no container mounts is storage provisioned and paid for, never used
   - it: should accept a claim template mounted by a sidecar only
     set:
-      deployments:
+      workloads:
         db:
           extraContainers:
             - name: backup
@@ -199,7 +199,7 @@ tests:
           secretstore: { kind: ClusterSecretStore, name: store }
           secretkey: KEY
           remote: { key: app }
-      deployments:
+      workloads:
         db:
           kind: StatefulSet
           image: nginx:1.25
@@ -214,4 +214,4 @@ tests:
               size: 1Gi
     asserts:
       - failedTemplate:
-          errorMessage: "deployments.db.externalSecrets[0]: the volume 'es-app-conf' generated for 'app-conf' is already declared by deployments.db.volumeClaimTemplates[0]. Mount a key once, and do not name your own volumes after it."
+          errorMessage: "workloads.db.externalSecrets[0]: the volume 'es-app-conf' generated for 'app-conf' is already declared by workloads.db.volumeClaimTemplates[0]. Mount a key once, and do not name your own volumes after it."

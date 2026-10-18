@@ -1,5 +1,5 @@
 # EnvVar.value is a string (issue #137), in an init container's env (issue #148).
-deployments:
+workloads:
   app:
     image: nginx:1.25
     extraInitContainers:

@@ -1,6 +1,6 @@
 # A claim template asking for no storage: the size pattern takes a positive
 # quantity only.
-deployments:
+workloads:
   db:
     kind: StatefulSet
     image: nginx:1.25

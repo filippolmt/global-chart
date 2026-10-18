@@ -4,7 +4,7 @@
 # - Hook with explicit serviceAccountName override
 # - Inheritance of tolerations, affinity, envFrom
 
-deployments:
+workloads:
   odoo:
     enabled: true
     podRecreation:

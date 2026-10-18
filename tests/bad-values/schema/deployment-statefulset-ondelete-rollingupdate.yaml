@@ -1,6 +1,6 @@
 # rollingUpdate with type OnDelete: the API server accepts rollingUpdate only
 # with type RollingUpdate, so the schema rejects it at render time.
-deployments:
+workloads:
   db:
     kind: StatefulSet
     image: nginx:1.25

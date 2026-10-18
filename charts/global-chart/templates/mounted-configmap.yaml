@@ -5,7 +5,7 @@
        a YAML 1.1 scalar and reaches the API server as another key (issue
        #152). */ -}}
 {{- $root := . -}}
-{{- range $name, $deploy := .Values.deployments }}
+{{- range $name, $deploy := .Values.workloads }}
 {{- if $deploy }}
 {{- if eq (include "global-chart.deploymentEnabled" $deploy) "true" }}
 {{- $mountedConfigFiles := $deploy.mountedConfigFiles -}}

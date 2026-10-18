@@ -5,7 +5,7 @@ tests:
   # ====== Workload enabled flag ======
   - it: should not render mounted-configmap when deployment enabled is false
     set:
-      deployments:
+      workloads:
         main:
           enabled: false
           image: nginx:1.25
@@ -21,7 +21,7 @@ tests:
 
   - it: should not render when mountedConfigFiles not defined
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
     asserts:
@@ -30,7 +30,7 @@ tests:
 
   - it: should render configmap for individual file
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           mountedConfigFiles:
@@ -52,7 +52,7 @@ tests:
 
   - it: should render multiple configmaps for multiple files
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           mountedConfigFiles:
@@ -71,7 +71,7 @@ tests:
 
   - it: should render configmaps for bundle files
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           mountedConfigFiles:
@@ -92,7 +92,7 @@ tests:
 
   - it: should fail when files entry has no content
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           mountedConfigFiles:
@@ -102,11 +102,11 @@ tests:
                 targetPath: /etc/config/config.yaml
     asserts:
       - failedTemplate:
-          errorPattern: "deployments\\.main\\.mountedConfigFiles\\.files\\[0\\]\\.content: required"
+          errorPattern: "workloads\\.main\\.mountedConfigFiles\\.files\\[0\\]\\.content: required"
 
   - it: should fail when bundle file entry has no content
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           mountedConfigFiles:
@@ -117,7 +117,7 @@ tests:
                     relPath: sub/app.yaml
     asserts:
       - failedTemplate:
-          errorPattern: "deployments\\.main\\.mountedConfigFiles\\.bundles\\[0\\]\\.files\\[0\\]\\.content: required"
+          errorPattern: "workloads\\.main\\.mountedConfigFiles\\.bundles\\[0\\]\\.files\\[0\\]\\.content: required"
 
   # ====== Content and keys that broke the YAML (issue #157) ======
   # A bare `|` takes its indentation from the first line: a first line more
@@ -125,7 +125,7 @@ tests:
   # "did not find expected key".
   - it: should keep a file whose first line is indented
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           mountedConfigFiles:
@@ -141,7 +141,7 @@ tests:
 
   - it: should keep a bundle file whose first line is indented
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           mountedConfigFiles:
@@ -158,7 +158,7 @@ tests:
 
   - it: should fail when files entry has no filename
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           mountedConfigFiles:
@@ -168,11 +168,11 @@ tests:
                 content: "a: b"
     asserts:
       - failedTemplate:
-          errorMessage: "deployments.main.mountedConfigFiles.files[0].filename: required"
+          errorMessage: "workloads.main.mountedConfigFiles.files[0].filename: required"
 
   - it: should quote a filename YAML 1.1 would rewrite
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           mountedConfigFiles:
@@ -200,7 +200,7 @@ tests:
   # A bundle file with no relPath rendered its ConfigMap key as "." (issue #157)
   - it: should fail when a bundle file entry has no relPath
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           mountedConfigFiles:
@@ -211,12 +211,12 @@ tests:
                     content: "b"
     asserts:
       - failedTemplate:
-          errorMessage: "deployments.main.mountedConfigFiles.bundles[0].files[0].relPath: required"
+          errorMessage: "workloads.main.mountedConfigFiles.bundles[0].files[0].relPath: required"
 
   # An empty file is a file: `content: ""` used to fail as "required".
   - it: should render an empty mounted file for content ""
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           mountedConfigFiles:
@@ -243,7 +243,7 @@ tests:
 
   - it: should still fail when a mounted file has no content
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           mountedConfigFiles:
@@ -253,4 +253,4 @@ tests:
                 targetPath: /etc/app/missing.conf
     asserts:
       - failedTemplate:
-          errorMessage: "deployments.main.mountedConfigFiles.files[0].content: required"
+          errorMessage: "workloads.main.mountedConfigFiles.files[0].content: required"

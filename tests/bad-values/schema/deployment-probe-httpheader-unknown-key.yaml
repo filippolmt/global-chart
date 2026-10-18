@@ -1,7 +1,7 @@
 # covers: probe/properties/httpGet/properties/httpHeaders/items
 # An HTTPHeader has no valueFrom (EnvVar has): Kubernetes drops it, and the
 # header goes out with the literal value only.
-deployments:
+workloads:
   app:
     image: nginx:1.25
     readinessProbe:

@@ -5,7 +5,7 @@ tests:
   # ====== enabled flag ======
   - it: should not render deployment when enabled is false
     set:
-      deployments:
+      workloads:
         main:
           enabled: false
           image: nginx:1.25
@@ -15,7 +15,7 @@ tests:
 
   - it: should render deployment when enabled is true
     set:
-      deployments:
+      workloads:
         main:
           enabled: true
           image: nginx:1.25
@@ -25,7 +25,7 @@ tests:
 
   - it: should render deployment when enabled is not set (default true)
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
     asserts:
@@ -35,7 +35,7 @@ tests:
   # ====== command / args ======
   - it: should render command and args on the main container
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           command: ["python", "-m", "app.worker"]
@@ -50,7 +50,7 @@ tests:
 
   - it: should render command without args
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           command: ["python", "-m", "app.worker"]
@@ -63,7 +63,7 @@ tests:
 
   - it: should render args without command
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           args: ["--verbose"]
@@ -76,7 +76,7 @@ tests:
 
   - it: should not render command or args when not set
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
     asserts:
@@ -87,7 +87,7 @@ tests:
 
   - it: should not render command or args when set to empty lists
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           command: []
@@ -101,7 +101,7 @@ tests:
   # ====== extraContainers (Bug Fix #1) ======
   - it: should render extraContainers as sidecar
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           extraContainers:
@@ -118,7 +118,7 @@ tests:
 
   - it: should not render extraContainers when not set
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
     asserts:
@@ -129,7 +129,7 @@ tests:
   # ====== securityContext container-level (Bug Fix #2) ======
   - it: should render container-level securityContext
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           securityContext:
@@ -149,7 +149,7 @@ tests:
 
   - it: should not render container securityContext when not set
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
     asserts:
@@ -159,7 +159,7 @@ tests:
   # ====== additionalEnvs (Bug Fix #3) ======
   - it: should render additionalEnvs with valueFrom
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           additionalEnvs:
@@ -178,7 +178,7 @@ tests:
 
   - it: should render additionalEnvs with literal value
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           additionalEnvs:
@@ -193,7 +193,7 @@ tests:
 
   - it: should render additionalEnvs mixing value and valueFrom
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           additionalEnvs:
@@ -212,7 +212,7 @@ tests:
   # ====== podSecurityContext ======
   - it: should render podSecurityContext
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           podSecurityContext:
@@ -229,7 +229,7 @@ tests:
   # ====== extraInitContainers ======
   - it: should render extraInitContainers
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           extraInitContainers:
@@ -246,7 +246,7 @@ tests:
 
   - it: should render extraInitContainers with full spec
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           extraInitContainers:
@@ -272,7 +272,7 @@ tests:
 
   - it: should not render initContainers when extraInitContainers not set
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
     asserts:
@@ -282,7 +282,7 @@ tests:
   # ====== image with digest ======
   - it: should render image with digest
     set:
-      deployments:
+      workloads:
         main:
           image:
             repository: nginx
@@ -295,7 +295,7 @@ tests:
   # ====== image tag with a digest suffix (issue #187, ADR 0018) ======
   - it: should render a tag carrying a digest as written
     set:
-      deployments:
+      workloads:
         main:
           image:
             repository: nginx
@@ -308,7 +308,7 @@ tests:
   # ====== resources ======
   - it: should render resources
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           resources:
@@ -329,7 +329,7 @@ tests:
   # ====== container port (issue #82) ======
   - it: should default containerPort to service.port
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           service:
@@ -341,7 +341,7 @@ tests:
 
   - it: should default containerPort to 80 when service.port is unset
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
     asserts:
@@ -351,7 +351,7 @@ tests:
 
   - it: should derive containerPort from a numeric service.targetPort
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           service:
@@ -367,7 +367,7 @@ tests:
 
   - it: should fall back to service.port when service.targetPort is a port name
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           service:
@@ -380,7 +380,7 @@ tests:
 
   - it: should name the derived containerPort with service.portName
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           service:
@@ -397,7 +397,7 @@ tests:
 
   - it: should name the primary container port after service.portName and target it by default
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           service:
@@ -413,7 +413,7 @@ tests:
 
   - it: should declare a container port for every numeric extraPorts targetPort
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           service:
@@ -440,7 +440,7 @@ tests:
 
   - it: should not declare a container port for a named extraPorts targetPort
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           service:
@@ -460,7 +460,7 @@ tests:
 
   - it: should not declare a duplicate container port when extraPorts repeats the primary port
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           service:
@@ -479,7 +479,7 @@ tests:
 
   - it: should declare the same port number twice when the protocols differ
     set:
-      deployments:
+      workloads:
         main:
           image: coredns:1.11
           service:
@@ -508,7 +508,7 @@ tests:
 
   - it: should not declare a duplicate container port when extraPorts repeats the primary name
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           service:
@@ -528,7 +528,7 @@ tests:
   # ====== probes ======
   - it: should render liveness and readiness probes
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           livenessProbe:
@@ -549,7 +549,7 @@ tests:
 
   - it: should render startupProbe when configured
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           startupProbe:
@@ -571,7 +571,7 @@ tests:
 
   - it: should not render probes when not configured
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
     asserts:
@@ -584,7 +584,7 @@ tests:
 
   - it: should render all three probe types simultaneously
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           livenessProbe:
@@ -611,7 +611,7 @@ tests:
   # ====== lifecycle + terminationGracePeriodSeconds ======
   - it: should render lifecycle preStop hook when configured
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           lifecycle:
@@ -628,7 +628,7 @@ tests:
 
   - it: should render lifecycle postStart hook when configured
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           lifecycle:
@@ -643,7 +643,7 @@ tests:
 
   - it: should not render lifecycle when not configured
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
     asserts:
@@ -652,7 +652,7 @@ tests:
 
   - it: should render terminationGracePeriodSeconds when configured
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           terminationGracePeriodSeconds: 60
@@ -663,7 +663,7 @@ tests:
 
   - it: should render terminationGracePeriodSeconds 0 when explicitly set to zero
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           terminationGracePeriodSeconds: 0
@@ -674,7 +674,7 @@ tests:
 
   - it: should not render terminationGracePeriodSeconds when not configured
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
     asserts:
@@ -684,7 +684,7 @@ tests:
   # ====== envFrom ======
   - it: should render envFrom with configMap and secret
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           configMap:
@@ -708,7 +708,7 @@ tests:
   # unobserved in the first place.
   - it: should order envFrom by type, non-secret sources before secret ones
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           configMap:
@@ -743,7 +743,7 @@ tests:
           secretstore: { kind: ClusterSecretStore, name: store }
           secretkey: app.conf
           remote: { key: app/conf }
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           configMap:
@@ -789,7 +789,7 @@ tests:
           secretstore: { kind: ClusterSecretStore, name: store }
           secretkey: app.conf
           remote: { key: app/conf }
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           volumes:
@@ -800,11 +800,11 @@ tests:
               mountPath: /etc/app
     asserts:
       - failedTemplate:
-          errorMessage: "deployments.main.externalSecrets[0]: the volume 'es-app-conf' generated for 'app-conf' is already declared by deployments.main.volumes[0]. Mount a key once, and do not name your own volumes after it."
+          errorMessage: "workloads.main.externalSecrets[0]: the volume 'es-app-conf' generated for 'app-conf' is already declared by workloads.main.volumes[0]. Mount a key once, and do not name your own volumes after it."
 
   - it: should fail when a volumes entry takes the name of a mounted config file volume
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           mountedConfigFiles:
@@ -815,11 +815,11 @@ tests:
               emptyDir: {}
     asserts:
       - failedTemplate:
-          errorMessage: "deployments.main.volumes[0]: declares the pod volume 'md-cm-file-app', which deployments.main.mountedConfigFiles.files[0] already declares, and a pod holds one volume per name. Rename the volumes entry."
+          errorMessage: "workloads.main.volumes[0]: declares the pod volume 'md-cm-file-app', which workloads.main.mountedConfigFiles.files[0] already declares, and a pod holds one volume per name. Rename the volumes entry."
 
   - it: should fail when a volumes entry takes the name of a mounted config bundle volume
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           mountedConfigFiles:
@@ -832,11 +832,11 @@ tests:
               emptyDir: {}
     asserts:
       - failedTemplate:
-          errorMessage: "deployments.main.volumes[0]: declares the pod volume 'md-cm-bundle-0', which deployments.main.mountedConfigFiles.bundles[0] already declares, and a pod holds one volume per name. Rename the volumes entry."
+          errorMessage: "workloads.main.volumes[0]: declares the pod volume 'md-cm-bundle-0', which workloads.main.mountedConfigFiles.bundles[0] already declares, and a pod holds one volume per name. Rename the volumes entry."
 
   - it: should fail when two volumes entries share a name
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           volumes:
@@ -846,23 +846,23 @@ tests:
               emptyDir: {}
     asserts:
       - failedTemplate:
-          errorMessage: "deployments.main.volumes[1]: declares the pod volume 'data', which deployments.main.volumes[0] already declares, and a pod holds one volume per name. Rename the volumes entry."
+          errorMessage: "workloads.main.volumes[1]: declares the pod volume 'data', which workloads.main.volumes[0] already declares, and a pod holds one volume per name. Rename the volumes entry."
 
   - it: should fail when the deployment names an unknown ExternalSecret key
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           externalSecrets:
             - name: missing
     asserts:
       - failedTemplate:
-          errorPattern: "deployments\\.main\\.externalSecrets: references 'missing', which is not a key of externalSecrets"
+          errorPattern: "workloads\\.main\\.externalSecrets: references 'missing', which is not a key of externalSecrets"
 
   # ====== replicas with autoscaling ======
   - it: should not set replicas when autoscaling is enabled
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           autoscaling:
@@ -876,7 +876,7 @@ tests:
 
   - it: should set replicas when autoscaling is disabled
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           replicaCount: 3
@@ -891,7 +891,7 @@ tests:
   # that was deliberately scaled to zero.
   - it: should not set replicas when keda is enabled
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           keda:
@@ -907,7 +907,7 @@ tests:
 
   - it: should not set replicas when keda is enabled even with an explicit replicaCount
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           replicaCount: 3
@@ -922,7 +922,7 @@ tests:
 
   - it: should set replicas when keda is present but disabled
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           replicaCount: 3
@@ -941,7 +941,7 @@ tests:
     release:
       name: myrelease
     set:
-      deployments:
+      workloads:
         api:
           image: nginx:1.25
     asserts:
@@ -952,7 +952,7 @@ tests:
   # ====== selector labels include component ======
   - it: should include component in selector labels
     set:
-      deployments:
+      workloads:
         web:
           image: nginx:1.25
     asserts:
@@ -964,7 +964,7 @@ tests:
   # ====== nodeSelector, tolerations, affinity ======
   - it: should render nodeSelector
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           nodeSelector:
@@ -976,7 +976,7 @@ tests:
 
   - it: should render tolerations
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           tolerations:
@@ -996,7 +996,7 @@ tests:
   # ====== volumeMounts ======
   - it: should render volumeMounts and volumes
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           volumes:
@@ -1020,7 +1020,7 @@ tests:
   # ====== native volume spec ======
   - it: should render native volume spec (no .type field)
     set:
-      deployments:
+      workloads:
         main:
           image: "nginx:1.25"
           volumes:
@@ -1055,7 +1055,7 @@ tests:
   # ====== resources handling ======
   - it: should not render resources key when not specified
     set:
-      deployments:
+      workloads:
         main:
           image: "nginx:1.25"
     asserts:
@@ -1064,7 +1064,7 @@ tests:
 
   - it: should render resources when specified
     set:
-      deployments:
+      workloads:
         main:
           image: "nginx:1.25"
           resources:
@@ -1079,7 +1079,7 @@ tests:
   # ====== secret checksum ======
   - it: should include secret checksum in pod annotations
     set:
-      deployments:
+      workloads:
         main:
           image: "nginx:1.25"
           secret:
@@ -1091,7 +1091,7 @@ tests:
   # ====== strategy ======
   - it: should render strategy when configured
     set:
-      deployments:
+      workloads:
         main:
           image: "nginx:1.25"
           strategy:
@@ -1109,7 +1109,7 @@ tests:
 
   - it: should not render strategy when not configured
     set:
-      deployments:
+      workloads:
         main:
           image: "nginx:1.25"
     asserts:
@@ -1119,7 +1119,7 @@ tests:
   # ====== revisionHistoryLimit ======
   - it: should render revisionHistoryLimit when configured
     set:
-      deployments:
+      workloads:
         main:
           image: "nginx:1.25"
           revisionHistoryLimit: 3
@@ -1130,7 +1130,7 @@ tests:
 
   - it: should not render revisionHistoryLimit when not configured
     set:
-      deployments:
+      workloads:
         main:
           image: "nginx:1.25"
     asserts:
@@ -1140,7 +1140,7 @@ tests:
   # ====== progressDeadlineSeconds ======
   - it: should render progressDeadlineSeconds when configured
     set:
-      deployments:
+      workloads:
         main:
           image: "nginx:1.25"
           progressDeadlineSeconds: 120
@@ -1151,7 +1151,7 @@ tests:
 
   - it: should not render progressDeadlineSeconds when not configured
     set:
-      deployments:
+      workloads:
         main:
           image: "nginx:1.25"
     asserts:
@@ -1161,7 +1161,7 @@ tests:
   # ====== topologySpreadConstraints ======
   - it: should render topologySpreadConstraints when configured
     set:
-      deployments:
+      workloads:
         main:
           image: "nginx:1.25"
           topologySpreadConstraints:
@@ -1181,7 +1181,7 @@ tests:
 
   - it: should not render topologySpreadConstraints when not configured
     set:
-      deployments:
+      workloads:
         main:
           image: "nginx:1.25"
     asserts:
@@ -1193,7 +1193,7 @@ tests:
     set:
       global:
         imageRegistry: registry.example.com
-      deployments:
+      workloads:
         main:
           image:
             repository: myapp
@@ -1209,7 +1209,7 @@ tests:
     set:
       global:
         imageRegistry: registry.example.com
-      deployments:
+      workloads:
         main:
           image: "Mirror:5000/myapp:v1"
     asserts:
@@ -1219,7 +1219,7 @@ tests:
 
   - it: should not prepend imageRegistry when not set
     set:
-      deployments:
+      workloads:
         main:
           image:
             repository: myapp
@@ -1234,7 +1234,7 @@ tests:
       global:
         imagePullSecrets:
           - name: global-regcred
-      deployments:
+      workloads:
         main:
           image: "nginx:1.25"
     asserts:
@@ -1247,7 +1247,7 @@ tests:
       global:
         imagePullSecrets:
           - name: global-regcred
-      deployments:
+      workloads:
         main:
           image: "nginx:1.25"
           imagePullSecrets:
@@ -1260,7 +1260,7 @@ tests:
   # ====== falsy-safe replicaCount (hasKey) ======
   - it: should render replicaCount 0 when explicitly set
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           replicaCount: 0
@@ -1273,7 +1273,7 @@ tests:
     set:
       global:
         imageRegistry: registry.example.com
-      deployments:
+      workloads:
         main:
           image: "docker.io/nginx:1.25"
     asserts:
@@ -1285,7 +1285,7 @@ tests:
 
   - it: should render affinity when set on deployment
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           affinity:
@@ -1311,7 +1311,7 @@ tests:
       global:
         imagePullSecrets:
           - name: global-regcred
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           imagePullSecrets: []
@@ -1326,7 +1326,7 @@ tests:
       global:
         commonLabels:
           team: platform
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
     asserts:
@@ -1339,7 +1339,7 @@ tests:
       global:
         commonAnnotations:
           owner: ops-team
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
     asserts:
@@ -1352,7 +1352,7 @@ tests:
       global:
         commonAnnotations:
           owner: ops-team
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
     asserts:
@@ -1366,7 +1366,7 @@ tests:
         commonAnnotations:
           owner: ops-team
           shared: from-global
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           podAnnotations:
@@ -1388,7 +1388,7 @@ tests:
       global:
         commonAnnotations:
           shared: from-global
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           podAnnotations:
@@ -1403,7 +1403,7 @@ tests:
       global:
         commonLabels:
           tier: from-global
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           podLabels:
@@ -1418,7 +1418,7 @@ tests:
       global:
         commonLabels:
           app.kubernetes.io/component: hijacked
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
     asserts:
@@ -1434,7 +1434,7 @@ tests:
       global:
         commonLabels:
           team: platform
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
     asserts:
@@ -1444,7 +1444,7 @@ tests:
   # ====== Negative tests: fail/required paths ======
   - it: should render correctly with numeric-looking image tag
     set:
-      deployments:
+      workloads:
         main:
           image:
             repository: myapp/api
@@ -1461,27 +1461,27 @@ tests:
 
   - it: should fail when image map has repository but no tag or digest
     set:
-      deployments:
+      workloads:
         main:
           image:
             repository: myapp/api
     asserts:
       - failedTemplate:
-          errorMessage: "deployments.main.image: requires either a tag or a digest when repository is provided"
+          errorMessage: "workloads.main.image: requires either a tag or a digest when repository is provided"
 
   - it: should fail when image is nil
     set:
-      deployments:
+      workloads:
         main:
           image: null
     asserts:
       - failedTemplate:
-          errorMessage: "deployments.main.image: must define a repository with a tag or a digest, or be a full image reference"
+          errorMessage: "workloads.main.image: must define a repository with a tag or a digest, or be a full image reference"
 
   # ====== Removed legacy volumes[].type format (issue #230, ADR 0022) ======
   - it: should fail naming the native source when a volume carries the removed type
     set:
-      deployments:
+      workloads:
         main:
           image: "nginx:1.25"
           volumes:
@@ -1489,11 +1489,11 @@ tests:
               type: emptyDir
     asserts:
       - failedTemplate:
-          errorPattern: "deployments\\.main\\.volumes\\[0\\]\\.type: removed in 4\\.0\\.0, use the native volume source .*; see https://github\\.com/filippolmt/global-chart/blob/main/CHANGELOG\\.md#migration-guide-from-3x"
+          errorPattern: "workloads\\.main\\.volumes\\[0\\]\\.type: removed in 4\\.0\\.0, use the native volume source .*; see https://github\\.com/filippolmt/global-chart/blob/main/CHANGELOG\\.md#migration-guide-from-3x"
 
   - it: should fail on the removed type whatever its value, a non-string included
     set:
-      deployments:
+      workloads:
         main:
           image: "nginx:1.25"
           volumes:
@@ -1501,11 +1501,11 @@ tests:
               type: 5
     asserts:
       - failedTemplate:
-          errorPattern: "deployments\\.main\\.volumes\\[0\\]\\.type: removed in 4\\.0\\.0"
+          errorPattern: "workloads\\.main\\.volumes\\[0\\]\\.type: removed in 4\\.0\\.0"
 
   - it: should fail naming secretName when a secret volume carries the removed name alias
     set:
-      deployments:
+      workloads:
         main:
           image: "nginx:1.25"
           volumes:
@@ -1514,11 +1514,11 @@ tests:
                 name: my-secret
     asserts:
       - failedTemplate:
-          errorMessage: "deployments.main.volumes[0].secret.name: removed in 4.0.0, use secret.secretName"
+          errorMessage: "workloads.main.volumes[0].secret.name: removed in 4.0.0, use secret.secretName"
 
   - it: should fail naming claimName when a persistentVolumeClaim volume carries the removed name alias
     set:
-      deployments:
+      workloads:
         main:
           image: "nginx:1.25"
           volumes:
@@ -1527,23 +1527,23 @@ tests:
                 name: my-claim
     asserts:
       - failedTemplate:
-          errorMessage: "deployments.main.volumes[0].persistentVolumeClaim.name: removed in 4.0.0, use persistentVolumeClaim.claimName"
+          errorMessage: "workloads.main.volumes[0].persistentVolumeClaim.name: removed in 4.0.0, use persistentVolumeClaim.claimName"
 
   - it: should fail when imagePullSecrets entry has no name key
     set:
-      deployments:
+      workloads:
         main:
           image: "nginx:1.25"
           imagePullSecrets:
             - badkey: value
     asserts:
       - failedTemplate:
-          errorPattern: "at '/deployments/main/imagePullSecrets/0'"
+          errorPattern: "at '/workloads/main/imagePullSecrets/0'"
 
   # ====== automountServiceAccountToken (pod-level, Issue #73) ======
   - it: should not render automountServiceAccountToken when not set
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
     asserts:
@@ -1552,7 +1552,7 @@ tests:
 
   - it: should render pod-level automountServiceAccountToken true when set
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           automountServiceAccountToken: true
@@ -1563,7 +1563,7 @@ tests:
 
   - it: should render pod-level automountServiceAccountToken false when set
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           automountServiceAccountToken: false
@@ -1579,7 +1579,7 @@ tests:
         commonAnnotations:
           team: platform
           argocd.argoproj.io/sync-wave: "0"
-      deployments:
+      workloads:
         web:
           image: nginx:1.25
           annotations:
@@ -1607,7 +1607,7 @@ tests:
   # global-chart.printScalar.
   - it: should render large integers in plain digits
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           replicaCount: 10000000
@@ -1635,7 +1635,7 @@ tests:
   # form (1.5 is never truncated). set: values reach the template as float64.
   - it: should render a large dnsConfig option value in plain digits and keep a fraction
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           dnsConfig:
@@ -1656,7 +1656,7 @@ tests:
   # used to be dropped by a truthiness test.
   - it: should keep a dnsConfig option value of 0 or empty and omit an absent one
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           dnsConfig:
@@ -1680,7 +1680,7 @@ tests:
   # any template sees it. Quoted, the trailing zero survives.
   - it: should keep a quoted numeric-looking image tag verbatim
     set:
-      deployments:
+      workloads:
         main:
           image:
             repository: nginx
@@ -1694,7 +1694,7 @@ tests:
   # (issue #157).
   - it: should fail when a mountedConfigFiles entry has no targetPath
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           mountedConfigFiles:
@@ -1704,23 +1704,23 @@ tests:
                 content: "a: b"
     asserts:
       - failedTemplate:
-          errorMessage: "deployments.main.mountedConfigFiles.files[0].targetPath: required"
+          errorMessage: "workloads.main.mountedConfigFiles.files[0].targetPath: required"
 
   # imagePullSecrets items share global.imagePullSecrets' shape: a number
   # used to pass the schema and crash the render (issue #158).
   - it: should reject an imagePullSecrets item that is neither a string nor a name map
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           imagePullSecrets: [regcred, { name: other }, 5]
     asserts:
       - failedTemplate:
-          errorPattern: "at '/deployments/main/imagePullSecrets/2'"
+          errorPattern: "at '/workloads/main/imagePullSecrets/2'"
 
   - it: should render imagePullSecrets given as strings and as name maps
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           imagePullSecrets: [regcred, { name: other }]
@@ -1735,7 +1735,7 @@ tests:
   # (issue #152): a bare 1.10 reached the API server as the float 1.1
   - it: should quote the mounted file's paths
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           mountedConfigFiles:
@@ -1761,7 +1761,7 @@ tests:
   # A bundle with no mountDir rendered `mountPath:` as null (issue #157)
   - it: should fail when a mountedConfigFiles bundle has no mountDir
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           mountedConfigFiles:
@@ -1772,12 +1772,12 @@ tests:
                     content: "b"
     asserts:
       - failedTemplate:
-          errorMessage: "deployments.main.mountedConfigFiles.bundles[0].mountDir: required"
+          errorMessage: "workloads.main.mountedConfigFiles.bundles[0].mountDir: required"
 
   # ====== priorityClassName (issue #168) ======
   - it: should render priorityClassName when set
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           priorityClassName: prod-high
@@ -1788,7 +1788,7 @@ tests:
 
   - it: should omit priorityClassName when unset
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
     asserts:
@@ -1805,7 +1805,7 @@ tests:
           secretstore: { kind: ClusterSecretStore, name: store }
           secretkey: KEY
           remote: { key: app }
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           externalSecrets:
@@ -1819,11 +1819,11 @@ tests:
               mountPath: /etc/app
     asserts:
       - failedTemplate:
-          errorMessage: "deployments.main: externalSecrets 'app-conf' mounts on '/etc/app', which volumeMounts[0] already mounts. The API server rejects two mounts on one path in a container: give each its own mountPath."
+          errorMessage: "workloads.main: externalSecrets 'app-conf' mounts on '/etc/app', which volumeMounts[0] already mounts. The API server rejects two mounts on one path in a container: give each its own mountPath."
 
   - it: should fail when two volumeMounts share a mountPath, whatever their subPath
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           volumes:
@@ -1838,11 +1838,11 @@ tests:
               subPath: b.conf
     asserts:
       - failedTemplate:
-          errorPattern: "deployments.main: volumeMounts\\[1\\] mounts on '/etc/app/a.conf', which volumeMounts\\[0\\] already mounts"
+          errorPattern: "workloads.main: volumeMounts\\[1\\] mounts on '/etc/app/a.conf', which volumeMounts\\[0\\] already mounts"
 
   - it: should fail when a mountedConfigFiles file repeats a volumeMounts mountPath
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           volumes:
@@ -1859,11 +1859,11 @@ tests:
                 content: "a: b"
     asserts:
       - failedTemplate:
-          errorPattern: "deployments.main: mountedConfigFiles.files\\[0\\] \\(myconfig\\) mounts on '/etc/app/config.yaml', which volumeMounts\\[0\\] already mounts"
+          errorPattern: "workloads.main: mountedConfigFiles.files\\[0\\] \\(myconfig\\) mounts on '/etc/app/config.yaml', which volumeMounts\\[0\\] already mounts"
 
   - it: should fail when a mountedConfigFiles bundle repeats a file targetPath
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           mountedConfigFiles:
@@ -1880,7 +1880,7 @@ tests:
                     content: "a: b"
     asserts:
       - failedTemplate:
-          errorPattern: "deployments.main: mountedConfigFiles.bundles\\[0\\] mounts on '/etc/app', which mountedConfigFiles.files\\[0\\] \\(myconfig\\) already mounts"
+          errorPattern: "workloads.main: mountedConfigFiles.bundles\\[0\\] mounts on '/etc/app', which mountedConfigFiles.files\\[0\\] \\(myconfig\\) already mounts"
 
   - it: should accept nested mountPaths across sources
     set:
@@ -1889,7 +1889,7 @@ tests:
           secretstore: { kind: ClusterSecretStore, name: store }
           secretkey: KEY
           remote: { key: app }
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           externalSecrets:
@@ -1915,11 +1915,11 @@ tests:
     set:
       externalSecrets:
         app-conf: {}
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           externalSecrets:
             - name: app-conf
     asserts:
       - failedTemplate:
-          errorPattern: "deployments\\.main\\.externalSecrets: references 'app-conf', which is empty: an empty externalSecrets entry renders no ExternalSecret"
+          errorPattern: "workloads\\.main\\.externalSecrets: references 'app-conf', which is empty: an empty externalSecrets entry renders no ExternalSecret"

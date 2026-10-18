@@ -59,6 +59,7 @@ existing `autoscaling` users.
 
 - `deployments.<name>.autoscaling` and `deployments.<name>.keda` both exist;
   neither is deprecated. Enabling both on one deployment is a template `fail`.
+  *Amended by ADR 0023:* since 4.0.0 the map is `workloads`.
 - Deployments under either autoscaler have no `spec.replicas` in the rendered
   manifest. `replicaCount` is silently inert there — the schema cannot express
   the dependency, so `deployment_test.yaml` locks the behaviour for both.

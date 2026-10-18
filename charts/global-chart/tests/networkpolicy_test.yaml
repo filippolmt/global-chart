@@ -4,7 +4,7 @@ templates:
 tests:
   - it: should not render NetworkPolicy by default
     set:
-      deployments:
+      workloads:
         main:
           image: "nginx:1.25"
     asserts:
@@ -13,7 +13,7 @@ tests:
 
   - it: should render NetworkPolicy when enabled
     set:
-      deployments:
+      workloads:
         main:
           image: "nginx:1.25"
           networkPolicy:
@@ -33,7 +33,7 @@ tests:
 
   - it: should use correct pod selector labels
     set:
-      deployments:
+      workloads:
         main:
           image: "nginx:1.25"
           networkPolicy:
@@ -48,7 +48,7 @@ tests:
 
   - it: should render ingress rules when specified
     set:
-      deployments:
+      workloads:
         main:
           image: "nginx:1.25"
           networkPolicy:
@@ -71,7 +71,7 @@ tests:
 
   - it: should render egress rules when specified
     set:
-      deployments:
+      workloads:
         main:
           image: "nginx:1.25"
           networkPolicy:
@@ -90,7 +90,7 @@ tests:
 
   - it: should render policyTypes based on rules
     set:
-      deployments:
+      workloads:
         main:
           image: "nginx:1.25"
           networkPolicy:
@@ -111,18 +111,18 @@ tests:
 
   - it: should fail when enabled with no rules and no policyTypes
     set:
-      deployments:
+      workloads:
         main:
           image: "nginx:1.25"
           networkPolicy:
             enabled: true
     asserts:
       - failedTemplate:
-          errorMessage: "deployments.main.networkPolicy: at least one of policyTypes, ingress, or egress must be set when networkPolicy.enabled is true."
+          errorMessage: "workloads.main.networkPolicy: at least one of policyTypes, ingress, or egress must be set when networkPolicy.enabled is true."
 
   - it: should render explicit policyTypes when provided
     set:
-      deployments:
+      workloads:
         main:
           image: "nginx:1.25"
           networkPolicy:
@@ -145,7 +145,7 @@ tests:
 
   - it: should render policyTypes for default deny with explicit policyTypes
     set:
-      deployments:
+      workloads:
         main:
           image: "nginx:1.25"
           networkPolicy:
@@ -161,7 +161,7 @@ tests:
 
   - it: should not render NetworkPolicy when enabled is false
     set:
-      deployments:
+      workloads:
         main:
           image: "nginx:1.25"
           networkPolicy:
@@ -172,7 +172,7 @@ tests:
 
   - it: should not render NetworkPolicy for disabled deployment
     set:
-      deployments:
+      workloads:
         main:
           enabled: false
           image: "nginx:1.25"
@@ -187,7 +187,7 @@ tests:
 
   - it: should render NetworkPolicy for multiple deployments
     set:
-      deployments:
+      workloads:
         frontend:
           image: "nginx:1.25"
           networkPolicy:

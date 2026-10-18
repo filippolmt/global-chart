@@ -4,7 +4,7 @@ spec:
   source:
     helm:
       valuesObject:
-        deployments:
+        workloads:
           app:
             hooks:
               pre-install:

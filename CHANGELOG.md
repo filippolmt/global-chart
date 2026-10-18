@@ -9,7 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Added
 
-- **`deployments.<name>.kind: StatefulSet`** (issue #211, [ADR 0020](docs/adr/0020-a-workload-kind-on-the-deployments-entry.md)).
+- **`workloads.<name>.kind: StatefulSet`** (issue #211, [ADR 0020](docs/adr/0020-a-workload-kind-on-the-deployments-entry.md)).
   An entry renders a StatefulSet instead of a Deployment. Everything else about
   it stays the same: image, config, Service, HPA/KEDA (`scaleTargetRef.kind`
   follows), PDB, NetworkPolicy, and the hooks and cronJobs that inherit from
@@ -63,6 +63,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Removed
 
+- **Breaking: the values keys say *workload*, not *deployment*** (issue #221,
+  [ADR 0023](docs/adr/0023-the-workloads-map-replaces-deployments-in-4-0-0.md)).
+  An entry can be a StatefulSet, so `deployments` named it wrongly. The keys
+  are renamed with no deprecation release, an exception ADR 0023 records:
+
+  | Removed | Replacement |
+  |---------|-------------|
+  | `deployments.<name>` | `workloads.<name>` |
+  | `fromDeployment` | `fromWorkload` |
+  | `inheritDeploymentConfigMap`, `inheritDeploymentSecret`, `inheritDeploymentEnvFromConfigMaps`, `inheritDeploymentEnvFromSecrets` | `inheritWorkload…`, same suffix |
+  | `deployment` in `ingress.hosts[]`, the `httpRoute` / `httpRoutes` and L4 route `backendRefs` | `workload` |
+
+  An old key, of any value, fails the render as `<values path>: removed in
+  4.0.0, use <replacement>`; `deployments` also links the migration guide.
+  Resource names and selector labels do not change, so no workload is
+  recreated. Messages follow: a values path reads `workloads.<name>`, a
+  reference failure `….workload: references workload '<name>'`. A check
+  matching the old text needs updating.
+  **Action:** rename the keys, per the [migration guide](#migration-guide-from-3x).
+
 - **Breaking: the legacy `volumes[].type` format** (issue #230, deprecated in
   3.1.0 by #183, [ADR 0022](docs/adr/0022-a-removed-key-stays-declared-until-the-next-major.md)).
   `type: emptyDir|configMap|secret|persistentVolumeClaim` is no longer
@@ -87,7 +107,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   kind and a name, and the message named the entry's workload, not the Service
   that clashes. The headless name is now checked against the rendered
   Services only, and the failure reads `Name collision: Service '…' generated
-  by deployments.<entry>.service conflicts with deployments.<name> (its
+  by workloads.<entry>.service conflicts with workloads.<name> (its
   headless Service)`.
 - **Two pod volumes of one name fail the render** (issue #214). A `volumes`
   entry named like a volume `mountedConfigFiles` generates (`md-cm-file-<name>`,
@@ -125,6 +145,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Migration guide from 3.x
 
+- Rename the keys that named a workload a deployment (issue #221). The
+  rename touches only values: resource names stay, nothing is recreated.
+
+  | 3.x | 4.0.0 |
+  |-----|-------|
+  | `deployments:` | `workloads:` |
+  | `fromDeployment: <name>` | `fromWorkload: <name>` |
+  | `inheritDeploymentConfigMap` / `Secret` / `EnvFromConfigMaps` / `EnvFromSecrets` | `inheritWorkloadConfigMap` / `Secret` / `EnvFromConfigMaps` / `EnvFromSecrets` |
+  | `deployment: <name>` in an ingress host or a `backendRefs` item | `workload: <name>` |
+
+  A `--set deployments.<name>…` on the command line or in a CI script needs
+  the same rename.
 - Rewrite every legacy volume, in deployments, hooks and cronJobs of both
   scopes, in the native Kubernetes form: drop `type` and write the source as
   Kubernetes does.

@@ -16,6 +16,7 @@ chart cannot see the value. `deployments.<name>.reloader.externalSecrets: true`
 therefore hands the job to Stakater Reloader. It renders
 `secret.reloader.stakater.com/reload` on the Deployment's metadata, with the
 target of every ExternalSecret the deployment references, env and mounted alike.
+*Amended by ADR 0023:* since 4.0.0 the map is `workloads`.
 
 ## Decisions
 

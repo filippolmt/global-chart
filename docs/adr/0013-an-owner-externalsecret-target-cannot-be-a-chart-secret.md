@@ -5,7 +5,7 @@ status: accepted
 # An `Owner` ExternalSecret target cannot be a Secret the chart renders
 
 `externalSecrets.<key>` and `deployments.<key>.secret` both default to
-`<fullname>-<key>` (issue #153). Naming an ExternalSecret after its deployment,
+`<fullname>-<key>` (issue #153; *Amended by ADR 0023:* since 4.0.0 the map is `workloads`). Naming an ExternalSecret after its deployment,
 the natural choice, renders a Secret owned by Helm and an ExternalSecret whose
 `creationPolicy: Owner` target has the same name. Helm and ESO then overwrite
 each other's `data`, and deleting the ExternalSecret garbage-collects the Helm

@@ -5,7 +5,7 @@ tests:
   # ====== imageString: string format ======
   - it: should render image from string
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
     asserts:
@@ -16,7 +16,7 @@ tests:
   # ====== imageString: map with tag ======
   - it: should render image from map with repository and tag
     set:
-      deployments:
+      workloads:
         main:
           image:
             repository: myapp/api
@@ -29,7 +29,7 @@ tests:
   # ====== imageString: map with digest ======
   - it: should render image from map with repository and digest
     set:
-      deployments:
+      workloads:
         main:
           image:
             repository: myapp/api
@@ -42,20 +42,20 @@ tests:
   # ====== imageString: digest-only should fail ======
   - it: should fail when digest is set without repository
     set:
-      deployments:
+      workloads:
         main:
           image:
             digest: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
     asserts:
       - failedTemplate:
-          errorMessage: "deployments.main.image: sets a digest without a repository (expected repository@digest)"
+          errorMessage: "workloads.main.image: sets a digest without a repository (expected repository@digest)"
 
   # ====== fullname ======
   - it: should generate correct fullname
     release:
       name: myrelease
     set:
-      deployments:
+      workloads:
         api:
           image: nginx:1.25
     asserts:
@@ -69,7 +69,7 @@ tests:
       name: myrelease
     set:
       nameOverride: custom
-      deployments:
+      workloads:
         api:
           image: nginx:1.25
     asserts:
@@ -81,7 +81,7 @@ tests:
   - it: should use fullnameOverride in deployment name
     set:
       fullnameOverride: myoverride
-      deployments:
+      workloads:
         api:
           image: nginx:1.25
     asserts:
@@ -92,7 +92,7 @@ tests:
   # ====== imagePullPolicy defaults ======
   - it: should default imagePullPolicy to IfNotPresent
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
     asserts:
@@ -102,7 +102,7 @@ tests:
 
   - it: should use pullPolicy from image map
     set:
-      deployments:
+      workloads:
         main:
           image:
             repository: nginx
@@ -116,7 +116,7 @@ tests:
   # ====== version label ======
   - it: should omit the version label when appVersion is unset (generic chart)
     set:
-      deployments:
+      workloads:
         main:
           image: "nginx:1.25"
     asserts:
@@ -128,7 +128,7 @@ tests:
       global:
         commonLabels:
           app.kubernetes.io/version: "2.3.4"
-      deployments:
+      workloads:
         main:
           image: "nginx:1.25"
     asserts:
@@ -140,7 +140,7 @@ tests:
     chart:
       appVersion: "9.9.9"
     set:
-      deployments:
+      workloads:
         main:
           image: "nginx:1.25"
     asserts:
@@ -155,7 +155,7 @@ tests:
         commonLabels:
           team: platform
           env: production
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
     asserts:
@@ -170,7 +170,7 @@ tests:
       global:
         commonLabels:
           team: platform
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
     asserts:

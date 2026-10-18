@@ -1,4 +1,4 @@
 # Empty deployments - chart renders nothing
-deployments: {}
+workloads: {}
 ingress:
   enabled: false

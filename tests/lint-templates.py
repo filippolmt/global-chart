@@ -10,7 +10,7 @@ a rule below cannot recognise: a check that sees nothing is not a pass.
   explicit false into true. A boolean defaults through `hasKey … | ternary`.
 - values-mutation: `set` on a map reached from `.Values` mutates the values
   every later template reads: on `.Values…` itself, or on a variable bound to
-  it (`$d := index .Values.deployments $n`, `range $k, $d := .Values.x`, and
+  it (`$d := index .Values.workloads $n`, `range $k, $d := .Values.x`, and
   anything bound from such a variable, within one define). A variable bound
   through `deepCopy` is a copy, and so is one built by `dict`, `list`,
   `append`, `include` or `fromJson`.

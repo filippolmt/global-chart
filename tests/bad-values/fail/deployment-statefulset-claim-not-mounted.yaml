@@ -1,7 +1,7 @@
 # A claim template no container mounts: storage provisioned and never used
 # (ADR 0020).
-# Expected fail substring: "deployments.db.volumeClaimTemplates[0]: 'data' is mounted by no volumeMounts item"
-deployments:
+# Expected fail substring: "workloads.db.volumeClaimTemplates[0]: 'data' is mounted by no volumeMounts item"
+workloads:
   db:
     kind: StatefulSet
     image: nginx:1.25

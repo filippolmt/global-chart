@@ -1,7 +1,7 @@
 # covers: dnsConfigOption
 # An unknown key in a DNS option (typo of value): Kubernetes drops it, and the
 # option is set with no value.
-deployments:
+workloads:
   app:
     image: nginx:1.25
     dnsConfig:

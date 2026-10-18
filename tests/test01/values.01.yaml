@@ -1,4 +1,4 @@
-deployments:
+workloads:
   main:
     image:
       repository: nginx
@@ -200,20 +200,20 @@ hooks:
         kubernetes.io/e2e-az-name: e2e-az1
   pre-upgrade:
     scale-down:
-      fromDeployment: main
+      fromWorkload: main
       command: ["sh", "-c"]
       args: ["echo", "ciao"]
       weight: 5
       serviceAccountName: scale-down-sa
     deploy:
-      fromDeployment: main
+      fromWorkload: main
       command: ["sh", "-c"]
       args: ["echo", "ciao"]
       weight: 10
       deletePolicy: before-hook-creation
       imagePullPolicy: Always
     s3fs:
-      fromDeployment: main
+      fromWorkload: main
       command: ["bin/sh", "-c"]
       args: ["echo", "ciao"]
       weight: 20
@@ -227,7 +227,7 @@ cronJobs:
     tolerations: []
     annotations: {}
     schedule: "00 12 * * 1-5"
-    fromDeployment: main
+    fromWorkload: main
     serviceAccountName:
     successfulJobsHistoryLimit: 2
     failedJobsHistoryLimit: 2
@@ -244,7 +244,7 @@ cronJobs:
       - mongodb-0-secret
   testcron:
     schedule: "00 12 * * 1-5"
-    fromDeployment: main
+    fromWorkload: main
     command: ["sh", "-c"]
     args: ["echo", "ciao"]
     affinity: *affinity
@@ -285,7 +285,7 @@ ingress:
 
   hosts:
     - host: chart-example.local
-      deployment: main
+      workload: main
       paths:
         - path: /
           pathType: ImplementationSpecific

@@ -1,6 +1,6 @@
 # A volume with an empty name passed the schema's required and failed in
 # renderVolume instead (issue #185): the schema now asks for minLength 1.
-deployments:
+workloads:
   app:
     image: nginx:1.25
     volumes:

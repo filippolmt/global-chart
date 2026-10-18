@@ -2,6 +2,6 @@
 # host (with optional port and path), never a URL (issue #173).
 global:
   imageRegistry: "https://registry.example.com"
-deployments:
+workloads:
   web:
     image: nginx:1.25

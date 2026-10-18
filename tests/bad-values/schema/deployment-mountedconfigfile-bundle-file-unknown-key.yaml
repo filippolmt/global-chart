@@ -4,7 +4,7 @@
 # key reads as naming the file and is ignored. relPath stays: the template
 # requires it, so replacing it with a typo would reject the file even with the
 # closure gone.
-deployments:
+workloads:
   web:
     image: nginx:1.25
     mountedConfigFiles:

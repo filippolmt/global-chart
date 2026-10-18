@@ -1,7 +1,7 @@
 # covers: envVar
 # An unknown key in an env entry (typo of valueFrom). Kubernetes drops the
 # field it does not know, so the variable arrives empty instead of resolved.
-deployments:
+workloads:
   app:
     image: nginx:1.25
     additionalEnvs:

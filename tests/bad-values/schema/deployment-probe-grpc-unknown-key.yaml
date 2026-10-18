@@ -1,7 +1,7 @@
 # covers: probe/properties/grpc
 # An unknown key in grpc (typo of service): the probe checks the server's
 # overall health instead of the named service.
-deployments:
+workloads:
   app:
     image: nginx:1.25
     readinessProbe:

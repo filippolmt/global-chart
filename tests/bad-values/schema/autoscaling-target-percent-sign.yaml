@@ -1,6 +1,6 @@
 # A percentage written with its sign (issue #151). float64 "80%" is 0, so the
 # target read as off and, with no other target, no HPA rendered.
-deployments:
+workloads:
   app:
     image: nginx:1.25
     autoscaling:

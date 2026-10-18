@@ -2,7 +2,7 @@
 """The phrases GLOSSARY.md lists under _Avoid_ with one reading only stay out.
 
 Most _Avoid_ entries depend on context ("deployment (for a workload of any
-kind)" is right for the values key `deployments`), so they are the review's
+kind)" is right for the helper `deploymentFullname`), so they are the review's
 call (CODING_STANDARDS.md, *Judgement rules*). The phrases in AVOID below have
 no right reading anywhere: each names the GLOSSARY entry that replaces it.
 "deployment-level" sat in some 150 places until issue #217 replaced it by hand.

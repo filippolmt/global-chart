@@ -25,7 +25,7 @@
 {{- range $spec := (include "global-chart.l4RouteKinds" $root | fromJsonArray) }}
 {{- $kind := $spec.kind }}
 {{- range $key, $route := (index $root.Values $spec.field) }}
-{{- /* A null entry is unset, like a null deployments entry: no route */ -}}
+{{- /* A null entry is unset, like a null workloads entry: no route */ -}}
 {{- if not (kindIs "invalid" $route) }}
 {{- $route = default (dict) $route }}
 {{- $ctx := printf "%s.%s" $spec.field $key }}
@@ -55,7 +55,7 @@ spec:
     {{- $rule = default (dict) $rule }}
     {{- $ruleCtx := printf "%s.rules[%d]" $ctx $ruleIdx }}
     {{- if not $rule.backendRefs }}
-      {{- fail (printf "%s.backendRefs: empty. Provide at least one backendRef (deployment or service)." $ruleCtx) }}
+      {{- fail (printf "%s.backendRefs: empty. Provide at least one backendRef (workload or service)." $ruleCtx) }}
     {{- end }}
     -
       {{- with $rule.name }}

@@ -1,7 +1,7 @@
 # Helm accepts `PRE-INSTALL`, but the chart's case-sensitive checks miss it and
 # the name it yields is invalid. An unknown type also drops the shared prereq
 # ConfigMap/Secret, whose `helm.sh/hook` joins every type.
-deployments:
+workloads:
   app:
     image: nginx:1.25
     hooks:

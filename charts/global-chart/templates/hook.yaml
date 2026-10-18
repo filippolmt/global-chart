@@ -1,7 +1,7 @@
 {{/*
   Hooks can be defined in two places:
-  1. Root level: .Values.hooks (standalone, optional fromDeployment for image)
-  2. Inside deployments: .Values.deployments.<name>.hooks (inherits image, configMap, secret, SA from deployment)
+  1. Root level: .Values.hooks (standalone, optional fromWorkload for image)
+  2. Inside workloads: .Values.workloads.<name>.hooks (inherits image, configMap, secret, SA from deployment)
   Part 0 renders the hook-prerequisite copy of the ServiceAccounts those hooks
   run as.
 */}}
@@ -53,7 +53,7 @@ automountServiceAccountToken: {{ $sa.automount }}
 {{- /* A null weight would count as 0 (int nil), not the default 10 */ -}}
 {{- if hasKey $command "weight" }}{{- include "global-chart.rejectNull" (dict "value" $command.weight "errCtx" (printf "%s.weight" $errCtx)) }}{{- end }}
 
-{{- /* Resolve image: explicit > fromDeployment > error (see jobImageString helper) */ -}}
+{{- /* Resolve image: explicit > fromWorkload > error (see jobImageString helper) */ -}}
 {{- $imageRef := include "global-chart.jobImageString" (dict "root" $root "job" $command "errCtx" $errCtx) }}
 
 {{- /* ServiceAccount: explicit > create own (see jobServiceAccount helper; no
@@ -113,7 +113,7 @@ spec:
 {{- end }}
 
 {{/* ====== PART 2: workload-scope hooks (inherit from the workload) ====== */}}
-{{- range $deployName, $deploy := .Values.deployments }}
+{{- range $deployName, $deploy := .Values.workloads }}
 {{- if $deploy }}
 {{- if and (eq (include "global-chart.deploymentEnabled" $deploy) "true") $deploy.hooks }}
 

@@ -1,7 +1,7 @@
 # A StatefulSet field on a Deployment, under --skip-schema-validation: the
 # backstop guard in deployment.yaml names it (ADR 0020).
-# Expected fail substring: "deployments.web.volumeClaimTemplates: a StatefulSet field, and this entry renders a Deployment. Drop it, or set kind: StatefulSet."
-deployments:
+# Expected fail substring: "workloads.web.volumeClaimTemplates: a StatefulSet field, and this entry renders a Deployment. Drop it, or set kind: StatefulSet."
+workloads:
   web:
     image: nginx:1.25
     volumeMounts:

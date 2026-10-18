@@ -5,7 +5,7 @@ tests:
   # ====== Workload enabled flag ======
   - it: should not render service when deployment enabled is false
     set:
-      deployments:
+      workloads:
         main:
           enabled: false
           image: nginx:1.25
@@ -16,7 +16,7 @@ tests:
   # ====== Service disabled ======
   - it: should not render service when disabled
     set:
-      deployments:
+      workloads:
         worker:
           image: nginx:1.25
           service:
@@ -30,7 +30,7 @@ tests:
     release:
       name: myrel
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           service:
@@ -55,7 +55,7 @@ tests:
     release:
       name: myrel
     set:
-      deployments:
+      workloads:
         api:
           image: nginx:1.25
     asserts:
@@ -66,7 +66,7 @@ tests:
   # ====== Service selector labels ======
   - it: should include component in selector labels
     set:
-      deployments:
+      workloads:
         backend:
           image: nginx:1.25
     asserts:
@@ -78,7 +78,7 @@ tests:
   # ====== Default port ======
   - it: should use default port 80 when not specified
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
     asserts:
@@ -89,7 +89,7 @@ tests:
   # ====== Multiple deployments create multiple services ======
   - it: should create service for each deployment
     set:
-      deployments:
+      workloads:
         frontend:
           image: nginx:1.25
           service:
@@ -105,7 +105,7 @@ tests:
   # ====== Port name ======
   - it: should use custom port name
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           service:
@@ -122,7 +122,7 @@ tests:
       global:
         commonAnnotations:
           managed-by: helm
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           service:
@@ -138,7 +138,7 @@ tests:
 
   - it: should render only per-service annotations when no commonAnnotations
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           service:
@@ -154,7 +154,7 @@ tests:
       global:
         commonAnnotations:
           shared-key: global-value
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           service:
@@ -171,7 +171,7 @@ tests:
       global:
         commonLabels:
           team: platform
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
     asserts:
@@ -182,7 +182,7 @@ tests:
   # ====== extraPorts ======
   - it: should render extraPorts after primary port
     set:
-      deployments:
+      workloads:
         odoo:
           image: odoo:17
           service:
@@ -229,7 +229,7 @@ tests:
 
   - it: should default extraPorts protocol to TCP when omitted
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           service:
@@ -244,7 +244,7 @@ tests:
 
   - it: should render UDP protocol on extraPorts when specified
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           service:
@@ -260,7 +260,7 @@ tests:
 
   - it: should render nodePort on extraPorts when set
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           service:
@@ -277,7 +277,7 @@ tests:
 
   - it: should accept a named targetPort in extraPorts that resolves to a declared port
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           service:
@@ -295,7 +295,7 @@ tests:
 
   - it: should render only primary port when extraPorts omitted
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           service:
@@ -311,7 +311,7 @@ tests:
 
   - it: should default targetPort to the port name rather than the literal http
     set:
-      deployments:
+      workloads:
         main:
           image: nginx:1.25
           service:
@@ -328,7 +328,7 @@ tests:
   # ====== Workload annotations stay on the workload (issue #112) ======
   - it: should not propagate the workload's own annotations to its Service
     set:
-      deployments:
+      workloads:
         web:
           image: nginx:1.25
           annotations:
@@ -344,7 +344,7 @@ tests:
   # numeric one stays a number.
   - it: should keep a named targetPort as a string and a numeric one as a number
     set:
-      deployments:
+      workloads:
         web:
           image: nginx:1.25
           service:
@@ -374,7 +374,7 @@ tests:
     release:
       name: rel
     set:
-      deployments:
+      workloads:
         db:
           kind: StatefulSet
           image: nginx:1.25
@@ -419,7 +419,7 @@ tests:
     release:
       name: rel
     set:
-      deployments:
+      workloads:
         db:
           kind: StatefulSet
           image: nginx:1.25
@@ -436,7 +436,7 @@ tests:
 
   - it: should render no headless Service for a Deployment
     set:
-      deployments:
+      workloads:
         web:
           image: nginx:1.25
     asserts:
@@ -454,7 +454,7 @@ tests:
       global:
         commonAnnotations:
           team: search
-      deployments:
+      workloads:
         db:
           kind: StatefulSet
           image: nginx:1.25

@@ -1,7 +1,7 @@
 {{/*
   CronJobs can be defined in two places:
-  1. Root level: .Values.cronJobs (standalone, optional fromDeployment for image)
-  2. Inside deployments: .Values.deployments.<name>.cronJobs (inherits image, configMap, secret, SA from deployment)
+  1. Root level: .Values.cronJobs (standalone, optional fromWorkload for image)
+  2. Inside workloads: .Values.workloads.<name>.cronJobs (inherits image, configMap, secret, SA from deployment)
 */}}
 
 {{- $root := . }}
@@ -15,7 +15,7 @@
 {{- $jobFullname := include "global-chart.rootCronJobName" (dict "root" $root "name" $name) }}
 {{- $errCtx := include "global-chart.jobValuesPath" (dict "kind" "cronjob" "jobName" $name) }}
 
-{{- /* Resolve image: explicit > fromDeployment > error (see jobImageString helper) */ -}}
+{{- /* Resolve image: explicit > fromWorkload > error (see jobImageString helper) */ -}}
 {{- $imageRef := include "global-chart.jobImageString" (dict "root" $root "job" $job "errCtx" $errCtx) }}
 
 {{- /* ServiceAccount: explicit > create own (see jobServiceAccount helper; no
@@ -78,7 +78,7 @@ spec:
 {{- end }}
 
 {{/* ====== PART 2: workload-scope cronJobs (inherit from the workload) ====== */}}
-{{- range $deployName, $deploy := .Values.deployments }}
+{{- range $deployName, $deploy := .Values.workloads }}
 {{- if $deploy }}
 {{- if and (eq (include "global-chart.deploymentEnabled" $deploy) "true") $deploy.cronJobs }}
 {{- range $name, $job := $deploy.cronJobs }}

@@ -1,7 +1,7 @@
 # The persistentVolumeClaim.name alias of the legacy volume format, removed in
 # 4.0.0 (issue #230, ADR 0022). Kubernetes would drop it as an unknown field.
-# Expected fail substring: "deployments.web.volumes[0].persistentVolumeClaim.name: removed in 4.0.0, use persistentVolumeClaim.claimName"
-deployments:
+# Expected fail substring: "workloads.web.volumes[0].persistentVolumeClaim.name: removed in 4.0.0, use persistentVolumeClaim.claimName"
+workloads:
   web:
     image: nginx:1.25
     volumes:

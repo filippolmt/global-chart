@@ -2,7 +2,7 @@
 # An unknown key inside a mountedConfigFiles.files entry (typo of targetPath).
 # Without the closure the file has no target path and is mounted somewhere
 # other than where the values file says.
-deployments:
+workloads:
   web:
     image: nginx:1.25
     mountedConfigFiles:

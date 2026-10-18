@@ -477,7 +477,7 @@ check-helm-floor: kind-cluster ## Assert NOTES.txt warns on a Helm below 3.18.6
 		-v $(HELM_FLOOR_KUBECONFIG):/kubeconfig:ro -e KUBECONFIG=/kubeconfig \
 		-v $(CURDIR)/$(CHART_DIR)/$(GLOBAL_CHART_NAME):/chart:ro \
 		$(HELM_FLOOR_IMAGE) install floor /chart --dry-run=client \
-		--set deployments.web.image=nginx:1.25 2>&1) \
+		--set workloads.web.image=nginx:1.25 2>&1) \
 		|| { echo "FAIL: $(HELM_FLOOR_IMAGE) did not render the chart:"; printf '%s\n' "$$out" | tail -5; exit 1; }; \
 	printf '%s\n' "$$out" | grep -q "is below 3.18.6" \
 		|| { echo "FAIL: NOTES.txt did not warn on $(HELM_FLOOR_IMAGE)"; exit 1; }
@@ -594,7 +594,7 @@ e2e: kind-cluster kind-keda kind-eso check-helm-floor e2e-dryrun ## Install/upgr
 	helm package ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) -d "$$upgrade_dir" \
 		--version "$$(helm show chart ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) | awk '/^version:/ {print $$2}')-e2e.upgrade" >/dev/null; \
 	helm upgrade $$rel "$$upgrade_dir"/$(GLOBAL_CHART_NAME)-*.tgz -f $(E2E_VALUES) \
-		--set-string deployments.store.podAnnotations.e2e-upgrade=1 \
+		--set-string workloads.store.podAnnotations.e2e-upgrade=1 \
 		--namespace $$ns --timeout 180s >/dev/null; \
 	case "$$(kubectl -n $$ns get sts $$sts -o jsonpath='{.metadata.labels.helm\.sh/chart}')" in *-e2e.upgrade) ;; \
 		*) echo "FAIL: the upgrade did not apply the other chart version"; exit 1 ;; esac; \

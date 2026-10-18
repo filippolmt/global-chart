@@ -157,7 +157,7 @@ tests:
               - apiGroups: ["apps"]
                 resources: ["deployments/scale"]
                 verbs: ["patch"]
-      deployments:
+      workloads:
         app:
           image: myapp:v1
           hooks:
@@ -250,7 +250,7 @@ tests:
               create: false
               name: app-sa
             rules: []
-      deployments:
+      workloads:
         app:
           image: myapp:v1
           serviceAccount:

@@ -56,7 +56,7 @@ install/upgrade; `helm template` and `helm lint` see the built-in set alone, so
 offline rendering of a KEDA scenario needs `--api-versions keda.sh/v1alpha1`
 (the Makefile passes it, and the unit-test suites declare it under
 `capabilities.apiVersions`). The check itself is requireCrd's.
-Usage: {{ include "global-chart.requireKedaCrd" (dict "root" . "errCtx" "deployments.foo.keda") }}
+Usage: {{ include "global-chart.requireKedaCrd" (dict "root" . "errCtx" "workloads.foo.keda") }}
 */}}
 {{- define "global-chart.requireKedaCrd" -}}
 {{- include "global-chart.requireCrd" (dict "root" .root "apiVersion" "keda.sh/v1alpha1" "install" "Install KEDA" "errCtx" (required "requireKedaCrd: errCtx is required (the values path of the KEDA resource)" .errCtx)) -}}
@@ -66,7 +66,7 @@ Usage: {{ include "global-chart.requireKedaCrd" (dict "root" . "errCtx" "deploym
 Build the ScaledObject trigger list with every authenticationRef resolved.
 Returns the triggers as YAML, ready to nindent under `triggers:`. A null
 trigger, or a null authenticationRef name, fails naming its path (issue #198).
-Usage: {{ include "global-chart.kedaTriggers" (dict "root" . "triggers" $keda.triggers "errCtx" "deployments.api.keda.triggers") }}
+Usage: {{ include "global-chart.kedaTriggers" (dict "root" . "triggers" $keda.triggers "errCtx" "workloads.api.keda.triggers") }}
 */}}
 {{- define "global-chart.kedaTriggers" -}}
 {{- $root := .root -}}

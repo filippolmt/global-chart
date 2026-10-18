@@ -1,7 +1,7 @@
 # Comprehensive multi-deployment test
 # Tests all features with multiple independent deployments
 
-deployments:
+workloads:
   # Frontend deployment - full featured
   frontend:
     replicaCount: 3
@@ -305,13 +305,13 @@ ingress:
 
   hosts:
     - host: myapp.example.com
-      deployment: frontend
+      workload: frontend
       paths:
         - path: /
           pathType: Prefix
 
     - host: api.example.com
-      deployment: backend
+      workload: backend
       paths:
         - path: /api
           pathType: Prefix
@@ -331,7 +331,7 @@ cronJobs:
   # Uses backend image
   db-backup:
     schedule: "0 2 * * *"
-    fromDeployment: backend
+    fromWorkload: backend
     command: ["sh", "-c"]
     args: ["pg_dump -h $DB_HOST -U $DB_USER $DB_NAME > /backup/db.sql"]
     resources:
@@ -346,14 +346,14 @@ cronJobs:
   # Uses worker image
   queue-cleanup:
     schedule: "0 */6 * * *"
-    fromDeployment: worker
+    fromWorkload: worker
     args: ["cleanup", "--older-than", "7d"]
     resources:
       requests:
         cpu: 50m
         memory: 128Mi
 
-  # Explicit image (no fromDeployment)
+  # Explicit image (no fromWorkload)
   report-generator:
     schedule: "0 8 * * 1"
     image: myapp/reports:latest
@@ -368,7 +368,7 @@ cronJobs:
 hooks:
   pre-install:
     init-db:
-      fromDeployment: backend
+      fromWorkload: backend
       command: ["sh", "-c"]
       args: ["./scripts/init-db.sh"]
       weight: 5
@@ -379,19 +379,19 @@ hooks:
 
   post-install:
     seed-data:
-      fromDeployment: backend
+      fromWorkload: backend
       command: ["sh", "-c"]
       args: ["./scripts/seed-data.sh"]
       weight: 10
 
     warm-cache:
-      fromDeployment: frontend
+      fromWorkload: frontend
       command: ["curl", "-s", "http://localhost:8080/warmup"]
       weight: 20
 
   pre-upgrade:
     migrate-db:
-      fromDeployment: backend
+      fromWorkload: backend
       command: ["./migrate", "up"]
       weight: 5
       deletePolicy: before-hook-creation

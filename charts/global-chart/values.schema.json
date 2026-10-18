@@ -12,7 +12,8 @@
       "description": "Replaces the fullname that heads every generated name. A DNS-1123 subdomain, the loosest name it reaches; the stricter labels it can reach are checked at render time, where the release name is visible (issue #120). The empty string means no override.",
       "anyOf": [{ "const": "" }, { "$ref": "#/$defs/dns1123Subdomain" }]
     },
-    "deployments": {
+    "deployments": { "description": "removed in 4.0.0, issue #221: use workloads." },
+    "workloads": {
       "type": "object",
       "propertyNames": { "$ref": "#/$defs/deploymentName" },
       "additionalProperties": { "$ref": "#/$defs/deployment" }
@@ -665,7 +666,7 @@
       "additionalProperties": false
     },
     "deploymentName": {
-      "description": "Key of the deployments map. It lands raw in the 'app.kubernetes.io/component' label value, as part of the container name, and as '<key>-hook' when the deployment has hooks: a DNS-1123 label, capped at 58 so that the '-hook' suffix fits. The cap holds even without hooks, so adding a hook later cannot invalidate a key that was valid.",
+      "description": "Key of the workloads map. It lands raw in the 'app.kubernetes.io/component' label value, as part of the container name, and as '<key>-hook' when the workload has hooks: a DNS-1123 label, capped at 58 so that the '-hook' suffix fits. The cap holds even without hooks, so adding a hook later cannot invalidate a key that was valid.",
       "$ref": "#/$defs/dns1123Label",
       "maxLength": 58
     },
@@ -1041,7 +1042,7 @@
           "minimum": 1
         },
         "backoffLimit": {
-          "description": "Retries before the hook Job is marked failed; Kubernetes defaults to 6. The hook's own: no fallback from the deployment or global. Why the other Job spec fields are not offered on a hook: see jobSpecVerbatimFields in _job-helpers.tpl.",
+          "description": "Retries before the hook Job is marked failed; Kubernetes defaults to 6. The hook's own: no fallback from the workload or global. Why the other Job spec fields are not offered on a hook: see jobSpecVerbatimFields in _job-helpers.tpl.",
           "type": "integer",
           "minimum": 0
         }
@@ -1050,21 +1051,26 @@
     "rootJobSpec": {
       "type": "object",
       "properties": {
-        "fromDeployment": { "type": "string" }
+        "fromWorkload": { "type": "string" },
+        "fromDeployment": { "description": "removed in 4.0.0, issue #221: use fromWorkload." }
       }
     },
     "deploymentJobSpec": {
       "type": "object",
       "properties": {
-        "inheritDeploymentConfigMap": { "type": "boolean" },
-        "inheritDeploymentSecret": { "type": "boolean" },
-        "inheritDeploymentEnvFromConfigMaps": {
+        "inheritWorkloadConfigMap": { "type": "boolean" },
+        "inheritDeploymentConfigMap": { "description": "removed in 4.0.0, issue #221: use inheritWorkloadConfigMap." },
+        "inheritDeploymentSecret": { "description": "removed in 4.0.0, issue #221: use inheritWorkloadSecret." },
+        "inheritDeploymentEnvFromConfigMaps": { "description": "removed in 4.0.0, issue #221: use inheritWorkloadEnvFromConfigMaps." },
+        "inheritDeploymentEnvFromSecrets": { "description": "removed in 4.0.0, issue #221: use inheritWorkloadEnvFromSecrets." },
+        "inheritWorkloadSecret": { "type": "boolean" },
+        "inheritWorkloadEnvFromConfigMaps": {
           "type": "boolean",
-          "description": "false drops the deployment's envFromConfigMaps from this job's envFrom. Default true."
+          "description": "false drops the workload's envFromConfigMaps from this job's envFrom. Default true."
         },
-        "inheritDeploymentEnvFromSecrets": {
+        "inheritWorkloadEnvFromSecrets": {
           "type": "boolean",
-          "description": "false drops the deployment's envFromSecrets from this job's envFrom. Default true. externalSecrets have their own rule: a job's own list replaces the inherited one."
+          "description": "false drops the workload's envFromSecrets from this job's envFrom. Default true. externalSecrets have their own rule: a job's own list replaces the inherited one."
         }
       }
     },
@@ -1237,7 +1243,8 @@
             "type": "object",
             "properties": {
               "host": { "type": "string" },
-              "deployment": { "type": "string" },
+              "workload": { "type": "string" },
+              "deployment": { "description": "removed in 4.0.0, issue #221: use workload." },
               "portName": { "$ref": "#/$defs/backendPortName" },
               "service": { "$ref": "#/$defs/backendServiceRef" },
               "paths": {
@@ -1412,7 +1419,7 @@
       "required": ["name"]
     },
     "backendServiceRef": {
-      "description": "An explicit Service backend, in place of a deployment: its name and port (default 80). Shared by ingress, httpRoute and the L4 routes.",
+      "description": "An explicit Service backend, in place of a workload: its name and port (default 80). Shared by ingress, httpRoute and the L4 routes.",
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -1421,7 +1428,7 @@
       }
     },
     "backendPortName": {
-      "description": "With deployment: the name of the port of the deployment's Service to route to, service.portName or a service.extraPorts[].name (issue #194). Omitted, the primary port. Its protocol must be the one the route forwards; rejected together with service, at render time.",
+      "description": "With workload: the name of the port of the workload's Service to route to, service.portName or a service.extraPorts[].name (issue #194). Omitted, the primary port. Its protocol must be the one the route forwards; rejected together with service, at render time.",
       "$ref": "#/$defs/ianaSvcName"
     },
     "l4Route": {
@@ -1464,7 +1471,8 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "deployment": { "type": "string" },
+        "workload": { "type": "string" },
+        "deployment": { "description": "removed in 4.0.0, issue #221: use workload." },
         "portName": { "$ref": "#/$defs/backendPortName" },
         "service": { "$ref": "#/$defs/backendServiceRef" },
         "weight": { "type": "integer", "minimum": 0, "maximum": 1000000 },
@@ -1491,11 +1499,12 @@
       }
     },
     "routeBackendRef": {
-      "description": "A backendRef of an L4 route: deployment (with an optional portName) or service, and an optional weight. Resolved by resolveBackend, like every backend of the chart.",
+      "description": "A backendRef of an L4 route: workload (with an optional portName) or service, and an optional weight. Resolved by resolveBackend, like every backend of the chart.",
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "deployment": { "type": "string" },
+        "workload": { "type": "string" },
+        "deployment": { "description": "removed in 4.0.0, issue #221: use workload." },
         "portName": { "$ref": "#/$defs/backendPortName" },
         "service": { "$ref": "#/$defs/backendServiceRef" },
         "weight": { "type": "integer", "minimum": 0, "maximum": 1000000 }

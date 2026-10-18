@@ -176,6 +176,7 @@ now stops `helm install` and `helm upgrade` instead of rendering. That is the
 point, and it is a breaking change for anyone whose values carry such a key
 today — ours did, one, for the length of this ADR's backstory. The error names
 the path, which is the whole win: the typo dies at the line that contains it.
+*Amended by ADR 0023:* since 4.0.0 the map is `workloads`.
 
 On Helm below 3.18.6 the four job definitions behave exactly as before. The
 consumer is never worse off than today, but "the schema now catches typos" is

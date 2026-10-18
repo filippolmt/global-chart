@@ -1,6 +1,6 @@
 # A hook does not admit ttlSecondsAfterFinished (issue #113); jobSpecVerbatimFields in
 # _job-helpers.tpl records why. Workload scope; the root scope has its own.
-deployments:
+workloads:
   app:
     image: nginx:1.25
     hooks:

@@ -15,12 +15,31 @@ checks every fail against them: change both.
 */}}
 
 {{/*
-The values path of a deployment, "deployments.<name>": its single home, as
+The values path of a deployment, "workloads.<name>": its single home, as
 jobValuesPath is a job's (and leads a workload-scope job's with it).
 Usage: {{ include "global-chart.deploymentValuesPath" $name }}
 */}}
 {{- define "global-chart.deploymentValuesPath" -}}
-deployments.{{ . }}
+workloads.{{ . }}
+{{- end }}
+
+{{/*
+Fail on a key renamed in 4.0.0 (issue #221, ADR 0023): "<values path>: removed
+in 4.0.0, use <replacement>", the one home of that message. The schema declares
+each key with no constraint, so any value reaches this fail (ADR 0022); the
+fail, the declarations and the fixtures go in 5.0.0. Callers: validate.yaml
+(deployments), jobImageSource (fromDeployment), jobPodSpec
+(inheritDeployment*), resolveBackend (deployment).
+Usage: {{- include "global-chart.rejectRemovedKeys" (dict "map" $job "errCtx" $errCtx "keys" (dict "fromDeployment" "fromWorkload")) -}}
+*/}}
+{{- define "global-chart.rejectRemovedKeys" -}}
+{{- $errCtx := .errCtx -}}
+{{- $map := .map -}}
+{{- range $old, $new := .keys -}}
+  {{- if hasKey $map $old -}}
+    {{- fail (printf "%s: removed in 4.0.0, use %s" (ternary $old (printf "%s.%s" $errCtx $old) (eq $errCtx "")) $new) -}}
+  {{- end -}}
+{{- end -}}
 {{- end }}
 
 {{/*
@@ -30,7 +49,7 @@ surfaces included — a list the chart hands to a manifest verbatim (tolerations
 extraContainers, a container's args) is no more valid with a null in it. A null
 map value is left alone: it is unset, for the chart as for the API server.
 Recursive: a map recurses into each value, a list into each item.
-Usage: {{- include "global-chart.rejectNullInLists" (dict "value" .Values.deployments "errCtx" "deployments") -}}
+Usage: {{- include "global-chart.rejectNullInLists" (dict "value" .Values.workloads "errCtx" "workloads") -}}
 */}}
 {{- define "global-chart.rejectNullInLists" -}}
 {{- $errCtx := .errCtx -}}
@@ -120,7 +139,7 @@ Called from validate.yaml.
 {{- $esOwnedNames := dict -}}
 
 {{- /* 1. Workload resource names (trunc 63) */ -}}
-{{- range $name, $deploy := .Values.deployments -}}
+{{- range $name, $deploy := .Values.workloads -}}
   {{- if $deploy -}}
   {{- if eq (include "global-chart.deploymentEnabled" $deploy) "true" -}}
     {{- $depFullname := include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $name) -}}
@@ -453,7 +472,7 @@ Called from validate.yaml. Emits nothing on success.
 */}}
 {{- define "global-chart.validateStatefulSets" -}}
 {{- $root := . -}}
-{{- range $name, $deploy := .Values.deployments -}}
+{{- range $name, $deploy := .Values.workloads -}}
   {{- if $deploy -}}
   {{- if and (eq (include "global-chart.deploymentEnabled" $deploy) "true") (include "global-chart.isStatefulSet" $deploy) -}}
     {{- $errCtx := include "global-chart.deploymentValuesPath" $name -}}
@@ -509,7 +528,7 @@ Called from validate.yaml. Emits nothing on success.
 {{- $fullname := include "global-chart.fullname" . -}}
 {{- $label := "" -}}
 {{- $service := "" -}}
-{{- range $name, $deploy := .Values.deployments -}}
+{{- range $name, $deploy := .Values.workloads -}}
   {{- if $deploy -}}
   {{- if eq (include "global-chart.deploymentEnabled" $deploy) "true" -}}
     {{- $label = include "global-chart.deploymentValuesPath" $name -}}
@@ -551,7 +570,7 @@ Params:
                HTTPRoute)
   install    - the remedy, a sentence head ("Install KEDA")
   errCtx     - values path of the resource; leads the message
-Usage: {{- include "global-chart.requireCrd" (dict "root" $root "apiVersion" "keda.sh/v1alpha1" "install" "Install KEDA" "errCtx" "deployments.foo.keda") -}}
+Usage: {{- include "global-chart.requireCrd" (dict "root" $root "apiVersion" "keda.sh/v1alpha1" "install" "Install KEDA" "errCtx" "workloads.foo.keda") -}}
 */}}
 {{- define "global-chart.requireCrd" -}}
 {{- $apiVersion := required "requireCrd: apiVersion is required" .apiVersion -}}
@@ -636,7 +655,7 @@ fundamental error, and fixing it can make the other moot.
 Called from validate.yaml. Emits nothing on success.
 */}}
 {{- define "global-chart.validateAutoscalingConflict" -}}
-{{- range $name, $deploy := .Values.deployments -}}
+{{- range $name, $deploy := .Values.workloads -}}
   {{- if $deploy -}}
   {{- if eq (include "global-chart.deploymentEnabled" $deploy) "true" -}}
     {{- $hpa := default (dict) $deploy.autoscaling -}}
@@ -707,7 +726,7 @@ whether or not the container declares it.
 Called from validate.yaml. Emits nothing on success.
 */}}
 {{- define "global-chart.validateServiceTargetPorts" -}}
-{{- range $name, $deploy := .Values.deployments -}}
+{{- range $name, $deploy := .Values.workloads -}}
   {{- if $deploy -}}
   {{- if eq (include "global-chart.deploymentEnabled" $deploy) "true" -}}
     {{- $svc := default (dict) $deploy.service -}}
@@ -749,7 +768,7 @@ rendered.
 Called from validate.yaml. Emits nothing on success.
 */}}
 {{- define "global-chart.validateServicePorts" -}}
-{{- range $name, $deploy := .Values.deployments -}}
+{{- range $name, $deploy := .Values.workloads -}}
   {{- if $deploy -}}
   {{- if eq (include "global-chart.deploymentEnabled" $deploy) "true" -}}
     {{- $svc := default (dict) $deploy.service -}}

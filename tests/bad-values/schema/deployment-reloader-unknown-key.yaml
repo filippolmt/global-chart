@@ -1,5 +1,5 @@
 # covers: deploymentReloader
-# An unknown key under deployments.<name>.reloader (typo of externalSecrets).
+# An unknown key under workloads.<name>.reloader (typo of externalSecrets).
 # Without the closure the field is dropped in silence and Reloader never rolls
 # the pods on an ExternalSecret rotation.
 externalSecrets:
@@ -7,7 +7,7 @@ externalSecrets:
     secretstore: { kind: ClusterSecretStore, name: store }
     secretkey: KEY
     remote: { key: app/env }
-deployments:
+workloads:
   web:
     image: nginx:1.25
     externalSecrets:

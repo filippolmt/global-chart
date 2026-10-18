@@ -1,7 +1,7 @@
 # A percentage against an autoscaler floor: ceil(60% of minReplicas 2) = 2, so
 # no pod can be evicted while the HPA idles (issue #216, ADR 0021).
-# Expected fail substring: "deployments.app.pdb.minAvailable: 60% allows no voluntary eviction with deployments.app.autoscaling.minReplicas: 2"
-deployments:
+# Expected fail substring: "workloads.app.pdb.minAvailable: 60% allows no voluntary eviction with workloads.app.autoscaling.minReplicas: 2"
+workloads:
   app:
     image: nginx:1.25
     autoscaling:

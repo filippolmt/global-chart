@@ -2,6 +2,6 @@
 # registry host, in imageString and in the kubelet alike (issue #173). As a path
 # component it must be lowercase: MyOrg/app rendered, and the pull failed with
 # InvalidImageName, or became reg/MyOrg/app under global.imageRegistry.
-deployments:
+workloads:
   web:
     image: "MyOrg/app:1.0"

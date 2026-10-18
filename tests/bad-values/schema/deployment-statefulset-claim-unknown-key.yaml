@@ -1,7 +1,7 @@
 # covers: volumeClaimTemplate
 # An unknown key under a claim template (typo of storageClassName). Without the
 # constraint the claim takes the default class, and the template is immutable.
-deployments:
+workloads:
   db:
     kind: StatefulSet
     image: nginx:1.25

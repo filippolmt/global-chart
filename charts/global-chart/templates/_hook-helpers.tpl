@@ -144,7 +144,7 @@ Usage: {{- $hooks := dict }}{{- include "global-chart.prereqCopyHooks" (dict "ro
 {{- $root := .root -}}
 {{- $out := .out -}}
 {{- $scopes := list (dict "hooks" $root.Values.hooks) -}}
-{{- range $deployName, $deploy := $root.Values.deployments -}}
+{{- range $deployName, $deploy := $root.Values.workloads -}}
   {{- if and $deploy (eq (include "global-chart.deploymentEnabled" $deploy) "true") -}}
     {{- $scopes = append $scopes (dict "hooks" $deploy.hooks "deploy" $deploy "deployName" $deployName) -}}
   {{- end -}}

@@ -8,7 +8,7 @@
 # - imagePullSecrets, hostAliases
 # - envFromConfigMaps, envFromSecrets, additionalEnvs
 
-deployments:
+workloads:
   # Backend deployment with hooks and cronJobs inside
   backend:
     replicaCount: 2
@@ -148,7 +148,7 @@ deployments:
         command: ["./queue-cleanup.sh"]
         args: ["--stale"]
 
-# Root-level hooks (standalone, must specify image or fromDeployment)
+# Root-level hooks (standalone, must specify image or fromWorkload)
 hooks:
   post-upgrade:
     notify:
@@ -157,7 +157,7 @@ hooks:
       args: ["-d", '{"text":"Deployment complete"}', "https://hooks.slack.com/xxx"]
       weight: "100"
 
-# Root-level cronJobs (standalone, must specify image or fromDeployment)
+# Root-level cronJobs (standalone, must specify image or fromWorkload)
 cronJobs:
   report-generator:
     schedule: "0 8 * * 1"

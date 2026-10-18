@@ -19,7 +19,7 @@ look structurally similar (~300 lines of apparent duplication). We deliberately
 
 The two sections encode a genuine **semantic difference**, not copy-paste:
 root-level jobs are standalone (no inheritance; image via `fromDeployment` or
-explicit; their own SA), while deployment-level jobs inherit image, ConfigMap,
+explicit, *amended by ADR 0023:* `fromWorkload` and `.Values.workloads` since 4.0.0; their own SA), while deployment-level jobs inherit image, ConfigMap,
 Secret, ServiceAccount, dnsConfig, nodeSelector, tolerations and affinity from
 their parent deployment, and add hook-prerequisite ConfigMap/Secret copies with
 a weight-ordering invariant (`prereq w-7 < SA w-5 < Job w`). Merging them behind

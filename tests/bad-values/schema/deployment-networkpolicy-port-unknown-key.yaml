@@ -1,6 +1,6 @@
 # covers: networkPolicyPort
 # An unknown key in a NetworkPolicy port (typo of port): the rule opens every port.
-deployments:
+workloads:
   app:
     image: nginx:1.25
     networkPolicy:

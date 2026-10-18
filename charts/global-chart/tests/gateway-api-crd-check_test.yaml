@@ -32,7 +32,7 @@ tests:
 
   - it: should not ask for the CRDs when no route is declared
     set:
-      deployments:
+      workloads:
         api:
           image: nginx:1.25
     asserts:

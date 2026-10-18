@@ -1,8 +1,8 @@
 # covers: kedaScaledObject
-# An unknown key under deployments.<name>.keda (typo of cooldownPeriod).
+# An unknown key under workloads.<name>.keda (typo of cooldownPeriod).
 # Without the constraint KEDA keeps its own default cooldown and the intended
 # value never reaches the ScaledObject.
-deployments:
+workloads:
   web:
     image: nginx:1.25
     keda:

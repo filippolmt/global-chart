@@ -1,6 +1,6 @@
 # A volumeMounts entry without a mountPath. Kubernetes rejects it at apply
 # time; the schema catches it first: validateMountPaths reads it.
-deployments:
+workloads:
   app:
     image: nginx:1.25
     volumes:

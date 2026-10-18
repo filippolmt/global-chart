@@ -1,6 +1,6 @@
 # EnvVar.value is a string (issue #137), in a sidecar's env (issue #148): the
 # rest of the Container stays open, its env does not.
-deployments:
+workloads:
   app:
     image: nginx:1.25
     extraContainers:

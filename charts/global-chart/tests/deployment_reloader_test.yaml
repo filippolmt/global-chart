@@ -15,7 +15,7 @@ set:
       remote: { key: app/conf }
       target:
         name: app.conf
-  deployments:
+  workloads:
     main:
       image: "nginx:1.25"
       externalSecrets:
@@ -37,7 +37,7 @@ tests:
   # character.
   - it: should list the real target of every referenced ExternalSecret
     set:
-      deployments.main.reloader.externalSecrets: true
+      workloads.main.reloader.externalSecrets: true
     asserts:
       - equal:
           path: metadata.annotations["secret.reloader.stakater.com/reload"]
@@ -47,8 +47,8 @@ tests:
 
   - it: should merge the user's own list, without duplicates
     set:
-      deployments.main.reloader.externalSecrets: true
-      deployments.main.annotations:
+      workloads.main.reloader.externalSecrets: true
+      workloads.main.annotations:
         secret.reloader.stakater.com/reload: "other, rel-global-chart-app-env"
     asserts:
       - equal:
@@ -59,7 +59,7 @@ tests:
     set:
       global.commonAnnotations:
         secret.reloader.stakater.com/reload: shared
-      deployments.main.reloader.externalSecrets: true
+      workloads.main.reloader.externalSecrets: true
     asserts:
       - equal:
           path: metadata.annotations["secret.reloader.stakater.com/reload"]
@@ -67,8 +67,8 @@ tests:
 
   - it: should list a target once when it is both injected and mounted
     set:
-      deployments.main.reloader.externalSecrets: true
-      deployments.main.externalSecrets:
+      workloads.main.reloader.externalSecrets: true
+      workloads.main.externalSecrets:
         - name: app-env
         - name: app-env
           mountPath: /etc/env
@@ -83,8 +83,8 @@ tests:
     set:
       global.commonAnnotations:
         secret.reloader.stakater.com/reload: shared
-      deployments.main.reloader.externalSecrets: true
-      deployments.main.annotations:
+      workloads.main.reloader.externalSecrets: true
+      workloads.main.annotations:
         secret.reloader.stakater.com/reload: own
     asserts:
       - equal:
@@ -93,8 +93,8 @@ tests:
 
   - it: should not add a target the user already listed unquoted
     set:
-      deployments.main.reloader.externalSecrets: true
-      deployments.main.annotations:
+      workloads.main.reloader.externalSecrets: true
+      workloads.main.annotations:
         secret.reloader.stakater.com/reload: app.conf
     asserts:
       - equal:
@@ -103,8 +103,8 @@ tests:
 
   - it: should list the targets in reference order, env and mounted interleaved
     set:
-      deployments.main.reloader.externalSecrets: true
-      deployments.main.externalSecrets:
+      workloads.main.reloader.externalSecrets: true
+      workloads.main.externalSecrets:
         - name: app-conf
           mountPath: /etc/app
         - name: app-env
@@ -125,27 +125,27 @@ tests:
   # ====== on, with nothing to watch ======
   - it: should fail when the field is on and no externalSecrets is referenced
     set:
-      deployments.other:
+      workloads.other:
         image: "nginx:1.25"
         reloader:
           externalSecrets: true
     asserts:
       - failedTemplate:
-          errorMessage: "deployments.other.reloader.externalSecrets: true, but the deployment references no externalSecrets, so Reloader has no Secret to watch. Reference an externalSecrets entry or disable the field."
+          errorMessage: "workloads.other.reloader.externalSecrets: true, but the workload references no externalSecrets, so Reloader has no Secret to watch. Reference an externalSecrets entry or disable the field."
 
   - it: should fail when the field is on and externalSecrets is empty
     set:
-      deployments.main.reloader.externalSecrets: true
-      deployments.main.externalSecrets: []
+      workloads.main.reloader.externalSecrets: true
+      workloads.main.externalSecrets: []
     asserts:
       - failedTemplate:
-          errorPattern: "deployments\\.main\\.reloader\\.externalSecrets: true, but the deployment references no externalSecrets, so Reloader has no Secret to watch"
+          errorPattern: "workloads\\.main\\.reloader\\.externalSecrets: true, but the workload references no externalSecrets, so Reloader has no Secret to watch"
 
   - it: should not fail for a disabled deployment
     set:
-      deployments.main.enabled: false
-      deployments.main.reloader.externalSecrets: true
-      deployments.main.externalSecrets: []
+      workloads.main.enabled: false
+      workloads.main.reloader.externalSecrets: true
+      workloads.main.externalSecrets: []
     asserts:
       - hasDocuments:
           count: 0

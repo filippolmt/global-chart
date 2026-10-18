@@ -1,6 +1,6 @@
 # ScaledObject triggers[].metadata is map[string]string (issue #137). A number
 # renders unquoted, passes `helm lint`, then the apply is rejected.
-deployments:
+workloads:
   web:
     image: nginx:1.25
     keda:
