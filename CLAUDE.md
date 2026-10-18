@@ -9,11 +9,12 @@ rules below.
 
 ```bash
 make all                    # check + generate + kubeconform + kube-linter
-make check                  # the fast loop: lint-chart, lint-templates, lint-docs, lint-shell, unit-test, bad-values, null-sweep
+make check                  # the fast loop: lint-chart, lint-templates, lint-docs, lint-shell, lint-glossary, unit-test, bad-values, null-sweep
 make lint-chart             # lint every scenario in TEST_CASES
 make lint-templates         # the mechanical rules of CODING_STANDARDS.md
 make lint-docs              # every file a document or a comment points at exists
 make lint-shell             # a value piped onward goes through printf, not echo
+make lint-glossary          # no phrase GLOSSARY.md avoids with one reading only (`tests/lint-glossary.py` lists them)
 make unit-test              # helm-unittest suites via Docker; SUITE=tests/hpa_test.yaml runs one
 make lint-labels            # the triage labels of docs/agents/triage-labels.md exist on GitHub (needs gh)
 make null-sweep             # null every values node of every scenario: each must render or fail naming its path

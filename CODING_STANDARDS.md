@@ -11,7 +11,10 @@ Two kinds of rule:
   `fail` message, a suite per template. `make null-sweep` nulls every values
   node of every scenario. `make e2e-dryrun` sends every scenario to a real API
   server. `lint-templates`' kind-fields rule holds the backstop guard's
-  `$kindOnly` to the schema's `if/then/else` on `kind`. The rules stay written
+  `$kindOnly` to the schema's `if/then/else` on `kind`, and its workload-kind
+  rule keeps a quoted kind (`"Deployment"`) in `workloadKind`, `isStatefulSet`
+  and `$kindOnly`. `make lint-glossary` keeps out the phrases GLOSSARY.md
+  avoids with one reading only. The rules stay written
   below for their reason; the check is what holds them.
 - **Judgement**: no pattern can see it — the review's job.
 
@@ -119,6 +122,14 @@ every reader ranges over it: `l4RouteKinds`, `prereqCopyHooks`,
 `servicePorts`, `hpaActiveTargets`. The same `dict "A" … "B" …` or the same
 `range` written at two sites is the smell; the third kind added to one site
 and not the other is the bug (issue #82 is the port version of it).
+
+**Text names a kind only where it holds for that kind alone.** A `fail`
+message, a schema description, NOTES or a comment that holds for every kind of
+a `deployments` entry says *workload* (GLOSSARY); *Deployment* or
+*StatefulSet* only where the text is true of that kind alone (`strategy`, the
+headless Service). The kind in a message comes from `workloadKind`. The
+`deployments` key and the helper names (`deploymentFullname`) keep their name
+(ADR 0020, issue #221).
 
 **The path names the key that chose.** A `fail` leads with the values path
 "as precise as the caller knows it" (the `_validate-helpers.tpl` header): when

@@ -29,6 +29,12 @@ a rule below cannot recognise: a check that sees nothing is not a pass.
   `$defs/deployment` rejects the same ones with `false` (ADR 0020). The two are
   one partition written twice, the guard being what --skip-schema-validation
   leaves: a field added to one and not the other is the bug.
+- workload-kind: a quoted kind of a workload ("Deployment", "StatefulSet",
+  "DaemonSet") appears only in its homes: the workloadKind and isStatefulSet
+  defines and the `$kindOnly` map. Anywhere else it is a kind written by hand,
+  which holds for one kind and is wrong for the others: validateNameCollisions
+  named every entry "Deployment" until issue #217. Read the kind from
+  global-chart.workloadKind.
 
 Comments (`{{/* … */}}`) are stripped before matching, so a rule may be named in
 prose. Matching runs over the whole file, so an expression split across lines
@@ -53,6 +59,9 @@ FAIL_ANY = re.compile(r"\bfail\s+(?!\(\s*printf\s+\"|\")(\S+)")
 EXCEPTIONS = ("Name collision: ", "The fullname ", "Both .Values.ingress")
 KIND_ONLY = re.compile(r'\$kindOnly\s*:=\s*dict\s+(.*?)\}\}', re.S)
 KIND_LIST = re.compile(r'"(\w+)"\s*\(list\s+([^)]*)\)')
+WORKLOAD_KIND = re.compile(r'"(Deployment|StatefulSet|DaemonSet)"')
+KIND_HOMES = {"global-chart.workloadKind", "global-chart.isStatefulSet"}
+DEFINE_NAME = re.compile(r'\{\{-?\s*define\s+"([^"]+)"')
 
 
 def blank_comments(text):
@@ -122,6 +131,23 @@ def kind_fields(chart, schema):
     return problems
 
 
+def workload_kind(chart):
+    """The workload-kind rule."""
+    problems = []
+    for path in sorted((chart / "templates").rglob("*")):
+        if path.suffix not in {".yaml", ".tpl", ".txt"}:
+            continue
+        text = blank_comments(path.read_text())
+        homes = [m.span() for m in KIND_ONLY.finditer(text)]
+        starts = [(m.start(), m.group(1)) for m in DEFINE_NAME.finditer(text)]
+        for m in WORKLOAD_KIND.finditer(text):
+            define = next((name for pos, name in reversed(starts) if pos < m.start()), None)
+            if define in KIND_HOMES or any(a <= m.start() < b for a, b in homes):
+                continue
+            problems.append(f"{path.relative_to(chart)}:{lineno(text, m.start())}: workload-kind: {m.group(0)} written by hand; read the kind from global-chart.workloadKind")
+    return problems
+
+
 def main(chart):
     chart = pathlib.Path(chart)
     templates = chart / "templates"
@@ -158,6 +184,7 @@ def main(chart):
             if not (chart / "tests" / f"{name}_test.yaml").exists():
                 problems.append(f"{rel}: template-suite: no tests/{name}_test.yaml")
     problems += kind_fields(chart, schema)
+    problems += workload_kind(chart)
     if problems:
         print("    FAIL: templates break a mechanical rule of CODING_STANDARDS.md:")
         for p in problems:
