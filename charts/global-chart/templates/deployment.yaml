@@ -1,3 +1,9 @@
+{{- /*
+The workload of every deployments entry, whatever its kind: a Deployment, or a
+StatefulSet with kind: StatefulSet (ADR 0020). The file is named after the
+values map it renders, like service.yaml and hpa.yaml, not after a Kubernetes
+kind; it changes name only together with the map (issue #215).
+*/ -}}
 {{- $root := . }}
 {{- range $name, $deploy := .Values.deployments }}
 {{- if $deploy }}
