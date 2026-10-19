@@ -361,6 +361,10 @@ def main(argv):
     flags = argv[argv.index("--") + 1:] if "--" in argv else []
     argv = argv[:argv.index("--")] if "--" in argv else argv
     chart, files = pathlib.Path(argv[0]), argv[1:]
+    missing = [str(p) for p in [chart / "Chart.yaml", chart / "values.yaml", *map(pathlib.Path, files)] if not p.is_file()]
+    if missing:
+        print(f"    FAIL: no such chart or scenario: {', '.join(missing)}")
+        sys.exit(1)
     findings = []
     with tempfile.TemporaryDirectory() as tmp:
         scratch = pathlib.Path(tmp) / "values-to-json"

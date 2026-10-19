@@ -9,7 +9,7 @@ rules below.
 
 ```bash
 make all                    # check + null-sweep + generate + kubeconform + kube-linter
-make check                  # the fast loop: lint-chart, lint-templates, lint-docs, lint-shell, lint-glossary, lint-inheritance, unit-test, bad-values, scenario-coverage, schema-descriptions (not null-sweep: make all and CI run it)
+make check                  # the fast loop; its prerequisites in the Makefile are what it runs (not null-sweep: make all and CI run it)
 make lint-chart             # lint every scenario in TEST_CASES
 make lint-templates         # the mechanical rules of CODING_STANDARDS.md
 make lint-docs              # every file a document or a comment points at exists
@@ -33,7 +33,9 @@ Releases: chart-releaser publishes on every push to `main` whose `Chart.yaml`
 `version` is not yet released (`skip_existing`). A feature PR leaves the version
 as is and adds its CHANGELOG entry under `## [Unreleased]`; a Breaking entry
 also adds its bullet to the *Migration guide from <previous release>* there.
-The bump is its own release PR.
+A change that alters what an earlier `[Unreleased]` entry states edits that
+entry: the release ships one statement per behaviour. The bump is its own
+release PR.
 
 The Makefile carries the rest. Three rules about when to run what:
 

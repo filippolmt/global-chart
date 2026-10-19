@@ -16,9 +16,9 @@ checks every fail against them: change both.
 
 {{/*
 The values path of a map entry: "<map path>.<key>", the key alone at the
-root (an empty map path). The single home of that join, read by the walks
-over values maps: rejectRemovedKeys, checkValueType, rejectNullInLists,
-rejectNullItemsAt.
+root (an empty map path). The single home of that join for the walks over
+values maps. Read only by rejectRemovedKeys, checkValueType, rejectNullInLists
+and rejectNullItemsAt.
 Usage: {{ include "global-chart.childValuesPath" (list $errCtx $key) }}
 */}}
 {{- define "global-chart.childValuesPath" -}}
@@ -171,7 +171,7 @@ Fail on the first of keys (old → replacement) that map carries:
 "<values path>: removed in <in>, use <replacement>", and "; see <see>" when
 the replacement takes more than a key to explain (CODING_STANDARDS.md). A map
 of another type carries no key. Read only by validateRemovedKeys and its two
-helpers above.
+helpers above, rejectRemovedJobKeys and rejectRemovedVolumeKeys.
 */}}
 {{- define "global-chart.rejectRemovedKeys" -}}
 {{- $args := . -}}

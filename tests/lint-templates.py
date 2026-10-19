@@ -49,6 +49,11 @@ a rule below cannot recognise: a check that sees nothing is not a pass.
   of issue #221 surfaced about fifteen: renamed ahead of the validators, each
   crashed with no values path. This keeps the validators first while such a
   helper exists. Partials (`_*`) render nothing and are left out.
+- read-only-by: a helper header that says "Read only by A, B and C." names
+  exactly the defines and templates that include the helper, itself aside (a
+  recursion). The exhaustive form is the one checked: a "read by" in prose
+  may name some readers only. A reader added to a helper whose header claims
+  the full list is a stale header the reviews found by hand (issue #248).
 
 Comments (`{{/* … */}}`) are stripped before matching, so a rule may be named in
 prose. Matching runs over the whole file, so an expression split across lines
@@ -76,6 +81,9 @@ KIND_LIST = re.compile(r'"(\w+)"\s*\(list\s+([^)]*)\)')
 WORKLOAD_KIND = re.compile(r'"(Deployment|StatefulSet|DaemonSet)"')
 KIND_HOMES = {"global-chart.workloadKind", "global-chart.isStatefulSet"}
 DEFINE_NAME = re.compile(r'\{\{-?\s*define\s+"([^"]+)"')
+INCLUDE = re.compile(r'\b(?:include|template)\s+"global-chart\.([\w-]+)"')
+READ_ONLY_BY = re.compile(r"\bRead only by\s+(.*?)\.(?:\s|$)", re.S)
+HEADER_BEFORE = re.compile(r'\{\{-?\s*/\*((?:(?!\*/).)*)\*/\s*-?\}\}\s*$', re.S)
 
 
 def blank_comments(text):
@@ -145,6 +153,11 @@ def kind_fields(chart, schema):
     return problems
 
 
+def define_at(starts, pos, default):
+    """The define a position sits in, from starts = [(offset, name)] in file order; default outside any."""
+    return next((name for start, name in reversed(starts) if start < pos), default)
+
+
 def workload_kind(chart):
     """The workload-kind rule."""
     problems = []
@@ -155,7 +168,7 @@ def workload_kind(chart):
         homes = [m.span() for m in KIND_ONLY.finditer(text)]
         starts = [(m.start(), m.group(1)) for m in DEFINE_NAME.finditer(text)]
         for m in WORKLOAD_KIND.finditer(text):
-            define = next((name for pos, name in reversed(starts) if pos < m.start()), None)
+            define = define_at(starts, m.start(), None)
             if define in KIND_HOMES or any(a <= m.start() < b for a, b in homes):
                 continue
             problems.append(f"{path.relative_to(chart)}:{lineno(text, m.start())}: workload-kind: {m.group(0)} written by hand; read the kind from global-chart.workloadKind")
@@ -173,6 +186,42 @@ def render_order(chart):
     return []
 
 
+def read_only_by(chart):
+    """The read-only-by rule.
+    shortcut: an include whose name is built at render time (`include $name`) is
+    not seen, and only the comment right before a define is its header; widen
+    both when a "Read only by" helper is reached that way."""
+    readers, claims, defines, files = {}, [], set(), set()
+    for path in sorted((chart / "templates").rglob("*")):
+        if path.suffix not in {".yaml", ".tpl", ".txt"}:
+            continue
+        files.add(path.name)
+        raw = path.read_text()
+        text = blank_comments(raw)
+        defines |= {m.group(1).removeprefix("global-chart.") for m in DEFINE_NAME.finditer(text)}
+        starts = [(m.start(), m.group(1).removeprefix("global-chart.")) for m in DEFINE_NAME.finditer(text)]
+        for m in INCLUDE.finditer(text):
+            reader = define_at(starts, m.start(), path.name)
+            if reader != m.group(1):
+                readers.setdefault(m.group(1), set()).add(reader)
+        for m in DEFINE_NAME.finditer(raw):
+            header = HEADER_BEFORE.search(raw, 0, m.start())
+            for c in READ_ONLY_BY.finditer(header.group(1) if header else ""):
+                claims.append((path, lineno(raw, m.start()), m.group(1).removeprefix("global-chart."), c.group(1)))
+    problems = []
+    for path, line, name, claim in claims:
+        # A name is a camelCase word (a define) or a template file; the rest is prose
+        named = set(re.findall(r"\b[a-z]+[A-Z]\w*\b|[\w-]+\.(?:yaml|txt)\b", claim))
+        for unknown in sorted(named - defines - files):
+            problems.append(f"{path.relative_to(chart)}:{line}: read-only-by: {name}'s header names {unknown}, "
+                            "which is no define or template of the chart")
+        actual = readers.get(name, set())
+        if named & (defines | files) != actual:
+            problems.append(f"{path.relative_to(chart)}:{line}: read-only-by: {name}'s header names {sorted(named)}, "
+                            f"its readers are {sorted(actual)}; list exactly the readers")
+    return problems
+
+
 def main(chart):
     chart = pathlib.Path(chart)
     templates = chart / "templates"
@@ -181,7 +230,11 @@ def main(chart):
     helpers = set()
     for path in templates.rglob("*.tpl"):
         helpers |= set(re.findall(r'define\s+"global-chart\.([\w-]+)"', path.read_text()))
-    home = re.search(r"^home:\s*(\S+)", (chart / "Chart.yaml").read_text(), re.M).group(1)
+    home = re.search(r"^home:\s*(\S+)", (chart / "Chart.yaml").read_text(), re.M)
+    if not home:
+        print("    FAIL: Chart.yaml carries no `home:`, the URL the chart-home rule keeps out of the templates")
+        sys.exit(1)
+    home = home.group(1)
     problems = []
     for path in sorted(templates.rglob("*")):
         if path.suffix not in {".yaml", ".tpl", ".txt"}:
@@ -217,6 +270,7 @@ def main(chart):
     problems += kind_fields(chart, schema)
     problems += workload_kind(chart)
     problems += render_order(chart)
+    problems += read_only_by(chart)
     if problems:
         print("    FAIL: templates break a mechanical rule of CODING_STANDARDS.md:")
         for p in problems:
@@ -228,4 +282,8 @@ def main(chart):
 if __name__ == "__main__":
     if len(sys.argv) != 2:
         sys.exit(__doc__.rsplit("Usage: ", 1)[1])
-    main(sys.argv[1])
+    try:
+        main(sys.argv[1])
+    except (OSError, json.JSONDecodeError) as e:
+        print(f"    FAIL: cannot read the chart's templates, values.schema.json or Chart.yaml: {e}")
+        sys.exit(1)
