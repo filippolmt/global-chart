@@ -11,7 +11,7 @@
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: {{ $depFullname }}
+  name: {{ $depFullname | quote }}
   labels:
     {{- include "global-chart.deploymentLabels" $labelCtx | nindent 4 }}
   {{- with (include "global-chart.renderAnnotations" (dict "root" $root)) }}

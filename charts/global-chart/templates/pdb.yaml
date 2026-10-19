@@ -11,7 +11,7 @@
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
-  name: {{ $depFullname }}
+  name: {{ $depFullname | quote }}
   labels:
     {{- include "global-chart.deploymentLabels" $labelCtx | nindent 4 }}
   {{- with (include "global-chart.renderAnnotations" (dict "root" $root)) }}

@@ -139,7 +139,7 @@ initContainers:
   {{- toYaml $job.initContainers | nindent 2 }}
 {{- end }}
 containers:
-- name: {{ $containerName }}
+- name: {{ $containerName | quote }}
   image: {{ $imageRef | quote }}
   {{- /* The pullPolicy follows the image to wherever it came from: a
          root-level fromWorkload copies the workload's pullPolicy with its

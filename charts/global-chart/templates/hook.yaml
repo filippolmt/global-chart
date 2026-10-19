@@ -31,7 +31,7 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: {{ include "global-chart.serviceAccountCopyName" (dict "root" $root "name" $saName) }}
+  name: {{ include "global-chart.serviceAccountCopyName" (dict "root" $root "name" $saName) | quote }}
   namespace: {{ $root.Release.Namespace | quote }}
   labels:
     {{- include "global-chart.hookLabelsWithComponent" (dict "root" $root "deploymentName" $sa.deploymentName) | nindent 4 }}
@@ -68,7 +68,7 @@ automountServiceAccountToken: {{ $sa.automount }}
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: {{ $saName }}
+  name: {{ $saName | quote }}
   namespace: {{ $root.Release.Namespace | quote }}
   labels:
     {{- include "global-chart.hookLabelsWithComponent" (dict "root" $root) | nindent 4 }}
@@ -83,7 +83,7 @@ automountServiceAccountToken: {{ $sa.automount }}
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ $hookFullname }}
+  name: {{ $hookFullname | quote }}
   labels:
     {{- include "global-chart.hookLabelsWithComponent" (dict "root" $root) | nindent 4 }}
   annotations:
@@ -97,7 +97,7 @@ spec:
   {{- end }}
   template:
     metadata:
-      name: {{ $hookFullname }}
+      name: {{ $hookFullname | quote }}
       labels:
         {{- include "global-chart.hookLabelsWithComponent" (dict "root" $root) | nindent 8 }}
       {{- with (include "global-chart.renderAnnotations" (dict "root" $root)) }}
@@ -141,7 +141,7 @@ spec:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ include "global-chart.hookPrereqConfigName" (dict "deploymentFullname" $deployFullname) }}
+  name: {{ include "global-chart.hookPrereqConfigName" (dict "deploymentFullname" $deployFullname) | quote }}
   labels:
     {{- include "global-chart.hookLabelsWithComponent" (dict "root" $root "deploymentName" $deployName) | nindent 4 }}
   annotations:
@@ -157,7 +157,7 @@ data:
 apiVersion: v1
 kind: Secret
 metadata:
-  name: {{ include "global-chart.hookPrereqSecretName" (dict "deploymentFullname" $deployFullname) }}
+  name: {{ include "global-chart.hookPrereqSecretName" (dict "deploymentFullname" $deployFullname) | quote }}
   labels:
     {{- include "global-chart.hookLabelsWithComponent" (dict "root" $root "deploymentName" $deployName) | nindent 4 }}
   annotations:
@@ -212,7 +212,7 @@ data:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: {{ $saName }}
+  name: {{ $saName | quote }}
   namespace: {{ $root.Release.Namespace | quote }}
   labels:
     {{- include "global-chart.hookLabelsWithComponent" (dict "root" $root "deploymentName" $deployName) | nindent 4 }}
@@ -227,7 +227,7 @@ automountServiceAccountToken: {{ $saAutomount }}
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ $hookFullname }}
+  name: {{ $hookFullname | quote }}
   labels:
     {{- include "global-chart.hookLabelsWithComponent" (dict "root" $root "deploymentName" $deployName) | nindent 4 }}
   annotations:
@@ -241,7 +241,7 @@ spec:
   {{- end }}
   template:
     metadata:
-      name: {{ $hookFullname }}
+      name: {{ $hookFullname | quote }}
       labels:
         {{- include "global-chart.hookLabelsWithComponent" (dict "root" $root "deploymentName" $deployName) | nindent 8 }}
       {{- with (include "global-chart.renderAnnotations" (dict "root" $root)) }}

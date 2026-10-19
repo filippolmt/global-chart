@@ -182,8 +182,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   `autoscaling.minReplicas` above `maxReplicas`, and `keda.minReplicaCount`
   above `maxReplicaCount` (KEDA's default 100 when unset), now fail naming the
   key: the API server refused the HPA or the ScaledObject at apply.
+- **A name YAML reads as a number or a boolean renders as a string** (issue
+  #251). A role, ServiceAccount, workload key, port or volume name such as
+  `"0"`, `"1e3"`, `"true"` or `"on"` matches the DNS patterns, but rendered
+  unquoted it reached the API server as a number or a boolean, and the apply
+  failed. Every `name`, `serviceName`, `serviceAccountName`, `appProtocol`,
+  Ingress `path`, `app.kubernetes.io/*` label and named Service `targetPort`
+  the templates print is now quoted; the rendered manifests change only by
+  those quotes.
+- **An integer Helm cannot carry exactly is refused by the schema** (issue
+  #250). Helm reads a values number as a float64, so
+  `terminationGracePeriodSeconds: 9007199254740993` rendered as
+  `9007199254740992` and the API server took the wrong number without a word.
+  The int64 fields with no bound (`terminationGracePeriodSeconds` of the
+  workload and of a probe, `tolerationSeconds`, `activeDeadlineSeconds` of a
+  hook or cronjob, `startingDeadlineSeconds`) now take at most
+  9007199254740991 (2⁵³-1), `tolerationSeconds` at least its negative.
 
 ### Tests
+
+- `make lint-templates` gains `quoted-name`: a `name`-like key whose whole
+  value is a print fails unless the print ends in `| quote` (issue #251).
+  `make bound-sweep` gives every DNS label and subdomain `"0"` and `"true"`,
+  and every port name `"on"`.
 
 - New `make bound-sweep`, run before `make e2e` and so in CI (issue #226):
   each scalar a scenario sets is given, in turn, values the API server is

@@ -472,3 +472,34 @@ tests:
         documentSelector:
           path: metadata.name
           value: scaler
+
+  # ====== Names YAML reads as another type (issue #251) ======
+  - it: renders a role and ServiceAccount name YAML reads as a number or a boolean as a string
+    set:
+      rbacs:
+        roles:
+          - name: "0"
+            serviceAccount:
+              create: true
+              name: "true"
+            rules:
+              - apiGroups: [""]
+                resources: ["pods"]
+                verbs: ["get"]
+    asserts:
+      - equal:
+          path: metadata.name
+          value: "true"
+        documentIndex: 0
+      - equal:
+          path: metadata.name
+          value: "0"
+        documentIndex: 1
+      - equal:
+          path: roleRef.name
+          value: "0"
+        documentIndex: 2
+      - equal:
+          path: subjects[0].name
+          value: "true"
+        documentIndex: 2

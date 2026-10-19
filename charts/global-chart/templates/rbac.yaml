@@ -11,7 +11,7 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: {{ $resolved.name }}
+  name: {{ $resolved.name | quote }}
   namespace: {{ $root.Release.Namespace | quote }}
   labels:
     {{- include "global-chart.labels" $root | nindent 4 }}
@@ -25,7 +25,7 @@ automountServiceAccountToken: {{ $resolved.automount }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: {{ $role.name }}
+  name: {{ $role.name | quote }}
   namespace: {{ $root.Release.Namespace | quote }}
   labels:
     {{- include "global-chart.labels" $root | nindent 4 }}
@@ -40,7 +40,7 @@ metadata:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: {{ $roleBindingName }}
+  name: {{ $roleBindingName | quote }}
   namespace: {{ $root.Release.Namespace | quote }}
   labels:
     {{- include "global-chart.labels" $root | nindent 4 }}
@@ -51,10 +51,10 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: {{ $role.name }}
+  name: {{ $role.name | quote }}
 subjects:
   - kind: ServiceAccount
-    name: {{ $resolved.name }}
+    name: {{ $resolved.name | quote }}
     namespace: {{ $root.Release.Namespace | quote }}
 ---
 {{- end }}
@@ -77,7 +77,7 @@ subjects:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: {{ $roleCopy }}
+  name: {{ $roleCopy | quote }}
   namespace: {{ $root.Release.Namespace | quote }}
   labels:
     {{- include "global-chart.hookLabelsWithComponent" (dict "root" $root) | nindent 4 }}
@@ -91,7 +91,7 @@ metadata:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: {{ include "global-chart.rbacRoleBindingHookName" $role.name }}
+  name: {{ include "global-chart.rbacRoleBindingHookName" $role.name | quote }}
   namespace: {{ $root.Release.Namespace | quote }}
   labels:
     {{- include "global-chart.hookLabelsWithComponent" (dict "root" $root) | nindent 4 }}
@@ -103,10 +103,10 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: {{ $roleCopy }}
+  name: {{ $roleCopy | quote }}
 subjects:
   - kind: ServiceAccount
-    name: {{ $copySA }}
+    name: {{ $copySA | quote }}
     namespace: {{ $root.Release.Namespace | quote }}
 ---
 {{- end }}

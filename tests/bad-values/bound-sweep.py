@@ -69,10 +69,10 @@ CANDIDATES = {
     "/$defs/hpaTargetPercent": [str(INT32_MAX), str(INT32_MAX + 1)],
     "/$defs/pdb/properties/minAvailable/oneOf/1": PERCENT,
     "/$defs/pdb/properties/maxUnavailable/oneOf/1": PERCENT,
-    # shortcut: no digit-only name ("0") until issue #251 quotes the names it renders unquoted; add "0" back with that fix
-    "/$defs/dns1123Label": ["0a", "a-0"],
-    "/$defs/dns1123Subdomain": ["0a", "a.b-0", SUBDOMAIN_253],
-    "/$defs/ianaSvcName": ["a" * 15],
+    # "0" and "true"/"on": names YAML reads as a number or a boolean, unless the template quotes them (issue #251)
+    "/$defs/dns1123Label": ["0", "true", "0a", "a-0"],
+    "/$defs/dns1123Subdomain": ["0", "true", "0a", "a.b-0", SUBDOMAIN_253],
+    "/$defs/ianaSvcName": ["on", "a" * 15],
     "/$defs/ianaSvcName/allOf/0": ["0a", "a-0"],
     "/$defs/ianaSvcName/allOf/1": None,  # "has a letter": a narrowing, nothing to push
     "/$defs/volumeClaimTemplate/properties/size": ["1", "0.5", "1.5Gi", "999999Ei"],

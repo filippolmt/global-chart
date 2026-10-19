@@ -1,0 +1,8 @@
+# An integer Helm cannot carry exactly (issue #250). Helm reads a values number
+# as a float64, so 2^53+1 becomes 2^53 and the API server would accept a number
+# other than the one written. The maximum is 2^53-1: a maximum of 2^53 would
+# let this value through, since the schema sees the rounded 2^53 too.
+workloads:
+  app:
+    image: nginx:1.25
+    terminationGracePeriodSeconds: 9007199254740993

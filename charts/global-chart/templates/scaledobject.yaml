@@ -19,7 +19,7 @@
 apiVersion: keda.sh/v1alpha1
 kind: ScaledObject
 metadata:
-  name: {{ $depFullname }}
+  name: {{ $depFullname | quote }}
   labels:
     {{- include "global-chart.deploymentLabels" $labelCtx | nindent 4 }}
   {{- with (include "global-chart.renderAnnotations" (dict "root" $root "own" $keda.annotations)) }}
@@ -30,7 +30,7 @@ spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: {{ include "global-chart.workloadKind" $deploy }}
-    name: {{ $depFullname }}
+    name: {{ $depFullname | quote }}
   {{- if hasKey $keda "minReplicaCount" }}
   minReplicaCount: {{ include "global-chart.printScalar" (dict "value" $keda.minReplicaCount "errCtx" (printf "%s.keda.minReplicaCount" $errCtx)) }}
   {{- end }}

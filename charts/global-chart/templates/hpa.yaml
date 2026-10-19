@@ -15,7 +15,7 @@
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: {{ $depFullname }}
+  name: {{ $depFullname | quote }}
   labels:
     {{- include "global-chart.deploymentLabels" $labelCtx | nindent 4 }}
   {{- with (include "global-chart.renderAnnotations" (dict "root" $root)) }}
@@ -26,7 +26,7 @@ spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: {{ include "global-chart.workloadKind" $deploy }}
-    name: {{ $depFullname }}
+    name: {{ $depFullname | quote }}
   {{- if not (hasKey $hpa "minReplicas") }}
   {{- fail (printf "%s.autoscaling.minReplicas: required when HPA is enabled" $errCtx) }}
   {{- end }}
@@ -42,7 +42,7 @@ spec:
     {{- range $res, $target := $targets }}
     - type: Resource
       resource:
-        name: {{ $res }}
+        name: {{ $res | quote }}
         target:
           type: Utilization
           averageUtilization: {{ include "global-chart.printScalar" $target }}
