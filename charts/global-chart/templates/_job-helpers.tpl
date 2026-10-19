@@ -9,13 +9,15 @@ resolves to the job's own value — and, for `imagePullSecrets` only, to
 not already have. Same widening as `jobServiceAccount`, in
 _serviceaccount-helpers.tpl (see ADR 0001).
 
-Inheritance, workload scope. A job inherits image, configMap, secret,
-ServiceAccount, the envFrom lists, externalSecrets, additionalEnvs,
-imagePullSecrets, hostAliases, podSecurityContext, securityContext,
-automountServiceAccountToken, dnsConfig (cronjobs only), nodeSelector,
-tolerations, affinity and priorityClassName. An explicit value overrides; an
-empty `{}`, `[]` or `""` (priorityClassName) stops the inheritance. Four
-exceptions to that shape:
+Inheritance, workload scope. What a job takes from its workload, by values
+key; tests/check-inheritance.py holds the schema descriptions and
+docs/values-authors/README.md to these three lines (issue #245). Nothing holds
+the lines to the code of jobPodSpec: a change to what it inherits edits them.
+  inherited: image serviceAccount configMap secret envFromConfigMaps envFromSecrets externalSecrets additionalEnvs imagePullSecrets hostAliases podSecurityContext securityContext automountServiceAccountToken nodeSelector tolerations affinity priorityClassName
+  cronjobs only: dnsConfig
+  never: command args mountedConfigFiles volumes volumeMounts resources
+An explicit value overrides; an empty `{}`, `[]` or `""` (priorityClassName)
+stops the inheritance. Four exceptions to that shape:
 - envFromConfigMaps / envFromSecrets are additive: the job's own (`[]`
   included) come after the workload's and never replace them. The opt-outs
   are toggles, default true: inheritWorkloadConfigMap /

@@ -122,7 +122,7 @@ TEST_CASES := \
 .DEFAULT_GOAL := help
 
 # All phony targets
-.PHONY: help all check lint-chart render-diff lint-templates lint-docs lint-shell lint-glossary lint-labels unit-test null-sweep scenario-coverage schema-descriptions validate-bad-values generate-templates \
+.PHONY: help all check lint-chart render-diff lint-templates lint-docs lint-shell lint-glossary lint-inheritance lint-labels unit-test null-sweep scenario-coverage schema-descriptions validate-bad-values generate-templates \
 	kubeconform kube-linter-manifests kube-linter generate-docs package \
 	install install-test01 render clean clean-all \
 	kind-install kind-cluster kind-keda kind-eso kind-gateway-api kind-argocd kind-delete e2e e2e-dryrun e2e-routes e2e-argocd check-helm-floor
@@ -148,10 +148,10 @@ help: ## Show this help message
 # Main targets
 # ============================================================================
 
-all: lint-chart lint-templates lint-docs lint-shell lint-glossary unit-test validate-bad-values scenario-coverage schema-descriptions null-sweep generate-templates kubeconform kube-linter ## Lint, template rules, doc pointers, unit tests, bad-values, scenario coverage, schema descriptions, null sweep, then generate, validate and lint the manifests
+all: check null-sweep generate-templates kubeconform kube-linter ## make check, the null sweep, then generate, validate and lint the manifests
 	@echo "==> make all: every check passed"
 
-check: lint-chart lint-templates lint-docs lint-shell lint-glossary unit-test validate-bad-values scenario-coverage schema-descriptions ## The development loop: lint, template rules, doc pointers, unit tests, bad-values, scenario coverage, schema descriptions (no null sweep, no manifest validation: make all and CI run them)
+check: lint-chart lint-templates lint-docs lint-shell lint-glossary lint-inheritance unit-test validate-bad-values scenario-coverage schema-descriptions ## The development loop: lint, template rules, doc pointers, inheritance docs, unit tests, bad-values, scenario coverage, schema descriptions (no null sweep, no manifest validation: make all and CI run them)
 
 lint-chart: ## Lint chart with all test values files
 	@echo "==> Linting chart with all test cases..."
@@ -186,6 +186,11 @@ lint-glossary: ## The phrases GLOSSARY.md avoids with one reading only stay out 
 	@echo "==> Checking glossary terms..."
 	@python3 tests/lint-glossary.py
 
+lint-inheritance: ## The schema and the values-author guide state the inheritance the jobPodSpec header lists
+	@echo "==> Checking the inheritance rules..."
+	@python3 tests/check-inheritance.py --self-test ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) docs/values-authors/README.md
+	@python3 tests/check-inheritance.py ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) docs/values-authors/README.md
+
 null-sweep: ## Null every values node of every scenario in turn, then give each map and list the wrong type: each must render or fail naming its path
 	@echo "==> Sweeping nulls and wrong types under --skip-schema-validation..."
 	@python3 tests/bad-values/null-sweep.py ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) \
@@ -196,10 +201,10 @@ scenario-coverage: ## Every map or list node of the schema is set by a scenario,
 	@python3 tests/check-scenario-coverage.py ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) tests/scenario-coverage-baseline.txt \
 		$(foreach e,$(TEST_CASES),$(firstword $(subst :, ,$(e))))
 
-schema-descriptions: ## Every schema property carries a description (new gaps fail; the baseline only shrinks)
+schema-descriptions: ## Every schema property carries a description
 	@echo "==> Checking the schema descriptions..."
 	@python3 tests/check-schema-descriptions.py --self-test
-	@python3 tests/check-schema-descriptions.py ./$(CHART_DIR)/$(GLOBAL_CHART_NAME)/values.schema.json tests/schema-descriptions-baseline.txt
+	@python3 tests/check-schema-descriptions.py ./$(CHART_DIR)/$(GLOBAL_CHART_NAME)/values.schema.json
 
 lint-labels: ## Every triage label docs/agents/triage-labels.md names exists on GitHub (needs gh; not in check, which stays offline)
 	@echo "==> Checking triage labels..."

@@ -17,7 +17,8 @@ checks every fail against them: change both.
 {{/*
 The values path of a map entry: "<map path>.<key>", the key alone at the
 root (an empty map path). The single home of that join, read by the walks
-over values maps: rejectRemovedKeys, checkValueType, rejectNullInLists.
+over values maps: rejectRemovedKeys, checkValueType, rejectNullInLists,
+rejectNullItemsAt.
 Usage: {{ include "global-chart.childValuesPath" (list $errCtx $key) }}
 */}}
 {{- define "global-chart.childValuesPath" -}}
@@ -368,10 +369,9 @@ Validate that no list in values carries a null item, and that no item of a list
 the chart reads carries a null in a field it needs (issue #198). Two parts:
 - rejectNullInLists over the whole of .Values: a null item fails anywhere,
   passthrough lists included, naming its path;
-- the required fields of the items the pod-spec helpers read —
-  imagePullSecrets, volumes, volumeMounts, externalSecrets, dnsConfig.options,
-  a workload's service.extraPorts and mountedConfigFiles — for every owner
-  podSpecOwners lists, plus global.imagePullSecrets and rbacs.roles.
+- the required fields of the lists nullItemFields names: its root lists once,
+  its owner lists for every owner podSpecOwners lists, its workload lists for
+  every workload among them.
 Those helpers skip a null item or field instead of reading through it, so this
 is the one error such a null reaches, whatever order Helm renders the templates
 in (isNamedEntry is their skip). Runs in validate.yaml right after
@@ -382,24 +382,72 @@ which has the path at hand.
 Called from validate.yaml. Emits nothing on success.
 */}}
 {{- define "global-chart.validateNullItems" -}}
+{{- $root := . -}}
+{{- $fields := include "global-chart.nullItemFields" . | fromYaml -}}
 {{- include "global-chart.rejectNullInLists" (dict "value" .Values "errCtx" "") -}}
-{{- include "global-chart.rejectNullItems" (dict "list" (default (dict) .Values.global).imagePullSecrets "errCtx" "global.imagePullSecrets" "required" (list "name")) -}}
-{{- include "global-chart.rejectNullItems" (dict "list" (default (dict) .Values.rbacs).roles "errCtx" "rbacs.roles" "required" (list "name")) -}}
+{{- range $path, $required := $fields.root -}}
+  {{- include "global-chart.rejectNullItemsAt" (dict "value" $root.Values "path" (splitList "." $path) "errCtx" "" "required" $required) -}}
+{{- end -}}
 {{- range $owner := (include "global-chart.podSpecOwners" . | fromJsonArray) -}}
-  {{- $spec := $owner.spec -}}
-  {{- $path := $owner.path -}}
-  {{- range $field, $required := dict "imagePullSecrets" (list "name") "volumes" (list "name") "volumeMounts" (list "name" "mountPath") "externalSecrets" (list "name") "volumeClaimTemplates" (list "name" "size") -}}
-    {{- include "global-chart.rejectNullItems" (dict "list" (index $spec $field) "errCtx" (printf "%s.%s" $path $field) "required" $required) -}}
-  {{- end -}}
-  {{- include "global-chart.rejectNullItems" (dict "list" (default (dict) $spec.dnsConfig).options "errCtx" (printf "%s.dnsConfig.options" $path) "required" (list "name")) -}}
+  {{- $scopes := list $fields.owner -}}
   {{- if eq $owner.kind "workload" -}}
-    {{- include "global-chart.rejectNullItems" (dict "list" (default (dict) $spec.service).extraPorts "errCtx" (printf "%s.service.extraPorts" $path) "required" (list "name" "port" "targetPort")) -}}
-    {{- $mcf := default (dict) $spec.mountedConfigFiles -}}
-    {{- include "global-chart.rejectNullItems" (dict "list" $mcf.files "errCtx" (printf "%s.mountedConfigFiles.files" $path) "required" (list "name")) -}}
-    {{- include "global-chart.rejectNullItems" (dict "list" $mcf.bundles "errCtx" (printf "%s.mountedConfigFiles.bundles" $path) "required" (list "name")) -}}
-    {{- range $bi, $b := (default (list) $mcf.bundles) -}}
-      {{- include "global-chart.rejectNullItems" (dict "list" (default (dict) $b).files "errCtx" (printf "%s.mountedConfigFiles.bundles[%d].files" $path $bi) "required" (list "name")) -}}
+    {{- $scopes = append $scopes $fields.workload -}}
+  {{- end -}}
+  {{- range $scope := $scopes -}}
+    {{- range $path, $required := $scope -}}
+      {{- include "global-chart.rejectNullItemsAt" (dict "value" $owner.spec "path" (splitList "." $path) "errCtx" $owner.path "required" $required) -}}
     {{- end -}}
+  {{- end -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+The lists validateNullItems checks, each with the item fields it needs: a
+dotted path from the root of values (root), from every pod-spec owner (owner),
+or from a workload only (workload); `x[]` steps into every item of list x.
+Every path must be a list of maps in valuesShape: the two answer different
+questions (a null field vs. a wrong type) over the same nodes, and `make
+null-sweep` (make all and CI, not make check) fails a path valuesShape does not
+read as such (issue #238). One direction only: a list of maps valuesShape adds
+may have no required field, so it does not have to be here.
+Read only by validateNullItems.
+*/}}
+{{- define "global-chart.nullItemFields" -}}
+root:
+  global.imagePullSecrets: [name]
+  rbacs.roles: [name]
+owner:
+  imagePullSecrets: [name]
+  volumes: [name]
+  volumeMounts: [name, mountPath]
+  externalSecrets: [name]
+  dnsConfig.options: [name]
+workload:
+  volumeClaimTemplates: [name, size]
+  service.extraPorts: [name, port, targetPort]
+  mountedConfigFiles.files: [name]
+  mountedConfigFiles.bundles: [name]
+  mountedConfigFiles.bundles[].files: [name]
+{{- end }}
+
+{{/*
+rejectNullItems on the list at path (a list of keys, `x[]` stepping into every
+item of list x) under value. A missing or null node on the way is unset: it
+holds no list. Read only by validateNullItems.
+*/}}
+{{- define "global-chart.rejectNullItemsAt" -}}
+{{- $args := . -}}
+{{- if not .path -}}
+  {{- include "global-chart.rejectNullItems" (dict "list" .value "errCtx" .errCtx "required" .required) -}}
+{{- else if kindIs "map" .value -}}
+  {{- $key := trimSuffix "[]" (first .path) -}}
+  {{- $ctx := include "global-chart.childValuesPath" (list .errCtx $key) -}}
+  {{- if hasSuffix "[]" (first .path) -}}
+    {{- range $i, $item := (default (list) (index .value $key)) -}}
+      {{- include "global-chart.rejectNullItemsAt" (dict "value" $item "path" (rest $args.path) "errCtx" (printf "%s[%d]" $ctx $i) "required" $args.required) -}}
+    {{- end -}}
+  {{- else -}}
+    {{- include "global-chart.rejectNullItemsAt" (dict "value" (index .value $key) "path" (rest .path) "errCtx" $ctx "required" .required) -}}
   {{- end -}}
 {{- end -}}
 {{- end }}

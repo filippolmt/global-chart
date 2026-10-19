@@ -324,7 +324,7 @@ spec:
     - metadata:
         name: {{ .name }}
         labels:
-          {{- /* The selector labels win, as in mergeLabels: they tie the claim to its workload */}}
+          {{- /* The selector labels win, as in deploymentLabels: they tie the claim to its workload */}}
           {{- toYaml (mergeOverwrite (deepCopy (default (dict) .labels)) (include "global-chart.deploymentSelectorLabels" $labelCtx | fromYaml)) | nindent 10 }}
         {{- with .annotations }}
         annotations:

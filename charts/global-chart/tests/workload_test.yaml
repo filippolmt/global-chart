@@ -1413,6 +1413,37 @@ tests:
           path: spec.template.metadata.labels.tier
           value: from-pod
 
+  - it: should not let podLabels overwrite the selector labels on the pod template
+    set:
+      workloads:
+        main:
+          image: nginx:1.25
+          podLabels:
+            app.kubernetes.io/component: hijacked
+            app.kubernetes.io/name: hijacked
+            app.kubernetes.io/instance: hijacked
+            app.kubernetes.io/managed-by: from-pod
+            tier: from-pod
+    asserts:
+      - equal:
+          path: spec.template.metadata.labels["app.kubernetes.io/component"]
+          value: main
+      - equal:
+          path: spec.template.metadata.labels["app.kubernetes.io/name"]
+          value: global-chart
+      - equal:
+          path: spec.template.metadata.labels["app.kubernetes.io/instance"]
+          value: RELEASE-NAME
+      - equal:
+          path: spec.selector.matchLabels["app.kubernetes.io/component"]
+          value: main
+      - equal:
+          path: spec.template.metadata.labels["app.kubernetes.io/managed-by"]
+          value: from-pod
+      - equal:
+          path: spec.template.metadata.labels.tier
+          value: from-pod
+
   - it: should not let global.commonLabels overwrite the identity labels the selector uses
     set:
       global:

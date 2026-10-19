@@ -44,7 +44,9 @@ any other node must render or fail naming its path, as a null must. That last
 rule keeps valuesShape whole: a node a template reads and valuesShape misses
 ends on a raw error. A wrong type that renders in silence, outside valuesShape,
 passes: no sweep can tell it from a passthrough node the API server will
-reject, so such a node joins valuesShape by hand, with its fixture.
+reject, so such a node joins valuesShape by hand, with its fixture. Each list
+nullItemFields names, whose required fields validateNullItems checks, must be a
+list of maps in valuesShape (issue #238): the two helpers walk the same nodes.
 
 Usage: null-sweep.py <chart dir> <values file>... [-- <helm flags>...]
 """
@@ -240,6 +242,7 @@ def values_shape(chart, tmp):
     # Wrapped in an object: helm template fails a template whose output is a
     # top-level JSON array ("cannot unmarshal array"), even one -s leaves out
     (scratch / "templates" / "owners.json").write_text('{"owners": {{ include "global-chart.podSpecOwners" . }}}\n')
+    (scratch / "templates" / "null-items.json").write_text('{{ include "global-chart.nullItemFields" . | fromYaml | toJson }}\n')
     out = subprocess.run(["helm", "template", "x", str(scratch), "-s", "templates/shape.json"],
                          capture_output=True, text=True)
     try:
@@ -248,6 +251,35 @@ def values_shape(chart, tmp):
         print("    FAIL: valuesShape in _validate-helpers.tpl does not render as a JSON object behind a `# Source:` "
               "header: " + (" ".join(out.stderr.split())[:240] or out.stdout[:240]))
         sys.exit(1)
+
+
+def null_item_findings(tmp, shape):
+    """Every list nullItemFields names that valuesShape does not read as a list of maps."""
+    out = subprocess.run(["helm", "template", "x", str(pathlib.Path(tmp) / "values-shape"),
+                          "-s", "templates/null-items.json"], capture_output=True, text=True)
+    try:
+        fields = json.loads(out.stdout.split("\n", 2)[2])
+    except (IndexError, ValueError):
+        return ["nullItemFields does not render as a JSON object behind a `# Source:` header: "
+                + (" ".join(out.stderr.split())[:240] or out.stdout[:240])]
+    # Where each scope's paths start in valuesShape. An owner is a workload or a
+    # job; every job of every scope shares the *job anchor of valuesShape, so
+    # hooks.*.* stands for all of them (owner_findings holds each owner to it)
+    bases = {"root": [()], "owner": [("workloads", "*"), ("hooks", "*", "*")], "workload": [("workloads", "*")]}
+    findings = []
+    for scope, paths in fields.items():
+        for dotted_path in paths:
+            # x[] steps into the items of list x, as shape_at does on an index
+            keys = tuple(k for part in dotted_path.split(".")
+                         for k in ((part[:-2], 0) if part.endswith("[]") else (part,)))
+            for base in bases.get(scope, [None]):
+                node = shape_at(shape, base + keys) if base is not None else None
+                item = node[0] if isinstance(node, list) else None
+                if not (isinstance(item, dict) or (isinstance(item, str) and "map" in item.split("|"))):
+                    where = ".".join(base) + "." if base else ""
+                    findings.append(f"nullItemFields: {scope}: {dotted_path}: not a list of maps in valuesShape at "
+                                    f"{where}{dotted_path}")
+    return findings
 
 
 def owner_findings(values, tmp, shape):
@@ -344,6 +376,7 @@ def main(argv):
         shape = values_shape(chart, tmp)
         schema = json.loads((chart / "values.schema.json").read_text())
         findings += shape_findings(shape, schema, schema)
+        findings += null_item_findings(tmp, shape)
         wrongs = []
         for f in files:
             values = to_json(f, scratch)

@@ -44,6 +44,9 @@ jobs:
       - name: Check glossary terms
         run: make lint-glossary
 
+      - name: Check inheritance rules
+        run: make lint-inheritance
+
       - name: Check triage labels exist
         run: make lint-labels
         env:

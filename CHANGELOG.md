@@ -114,6 +114,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Fixed
 
+- **`podLabels` can no longer overwrite the selector labels on the pod
+  template** (issue #244). A `workloads.<name>.podLabels` key equal to
+  `app.kubernetes.io/name`, `app.kubernetes.io/instance` or
+  `app.kubernetes.io/component` replaced the chart's value, the pod template
+  stopped matching `spec.selector`, and the API server rejected the workload at
+  apply. The selector labels now win over `podLabels`, as they already did on
+  the claim templates: such a key is dropped. Every other `podLabels` key still
+  wins over the chart's labels; values without such a key render the same
+  manifests.
 - **The `global.commonLabels` comment in `values.yaml` states the precedence
   `mergeLabels` applies** (issue #203 review): a per-resource label
   (`podLabels`) wins over the chart's own labels, which win over
@@ -159,14 +168,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 ### Tests
 
 - New `make schema-descriptions`, in `make check` and CI (issue #203): every
-  property of `values.schema.json` carries a non-empty `description`. The
-  properties without one sit in `tests/schema-descriptions-baseline.txt`, which
-  only shrinks: a new property without a description fails, and so does a
-  baseline line whose property has one now. `--self-test` checks the walk and
-  the ratchet on a small schema. The fields every release uses now carry one —
-  `workloads.<name>` (image, service, resources, probes, hooks, cronJobs and
-  the rest of the entry), every hook and cronjob field, the root keys and
-  `global` — so the baseline holds 198 of 407 properties, down from 360.
+  property of `values.schema.json` carries a non-empty `description`, and a
+  property without one fails. `--self-test` checks the walk on a small schema.
+  All 407 properties are described, each checked against the template that
+  reads the field (issues #203, #247).
 - New `make scenario-coverage`, in `make check` and CI: every map or list node
   the schema declares is set by a `TEST_CASES` scenario, and every type a node
   accepts beside another is used by one, so the checks over the scenarios see
@@ -184,6 +189,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   in a message counts as a raw error.
 - `make null-sweep` leaves `make check`; `make all` and CI run it (issue
   #239): its type pass made the fast loop take about 3.5 minutes.
+- `make null-sweep` ties `validateNullItems` to `valuesShape` (issue #238):
+  the lists whose required fields it checks now sit in one table,
+  `nullItemFields`, and each must be a list of maps in `valuesShape`. The check
+  found `volumeClaimTemplates` checked on hooks and cronjobs, which carry none;
+  it is now checked on workloads only.
+- New `make lint-inheritance`, in `make check` and CI (issue #245): the
+  `inherited:`, `cronjobs only:` and `never:` lines of the `jobPodSpec` header
+  list what a workload-scope job takes from its workload, and
+  `tests/check-inheritance.py` holds the workload property descriptions of
+  `values.schema.json`, its `hooks` / `cronJobs` descriptions and the
+  inheritance lists of `docs/values-authors/README.md` to them. Those
+  descriptions now name each field instead of groups ("security contexts",
+  "placement"), and the `hooks` / `cronJobs` ones add `volumes`,
+  `volumeMounts` and `resources` to what is never inherited. The check found
+  `automountServiceAccountToken` missing from the guide's list.
+- `make all` depends on `make check` instead of repeating its prerequisites
+  (issue #246): a target added to `check` runs in `make all` too. `make -n all`
+  prints the same commands as before.
 - `make e2e-dryrun` replaces `make e2e-routes`, which stays as an alias. It
   sends every `TEST_CASES` scenario to the kind API server as a server-side dry
   run, not only those that render a route, so the rules between fields of a
