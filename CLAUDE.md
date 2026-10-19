@@ -21,6 +21,8 @@ make lint-labels            # the triage labels of docs/agents/triage-labels.md 
 make scenario-coverage      # every map or list node of the schema set by a scenario, every type a node accepts used by one
 make schema-descriptions    # every schema property carries a description
 make schema-bounds          # every schema integer has a maximum within 2^53-1, every digit string a digit count
+make lint-release           # Chart.yaml's version is the CHANGELOG's last release, or the one its top section names
+make release VERSION=4.1.0  # the release PR's edit: [Unreleased] renamed, Chart.yaml bumped, README regenerated
 make null-sweep             # null every values node of every scenario, then give each map and list the wrong type: each must render or fail naming its path
 make generate-docs          # regenerate the helm-docs README
 make e2e                    # install/upgrade/rollback/uninstall on a throwaway kind cluster (runs e2e-dryrun first)
@@ -38,7 +40,8 @@ as is and adds its CHANGELOG entry under `## [Unreleased]`; a Breaking entry
 also adds its bullet to the *Migration guide from <previous release>* there.
 A change that alters what an earlier `[Unreleased]` entry states edits that
 entry: the release ships one statement per behaviour. The bump is its own
-release PR.
+release PR, made by `make release VERSION=x.y.z` (`tests/check-release.py`
+says how it picks and refuses the version).
 
 The Makefile carries the rest. Three rules about when to run what:
 

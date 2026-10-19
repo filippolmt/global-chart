@@ -70,6 +70,9 @@ jobs:
       - name: Check every schema integer is bounded
         run: make schema-bounds
 
+      - name: Check Chart.yaml against the CHANGELOG
+        run: make lint-release
+
       - name: Sweep nulls under --skip-schema-validation
         run: make null-sweep
 

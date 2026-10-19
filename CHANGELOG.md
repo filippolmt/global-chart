@@ -7,6 +7,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
+### Tests
+
+- New `make lint-release`, in `make check` and CI: `Chart.yaml`'s `version`
+  and the CHANGELOG's top section name the same release. `make release
+  VERSION=x.y.z` makes the release PR's edit (the section renamed, the
+  version bumped, the README regenerated). It refuses when the two files
+  already disagree or `[Unreleased]` holds no entry, and a version that is
+  not above the last release or keeps the major over a `### Removed` section.
+  A `## [` heading in any other form than `[x.y.z] — yyyy-mm-dd` or a top
+  `[Unreleased]` fails, rather than drop out of the release order.
+
+## [4.0.0] — 2026-10-19
+
 ### Added
 
 - **`workloads.<name>.kind: StatefulSet`** (issue #211, [ADR 0020](docs/adr/0020-a-workload-kind-on-the-deployments-entry.md)).
