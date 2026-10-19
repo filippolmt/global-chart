@@ -16,7 +16,11 @@ top; one in any other form fails, rather than drop out of the release order.
 `[Unreleased]` to `[x.y.z] — <today>` and sets Chart.yaml's version. It refuses
 when the two files already disagree, when `[Unreleased]` holds no entry, a
 version not above the last release, and a non-major one when the section
-carries `### Removed`: a key is removed only in a major (ADR 0022). 1.3.0
+carries `### Removed`: a key is removed only in a major (ADR 0022).
+
+shortcut: a pre-release (x.y.z-rc.1) is refused, as a VERSION and as a
+heading: the chart has never published one; accept SemVer's pre-release form
+in SEMVER and RELEASE, ordered below its release, the day one is wanted. 1.3.0
 removed keys in a minor, before the policy, so the rule binds the bump only,
 never the history.
 
@@ -25,6 +29,7 @@ Usage: check-release.py <CHANGELOG.md> <Chart.yaml>
        check-release.py --self-test
 """
 import datetime
+import os
 import pathlib
 import re
 import sys
@@ -143,6 +148,7 @@ def self_test():
     assert "## [2.0.0]" in bump(removed, chart, "2.0.0", "2026-02-03")[0]
     assert fails(bump, f"{unreleased}\n\n{r120}\n", chart, "1.3.0", "2026-02-03"), "an empty [Unreleased]"
     assert fails(bump, log(unreleased, r120), "version: 1.1.0\n", "1.3.0", "2026-02-03"), "a drift"
+    assert fails(bump, log(unreleased, r120), chart, "1.3.0-rc.1", "2026-02-03"), "a pre-release"
     print("    OK: self-test")
 
 
@@ -153,8 +159,11 @@ def main(argv):
         version, paths = argv[1], [pathlib.Path(p) for p in argv[2:]]
         changelog, chart = bump(paths[0].read_text(), paths[1].read_text(), version,
                                 datetime.date.today().isoformat())
-        paths[0].write_text(changelog)
-        paths[1].write_text(chart)
+        # both written beside their target first, then renamed: a failed write leaves neither file half-bumped
+        for path, text in zip(paths, (changelog, chart)):
+            path.with_name(path.name + ".release-tmp").write_text(text)
+        for path in paths:
+            os.replace(path.with_name(path.name + ".release-tmp"), path)
         print(f"    OK: [Unreleased] is [{version}], Chart.yaml version {version}")
         return
     if len(argv) != 2:
@@ -176,5 +185,5 @@ if __name__ == "__main__":
         print(f"    FAIL: {e}")
         sys.exit(1)
     except OSError as e:
-        print(f"    FAIL: cannot read CHANGELOG.md or Chart.yaml: {e}")
+        print(f"    FAIL: cannot read or write CHANGELOG.md or Chart.yaml: {e}")
         sys.exit(1)
