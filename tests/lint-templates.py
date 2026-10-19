@@ -49,6 +49,11 @@ a rule below cannot recognise: a check that sees nothing is not a pass.
   of issue #221 surfaced about fifteen: renamed ahead of the validators, each
   crashed with no values path. This keeps the validators first while such a
   helper exists. Partials (`_*`) render nothing and are left out.
+- read-only-by: a helper header that says "Read only by A, B and C." names
+  exactly the defines and templates that include the helper, itself aside (a
+  recursion). The exhaustive form is the one checked: a "read by" in prose
+  may name some readers only. A reader added to a helper whose header claims
+  the full list is a stale header the reviews found by hand (issue #248).
 
 Comments (`{{/* … */}}`) are stripped before matching, so a rule may be named in
 prose. Matching runs over the whole file, so an expression split across lines
@@ -76,6 +81,9 @@ KIND_LIST = re.compile(r'"(\w+)"\s*\(list\s+([^)]*)\)')
 WORKLOAD_KIND = re.compile(r'"(Deployment|StatefulSet|DaemonSet)"')
 KIND_HOMES = {"global-chart.workloadKind", "global-chart.isStatefulSet"}
 DEFINE_NAME = re.compile(r'\{\{-?\s*define\s+"([^"]+)"')
+INCLUDE = re.compile(r'\b(?:include|template)\s+"global-chart\.([\w-]+)"')
+READ_ONLY_BY = re.compile(r"\bRead only by\s+(.*?)\.(?:\s|$)", re.S)
+HEADER_BEFORE = re.compile(r'\{\{-?\s*/\*((?:(?!\*/).)*)\*/\s*-?\}\}\s*$', re.S)
 
 
 def blank_comments(text):
@@ -173,6 +181,34 @@ def render_order(chart):
     return []
 
 
+def read_only_by(chart):
+    """The read-only-by rule."""
+    readers, claims = {}, []
+    for path in sorted((chart / "templates").rglob("*")):
+        if path.suffix not in {".yaml", ".tpl", ".txt"}:
+            continue
+        raw = path.read_text()
+        text = blank_comments(raw)
+        starts = [(m.start(), m.group(1).removeprefix("global-chart.")) for m in DEFINE_NAME.finditer(text)]
+        for m in INCLUDE.finditer(text):
+            reader = next((name for pos, name in reversed(starts) if pos < m.start()), path.name)
+            if reader != m.group(1):
+                readers.setdefault(m.group(1), set()).add(reader)
+        for m in DEFINE_NAME.finditer(raw):
+            header = HEADER_BEFORE.search(raw, 0, m.start())
+            for c in READ_ONLY_BY.finditer(header.group(1) if header else ""):
+                claims.append((path, lineno(raw, m.start()), m.group(1).removeprefix("global-chart."), c.group(1)))
+    known = set(readers) | {r for rs in readers.values() for r in rs}
+    problems = []
+    for path, line, name, claim in claims:
+        named = {w for w in re.findall(r"[\w.-]+", claim) if w in known}
+        actual = readers.get(name, set())
+        if named != actual:
+            problems.append(f"{path.relative_to(chart)}:{line}: read-only-by: {name}'s header names {sorted(named)}, "
+                            f"its readers are {sorted(actual)}; list exactly the readers")
+    return problems
+
+
 def main(chart):
     chart = pathlib.Path(chart)
     templates = chart / "templates"
@@ -217,6 +253,7 @@ def main(chart):
     problems += kind_fields(chart, schema)
     problems += workload_kind(chart)
     problems += render_order(chart)
+    problems += read_only_by(chart)
     if problems:
         print("    FAIL: templates break a mechanical rule of CODING_STANDARDS.md:")
         for p in problems:
