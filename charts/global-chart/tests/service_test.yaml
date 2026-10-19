@@ -473,3 +473,29 @@ tests:
           value:
             team: search
         documentIndex: 1
+
+  # ====== Names YAML reads as another type (issue #251) ======
+  - it: renders a named targetPort YAML reads as a number or a boolean as a string, a numeric one as a number
+    set:
+      workloads:
+        main:
+          image: nginx:1.25
+          service:
+            targetPort: "1e3"
+            extraPorts:
+              - name: metrics
+                port: 9090
+                targetPort: "on"
+              - name: admin
+                port: 9091
+                targetPort: 9091
+    asserts:
+      - equal:
+          path: spec.ports[0].targetPort
+          value: "1e3"
+      - equal:
+          path: spec.ports[1].targetPort
+          value: "on"
+      - equal:
+          path: spec.ports[2].targetPort
+          value: 9091

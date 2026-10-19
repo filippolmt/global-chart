@@ -8,16 +8,15 @@ Two kinds of rule:
 - **Mechanical**: a fixed pattern, so a check enforces it and the review need
   not. `make lint-templates` (`tests/lint-templates.py`, its docstring lists
   them): `default true` on a boolean, `set` on `.Values`, the shape of a
-  `fail` message, a suite per template. `make null-sweep` nulls every values
-  node of every scenario, then gives each map and list the wrong type, and
-  holds `valuesShape` to the schema's types. `make e2e-dryrun` sends every
-  scenario to a real API server. `lint-templates`' kind-fields rule holds the
-  backstop guard's `$kindOnly` to the schema's `if/then/else` on `kind`, and
-  its workload-kind
-  rule keeps a quoted kind (`"Deployment"`) in `workloadKind`, `isStatefulSet`
-  and `$kindOnly`. `make lint-glossary` keeps out the phrases GLOSSARY.md
-  avoids with one reading only. The rules stay written
-  below for their reason; the check is what holds them.
+  `fail` message, a suite per template, a quoted name. `make null-sweep` nulls
+  every values node of every scenario, then gives each map and list the wrong
+  type, and holds `valuesShape` to the schema's types. `make e2e-dryrun` sends
+  every scenario to a real API server. `lint-templates`' kind-fields rule
+  holds the backstop guard's `$kindOnly` to the schema's `if/then/else` on
+  `kind`, and its workload-kind rule keeps a quoted kind (`"Deployment"`) in
+  `workloadKind`, `isStatefulSet` and `$kindOnly`. `make lint-glossary` keeps
+  out the phrases GLOSSARY.md avoids with one reading only. The rules stay
+  written below for their reason; the check is what holds them.
 - **Judgement**: no pattern can see it — the review's job.
 
 ## Template rules
@@ -44,6 +43,15 @@ LIMIT: {{ include "global-chart.printScalar" $value | quote }}
 A number that went through `toJson | fromJson` is a float64 too, whatever
 `--set` made of it: a guard on `kindIs "float64"` after `fromJson` sees every
 number (the `_render-helpers.tpl` header).
+
+**Names — always `| quote`:**
+```yaml
+# WRONG: a role named "0", "1e3" or "true" reaches the API server as a number or a boolean
+name: {{ $role.name }}
+# CORRECT: whatever YAML would read, the name stays a string (issue #251)
+name: {{ $role.name | quote }}
+```
+Generated names too: whether a name can be user-written is not a pattern.
 
 **Inheritance — use `isSet` to distinguish "not set" from "empty":**
 ```yaml

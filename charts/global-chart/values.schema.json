@@ -295,7 +295,7 @@
         "timeoutSeconds": { "description": "Seconds before a probe times out. Kubernetes defaults to 1.", "type": "integer", "maximum": 2147483647 },
         "successThreshold": { "description": "Consecutive successes to count as healthy after a failure. Kubernetes defaults to 1, and requires 1 for a liveness or startup probe.", "type": "integer", "maximum": 2147483647 },
         "failureThreshold": { "description": "Consecutive failures to count as unhealthy. Kubernetes defaults to 3.", "type": "integer", "maximum": 2147483647 },
-        "terminationGracePeriodSeconds": { "description": "Grace period after a failed liveness or startup probe kills the container, overriding the pod's terminationGracePeriodSeconds.", "type": "integer" }
+        "terminationGracePeriodSeconds": { "description": "Grace period after a failed liveness or startup probe kills the container, overriding the pod's terminationGracePeriodSeconds.", "type": "integer", "maximum": 9007199254740991 }
       },
       "additionalProperties": false
     },
@@ -471,7 +471,7 @@
           "type": "string"
         },
         "effect": { "description": "The taint effect to tolerate; empty matches every effect.", "type": "string", "enum": ["", "NoSchedule", "PreferNoSchedule", "NoExecute"] },
-        "tolerationSeconds": { "description": "How long a NoExecute taint is tolerated before eviction; unset tolerates it forever. Kubernetes accepts it only with effect NoExecute.", "type": "integer" }
+        "tolerationSeconds": { "description": "How long a NoExecute taint is tolerated before eviction; unset tolerates it forever. Kubernetes accepts it only with effect NoExecute.", "type": "integer", "minimum": -9007199254740991, "maximum": 9007199254740991 }
       },
       "additionalProperties": false
     },
@@ -587,7 +587,7 @@
         "minAvailable": {
           "description": "A count as an integer, or a percentage from 0% to 100% as a string (\"25%\"), as the API server requires. A digit string with no percent sign is rejected: spell a count as a number. The render fails when it leaves no pod to evict at the replica owner's floor (replicaCount, autoscaling.minReplicas or keda.minReplicaCount): set maxUnavailable: 0 to block evictions on purpose.",
           "oneOf": [
-            { "type": "integer", "minimum": 0 },
+            { "type": "integer", "minimum": 0, "maximum": 2147483647 },
             { "type": "string", "pattern": "^(100|[1-9]?[0-9])%$" }
           ]
         },
@@ -862,7 +862,7 @@
         "readinessProbe": { "description": "The main container's readiness probe, rendered verbatim: the pod receives Service traffic only while it passes.", "$ref": "#/$defs/probe" },
         "startupProbe": { "description": "The main container's startup probe, rendered verbatim: liveness and readiness probes wait until it passes once.", "$ref": "#/$defs/probe", "properties": { "successThreshold": { "description": "1, or unset: the API server refuses any other value on a liveness or startup probe.", "const": 1 } } },
         "lifecycle": { "description": "The main container's lifecycle hooks (postStart, preStop), rendered verbatim: a preStop sleep gives endpoints time to drop the pod.", "type": "object" },
-        "terminationGracePeriodSeconds": { "description": "Seconds between SIGTERM and SIGKILL on pod shutdown. Kubernetes defaults to 30.", "type": "integer", "minimum": 0 },
+        "terminationGracePeriodSeconds": { "description": "Seconds between SIGTERM and SIGKILL on pod shutdown. Kubernetes defaults to 30.", "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
         "autoscaling": { "description": "A HorizontalPodAutoscaler for the workload. With enabled: true it owns the replicas: spec.replicas is omitted. Excludes keda.", "$ref": "#/$defs/autoscaling" },
         "keda": { "description": "A KEDA ScaledObject for the workload; KEDA creates and owns its own HPA. With enabled: true it owns the replicas: spec.replicas is omitted. Excludes autoscaling. Needs the keda.sh CRDs.", "$ref": "#/$defs/kedaScaledObject" },
         "reloader": { "description": "Opt-in Stakater Reloader annotations on the workload's metadata (ADR 0016).", "$ref": "#/$defs/deploymentReloader" },
@@ -1087,8 +1087,8 @@
         "failedJobsHistoryLimit": { "description": "Failed Jobs kept; 2 when unset.", "type": "integer", "minimum": 0, "maximum": 2147483647 },
         "backoffLimit": { "description": "Retries before a Job is marked failed. Kubernetes defaults to 6.", "type": "integer", "minimum": 0, "maximum": 2147483647 },
         "ttlSecondsAfterFinished": { "description": "Seconds after a Job finishes before Kubernetes deletes it.", "type": "integer", "minimum": 0, "maximum": 2147483647 },
-        "activeDeadlineSeconds": { "description": "Bound on a Job's run time: its pods are stopped and the Job marked failed past it.", "type": "integer", "minimum": 1 },
-        "startingDeadlineSeconds": { "description": "Seconds after a missed schedule within which the run may still start; unset, no deadline.", "type": "integer", "minimum": 0 },
+        "activeDeadlineSeconds": { "description": "Bound on a Job's run time: its pods are stopped and the Job marked failed past it.", "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+        "startingDeadlineSeconds": { "description": "Seconds after a missed schedule within which the run may still start; unset, no deadline.", "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
         "parallelism": { "description": "Pods of a Job running at once.", "type": "integer", "minimum": 0, "maximum": 2147483647 },
         "completions": { "description": "Successful pods a Job needs to complete.", "type": "integer", "minimum": 1, "maximum": 2147483647 },
         "timeZone": { "description": "Time zone of the schedule, an IANA name such as Europe/Rome; the controller manager's when unset.", "type": "string" },
@@ -1103,12 +1103,13 @@
     "hookJobSpec": {
       "type": "object",
       "properties": {
-        "weight": { "type": ["string", "integer"], "pattern": "^-?(0|[1-9][0-9]*)$", "description": "Hook weight. A string holds a plain integer: a leading zero is rejected, since the weight arithmetic would read \"010\" as octal 8." },
+        "weight": { "type": ["string", "integer"], "pattern": "^-?(0|[1-9][0-9]{0,17})$", "minimum": -9007199254740991, "maximum": 9007199254740991, "description": "Hook weight. A string holds a plain integer: a leading zero is rejected, since the weight arithmetic would read \"010\" as octal 8. A number stays within ±(2^53-1), the integers Helm carries exactly; a string within 18 digits, past which the arithmetic overflows int64 and reads it as 0." },
         "deletePolicy": { "description": "helm.sh/hook-delete-policy of the hook's Job and of the ServiceAccount it creates. Unset: before-hook-creation on the Job, so the last run stays as the record of what ran; before-hook-creation,hook-succeeded,hook-failed on the ServiceAccount.", "type": "string" },
         "activeDeadlineSeconds": {
           "description": "Bound on the hook Job's run time. The only bound on a hook pod that waits for a Secret: it never reaches Failed, so backoffLimit never counts it.",
           "type": "integer",
-          "minimum": 1
+          "minimum": 1,
+          "maximum": 9007199254740991
         },
         "backoffLimit": {
           "description": "Retries before the hook Job is marked failed; Kubernetes defaults to 6. The hook's own: no fallback from the workload or global. Why the other Job spec fields are not offered on a hook: see jobSpecVerbatimFields in _job-helpers.tpl.",

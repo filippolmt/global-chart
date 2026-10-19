@@ -26,7 +26,7 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ .name }}
+  name: {{ .name | quote }}
   labels:
     {{- include "global-chart.deploymentLabels" $labelCtx | nindent 4 }}
   {{- with (include "global-chart.renderAnnotations" (dict "root" $root "own" (ternary (dict) $svc.annotations $headless))) }}
@@ -42,16 +42,16 @@ spec:
   {{- end }}
   ports:
     - port: {{ include "global-chart.printScalar" $primary.port }}
-      targetPort: {{ include "global-chart.printScalar" $primary.targetPort }}
+      targetPort: {{ ternary (quote $primary.targetPort) (include "global-chart.printScalar" $primary.targetPort) (kindIs "string" $primary.targetPort) }}
       protocol: {{ $primary.protocol }}
-      name: {{ $primary.name }}
+      name: {{ $primary.name | quote }}
     {{- range (default (list) $svc.extraPorts) }}
-    - name: {{ .name }}
+    - name: {{ .name | quote }}
       port: {{ include "global-chart.printScalar" .port }}
-      targetPort: {{ include "global-chart.printScalar" .targetPort }}
+      targetPort: {{ ternary (quote .targetPort) (include "global-chart.printScalar" .targetPort) (kindIs "string" .targetPort) }}
       protocol: {{ include "global-chart.extraPortProtocol" . }}
       {{- with .appProtocol }}
-      appProtocol: {{ . }}
+      appProtocol: {{ . | quote }}
       {{- end }}
       {{- if and .nodePort (not $headless) }}
       nodePort: {{ include "global-chart.printScalar" .nodePort }}

@@ -1903,3 +1903,35 @@ tests:
     asserts:
       - failedTemplate:
           errorPattern: "workloads\\.main\\.externalSecrets: references 'app-conf', which is empty: an empty externalSecrets entry renders no ExternalSecret"
+
+  # ====== Names YAML reads as another type (issue #251) ======
+  - it: renders a workload key, a ServiceAccount name, a referenced Secret and a port name YAML reads as a number or a boolean as strings
+    set:
+      workloads:
+        "0":
+          image: nginx:1.25
+          serviceAccount:
+            name: "true"
+          envFromSecrets:
+            - "1e3"
+          service:
+            extraPorts:
+              - name: "on"
+                port: 9090
+                targetPort: 9090
+    asserts:
+      - equal:
+          path: metadata.labels["app.kubernetes.io/component"]
+          value: "0"
+      - equal:
+          path: spec.selector.matchLabels["app.kubernetes.io/component"]
+          value: "0"
+      - equal:
+          path: spec.template.spec.serviceAccountName
+          value: "true"
+      - equal:
+          path: spec.template.spec.containers[0].ports[1].name
+          value: "on"
+      - equal:
+          path: spec.template.spec.containers[0].envFrom[0].secretRef.name
+          value: "1e3"

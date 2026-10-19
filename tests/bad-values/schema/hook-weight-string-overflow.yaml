@@ -1,0 +1,8 @@
+# A string hook weight past int64 (issue #250). The weight arithmetic's int
+# cast overflows and reads it as 0: hook-weight rendered "0", without a word.
+hooks:
+  pre-install:
+    migrate:
+      image: busybox:1.36
+      command: ["true"]
+      weight: "99999999999999999999"

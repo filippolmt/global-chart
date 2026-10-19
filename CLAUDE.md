@@ -20,6 +20,7 @@ make unit-test              # helm-unittest suites via Docker; SUITE=tests/hpa_t
 make lint-labels            # the triage labels of docs/agents/triage-labels.md exist on GitHub (needs gh)
 make scenario-coverage      # every map or list node of the schema set by a scenario, every type a node accepts used by one
 make schema-descriptions    # every schema property carries a description
+make schema-bounds          # every schema integer has a maximum within 2^53-1, every digit string a digit count
 make null-sweep             # null every values node of every scenario, then give each map and list the wrong type: each must render or fail naming its path
 make generate-docs          # regenerate the helm-docs README
 make e2e                    # install/upgrade/rollback/uninstall on a throwaway kind cluster (runs e2e-dryrun first)
@@ -27,7 +28,7 @@ make e2e-dryrun             # every TEST_CASES scenario, server-side dry run aga
 make bound-sweep            # every bound value the schema accepts on a scenario node, server-side dry run (runs before make e2e)
 make e2e-argocd             # the same cluster, synced by Argo CD (hook lifecycle under Argo)
 make render VALUES=tests/test01/values.01.yaml TEMPLATE=workload.yaml  # TEMPLATE left out: the whole chart; SKIP_SCHEMA=1: --skip-schema-validation
-make render-diff BASE=main  # every scenario renders the same manifests as BASE: the proof a rename or refactor changes none
+make render-diff BASE=main  # every scenario renders the same manifests as BASE: the proof a rename or refactor changes none; QUOTES=ignore when it only quotes
 make -s scenarios           # the TEST_CASES values files, one per line, for running a check script by hand
 ```
 
@@ -50,9 +51,12 @@ The Makefile carries the rest. Three rules about when to run what:
   also `make generate-docs`, to refresh `charts/global-chart/README.md`.
 - Runtime behaviour touched — `hook.yaml`, hook weights, delete policies,
   ServiceAccount lifecycle → `make e2e`. It is the only thing that sees the
-  runtime half of the chart; `helm-unittest` only renders YAML. What it asserts,
-  what in it is deliberate, and why a hand-rolled `helm install` is forbidden and how to probe the e2e cluster by hand:
-  `tests/e2e/README.md`.
+  runtime half of the chart; `helm-unittest` only renders YAML. What it asserts
+  and what in it is deliberate: `tests/e2e/README.md`.
+- Any `kubectl` or `helm` call against a cluster → `--kubeconfig
+  .bin/kind-kubeconfig`: the default context can be production, and the hook
+  `.claude/hooks/kind-kubeconfig-only.py` blocks a call that does not name it.
+  How to probe the e2e cluster by hand: `tests/e2e/README.md`.
 
 Offline renders: `.Capabilities.APIVersions` carries CRDs only during a real
 install, so `helm template` of a KEDA or Gateway API scenario needs the

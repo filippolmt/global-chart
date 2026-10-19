@@ -1,0 +1,8 @@
+# An integer hook weight Helm cannot carry exactly (issue #250): 2^53+1 is read
+# as the float64 2^53, and hook-weight rendered "9007199254740992".
+hooks:
+  pre-install:
+    migrate:
+      image: busybox:1.36
+      command: ["true"]
+      weight: 9007199254740993

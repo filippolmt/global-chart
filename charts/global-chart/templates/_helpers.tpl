@@ -76,15 +76,15 @@ helm.sh/chart: {{ include "global-chart.chart" . }}
 {{- with .Chart.AppVersion }}
 app.kubernetes.io/version: {{ . | quote }}
 {{- end }}
-app.kubernetes.io/managed-by: {{ .Release.Service }}
+app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
 {{- end }}
 
 {{/*
 Selector labels (base, without component)
 */}}
 {{- define "global-chart.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "global-chart.name" . }}
-app.kubernetes.io/instance: {{ .Release.Name }}
+app.kubernetes.io/name: {{ include "global-chart.name" . | quote }}
+app.kubernetes.io/instance: {{ .Release.Name | quote }}
 {{- end }}
 
 {{/*
@@ -109,9 +109,9 @@ Selector labels for a specific workload (includes workload name for uniqueness).
 Usage: {{ include "global-chart.deploymentSelectorLabels" (dict "root" . "deploymentName" $name) }}
 */}}
 {{- define "global-chart.deploymentSelectorLabels" -}}
-app.kubernetes.io/name: {{ include "global-chart.name" .root }}
-app.kubernetes.io/instance: {{ .root.Release.Name }}
-app.kubernetes.io/component: {{ .deploymentName }}
+app.kubernetes.io/name: {{ include "global-chart.name" .root | quote }}
+app.kubernetes.io/instance: {{ .root.Release.Name | quote }}
+app.kubernetes.io/component: {{ .deploymentName | quote }}
 {{- end }}
 
 {{/*
@@ -134,7 +134,7 @@ helm.sh/chart: {{ include "global-chart.chart" .root }}
 {{- with .root.Chart.AppVersion }}
 app.kubernetes.io/version: {{ . | quote }}
 {{- end }}
-app.kubernetes.io/managed-by: {{ .root.Release.Service }}
+app.kubernetes.io/managed-by: {{ .root.Release.Service | quote }}
 {{- end }}
 
 {{/*
@@ -228,7 +228,7 @@ helm.sh/chart: {{ include "global-chart.chart" . }}
 {{- with .Chart.AppVersion }}
 app.kubernetes.io/version: {{ . | quote }}
 {{- end }}
-app.kubernetes.io/managed-by: {{ .Release.Service }}
+app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
 {{- end }}
 
 {{/*

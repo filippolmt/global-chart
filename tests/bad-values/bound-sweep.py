@@ -26,6 +26,10 @@ What renders is diffed against the scenario's own render, and only the documents
 that changed go to `kubectl apply --dry-run=server`. A refusal is a finding. A
 bounded node no scenario sets is never swept: check-scenario-coverage.py reports
 it, reading bounded() from here.
+A bound a template `fail` shadows in every scenario is never swept either:
+pdb.minAvailable at 2^31 always failed validatePdbEvictions first, and its
+missing int32 maximum went unseen (PR #254). Such a bound is checked by
+reading the schema, not by the sweep.
 
 The self-test. Before the sweep, the PDB percentage pattern is put back to its
 pre-#225 form `^[0-9]+%$` in a scratch copy of the chart, and the sweep of the
@@ -69,10 +73,10 @@ CANDIDATES = {
     "/$defs/hpaTargetPercent": [str(INT32_MAX), str(INT32_MAX + 1)],
     "/$defs/pdb/properties/minAvailable/oneOf/1": PERCENT,
     "/$defs/pdb/properties/maxUnavailable/oneOf/1": PERCENT,
-    # shortcut: no digit-only name ("0") until issue #251 quotes the names it renders unquoted; add "0" back with that fix
-    "/$defs/dns1123Label": ["0a", "a-0"],
-    "/$defs/dns1123Subdomain": ["0a", "a.b-0", SUBDOMAIN_253],
-    "/$defs/ianaSvcName": ["a" * 15],
+    # "0", "1e3", "true", "on": names YAML reads as a number or a boolean, unless the template quotes them (issue #251)
+    "/$defs/dns1123Label": ["0", "1e3", "true", "0a", "a-0"],
+    "/$defs/dns1123Subdomain": ["0", "1e3", "true", "0a", "a.b-0", SUBDOMAIN_253],
+    "/$defs/ianaSvcName": ["on", "a" * 15],
     "/$defs/ianaSvcName/allOf/0": ["0a", "a-0"],
     "/$defs/ianaSvcName/allOf/1": None,  # "has a letter": a narrowing, nothing to push
     "/$defs/volumeClaimTemplate/properties/size": ["1", "0.5", "1.5Gi", "999999Ei"],

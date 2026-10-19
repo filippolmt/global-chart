@@ -45,7 +45,7 @@ kind; it changes name only together with the map (issue #215).
 apiVersion: apps/v1
 kind: {{ $kind }}
 metadata:
-  name: {{ $depFullname }}
+  name: {{ $depFullname | quote }}
   labels:
     {{- include "global-chart.deploymentLabels" $labelCtx | nindent 4 }}
   {{- /* reloader.externalSecrets (ADR 0016): on the workload's metadata, where
@@ -57,7 +57,7 @@ metadata:
   {{- end }}
 spec:
   {{- if $sts }}
-  serviceName: {{ include "global-chart.headlessServiceName" $labelCtx }}
+  serviceName: {{ include "global-chart.headlessServiceName" $labelCtx | quote }}
   {{- end }}
   {{- /* An autoscaler owns spec.replicas: emitting it here makes every upgrade
          snap the workload back to this value before the autoscaler corrects
@@ -159,7 +159,7 @@ spec:
       {{- with (include "global-chart.renderDnsConfig" $dnsConfig) }}
 {{- . | nindent 6 }}
       {{- end }}
-      serviceAccountName: {{ default "default" (include "global-chart.deploymentServiceAccount" (dict "root" $root "deploymentName" $name "deployment" $deploy) | fromJson).name }}
+      serviceAccountName: {{ default "default" (include "global-chart.deploymentServiceAccount" (dict "root" $root "deploymentName" $name "deployment" $deploy) | fromJson).name | quote }}
       {{- if hasKey $deploy "automountServiceAccountToken" }}
       automountServiceAccountToken: {{ $deploy.automountServiceAccountToken }}
       {{- end }}
@@ -175,7 +175,7 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       containers:
-        - name: {{ $depFullname }}
+        - name: {{ $depFullname | quote }}
           {{- if and (kindIs "map" $deploy.image) $deploy.image.repository (not (or $deploy.image.tag $deploy.image.digest)) }}
           {{- fail (printf "%s.image: requires either a tag or a digest when repository is provided" $errCtx) }}
           {{- end }}
@@ -196,7 +196,7 @@ spec:
           {{- end }}
           ports:
             {{- range (include "global-chart.containerPorts" (dict "service" $svc "errCtx" (printf "%s.service" $errCtx)) | fromJsonArray) }}
-            - name: {{ .name }}
+            - name: {{ .name | quote }}
               containerPort: {{ include "global-chart.printScalar" .containerPort }}
               protocol: {{ .protocol }}
             {{- end }}
@@ -270,19 +270,19 @@ spec:
         {{- end }}
         {{- if $hasMcfFiles }}
         {{- range $i, $f := $mountedConfigFiles.files }}
-        - name: {{ include "global-chart.mountedFileVolumeName" (dict "fileName" $f.name) }}
+        - name: {{ include "global-chart.mountedFileVolumeName" (dict "fileName" $f.name) | quote }}
           configMap:
-            name: {{ include "global-chart.mountedConfigMapName" (dict "deploymentFullname" $depFullname "fileName" $f.name) }}
+            name: {{ include "global-chart.mountedConfigMapName" (dict "deploymentFullname" $depFullname "fileName" $f.name) | quote }}
         {{- end }}
         {{- end }}
         {{- if $hasMcfBundles }}
         {{- range $bi, $b := $mountedConfigFiles.bundles }}
-        - name: {{ include "global-chart.mountedBundleVolumeName" (dict "bundleIndex" $bi) }}
+        - name: {{ include "global-chart.mountedBundleVolumeName" (dict "bundleIndex" $bi) | quote }}
           projected:
             sources:
             {{- range $fi, $f := $b.files }}
               - configMap:
-                  name: {{ include "global-chart.mountedConfigMapName" (dict "deploymentFullname" $depFullname "fileName" $f.name) }}
+                  name: {{ include "global-chart.mountedConfigMapName" (dict "deploymentFullname" $depFullname "fileName" $f.name) | quote }}
                   items:
                     {{- $relPath := include "global-chart.mountedBundleRelPath" (dict "file" $f "errCtx" $errCtx "bundleIndex" $bi "fileIndex" $fi) }}
                     - key: {{ $relPath | base | quote }}
@@ -322,7 +322,7 @@ spec:
     {{- range . }}
     {{- if kindIs "map" . }}
     - metadata:
-        name: {{ .name }}
+        name: {{ .name | quote }}
         labels:
           {{- /* The selector labels win, as in deploymentLabels: they tie the claim to its workload */}}
           {{- toYaml (mergeOverwrite (deepCopy (default (dict) .labels)) (include "global-chart.deploymentSelectorLabels" $labelCtx | fromYaml)) | nindent 10 }}

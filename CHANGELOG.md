@@ -182,16 +182,54 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   `autoscaling.minReplicas` above `maxReplicas`, and `keda.minReplicaCount`
   above `maxReplicaCount` (KEDA's default 100 when unset), now fail naming the
   key: the API server refused the HPA or the ScaledObject at apply.
+- **A name YAML reads as a number or a boolean renders as a string** (issue
+  #251). A role, ServiceAccount, workload key, port or volume name such as
+  `"0"`, `"1e3"`, `"true"` or `"on"` matches the DNS patterns, but rendered
+  unquoted it reached the API server as a number or a boolean, and the apply
+  failed. Every `name`, `serviceName`, `serviceAccountName`, `appProtocol`,
+  Ingress `path`, `app.kubernetes.io/*` label and named Service `targetPort`
+  the templates print is now quoted; the rendered manifests change only by
+  those quotes.
+- **An integer Helm cannot carry exactly is refused by the schema** (issue
+  #250). Helm reads a values number as a float64, so
+  `terminationGracePeriodSeconds: 9007199254740993` rendered as
+  `9007199254740992` and the API server took the wrong number without a word.
+  The int64 fields with no bound (`terminationGracePeriodSeconds` of the
+  workload and of a probe, `tolerationSeconds`, `activeDeadlineSeconds` of a
+  hook or cronjob, `startingDeadlineSeconds`) now take at most
+  9007199254740991 (2⁵³-1), `tolerationSeconds` at least its negative.
+  A hook `weight` takes the same bounds as a number, and at most 18 digits as
+  a string: a longer one overflowed the weight arithmetic and rendered
+  `hook-weight: "0"`.
+  The int64 fields of `securityContext` (`runAsUser`, `fsGroup`…) stay out of
+  reach: the schema does not declare that passthrough (ADR 0017).
 
 ### Tests
 
+- `make lint-templates` gains `quoted-name`: a `name` or `*Name` key whose
+  whole value is a print fails unless the print ends in `| quote` (issue #251).
+- Guardrails from the #251/#250 retro:
+  - New `make schema-bounds`, in `make check` and CI: every schema integer has
+    a `maximum` (or a `const` or `enum`) within ±(2⁵³-1), and a digit-string
+    `pattern` bounds its digits. On the 4.x schema it finds the nine bounds
+    this release adds; the bound sweep could not see the one a template `fail`
+    shadowed (`pdb.minAvailable`).
+  - `make unit-test SUITE=<path>` fails on a path that names no suite:
+    helm-unittest ran 0 tests and passed.
+  - `make render-diff QUOTES=ignore` reads `"x"` as `x` where `x` stays a
+    string, so a change that only quotes proves it renders the same.
+  - A project hook (`.claude/hooks/kind-kubeconfig-only.py`) blocks an
+    agent's `kubectl` or cluster `helm` call that does not name
+    `.bin/kind-kubeconfig`: the default context can be production.
 - New `make bound-sweep`, run before `make e2e` and so in CI (issue #226):
   each scalar a scenario sets is given, in turn, values the API server is
   likely to refuse (integer bounds, 2³¹-1 and 2³¹, the candidates
   `tests/bad-values/bound-sweep.py` lists for each `pattern` and `maxLength`),
   and each the schema accepts goes to the kind API server as a server-side dry
   run. A self-test must find `"150%"` under the pre-#225 PDB pattern. Its first
-  run found the fixes above, and a digit-only name rendered unquoted (#251).
+  run found the fixes above, and a digit-only name rendered unquoted (#251):
+  every DNS label and subdomain is also given `"0"`, `"1e3"` and `"true"`, and
+  every port name `"on"`.
   `make scenario-coverage` now also reports a bounded node no scenario sets:
   31 such gaps joined the baseline.
 - Guardrails from the #226 retro: `make lint-templates` gains `errctx`, a

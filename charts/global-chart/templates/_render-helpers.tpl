@@ -32,7 +32,9 @@ unaffected, so a block rendered with toYaml needs nothing.
 Contract, by kind of value:
 - string: returned unchanged, unquoted. Int-or-string fields (pdb
   minAvailable/maxUnavailable, Service targetPort) keep "50%" as 50% and a
-  named targetPort as its name, exactly as before.
+  named targetPort as its name. A string YAML could read as another type
+  ("1e3", "on") is the caller's to quote: service.yaml quotes a named
+  targetPort (issue #251).
 - float64 with no fractional part, within int64 range: %d after int64, so
   10000000 prints as 10000000.
 - any other number (1.5, a float64 beyond int64 range, an int from --set or a
@@ -245,7 +247,7 @@ Usage: {{ include "global-chart.renderVolume" (dict "volume" $v "errCtx" (printf
 {{- define "global-chart.renderVolume" -}}
 {{- $vol := .volume -}}
 {{- $path := required "renderVolume: errCtx is required (the values path of the volume)" .errCtx -}}
-- name: {{ required (printf "%s: a volume needs a 'name'" $path) $vol.name }}
+- name: {{ required (printf "%s: a volume needs a 'name'" $path) $vol.name | quote }}
 {{- toYaml (omit $vol "name") | nindent 2 }}
 {{- end }}
 
@@ -332,7 +334,7 @@ dnsConfig:
     {{- range $dnsConfig.options }}
     {{- /* A null item is validateNullItems' to report */}}
     {{- if kindIs "map" . }}
-    - name: {{ .name }}
+    - name: {{ .name | quote }}
       {{- /* Set means present and not null: 0 and "" are values */}}
       {{- if not (kindIs "invalid" .value) }}
       value: {{ include "global-chart.printScalar" .value | quote }}

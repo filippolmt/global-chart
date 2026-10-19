@@ -67,6 +67,9 @@ jobs:
       - name: Check every schema property carries a description
         run: make schema-descriptions
 
+      - name: Check every schema integer is bounded
+        run: make schema-bounds
+
       - name: Sweep nulls under --skip-schema-validation
         run: make null-sweep
 
