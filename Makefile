@@ -122,7 +122,7 @@ TEST_CASES := \
 .DEFAULT_GOAL := help
 
 # All phony targets
-.PHONY: help scenarios all check lint-chart render-diff lint-templates lint-docs lint-shell lint-glossary lint-inheritance lint-checks lint-labels unit-test null-sweep scenario-coverage schema-descriptions schema-bounds validate-bad-values generate-templates \
+.PHONY: help scenarios all check lint-chart render-diff lint-templates lint-docs lint-shell lint-glossary lint-inheritance lint-checks lint-labels unit-test null-sweep scenario-coverage schema-descriptions schema-bounds lint-release release validate-bad-values generate-templates \
 	kubeconform kube-linter-manifests kube-linter generate-docs package \
 	install install-test01 render clean clean-all \
 	kind-install kind-cluster kind-keda kind-eso kind-gateway-api kind-argocd kind-delete e2e e2e-dryrun bound-sweep e2e-routes e2e-argocd check-helm-floor
@@ -154,7 +154,7 @@ scenarios: ## Print the values file of every TEST_CASES scenario, one per line, 
 all: check null-sweep generate-templates kubeconform kube-linter ## make check, the null sweep, then generate, validate and lint the manifests
 	@echo "==> make all: every check passed"
 
-check: lint-chart lint-templates lint-docs lint-shell lint-glossary lint-inheritance lint-checks unit-test validate-bad-values scenario-coverage schema-descriptions schema-bounds ## The development loop: every fast check, its prerequisites listed here (no null sweep, no manifest validation: make all and CI run them)
+check: lint-chart lint-templates lint-docs lint-shell lint-glossary lint-inheritance lint-checks unit-test validate-bad-values scenario-coverage schema-descriptions schema-bounds lint-release ## The development loop: every fast check, its prerequisites listed here (no null sweep, no manifest validation: make all and CI run them)
 
 lint-chart: ## Lint chart with all test values files
 	@echo "==> Linting chart with all test cases..."
@@ -221,6 +221,16 @@ schema-bounds: ## Every schema integer has a maximum within 2^53-1, every digit-
 	@echo "==> Checking the schema's integer bounds..."
 	@python3 tests/check-schema-bounds.py --self-test
 	@python3 tests/check-schema-bounds.py ./$(CHART_DIR)/$(GLOBAL_CHART_NAME)/values.schema.json
+
+lint-release: ## Chart.yaml's version is the CHANGELOG's last release, or the release its top section names
+	@echo "==> Checking Chart.yaml against the CHANGELOG..."
+	@python3 tests/check-release.py --self-test
+	@python3 tests/check-release.py CHANGELOG.md ./$(CHART_DIR)/$(GLOBAL_CHART_NAME)/Chart.yaml
+
+release: ## The release PR's edit: VERSION=x.y.z renames [Unreleased], bumps Chart.yaml, regenerates the README; refuses a non-major over a Removed section
+	@[ -n "$(VERSION)" ] || { echo "    FAIL: make release VERSION=x.y.z"; exit 1; }
+	@python3 tests/check-release.py --bump $(VERSION) CHANGELOG.md ./$(CHART_DIR)/$(GLOBAL_CHART_NAME)/Chart.yaml
+	@$(MAKE) --no-print-directory generate-docs
 
 lint-labels: ## Every triage label docs/agents/triage-labels.md names exists on GitHub (needs gh; not in check, which stays offline)
 	@echo "==> Checking triage labels..."
