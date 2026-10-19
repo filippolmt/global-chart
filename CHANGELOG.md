@@ -114,6 +114,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Fixed
 
+- **`podLabels` can no longer overwrite the selector labels on the pod
+  template** (issue #244). A `workloads.<name>.podLabels` key equal to
+  `app.kubernetes.io/name`, `app.kubernetes.io/instance` or
+  `app.kubernetes.io/component` replaced the chart's value, the pod template
+  stopped matching `spec.selector`, and the API server rejected the workload at
+  apply. The selector labels now win over `podLabels`, as they already did on
+  the claim templates: such a key is dropped. Every other `podLabels` key still
+  wins over the chart's labels; values without such a key render the same
+  manifests.
 - **The `global.commonLabels` comment in `values.yaml` states the precedence
   `mergeLabels` applies** (issue #203 review): a per-resource label
   (`podLabels`) wins over the chart's own labels, which win over

@@ -118,10 +118,14 @@ app.kubernetes.io/component: {{ .deploymentName }}
 Common labels for a specific workload.
 Usage: {{ include "global-chart.deploymentLabels" (dict "root" . "deploymentName" $name) }}
 Pass an optional "own" map (podLabels) to fold it into the same merge instead of
-appending a second block after this one.
+appending a second block after this one. The selector labels win over "own": a
+podLabels key that replaced one would make the pod template stop matching the
+workload's selector, which the API server rejects (issue #244). The rest of "own"
+keeps winning over the chart's labels, as mergeLabels states.
 */}}
 {{- define "global-chart.deploymentLabels" -}}
-{{- include "global-chart.mergeLabels" (dict "root" .root "own" .own "owned" (include "global-chart.deploymentOwnedLabels" .)) -}}
+{{- $own := mergeOverwrite (deepCopy (default (dict) .own)) (include "global-chart.deploymentSelectorLabels" . | fromYaml) -}}
+{{- include "global-chart.mergeLabels" (dict "root" .root "own" $own "owned" (include "global-chart.deploymentOwnedLabels" .)) -}}
 {{- end }}
 
 {{- define "global-chart.deploymentOwnedLabels" -}}

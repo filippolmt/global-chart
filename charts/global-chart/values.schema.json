@@ -829,7 +829,7 @@
           "additionalProperties": { "type": "string" }
         },
         "podLabels": {
-          "description": "Labels on the pod template, merged over global.commonLabels and the chart's own labels, this one winning: a key that overrides a selector label makes the template stop matching the workload's selector, which the API server rejects.",
+          "description": "Labels on the pod template, merged over global.commonLabels and the chart's own labels, this one winning, except over the selector labels (app.kubernetes.io/name, app.kubernetes.io/instance, app.kubernetes.io/component): a key equal to one of them is dropped, so the template keeps matching the workload's selector.",
           "type": "object",
           "additionalProperties": { "type": "string" }
         },
