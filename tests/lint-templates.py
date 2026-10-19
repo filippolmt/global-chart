@@ -265,4 +265,8 @@ def main(chart):
 if __name__ == "__main__":
     if len(sys.argv) != 2:
         sys.exit(__doc__.rsplit("Usage: ", 1)[1])
-    main(sys.argv[1])
+    try:
+        main(sys.argv[1])
+    except (OSError, ValueError, AttributeError) as e:
+        print(f"    FAIL: cannot read the chart's templates, values.schema.json or Chart.yaml home: {e}")
+        sys.exit(1)

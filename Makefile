@@ -122,7 +122,7 @@ TEST_CASES := \
 .DEFAULT_GOAL := help
 
 # All phony targets
-.PHONY: help all check lint-chart render-diff lint-templates lint-docs lint-shell lint-glossary lint-inheritance lint-labels unit-test null-sweep scenario-coverage schema-descriptions validate-bad-values generate-templates \
+.PHONY: help all check lint-chart render-diff lint-templates lint-docs lint-shell lint-glossary lint-inheritance lint-checks lint-labels unit-test null-sweep scenario-coverage schema-descriptions validate-bad-values generate-templates \
 	kubeconform kube-linter-manifests kube-linter generate-docs package \
 	install install-test01 render clean clean-all \
 	kind-install kind-cluster kind-keda kind-eso kind-gateway-api kind-argocd kind-delete e2e e2e-dryrun e2e-routes e2e-argocd check-helm-floor
@@ -151,7 +151,7 @@ help: ## Show this help message
 all: check null-sweep generate-templates kubeconform kube-linter ## make check, the null sweep, then generate, validate and lint the manifests
 	@echo "==> make all: every check passed"
 
-check: lint-chart lint-templates lint-docs lint-shell lint-glossary lint-inheritance unit-test validate-bad-values scenario-coverage schema-descriptions ## The development loop: lint, template rules, doc pointers, inheritance docs, unit tests, bad-values, scenario coverage, schema descriptions (no null sweep, no manifest validation: make all and CI run them)
+check: lint-chart lint-templates lint-docs lint-shell lint-glossary lint-inheritance lint-checks unit-test validate-bad-values scenario-coverage schema-descriptions ## The development loop: lint, template rules, doc pointers, inheritance docs, check scripts, unit tests, bad-values, scenario coverage, schema descriptions (no null sweep, no manifest validation: make all and CI run them)
 
 lint-chart: ## Lint chart with all test values files
 	@echo "==> Linting chart with all test cases..."
@@ -185,6 +185,10 @@ lint-shell: ## A value piped onward in the Makefile or a script goes through pri
 lint-glossary: ## The phrases GLOSSARY.md avoids with one reading only stay out of the tracked files
 	@echo "==> Checking glossary terms..."
 	@python3 tests/lint-glossary.py
+
+lint-checks: ## Every make all target has a CI step; every check script fails with a FAIL line, not a traceback, on a missing input
+	@echo "==> Checking the check scripts..."
+	@python3 tests/lint-checks.py
 
 lint-inheritance: ## The schema and the values-author guide state the inheritance the jobPodSpec header lists
 	@echo "==> Checking the inheritance rules..."

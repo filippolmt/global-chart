@@ -23,6 +23,8 @@ a map's value, not a property: the map's own property describes it.
 
 The baseline of the day the check arrived, the properties without one, emptied
 and went away with issue #247: a property without a description fails.
+tests/tools/schema-describe.py adds a batch of descriptions without
+reformatting the schema.
 
 Usage: check-schema-descriptions.py <schema file>
        check-schema-descriptions.py --self-test
@@ -115,4 +117,8 @@ def main(argv):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    try:
+        main(sys.argv[1:])
+    except (OSError, ValueError) as e:
+        print(f"    FAIL: cannot read the schema: {e}")
+        sys.exit(1)

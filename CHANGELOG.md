@@ -204,6 +204,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   "placement"), and the `hooks` / `cronJobs` ones add `volumes`,
   `volumeMounts` and `resources` to what is never inherited. The check found
   `automountServiceAccountToken` missing from the guide's list.
+- New `make lint-checks`, in `make check` and CI: every target `make all` runs
+  has a CI step, and every check script the Makefile runs with an input exits
+  1 with a `FAIL:` line, not a traceback, on a missing one. It found four that
+  crashed (`lint-templates`, `check-scenario-coverage`,
+  `check-schema-descriptions`, `null-sweep`), now fixed.
+- `make lint-templates` gains the read-only-by rule: a helper header saying
+  "Read only by A, B and C" names exactly the helper's readers. It found the
+  header of `rejectRemovedKeys` naming one of three.
+- `tests/tools/schema-describe.py` adds descriptions to `values.schema.json`
+  without reformatting it.
 - `make all` depends on `make check` instead of repeating its prerequisites
   (issue #246): a target added to `check` runs in `make all` too. `make -n all`
   prints the same commands as before.

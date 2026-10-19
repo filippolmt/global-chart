@@ -412,4 +412,8 @@ def main(argv):
 if __name__ == "__main__":
     if len(sys.argv) < 3:
         sys.exit(__doc__.rsplit("Usage: ", 1)[1])
-    main(sys.argv[1:])
+    try:
+        main(sys.argv[1:])
+    except (OSError, ValueError, subprocess.CalledProcessError) as e:
+        print(f"    FAIL: cannot read the chart or a scenario: {e}")
+        sys.exit(1)

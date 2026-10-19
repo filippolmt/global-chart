@@ -130,4 +130,8 @@ def main(argv):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    try:
+        main(sys.argv[1:])
+    except (OSError, ValueError) as e:
+        print(f"    FAIL: cannot read the schema, the baseline or a scenario: {e}")
+        sys.exit(1)

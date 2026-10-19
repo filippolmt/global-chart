@@ -47,6 +47,9 @@ jobs:
       - name: Check inheritance rules
         run: make lint-inheritance
 
+      - name: Check the check scripts
+        run: make lint-checks
+
       - name: Check triage labels exist
         run: make lint-labels
         env:
