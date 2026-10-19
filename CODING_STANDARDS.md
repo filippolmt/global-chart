@@ -8,9 +8,9 @@ Two kinds of rule:
 - **Mechanical**: a fixed pattern, so a check enforces it and the review need
   not. `make lint-templates` (`tests/lint-templates.py`, its docstring lists
   them): `default true` on a boolean, `set` on `.Values`, the shape of a
-  `fail` message, a suite per template, a quoted name. `make null-sweep` nulls every values
-  node of every scenario, then gives each map and list the wrong type, and
-  holds `valuesShape` to the schema's types. `make e2e-dryrun` sends every
+  `fail` message, a suite per template, a quoted name. `make null-sweep` nulls
+  every values node of every scenario, then gives each map and list the wrong
+  type, and holds `valuesShape` to the schema's types. `make e2e-dryrun` sends every
   scenario to a real API server. `lint-templates`' kind-fields rule holds the
   backstop guard's `$kindOnly` to the schema's `if/then/else` on `kind`, and
   its workload-kind

@@ -60,9 +60,9 @@ a rule below cannot recognise: a check that sees nothing is not a pass.
   branch is never taken and dies with the helper's own message, not the user's
   key, the day it is (a printScalar in a min>max fail, issue #226). An
   argument built elsewhere (`$ctx`) is the builder's to check.
-- quoted-name: a print that is the whole value of a `name`, `serviceName`,
-  `serviceAccountName`, `appProtocol`, `path` or `app.kubernetes.io/*` key ends
-  in `| quote`. Kubernetes parses the rendered YAML, so a valid DNS name that
+- quoted-name: a print that is the whole value of a `name` or `*Name` key
+  (`serviceAccountName`, `secretName`…), an `appProtocol`, `path` or
+  `app.kubernetes.io/*` key ends in `| quote`. Kubernetes parses the rendered YAML, so a valid DNS name that
   YAML reads as another type (`0`, `1e3`, `true`, `on`) reaches the API server
   as a number or a boolean, and the apply fails (issue #251). Every such print
   is quoted, generated names too: whether a name can be user-written is not a
@@ -79,7 +79,7 @@ import pathlib
 import re
 import sys
 
-NAME_PRINT = re.compile(r"^\s*(?:- )?(?:name|serviceName|serviceAccountName|appProtocol|path|app\.kubernetes\.io/[\w-]+):\s*\{\{-?(.*?)-?\}\}\s*$", re.M)
+NAME_PRINT = re.compile(r"^\s*(?:- )?(?:\w*[nN]ame|appProtocol|path|app\.kubernetes\.io/[\w-]+):\s*\{\{-?(.*?)-?\}\}\s*$", re.M)
 COMMENT = re.compile(r"\{\{-?\s*/\*.*?\*/\s*-?\}\}", re.S)
 DEFAULT_TRUE = re.compile(r"\bdefault\s+true\s+[$.(]|\|\s*default\s+true\b")
 SET_TARGET = re.compile(r"\bset\s+(\$[\w]+|\.Values\b|\$\.Values\b|\$root\.Values\b)")

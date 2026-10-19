@@ -198,21 +198,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   workload and of a probe, `tolerationSeconds`, `activeDeadlineSeconds` of a
   hook or cronjob, `startingDeadlineSeconds`) now take at most
   9007199254740991 (2⁵³-1), `tolerationSeconds` at least its negative.
+  The int64 fields of `securityContext` (`runAsUser`, `fsGroup`…) stay out of
+  reach: the schema does not declare that passthrough (ADR 0017).
 
 ### Tests
 
-- `make lint-templates` gains `quoted-name`: a `name`-like key whose whole
-  value is a print fails unless the print ends in `| quote` (issue #251).
-  `make bound-sweep` gives every DNS label and subdomain `"0"` and `"true"`,
-  and every port name `"on"`.
-
+- `make lint-templates` gains `quoted-name`: a `name` or `*Name` key whose
+  whole value is a print fails unless the print ends in `| quote` (issue #251).
 - New `make bound-sweep`, run before `make e2e` and so in CI (issue #226):
   each scalar a scenario sets is given, in turn, values the API server is
   likely to refuse (integer bounds, 2³¹-1 and 2³¹, the candidates
   `tests/bad-values/bound-sweep.py` lists for each `pattern` and `maxLength`),
   and each the schema accepts goes to the kind API server as a server-side dry
   run. A self-test must find `"150%"` under the pre-#225 PDB pattern. Its first
-  run found the fixes above, and a digit-only name rendered unquoted (#251).
+  run found the fixes above, and a digit-only name rendered unquoted (#251):
+  every DNS label and subdomain is also given `"0"`, `"1e3"` and `"true"`, and
+  every port name `"on"`.
   `make scenario-coverage` now also reports a bounded node no scenario sets:
   31 such gaps joined the baseline.
 - Guardrails from the #226 retro: `make lint-templates` gains `errctx`, a
