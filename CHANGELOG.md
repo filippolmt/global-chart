@@ -164,9 +164,36 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   for a deployment and for a hook or cronjob. The `externalSecrets` volume
   collision check reads the same names, and its message now names the volume
   it collides with.
+- **The schema is no looser than the API server on the integers and bounds it
+  mirrors** (issue #226). Each value below rendered, passed `helm lint`, and
+  the API server or the CRD refused it at apply; the schema now refuses it
+  first. The one value the schema now refuses that the API server took: a
+  digit-string utilization target from `"1000000000"` to `"2147483647"`.
+  - An integer above 2147483647 on a field the API reads as an int32: every
+    count, limit and period of a workload, its HPA, ScaledObject, PDB, probes,
+    StatefulSet `partition`, hooks and cronjobs. A digit-string
+    `targetCPUUtilizationPercentage` / `targetMemoryUtilizationPercentage`
+    takes at most 9 digits.
+  - `keda.maxReplicaCount` and `keda.pollingInterval` of 0 (the CRD's
+    minimum is 1), `progressDeadlineSeconds: 0` (it must exceed
+    `minReadySeconds`), and a `livenessProbe` or `startupProbe`
+    `successThreshold` other than 1.
+- **A replica floor above its ceiling fails the render** (issue #226).
+  `autoscaling.minReplicas` above `maxReplicas`, and `keda.minReplicaCount`
+  above `maxReplicaCount` (KEDA's default 100 when unset), now fail naming the
+  key: the API server refused the HPA or the ScaledObject at apply.
 
 ### Tests
 
+- New `make bound-sweep`, run before `make e2e` and so in CI (issue #226):
+  each scalar a scenario sets is given, in turn, values the API server is
+  likely to refuse (integer bounds, 2³¹-1 and 2³¹, the candidates
+  `tests/bad-values/bound-sweep.py` lists for each `pattern` and `maxLength`),
+  and each the schema accepts goes to the kind API server as a server-side dry
+  run. A self-test must find `"150%"` under the pre-#225 PDB pattern. Its first
+  run found the fixes above, and a digit-only name rendered unquoted (#251).
+  `make scenario-coverage` now also reports a bounded node no scenario sets:
+  31 such gaps joined the baseline.
 - New `make schema-descriptions`, in `make check` and CI (issue #203): every
   property of `values.schema.json` carries a non-empty `description`, and a
   property without one fails. `--self-test` checks the walk on a small schema.

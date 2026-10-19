@@ -35,6 +35,9 @@ spec:
   {{- fail (printf "%s.autoscaling.maxReplicas: required when HPA is enabled" $errCtx) }}
   {{- end }}
   maxReplicas: {{ include "global-chart.printScalar" (dict "value" $hpa.maxReplicas "errCtx" (printf "%s.autoscaling.maxReplicas" $errCtx)) }}
+  {{- if gt (float64 $hpa.minReplicas) (float64 $hpa.maxReplicas) }}
+  {{- fail (printf "%s.autoscaling.minReplicas: %s is above maxReplicas %s; the API server refuses the HPA" $errCtx (include "global-chart.printScalar" (dict "value" $hpa.minReplicas "errCtx" (printf "%s.autoscaling.minReplicas" $errCtx))) (include "global-chart.printScalar" (dict "value" $hpa.maxReplicas "errCtx" (printf "%s.autoscaling.maxReplicas" $errCtx)))) }}
+  {{- end }}
   metrics:
     {{- range $res, $target := $targets }}
     - type: Resource

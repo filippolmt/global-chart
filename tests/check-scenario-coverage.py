@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Every values node the schema declares as a map or a list is set by a scenario,
-and every type a node accepts beside another is used by one.
+"""Every values node the schema declares as a map or a list, or bounds, is set by
+a scenario, and every type a node accepts beside another is used by one.
 
 The checks over scenarios (`make null-sweep`, its type pass, `make e2e-dryrun`)
 see only what the TEST_CASES scenarios set: a node no scenario reaches is never
@@ -12,8 +12,9 @@ The walk. Each scenario is read back as JSON through a scratch chart, as
 null-sweep does. values.schema.json is walked from the root through properties,
 additionalProperties (`*`), items (`[]`), $ref, oneOf, anyOf and allOf, down every
 node it declares. A gap is:
-- `<path>: never set`: a node that can be a map or a list, which no scenario
-  sets though one sets the node holding it;
+- `<path>: never set`: a node that can be a map or a list, or a node
+  bound-sweep.py has candidates for (issue #226), which no scenario sets though
+  one sets the node holding it: the bound sweep sees only what a scenario sets;
 - `<path>: never <type>`: a node a scenario sets, accepting two types or more (an
   imagePullSecrets item, a map or a string; a targetPort, a number or a name),
   where no scenario uses that one.
@@ -39,6 +40,9 @@ HERE = pathlib.Path(__file__).parent
 spec = importlib.util.spec_from_file_location("null_sweep", HERE / "bad-values" / "null-sweep.py")
 sweep = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(sweep)
+spec = importlib.util.spec_from_file_location("bound_sweep", HERE / "bad-values" / "bound-sweep.py")
+bound = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(bound)
 
 
 def value_type(value):
@@ -89,14 +93,25 @@ def parent(path):
     return re.sub(r"(\[\]|\.[^.\[]+|^[^.\[]+)$", "", path)
 
 
-def gaps(schema_paths, reached):
+def bounded(schema, path):
+    """Whether bound-sweep.py has candidates for the node at a generic path (a.*.b[].c)."""
+    nodes = [("", schema)]
+    for part in path.split("."):
+        name, items = part.split("[", 1) if "[" in part else (part, "")
+        nodes = bound.child(schema, nodes, name)
+        for _ in range(items.count("[]")):
+            nodes = bound.child(schema, nodes, 0)
+    return bound.bounded(schema, nodes)
+
+
+def gaps(schema, schema_paths, reached):
     """The topmost gaps: a node whose parent no scenario reaches is its parent's gap, not its own."""
     out = set()
     for path, types in schema_paths.items():
         if not path or not types or (parent(path) and parent(path) not in reached):
             continue
         seen = reached.get(path, set())
-        if not seen and types & {"map", "list"}:
+        if not seen and (types & {"map", "list"} or bounded(schema, path)):
             out.add(f"{path}: never set")
         elif seen and len(types) > 1:
             out |= {f"{path}: never {t}" for t in types - seen}
@@ -118,7 +133,7 @@ def main(argv):
         (scratch / "templates" / "values.json").write_text("{{ .Values | toJson }}\n")
         for f in files:
             used(sweep.to_json(f, scratch), schema_paths, "", reached)
-    found = gaps(schema_paths, reached)
+    found = gaps(schema, schema_paths, reached)
     baseline = {line for line in baseline_file.read_text().splitlines() if line and not line.startswith("#")}
     problems = [f"    FAIL: {g}: no scenario reaches it; set it in a TEST_CASES scenario" for g in sorted(found - baseline)]
     problems += [f"    FAIL: {g}: a scenario reaches it now; delete the line from {baseline_file}"

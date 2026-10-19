@@ -24,6 +24,7 @@ make null-sweep             # null every values node of every scenario, then giv
 make generate-docs          # regenerate the helm-docs README
 make e2e                    # install/upgrade/rollback/uninstall on a throwaway kind cluster (runs e2e-dryrun first)
 make e2e-dryrun             # every TEST_CASES scenario, server-side dry run against the real API server and CRDs
+make bound-sweep            # every bound value the schema accepts on a scenario node, server-side dry run (runs before make e2e)
 make e2e-argocd             # the same cluster, synced by Argo CD (hook lifecycle under Argo)
 make render VALUES=tests/test01/values.01.yaml TEMPLATE=workload.yaml  # TEMPLATE left out: the whole chart; SKIP_SCHEMA=1: --skip-schema-validation
 make render-diff BASE=main  # every scenario renders the same manifests as BASE: the proof a rename or refactor changes none
@@ -41,7 +42,9 @@ The Makefile carries the rest. Three rules about when to run what:
 
 - Templates or values changed → `make lint-chart` and `make unit-test`;
   `valuesShape`, a type in `values.schema.json`, or a new map or list a
-  template reads → also `make null-sweep`.
+  template reads → also `make null-sweep`; a bound (`minimum`, `maximum`,
+  `pattern`, `maxLength`) or a new integer field → also `make bound-sweep`,
+  whose `CANDIDATES` table takes every new `pattern` and `maxLength`.
 - Schema or user-visible values changed (new fields, defaults, descriptions) →
   also `make generate-docs`, to refresh `charts/global-chart/README.md`.
 - Runtime behaviour touched — `hook.yaml`, hook weights, delete policies,

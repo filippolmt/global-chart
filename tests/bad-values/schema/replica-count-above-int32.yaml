@@ -1,0 +1,7 @@
+# A count above the int32 maximum: it rendered, and the API server refused the
+# Deployment at apply (cannot unmarshal into spec.replicas of type int32). Found
+# by make bound-sweep (issue #226).
+workloads:
+  app:
+    image: nginx:1.25
+    replicaCount: 2147483648

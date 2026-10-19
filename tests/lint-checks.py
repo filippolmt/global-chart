@@ -30,6 +30,7 @@ PROBES = {
     "tests/check-scenario-coverage.py": [MISSING, MISSING, MISSING],
     "tests/check-schema-descriptions.py": [MISSING],
     "tests/bad-values/null-sweep.py": [MISSING, MISSING],
+    "tests/bad-values/bound-sweep.py": [MISSING, MISSING],
     "tests/render-diff.py": ["refs/nonexistent-lint-checks"],
     "tests/tools/schema-describe.py": [MISSING, MISSING],
 }

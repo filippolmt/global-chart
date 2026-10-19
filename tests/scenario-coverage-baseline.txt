@@ -2,6 +2,9 @@
 # scenario sets, or a type a node accepts that none uses. One per line, as
 # the check prints it. The file only shrinks: set the node in a scenario and
 # delete its line; a new gap fails the check instead of landing here.
+cronJobs.*.activeDeadlineSeconds: never set
+cronJobs.*.backoffLimit: never set
+cronJobs.*.completions: never set
 cronJobs.*.dnsConfig: never set
 cronJobs.*.env: never set
 cronJobs.*.externalSecrets: never set
@@ -9,7 +12,9 @@ cronJobs.*.hostAliases: never set
 cronJobs.*.image: never map
 cronJobs.*.imagePullSecrets: never set
 cronJobs.*.initContainers: never set
+cronJobs.*.parallelism: never set
 cronJobs.*.podSecurityContext: never set
+cronJobs.*.priorityClassName: never set
 cronJobs.*.resources.claims: never set
 cronJobs.*.resources.limits: never set
 cronJobs.*.resources.requests.cpu: never number
@@ -17,13 +22,19 @@ cronJobs.*.resources.requests.memory: never number
 cronJobs.*.securityContext: never set
 cronJobs.*.serviceAccount: never set
 cronJobs.*.serviceAccountAnnotations: never set
+cronJobs.*.serviceAccountName: never set
+cronJobs.*.startingDeadlineSeconds: never set
+cronJobs.*.ttlSecondsAfterFinished: never set
 cronJobs.*.volumeMounts: never set
 defaults: never set
 externalSecrets.*.annotations: never set
 externalSecrets.*.dataFrom[].rewrite: never set
 externalSecrets.*.dataFrom[].sourceRef.storeRef: never set
 externalSecrets.*.data[].remote.version: never number
+fullnameOverride: never set
+hooks.*.*.activeDeadlineSeconds: never set
 hooks.*.*.annotations: never set
+hooks.*.*.backoffLimit: never set
 hooks.*.*.dnsConfig: never set
 hooks.*.*.env: never set
 hooks.*.*.envFromConfigMaps: never set
@@ -31,6 +42,7 @@ hooks.*.*.envFromSecrets: never set
 hooks.*.*.hostAliases: never set
 hooks.*.*.imagePullSecrets: never set
 hooks.*.*.podSecurityContext: never set
+hooks.*.*.priorityClassName: never set
 hooks.*.*.resources.claims: never set
 hooks.*.*.resources.limits: never set
 hooks.*.*.resources.requests.cpu: never number
@@ -55,13 +67,17 @@ kedaTriggerAuthentications.*.azureKeyVault: never set
 kedaTriggerAuthentications.*.env: never set
 kedaTriggerAuthentications.*.gcpSecretManager: never set
 kedaTriggerAuthentications.*.hashiCorpVault: never set
+nameOverride: never set
 tcpRoutes.*.rules[].backendRefs[].service: never set
 udpRoutes.*.annotations: never set
 udpRoutes.*.rules[].backendRefs[].service: never set
 workloads.*.annotations: never set
 workloads.*.autoscaling.targetCPUUtilizationPercentage: never string
 workloads.*.autoscaling.targetMemoryUtilizationPercentage: never string
+workloads.*.cronJobs.*.activeDeadlineSeconds: never set
 workloads.*.cronJobs.*.affinity: never set
+workloads.*.cronJobs.*.backoffLimit: never set
+workloads.*.cronJobs.*.completions: never set
 workloads.*.cronJobs.*.dnsConfig: never set
 workloads.*.cronJobs.*.env: never set
 workloads.*.cronJobs.*.envFromConfigMaps: never set
@@ -71,14 +87,20 @@ workloads.*.cronJobs.*.image: never set
 workloads.*.cronJobs.*.imagePullSecrets: never set
 workloads.*.cronJobs.*.initContainers: never set
 workloads.*.cronJobs.*.nodeSelector: never set
+workloads.*.cronJobs.*.parallelism: never set
 workloads.*.cronJobs.*.podSecurityContext: never set
+workloads.*.cronJobs.*.priorityClassName: never set
 workloads.*.cronJobs.*.resources.claims: never set
 workloads.*.cronJobs.*.resources.limits: never set
 workloads.*.cronJobs.*.resources.requests.cpu: never number
 workloads.*.cronJobs.*.resources.requests.memory: never number
 workloads.*.cronJobs.*.securityContext: never set
+workloads.*.cronJobs.*.serviceAccount.name: never set
 workloads.*.cronJobs.*.serviceAccountAnnotations: never set
+workloads.*.cronJobs.*.serviceAccountName: never set
+workloads.*.cronJobs.*.startingDeadlineSeconds: never set
 workloads.*.cronJobs.*.tolerations: never set
+workloads.*.cronJobs.*.ttlSecondsAfterFinished: never set
 workloads.*.cronJobs.*.volumeMounts: never set
 workloads.*.cronJobs.*.volumes: never set
 workloads.*.dnsConfig.options[].value: never number
@@ -94,6 +116,7 @@ workloads.*.hooks.*.*.hostAliases: never set
 workloads.*.hooks.*.*.imagePullSecrets: never set
 workloads.*.hooks.*.*.nodeSelector: never set
 workloads.*.hooks.*.*.podSecurityContext: never set
+workloads.*.hooks.*.*.priorityClassName: never set
 workloads.*.hooks.*.*.resources.claims: never set
 workloads.*.hooks.*.*.resources.limits: never set
 workloads.*.hooks.*.*.resources.requests.cpu: never number
@@ -106,10 +129,13 @@ workloads.*.hooks.*.*.volumeMounts: never set
 workloads.*.hooks.*.*.volumes: never set
 workloads.*.hostAliases[]: never set
 workloads.*.keda.advanced.scalingModifiers: never set
+workloads.*.keda.idleReplicaCount: never set
+workloads.*.keda.initialCooldownPeriod: never set
 workloads.*.lifecycle: never set
 workloads.*.livenessProbe.exec: never set
 workloads.*.livenessProbe.grpc: never set
 workloads.*.livenessProbe.tcpSocket: never set
+workloads.*.livenessProbe.terminationGracePeriodSeconds: never set
 workloads.*.networkPolicy.egress: never set
 workloads.*.networkPolicy.ingress[].from[].ipBlock: never set
 workloads.*.networkPolicy.ingress[].from[].namespaceSelector.matchExpressions: never set
@@ -118,9 +144,11 @@ workloads.*.networkPolicy.ingress[].ports[].port: never string
 workloads.*.pdb.maxUnavailable: never string
 workloads.*.pdb.minAvailable: never string
 workloads.*.podSecurityContext: never set
+workloads.*.priorityClassName: never set
 workloads.*.readinessProbe.exec: never set
 workloads.*.readinessProbe.grpc: never set
 workloads.*.readinessProbe.tcpSocket: never set
+workloads.*.readinessProbe.terminationGracePeriodSeconds: never set
 workloads.*.reloader: never set
 workloads.*.resources.claims: never set
 workloads.*.resources.limits.cpu: never number
@@ -130,4 +158,7 @@ workloads.*.resources.requests.memory: never number
 workloads.*.securityContext: never set
 workloads.*.startupProbe.exec: never set
 workloads.*.startupProbe.grpc: never set
+workloads.*.startupProbe.successThreshold: never set
 workloads.*.startupProbe.tcpSocket: never set
+workloads.*.startupProbe.terminationGracePeriodSeconds: never set
+workloads.*.terminationGracePeriodSeconds: never set
