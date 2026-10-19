@@ -394,55 +394,60 @@
     "autoscaling": {
       "type": "object",
       "properties": {
-        "enabled": { "type": "boolean" },
-        "minReplicas": { "type": "integer", "minimum": 1 },
-        "maxReplicas": { "type": "integer", "minimum": 1 },
-        "targetCPUUtilizationPercentage": { "$ref": "#/$defs/hpaTargetPercent" },
-        "targetMemoryUtilizationPercentage": { "$ref": "#/$defs/hpaTargetPercent" },
-        "behavior": { "type": "object" }
+        "enabled": { "description": "Renders an autoscaling/v2 HorizontalPodAutoscaler for the workload, which becomes its replica owner: spec.replicas is omitted. The render fails with keda.enabled also true, or when neither target is positive.", "type": "boolean" },
+        "minReplicas": { "description": "The HPA's spec.minReplicas. Required when enabled: the render fails without it. The replica owner's floor the pdb check reads.", "type": "integer", "minimum": 1 },
+        "maxReplicas": { "description": "The HPA's spec.maxReplicas. Required when enabled: the render fails without it.", "type": "integer", "minimum": 1 },
+        "targetCPUUtilizationPercentage": { "description": "Average CPU utilization, as a percentage of the request, rendered as a Resource metric with target type Utilization.", "$ref": "#/$defs/hpaTargetPercent" },
+        "targetMemoryUtilizationPercentage": { "description": "Average memory utilization, as a percentage of the request, rendered as a Resource metric with target type Utilization.", "$ref": "#/$defs/hpaTargetPercent" },
+        "behavior": { "description": "The HPA's spec.behavior. Only scaleUp and scaleDown are read, each rendered verbatim; any other key is ignored.", "type": "object" }
       },
       "additionalProperties": false
     },
     "kedaScaledObject": {
       "type": "object",
       "properties": {
-        "enabled": { "type": "boolean" },
+        "enabled": { "description": "Renders the ScaledObject, which becomes the workload's replica owner: spec.replicas is omitted. Requires triggers and the keda.sh/v1alpha1 CRDs; the render fails with autoscaling.enabled also true.", "type": "boolean" },
         "annotations": {
+          "description": "Annotations of the ScaledObject, e.g. autoscaling.keda.sh/paused. Added over global.commonAnnotations; an annotation of the same name here wins.",
           "type": "object",
           "additionalProperties": { "type": "string" }
         },
-        "minReplicaCount": { "type": "integer", "minimum": 0 },
-        "maxReplicaCount": { "type": "integer", "minimum": 0 },
-        "idleReplicaCount": { "type": "integer", "minimum": 0 },
-        "pollingInterval": { "type": "integer", "minimum": 0 },
-        "cooldownPeriod": { "type": "integer", "minimum": 0 },
-        "initialCooldownPeriod": { "type": "integer", "minimum": 0 },
+        "minReplicaCount": { "description": "Fewest replicas KEDA scales to. Omitted when unset: KEDA's default is 0, the floor the pdb check then reads.", "type": "integer", "minimum": 0 },
+        "maxReplicaCount": { "description": "Most replicas KEDA scales to. Omitted when unset: KEDA's default is 100.", "type": "integer", "minimum": 0 },
+        "idleReplicaCount": { "description": "Replicas while no trigger is active; KEDA requires it below minReplicaCount. Omitted when unset.", "type": "integer", "minimum": 0 },
+        "pollingInterval": { "description": "Seconds between KEDA's checks of each trigger. Omitted when unset: KEDA's default is 30.", "type": "integer", "minimum": 0 },
+        "cooldownPeriod": { "description": "Seconds after the last trigger reported active before KEDA scales the workload to 0; applies only when minReplicaCount is 0. Omitted when unset: KEDA's default is 300.", "type": "integer", "minimum": 0 },
+        "initialCooldownPeriod": { "description": "Seconds after the ScaledObject is created before cooldownPeriod applies. Omitted when unset: KEDA's default is 0.", "type": "integer", "minimum": 0 },
         "fallback": {
+          "description": "The ScaledObject's spec.fallback: the replicas KEDA keeps while a scaler keeps failing. Rendered verbatim when non-empty.",
           "type": "object",
           "properties": {
-            "failureThreshold": { "type": "integer", "minimum": 0 },
-            "replicas": { "type": "integer", "minimum": 0 },
-            "behavior": { "type": "string" }
+            "failureThreshold": { "description": "Consecutive scaler failures before KEDA falls back; rendered verbatim.", "type": "integer", "minimum": 0 },
+            "replicas": { "description": "Replicas KEDA sets once failureThreshold is reached; rendered verbatim.", "type": "integer", "minimum": 0 },
+            "behavior": { "description": "How KEDA applies fallback.replicas, e.g. static or currentReplicasIfHigher; rendered verbatim.", "type": "string" }
           },
           "additionalProperties": false
         },
         "advanced": {
+          "description": "The ScaledObject's spec.advanced, rendered verbatim when non-empty.",
           "type": "object",
           "properties": {
-            "restoreToOriginalReplicaCount": { "type": "boolean" },
+            "restoreToOriginalReplicaCount": { "description": "Whether KEDA scales the workload back to its original replica count when the ScaledObject is deleted; rendered verbatim. KEDA's default is false.", "type": "boolean" },
             "horizontalPodAutoscalerConfig": {
+              "description": "Settings of the HPA KEDA derives for the ScaledObject; rendered verbatim.",
               "type": "object",
               "properties": {
-                "name": { "type": "string" },
-                "behavior": { "type": "object" }
+                "name": { "description": "Name of the HPA KEDA derives; KEDA uses keda-hpa-<ScaledObject name> when unset. Rendered verbatim.", "type": "string" },
+                "behavior": { "description": "The derived HPA's spec.behavior (scaleUp, scaleDown); rendered verbatim.", "type": "object" }
               },
               "additionalProperties": false
             },
-            "scalingModifiers": { "type": "object" }
+            "scalingModifiers": { "description": "KEDA scaling modifiers (formula, target, activationTarget, metricType), which combine the triggers by their name; rendered verbatim.", "type": "object" }
           },
           "additionalProperties": false
         },
         "triggers": {
+          "description": "The ScaledObject's triggers, each rendered verbatim but for authenticationRef.name, which resolves a kedaTriggerAuthentications key. Required, non-empty, when enabled: the render fails otherwise, and on a null entry.",
           "type": "array",
           "minItems": 1,
           "items": { "$ref": "#/$defs/kedaTrigger" }
@@ -458,14 +463,14 @@
     "toleration": {
       "type": "object",
       "properties": {
-        "key": { "type": "string" },
-        "operator": { "type": "string", "enum": ["Exists", "Equal"] },
+        "key": { "description": "The taint key to tolerate. Empty, with operator Exists, tolerates every taint.", "type": "string" },
+        "operator": { "description": "Exists or Equal; Kubernetes takes Equal when unset.", "type": "string", "enum": ["Exists", "Equal"] },
         "value": {
           "description": "A string, as Toleration.value is: quote a number (\"1\").",
           "type": "string"
         },
-        "effect": { "type": "string", "enum": ["", "NoSchedule", "PreferNoSchedule", "NoExecute"] },
-        "tolerationSeconds": { "type": "integer" }
+        "effect": { "description": "The taint effect to tolerate; empty matches every effect.", "type": "string", "enum": ["", "NoSchedule", "PreferNoSchedule", "NoExecute"] },
+        "tolerationSeconds": { "description": "How long a NoExecute taint is tolerated before eviction; unset tolerates it forever. Kubernetes accepts it only with effect NoExecute.", "type": "integer" }
       },
       "additionalProperties": false
     },
@@ -473,8 +478,8 @@
       "type": "object",
       "required": ["ip"],
       "properties": {
-        "ip": { "type": "string" },
-        "hostnames": { "type": "array", "items": { "type": "string" } }
+        "ip": { "description": "The IP address the hostnames resolve to, rendered verbatim as HostAlias.ip.", "type": "string" },
+        "hostnames": { "description": "The hostnames that resolve to ip, rendered verbatim as HostAlias.hostnames.", "type": "array", "items": { "type": "string" } }
       },
       "additionalProperties": false
     },
@@ -482,7 +487,7 @@
       "type": "object",
       "required": ["name"],
       "properties": {
-        "name": { "type": "string" },
+        "name": { "description": "The resolver option's name, such as ndots, rendered verbatim as PodDNSConfigOption.name.", "type": "string" },
         "value": {
           "description": "PodDNSConfigOption.value is a string; a number is printed in digits and quoted by the template (printScalar), so ndots: 2 is accepted.",
           "type": ["string", "number"]
@@ -494,9 +499,9 @@
       "type": "object",
       "required": ["parameter", "name", "key"],
       "properties": {
-        "parameter": { "type": "string" },
-        "name": { "type": "string" },
-        "key": { "type": "string" }
+        "parameter": { "description": "The scaler's authentication parameter the value fills, e.g. password; rendered verbatim.", "type": "string" },
+        "name": { "description": "Name of an existing Secret in the release namespace; rendered verbatim, not resolved against externalSecrets.", "type": "string" },
+        "key": { "description": "Key of the Secret that holds the value; rendered verbatim.", "type": "string" }
       },
       "additionalProperties": false
     },
@@ -504,9 +509,9 @@
       "type": "object",
       "required": ["parameter", "name"],
       "properties": {
-        "parameter": { "type": "string" },
-        "name": { "type": "string" },
-        "containerName": { "type": "string" }
+        "parameter": { "description": "The scaler's authentication parameter the value fills, e.g. password; rendered verbatim.", "type": "string" },
+        "name": { "description": "The environment variable of the scale target's container that holds the value; rendered verbatim.", "type": "string" },
+        "containerName": { "description": "The container whose environment variable is read; rendered verbatim. When unset KEDA falls back to scaleTargetRef.envSourceContainerName, which the chart does not set.", "type": "string" }
       },
       "additionalProperties": false
     },
@@ -514,20 +519,20 @@
       "description": "A Kubernetes Container, passed through to the manifest. Open on purpose (ADR 0006): only env is held, to envVar, so a numeric value fails here and not at apply (issue #148), and volumeMounts is declared an array because validateStatefulSets reads it (issue #235), null kept as it passed while undeclared.",
       "type": "object",
       "properties": {
-        "env": { "type": "array", "items": { "$ref": "#/$defs/envVar" } },
-        "volumeMounts": { "type": ["array", "null"] }
+        "env": { "description": "The container's environment variables, each held to envVar, rendered verbatim.", "type": "array", "items": { "$ref": "#/$defs/envVar" } },
+        "volumeMounts": { "description": "The container's volumeMounts, rendered verbatim. On a StatefulSet's extraContainers and extraInitContainers, their names count as mounts of the volumeClaimTemplates entries (validateStatefulSets).", "type": ["array", "null"] }
       }
     },
     "envVar": {
       "type": "object",
       "required": ["name"],
       "properties": {
-        "name": { "type": "string" },
+        "name": { "description": "The variable's name, rendered verbatim as EnvVar.name.", "type": "string" },
         "value": {
           "description": "A string, as EnvVar.value is: quote a number (\"10\"), or the API server rejects the manifest.",
           "type": "string"
         },
-        "valueFrom": { "type": "object" }
+        "valueFrom": { "description": "A Kubernetes EnvVarSource (secretKeyRef, configMapKeyRef, fieldRef, resourceFieldRef), rendered verbatim as EnvVar.valueFrom. Exclusive with value.", "type": "object" }
       },
       "additionalProperties": false
     },
@@ -535,24 +540,26 @@
       "type": "object",
       "required": ["type"],
       "properties": {
-        "type": { "type": "string" },
-        "name": { "type": "string" },
+        "type": { "description": "The KEDA scaler, e.g. prometheus, cron or rabbitmq; rendered verbatim.", "type": "string" },
+        "name": { "description": "Name of the trigger, which scalingModifiers formulas refer to; rendered verbatim.", "type": "string" },
         "metricType": {
+          "description": "The metric target type of the trigger in the derived HPA; rendered verbatim. KEDA's default is AverageValue.",
           "type": "string",
           "enum": ["AverageValue", "Value", "Utilization"]
         },
-        "useCachedMetrics": { "type": "boolean" },
+        "useCachedMetrics": { "description": "Whether the HPA's metric queries read the value KEDA cached at the last pollingInterval; rendered verbatim. KEDA's default is false.", "type": "boolean" },
         "metadata": {
           "description": "map[string]string in the ScaledObject: quote a number (\"10\").",
           "type": "object",
           "additionalProperties": { "type": "string" }
         },
         "authenticationRef": {
+          "description": "The TriggerAuthentication or ClusterTriggerAuthentication the trigger authenticates with.",
           "type": "object",
           "required": ["name"],
           "properties": {
-            "name": { "type": "string" },
-            "kind": { "type": "string" }
+            "name": { "description": "A kedaTriggerAuthentications key resolves to the rendered <fullname>-<key>, and the render fails when that entry is empty; any other name is rendered verbatim, for a TriggerAuthentication outside the chart.", "type": "string" },
+            "kind": { "description": "TriggerAuthentication, KEDA's default, or ClusterTriggerAuthentication; rendered verbatim. With ClusterTriggerAuthentication, name is never resolved against kedaTriggerAuthentications.", "type": "string" }
           },
           "additionalProperties": false
         }
@@ -562,20 +569,20 @@
     "kedaTriggerAuthentication": {
       "type": "object",
       "properties": {
-        "secretTargetRef": { "type": "array", "items": { "$ref": "#/$defs/kedaSecretTargetRef" } },
-        "env": { "type": "array", "items": { "$ref": "#/$defs/kedaEnvRef" } },
-        "podIdentity": { "type": "object" },
-        "hashiCorpVault": { "type": "object" },
-        "azureKeyVault": { "type": "object" },
-        "awsSecretManager": { "type": "object" },
-        "gcpSecretManager": { "type": "object" }
+        "secretTargetRef": { "description": "Values read from Secret keys; spec.secretTargetRef of the TriggerAuthentication, rendered verbatim when non-empty.", "type": "array", "items": { "$ref": "#/$defs/kedaSecretTargetRef" } },
+        "env": { "description": "Values read from environment variables of the scale target's containers; spec.env of the TriggerAuthentication, rendered verbatim when non-empty.", "type": "array", "items": { "$ref": "#/$defs/kedaEnvRef" } },
+        "podIdentity": { "description": "The TriggerAuthentication's spec.podIdentity (e.g. provider: azure-workload), rendered verbatim when non-empty.", "type": "object" },
+        "hashiCorpVault": { "description": "The TriggerAuthentication's spec.hashiCorpVault, rendered verbatim when non-empty.", "type": "object" },
+        "azureKeyVault": { "description": "The TriggerAuthentication's spec.azureKeyVault, rendered verbatim when non-empty.", "type": "object" },
+        "awsSecretManager": { "description": "The TriggerAuthentication's spec.awsSecretManager, rendered verbatim when non-empty.", "type": "object" },
+        "gcpSecretManager": { "description": "The TriggerAuthentication's spec.gcpSecretManager, rendered verbatim when non-empty.", "type": "object" }
       },
       "additionalProperties": false
     },
     "pdb": {
       "type": "object",
       "properties": {
-        "enabled": { "type": "boolean" },
+        "enabled": { "description": "Renders a policy/v1 PodDisruptionBudget selecting the workload's pods. Exactly one of minAvailable and maxUnavailable is required: the render fails on none or both.", "type": "boolean" },
         "minAvailable": {
           "description": "A count as an integer, or a percentage from 0% to 100% as a string (\"25%\"), as the API server requires. A digit string with no percent sign is rejected: spell a count as a number. The render fails when it leaves no pod to evict at the replica owner's floor (replicaCount, autoscaling.minReplicas or keda.minReplicaCount): set maxUnavailable: 0 to block evictions on purpose.",
           "oneOf": [
@@ -596,29 +603,32 @@
     "networkPolicy": {
       "type": "object",
       "properties": {
-        "enabled": { "type": "boolean" },
+        "enabled": { "description": "Render the NetworkPolicy; false when unset. true with none of policyTypes, ingress or egress set fails the render.", "type": "boolean" },
         "policyTypes": {
+          "description": "Rendered verbatim as spec.policyTypes: Ingress, Egress or both. Unset, derived from the ingress and egress set. Listing a type with no rules for it denies all of that traffic.",
           "type": "array",
           "items": { "type": "string" }
         },
         "ingress": {
+          "description": "Ingress rules, rendered verbatim as spec.ingress. Setting it adds Ingress to the policyTypes the chart derives.",
           "type": "array",
           "items": {
             "type": "object",
             "properties": {
-              "from": { "type": "array", "items": { "$ref": "#/$defs/networkPolicyPeer" } },
-              "ports": { "type": "array", "items": { "$ref": "#/$defs/networkPolicyPort" } }
+              "from": { "description": "Sources the rule allows; empty or unset, every source.", "type": "array", "items": { "$ref": "#/$defs/networkPolicyPeer" } },
+              "ports": { "description": "Ports of the workload's pods the rule allows; empty or unset, every port.", "type": "array", "items": { "$ref": "#/$defs/networkPolicyPort" } }
             },
             "additionalProperties": false
           }
         },
         "egress": {
+          "description": "Egress rules, rendered verbatim as spec.egress. Setting it adds Egress to the policyTypes the chart derives.",
           "type": "array",
           "items": {
             "type": "object",
             "properties": {
-              "to": { "type": "array", "items": { "$ref": "#/$defs/networkPolicyPeer" } },
-              "ports": { "type": "array", "items": { "$ref": "#/$defs/networkPolicyPort" } }
+              "to": { "description": "Destinations the rule allows; empty or unset, every destination.", "type": "array", "items": { "$ref": "#/$defs/networkPolicyPeer" } },
+              "ports": { "description": "Destination ports the rule allows; empty or unset, every port.", "type": "array", "items": { "$ref": "#/$defs/networkPolicyPort" } }
             },
             "additionalProperties": false
           }
@@ -630,14 +640,15 @@
       "description": "A NetworkPolicy v1 peer. Closed in full: a small, fixed shape (ADR 0017).",
       "type": "object",
       "properties": {
-        "podSelector": { "$ref": "#/$defs/labelSelector" },
-        "namespaceSelector": { "$ref": "#/$defs/labelSelector" },
+        "podSelector": { "description": "Pods the peer selects, rendered verbatim; without namespaceSelector, in the NetworkPolicy's own namespace.", "$ref": "#/$defs/labelSelector" },
+        "namespaceSelector": { "description": "Namespaces whose pods the peer selects, rendered verbatim; {} selects every namespace. With podSelector in the same peer, only the pods matching both.", "$ref": "#/$defs/labelSelector" },
         "ipBlock": {
+          "description": "An IP range, rendered verbatim: cidr, minus the except ranges.",
           "type": "object",
           "required": ["cidr"],
           "properties": {
-            "cidr": { "type": "string" },
-            "except": { "type": "array", "items": { "type": "string" } }
+            "cidr": { "description": "The range allowed, in CIDR notation, such as 10.0.0.0/16.", "type": "string" },
+            "except": { "description": "CIDR ranges inside cidr left out of it.", "type": "array", "items": { "type": "string" } }
           },
           "additionalProperties": false
         }
@@ -648,9 +659,9 @@
       "description": "A NetworkPolicy v1 port. Closed in full: a small, fixed shape (ADR 0017).",
       "type": "object",
       "properties": {
-        "protocol": { "type": "string", "enum": ["TCP", "UDP", "SCTP"] },
-        "port": { "$ref": "#/$defs/portNumberOrName" },
-        "endPort": { "type": "integer", "minimum": 1, "maximum": 65535 }
+        "protocol": { "description": "TCP (Kubernetes' default when unset), UDP or SCTP.", "type": "string", "enum": ["TCP", "UDP", "SCTP"] },
+        "port": { "description": "A port number or a named container port. Unset, every port of the protocol.", "$ref": "#/$defs/portNumberOrName" },
+        "endPort": { "description": "With a numeric port: the last port of the range starting at port.", "type": "integer", "minimum": 1, "maximum": 65535 }
       },
       "additionalProperties": false
     },
@@ -659,18 +670,20 @@
       "type": "object",
       "properties": {
         "matchLabels": {
+          "description": "Labels a match must carry, key to value, rendered verbatim.",
           "type": "object",
           "additionalProperties": { "type": "string" }
         },
         "matchExpressions": {
+          "description": "Set-based requirements, rendered verbatim; every one must match.",
           "type": "array",
           "items": {
             "type": "object",
             "required": ["key", "operator"],
             "properties": {
-              "key": { "type": "string" },
-              "operator": { "type": "string", "enum": ["In", "NotIn", "Exists", "DoesNotExist"] },
-              "values": { "type": "array", "items": { "type": "string" } }
+              "key": { "description": "The label key the requirement tests.", "type": "string" },
+              "operator": { "description": "In, NotIn, Exists or DoesNotExist.", "type": "string", "enum": ["In", "NotIn", "Exists", "DoesNotExist"] },
+              "values": { "description": "The label values to match. Kubernetes requires a non-empty list for In and NotIn, and none for Exists and DoesNotExist.", "type": "array", "items": { "type": "string" } }
             },
             "additionalProperties": false
           }
@@ -682,14 +695,17 @@
       "type": "object",
       "properties": {
         "nameservers": {
+          "description": "Nameserver IPs, rendered as dnsConfig.nameservers, each quoted.",
           "type": "array",
           "items": { "type": "string" }
         },
         "searches": {
+          "description": "DNS search domains, rendered as dnsConfig.searches, each quoted.",
           "type": "array",
           "items": { "type": "string" }
         },
         "options": {
+          "description": "Resolver options, rendered as dnsConfig.options. An empty dnsConfig, with no nameservers, searches or options, renders no dnsConfig block.",
           "type": "array",
           "items": { "$ref": "#/$defs/dnsConfigOption" }
         }
@@ -765,32 +781,35 @@
       "type": "object",
       "properties": {
         "files": {
+          "description": "Mounted config files mounted one by one: each is a ConfigMap <workload fullname>-md-cm-<name>, a volume md-cm-file-<name> and a read-only subPath mount at targetPath in the main container. Its content is in the pod template checksum, so a change replaces the pods.",
           "type": "array",
           "items": {
             "type": "object",
             "properties": {
-              "name": { "$ref": "#/$defs/mountedConfigFileName" },
-              "filename": { "type": "string" },
-              "targetPath": { "type": "string" },
-              "content": { "type": "string" }
+              "name": { "description": "Names the ConfigMap, <workload fullname>-md-cm-<name>, and the pod volume, md-cm-file-<name>. A DNS-1123 label of at most 52 characters, unique across files and bundles of the workload.", "$ref": "#/$defs/mountedConfigFileName" },
+              "filename": { "description": "Required. The ConfigMap key and the subPath of the mount, such as app.yaml.", "type": "string" },
+              "targetPath": { "description": "Required. The full path of the file in the main container, such as /etc/app/app.yaml: the mountPath of its subPath mount. Two mounts on one mountPath fail the render.", "type": "string" },
+              "content": { "description": "The file's content, rendered verbatim as the ConfigMap value. Required: an absent or null content fails the render; \"\" is an empty file.", "type": "string" }
             },
             "additionalProperties": false
           }
         },
         "bundles": {
+          "description": "Mounted config files mounted together as one directory: each bundle is a projected volume md-cm-bundle-<index>, mounted read-only at mountDir, with one ConfigMap per file.",
           "type": "array",
           "items": {
             "type": "object",
             "properties": {
-              "mountDir": { "type": "string" },
+              "mountDir": { "description": "Required. The directory the bundle is mounted at, read-only, in the main container. Two mounts on one mountPath fail the render.", "type": "string" },
               "files": {
+                "description": "The bundle's files, each rendered as its own ConfigMap <workload fullname>-md-cm-<name>. Their names share one namespace with files[]: a name used twice fails the render.",
                 "type": "array",
                 "items": {
                   "type": "object",
                   "properties": {
-                    "name": { "$ref": "#/$defs/mountedConfigFileName" },
-                    "relPath": { "type": "string" },
-                    "content": { "type": "string" }
+                    "name": { "description": "Names the file's ConfigMap, <workload fullname>-md-cm-<name>. A DNS-1123 label of at most 52 characters, unique across files and bundles of the workload.", "$ref": "#/$defs/mountedConfigFileName" },
+                    "relPath": { "description": "Required. The file's path under mountDir, such as conf.d/app.conf; its last segment is the ConfigMap key.", "type": "string" },
+                    "content": { "description": "The file's content, rendered verbatim as the ConfigMap value. Required: an absent or null content fails the render; \"\" is an empty file.", "type": "string" }
                   },
                   "additionalProperties": false
                 }
@@ -941,8 +960,9 @@
       "description": "StatefulSet only. Closed: a small, fixed shape (ADR 0017). rollingUpdate.maxUnavailable is left out: it is alpha. rollingUpdate is rejected with type OnDelete, as the API server does.",
       "type": "object",
       "properties": {
-        "type": { "type": "string", "enum": ["RollingUpdate", "OnDelete"] },
+        "type": { "description": "RollingUpdate replaces the pods one at a time, highest ordinal first; OnDelete replaces a pod only when it is deleted. Unset, left out, and Kubernetes defaults to RollingUpdate.", "type": "string", "enum": ["RollingUpdate", "OnDelete"] },
         "rollingUpdate": {
+          "description": "Only with type RollingUpdate: partition, the lowest ordinal the rollout updates.",
           "type": "object",
           "properties": {
             "partition": { "description": "Only the pods with an ordinal at or above it are updated.", "type": "integer", "minimum": 0 }
@@ -958,8 +978,8 @@
       "description": "StatefulSet only: what happens to the claims when the StatefulSet is deleted or scaled down. Both default to Retain, so an uninstall, a prune or a scale-down keeps the data. Delete removes the claim, and with a Delete reclaim policy its volume.",
       "type": "object",
       "properties": {
-        "whenDeleted": { "type": "string", "enum": ["Retain", "Delete"] },
-        "whenScaled": { "type": "string", "enum": ["Retain", "Delete"] }
+        "whenDeleted": { "description": "The claims' fate when the StatefulSet is deleted; Retain when unset.", "type": "string", "enum": ["Retain", "Delete"] },
+        "whenScaled": { "description": "The fate of the claims of the pods a scale-down removes; Retain when unset.", "type": "string", "enum": ["Retain", "Delete"] }
       },
       "additionalProperties": false
     },
@@ -986,8 +1006,8 @@
           "type": "string"
         },
         "volumeMode": { "description": "Defaults to Filesystem.", "type": "string", "enum": ["Filesystem", "Block"] },
-        "labels": { "type": "object", "additionalProperties": { "type": "string" } },
-        "annotations": { "type": "object", "additionalProperties": { "type": "string" } }
+        "labels": { "description": "Labels on each claim, under the workload's selector labels, which win on a shared key. global.commonLabels is not added.", "type": "object", "additionalProperties": { "type": "string" } },
+        "annotations": { "description": "Annotations on each claim, rendered verbatim; global.commonAnnotations is not added.", "type": "object", "additionalProperties": { "type": "string" } }
       },
       "additionalProperties": false
     },
@@ -1157,12 +1177,12 @@
     "externalSecretRemote": {
       "type": "object",
       "properties": {
-        "key": { "type": "string" },
-        "conversionStrategy": { "type": "string" },
-        "decodingStrategy": { "type": "string" },
-        "metadataPolicy": { "type": "string" },
-        "property": { "type": "string" },
-        "version": { "type": ["string", "number"] }
+        "key": { "description": "The key in the external store, rendered as remoteRef.key. Required: a render fail names the remote when it is missing.", "type": "string" },
+        "conversionStrategy": { "description": "ESO's remoteRef.conversionStrategy (Default or Unicode); Default when unset.", "type": "string" },
+        "decodingStrategy": { "description": "ESO's remoteRef.decodingStrategy (None, Base64, Base64URL or Auto); None when unset.", "type": "string" },
+        "metadataPolicy": { "description": "ESO's remoteRef.metadataPolicy (None or Fetch); None when unset.", "type": "string" },
+        "property": { "description": "The property of a structured remote value to read, rendered as remoteRef.property. Rendered only when set, \"\" included; no chart default.", "type": "string" },
+        "version": { "description": "The version of the remote value, rendered as remoteRef.version, a quoted string: version: 3 is accepted. Rendered only when set; no chart default.", "type": ["string", "number"] }
       },
       "additionalProperties": false
     },
@@ -1171,8 +1191,8 @@
       "type": "object",
       "required": ["name"],
       "properties": {
-        "name": { "type": "string", "minLength": 1 },
-        "mountPath": { "type": "string", "minLength": 1 }
+        "name": { "description": "A key of the root externalSecrets map. A key that is missing or whose entry is empty is a render fail.", "type": "string", "minLength": 1 },
+        "mountPath": { "description": "Mount the Secret as a read-only volume at this path instead of injecting it as an envFrom source. The volume name derives from the key, which must then make a DNS-1123 label of at most 63 characters; mounting the same key twice, or a path another mount uses, is a render fail.", "type": "string", "minLength": 1 }
       },
       "additionalProperties": false
     },
@@ -1184,47 +1204,51 @@
           "type": "object",
           "additionalProperties": { "type": "string" }
         },
-        "remote": { "$ref": "#/$defs/externalSecretRemote" },
+        "remote": { "description": "Single-key form: where the one key lives in the store, rendered as spec.data[0].remoteRef. Required, with secretkey, unless data or dataFrom is set; it cannot be combined with them (render fail).", "$ref": "#/$defs/externalSecretRemote" },
         "data": {
+          "description": "Several keys from the store: each item becomes an entry of spec.data. Combines with dataFrom, not with the single-key remote / secretkey (render fail).",
           "type": "array",
           "items": {
             "type": "object",
             "properties": {
-              "secretkey": { "type": "string" },
-              "remote": { "$ref": "#/$defs/externalSecretRemote" }
+              "secretkey": { "description": "The key of the produced Secret that receives the value, rendered as the item's secretKey. Required: a render fail names the item when it is missing.", "type": "string" },
+              "remote": { "description": "Where the key lives in the store, rendered as the item's remoteRef. Required: a render fail names the item when it is missing.", "$ref": "#/$defs/externalSecretRemote" }
             },
             "additionalProperties": false
           }
         },
         "dataFrom": {
+          "description": "ESO's spec.dataFrom, rendered verbatim: each item fetches many keys at once (extract, find) or from a generator. Combines with data, not with the single-key remote / secretkey (render fail).",
           "type": "array",
           "items": {
             "type": "object",
             "minProperties": 1,
             "properties": {
-              "extract": { "type": "object" },
-              "find": { "type": "object" },
-              "rewrite": { "type": "array" },
+              "extract": { "description": "ESO's dataFrom[].extract, rendered verbatim: every property of one remote key becomes a key of the Secret.", "type": "object" },
+              "find": { "description": "ESO's dataFrom[].find, rendered verbatim: every remote key matching its name or tags becomes a key of the Secret.", "type": "object" },
+              "rewrite": { "description": "ESO's dataFrom[].rewrite, rendered verbatim: the rules that rename the fetched keys before they land in the Secret.", "type": "array" },
               "sourceRef": {
                 "description": "A per-entry source. Closed in full: ESO adds generator types, not fields to the reference (ADR 0017). No enum on the kinds.",
                 "type": "object",
                 "properties": {
                   "storeRef": {
+                    "description": "A store for this entry alone, rendered verbatim as ESO's sourceRef.storeRef; it overrides secretstore for the entry.",
                     "type": "object",
                     "required": ["name"],
                     "properties": {
-                      "name": { "type": "string" },
-                      "kind": { "type": "string" }
+                      "name": { "description": "The name of the store. Required.", "type": "string" },
+                      "kind": { "description": "SecretStore or ClusterSecretStore. Rendered only when set; ESO's default applies otherwise.", "type": "string" }
                     },
                     "additionalProperties": false
                   },
                   "generatorRef": {
+                    "description": "A generator the entry draws from instead of a store, rendered verbatim as ESO's sourceRef.generatorRef.",
                     "type": "object",
                     "required": ["kind", "name"],
                     "properties": {
-                      "apiVersion": { "type": "string" },
-                      "kind": { "type": "string" },
-                      "name": { "type": "string" }
+                      "apiVersion": { "description": "The generator's apiVersion. Rendered only when set; ESO's default applies otherwise.", "type": "string" },
+                      "kind": { "description": "The generator's kind, such as Password or ECRAuthorizationToken. Required.", "type": "string" },
+                      "name": { "description": "The name of the generator resource. Required.", "type": "string" }
                     },
                     "additionalProperties": false
                   }
@@ -1236,26 +1260,29 @@
           }
         },
         "secretstore": {
+          "description": "The store the entry reads from, rendered as spec.secretStoreRef. Required, with both kind and name, unless the entry has only dataFrom and every item carries its own sourceRef.",
           "type": "object",
           "properties": {
             "kind": {
+              "description": "SecretStore or ClusterSecretStore. Required whenever secretstore is rendered.",
               "type": "string",
               "enum": ["ClusterSecretStore", "SecretStore"]
             },
-            "name": { "type": "string" }
+            "name": { "description": "The name of the store. Required whenever secretstore is rendered.", "type": "string" }
           },
           "additionalProperties": false
         },
-        "secretkey": { "type": "string" },
-        "refreshInterval": { "type": "string" },
+        "secretkey": { "description": "Single-key form: the key of the produced Secret that receives the value of remote, rendered as spec.data[0].secretKey. Required, with remote, unless data or dataFrom is set; it cannot be combined with them (render fail).", "type": "string" },
+        "refreshInterval": { "description": "ESO's spec.refreshInterval, a duration such as 1h or 15m; 1h when unset.", "type": "string" },
         "target": {
+          "description": "ESO's spec.target: the Secret the ExternalSecret produces and how it is written.",
           "type": "object",
           "properties": {
             "creationPolicy": { "type": "string", "enum": ["Owner", "Orphan", "Merge", "None", "CreateOrMerge"], "description": "ESO's target.creationPolicy; Owner when unset. CreateOrMerge needs an ESO release that ships it." },
-            "deletionPolicy": { "type": "string", "enum": ["Delete", "Merge", "Retain"] },
-            "name": { "type": "string" },
-            "immutable": { "type": "boolean" },
-            "template": { "type": "object" }
+            "deletionPolicy": { "description": "ESO's target.deletionPolicy: what happens to the Secret's data when the remote keys are gone. Retain when unset.", "type": "string", "enum": ["Delete", "Merge", "Retain"] },
+            "name": { "description": "The name of the produced Secret; <fullname>-<key> when unset. The hook-prerequisite copy produces <name>-hook (ADR 0007). A render fail catches a target that lands on another ExternalSecret's or on a Secret the chart renders (ADR 0013).", "type": "string" },
+            "immutable": { "description": "ESO's target.immutable, rendered only when set: the produced Secret cannot change once written. A workload's checksum/external-secrets does not cover the new data of an immutable Secret.", "type": "boolean" },
+            "template": { "description": "ESO's target.template, rendered verbatim: the shape of the produced Secret (type, metadata, data built from the fetched keys).", "type": "object" }
           },
           "additionalProperties": false
         }
@@ -1265,44 +1292,49 @@
     "ingress": {
       "type": "object",
       "properties": {
-        "enabled": { "type": "boolean" },
-        "className": { "type": "string" },
+        "enabled": { "description": "Render the Ingress; false when unset. true together with httpRoute.enabled or any httpRoutes entry fails the render: one HTTP routing layer per release.", "type": "boolean" },
+        "className": { "description": "Rendered as spec.ingressClassName; \"\" leaves it out, so the cluster's default IngressClass applies. The chart's values.yaml sets nginx.", "type": "string" },
         "annotations": {
+          "description": "Annotations on the Ingress, merged over global.commonAnnotations.",
           "type": "object",
           "additionalProperties": { "type": "string" }
         },
         "tls": {
+          "description": "spec.tls of the Ingress: one entry per certificate.",
           "type": "array",
           "items": {
             "type": "object",
             "properties": {
               "hosts": {
+                "description": "Hosts the certificate covers, rendered as the entry's hosts.",
                 "type": "array",
                 "items": { "type": "string" }
               },
-              "secretName": { "type": "string" }
+              "secretName": { "description": "The TLS Secret holding the certificate and key for those hosts, in the release namespace. The chart does not create it.", "type": "string" }
             },
             "additionalProperties": false
           }
         },
         "hosts": {
+          "description": "One Ingress rule per entry, each routed to one backend: a workload's Service, or service.name. The template does not require an entry: with none, the Ingress carries no rules and Kubernetes rejects it.",
           "type": "array",
           "items": {
             "type": "object",
             "properties": {
-              "host": { "type": "string" },
-              "workload": { "type": "string" },
+              "host": { "description": "The rule's host, such as api.example.com. Unset, the rule matches every host.", "type": "string" },
+              "workload": { "description": "The workload whose Service the rule routes to, unless service.name is set. A workload that does not exist, is empty, has enabled: false or service.enabled: false fails the render, as does an entry with neither workload nor service.name.", "type": "string" },
               "deployment": { "description": "removed in 4.0.0, issue #221: use workload." },
-              "portName": { "$ref": "#/$defs/backendPortName" },
-              "service": { "$ref": "#/$defs/backendServiceRef" },
+              "portName": { "description": "With workload: the name of the Service port to route to, service.portName or a service.extraPorts[].name; omitted, the primary port. The port must be TCP. Rejected together with a service name or port.", "$ref": "#/$defs/backendPortName" },
+              "service": { "description": "An explicit Service backend, in place of workload: name, and port (80 when unset). A service.name wins over workload.", "$ref": "#/$defs/backendServiceRef" },
               "paths": {
+                "description": "The rule's paths, at least one, all routed to the entry's backend.",
                 "type": "array",
                 "minItems": 1,
                 "items": {
                   "type": "object",
                   "properties": {
-                    "path": { "type": "string" },
-                    "pathType": { "type": "string", "enum": ["Exact", "Prefix", "ImplementationSpecific"] }
+                    "path": { "description": "The path to match, such as /, rendered verbatim.", "type": "string" },
+                    "pathType": { "description": "Exact, Prefix or ImplementationSpecific; ImplementationSpecific when unset.", "type": "string", "enum": ["Exact", "Prefix", "ImplementationSpecific"] }
                   },
                   "additionalProperties": false
                 }
@@ -1320,7 +1352,7 @@
       "type": "object",
       "allOf": [{ "$ref": "#/$defs/httpRouteFields" }],
       "properties": {
-        "enabled": { "type": "boolean" }
+        "enabled": { "description": "Renders the single HTTPRoute, named <fullname>. Default false. Enabled, parentRefs and rules must each hold at least one entry, or the render fails; it excludes ingress, since both are the HTTP routing layer.", "type": "boolean" }
       },
       "unevaluatedProperties": false
     },
@@ -1329,18 +1361,22 @@
       "type": "object",
       "properties": {
         "annotations": {
+          "description": "Annotations of the HTTPRoute, merged with global.commonAnnotations, this one winning.",
           "type": "object",
           "additionalProperties": { "type": "string" }
         },
         "parentRefs": {
+          "description": "The existing Gateways the HTTPRoute attaches to, rendered verbatim as spec.parentRefs. At least one, or the render fails.",
           "type": "array",
           "items": { "$ref": "#/$defs/gatewayParentRef" }
         },
         "hostnames": {
+          "description": "Hostnames the HTTPRoute answers, rendered as spec.hostnames. Unset or empty, the field is omitted and the route matches every hostname of its listener.",
           "type": "array",
           "items": { "type": "string" }
         },
         "rules": {
+          "description": "The routing rules, rendered as spec.rules. At least one, or the render fails.",
           "type": "array",
           "items": { "$ref": "#/$defs/httpRouteRule" }
         }
@@ -1352,8 +1388,8 @@
       "allOf": [{ "$ref": "#/$defs/httpRouteFields" }],
       "required": ["parentRefs", "rules"],
       "properties": {
-        "parentRefs": { "minItems": 1 },
-        "rules": { "minItems": 1 }
+        "parentRefs": { "description": "The Gateways the route attaches to. Required, at least one.", "minItems": 1 },
+        "rules": { "description": "The routing rules. Required, at least one.", "minItems": 1 }
       },
       "unevaluatedProperties": false
     },
@@ -1362,6 +1398,7 @@
       "additionalProperties": false,
       "properties": {
         "matches": {
+          "description": "Conditions a request must meet to take this rule, rendered verbatim as rules[].matches. Unset, the Gateway API default applies: every path.",
           "type": "array",
           "items": {
             "type": "object",
@@ -1369,49 +1406,56 @@
             "minProperties": 1,
             "properties": {
               "path": {
+                "description": "Path match, rendered verbatim. Its defaults are the Gateway API's, not the chart's.",
                 "type": "object",
                 "additionalProperties": false,
                 "properties": {
                   "type": {
+                    "description": "Exact, PathPrefix or RegularExpression. Unset, the Gateway API default applies (PathPrefix).",
                     "type": "string",
                     "enum": ["Exact", "PathPrefix", "RegularExpression"]
                   },
-                  "value": { "type": "string" }
+                  "value": { "description": "Path to match. Unset, the Gateway API default applies (/).", "type": "string" }
                 }
               },
               "headers": {
+                "description": "Header matches, rendered verbatim. A request must carry them all.",
                 "type": "array",
                 "items": {
                   "type": "object",
                   "additionalProperties": false,
                   "properties": {
                     "type": {
+                      "description": "Exact or RegularExpression. Unset, the Gateway API default applies (Exact).",
                       "type": "string",
                       "enum": ["Exact", "RegularExpression"]
                     },
-                    "name": { "type": "string" },
-                    "value": { "type": "string" }
+                    "name": { "description": "Header name, matched case-insensitively.", "type": "string" },
+                    "value": { "description": "Value to match the header against.", "type": "string" }
                   },
                   "required": ["name", "value"]
                 }
               },
               "queryParams": {
+                "description": "Query parameter matches, rendered verbatim. A request must carry them all.",
                 "type": "array",
                 "items": {
                   "type": "object",
                   "additionalProperties": false,
                   "properties": {
                     "type": {
+                      "description": "Exact or RegularExpression. Unset, the Gateway API default applies (Exact).",
                       "type": "string",
                       "enum": ["Exact", "RegularExpression"]
                     },
-                    "name": { "type": "string" },
-                    "value": { "type": "string" }
+                    "name": { "description": "Query parameter name, matched exactly.", "type": "string" },
+                    "value": { "description": "Value to match the query parameter against.", "type": "string" }
                   },
                   "required": ["name", "value"]
                 }
               },
               "method": {
+                "description": "HTTP method to match, rendered verbatim. Unset, every method.",
                 "type": "string",
                 "enum": ["GET", "HEAD", "POST", "PUT", "DELETE", "CONNECT", "OPTIONS", "TRACE", "PATCH"]
               }
@@ -1419,11 +1463,13 @@
           }
         },
         "filters": {
+          "description": "Gateway API filters of the rule, rendered verbatim as rules[].filters. Only type is checked; the other fields of a filter pass through. A RequestRedirect makes the rule one without backendRefs.",
           "type": "array",
           "items": {
             "type": "object",
             "properties": {
               "type": {
+                "description": "The Gateway API filter type. Required, a null item is rejected at render time.",
                 "type": "string",
                 "enum": [
                   "RequestHeaderModifier",
@@ -1439,15 +1485,17 @@
           }
         },
         "backendRefs": {
+          "description": "The backends of the rule, each resolved by resolveBackend to a Service name and port. Required unless filters holds a RequestRedirect, and rejected with one: a redirect answers the request itself.",
           "type": "array",
           "items": { "$ref": "#/$defs/httpRouteBackendRef" }
         },
         "timeouts": {
+          "description": "Timeouts of the rule, rendered verbatim as rules[].timeouts. Unset, the Gateway implementation's.",
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "request": { "type": "string" },
-            "backendRequest": { "type": "string" }
+            "request": { "description": "Gateway API Duration, such as 30s: the most the Gateway may take to answer the client, retries included. Rendered verbatim.", "type": "string" },
+            "backendRequest": { "description": "Gateway API Duration, such as 10s: the most one request to a backend may take. Rendered verbatim.", "type": "string" }
           }
         }
       }
@@ -1457,12 +1505,12 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "name": { "type": "string" },
-        "namespace": { "type": "string" },
-        "sectionName": { "type": "string" },
-        "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
-        "kind": { "type": "string" },
-        "group": { "type": "string" }
+        "name": { "description": "Name of the existing Gateway the route attaches to, rendered verbatim. The chart does not create Gateways.", "type": "string" },
+        "namespace": { "description": "Namespace of the Gateway, rendered verbatim. Unset, the route's own namespace.", "type": "string" },
+        "sectionName": { "description": "Name of the Gateway listener to attach to, rendered verbatim. Unset, every listener that accepts the route.", "type": "string" },
+        "port": { "description": "Port of the Gateway listener to attach to, rendered verbatim.", "type": "integer", "minimum": 1, "maximum": 65535 },
+        "kind": { "description": "Kind of the parent, rendered verbatim. Unset, the Gateway API default applies (Gateway).", "type": "string" },
+        "group": { "description": "API group of the parent, rendered verbatim. Unset, the Gateway API default applies (gateway.networking.k8s.io).", "type": "string" }
       },
       "required": ["name"]
     },
@@ -1471,8 +1519,8 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "name": { "type": "string" },
-        "port": { "type": "integer", "minimum": 1, "maximum": 65535 }
+        "name": { "description": "Name of the Service, in the release namespace, rendered as the backendRef or Ingress backend name. Set, it takes precedence over workload; empty, it counts as unset.", "type": "string" },
+        "port": { "description": "Port of the Service to reach. Default 80, not the primary port of a workload: the chart cannot see a Service it does not create.", "type": "integer", "minimum": 1, "maximum": 65535 }
       }
     },
     "backendPortName": {
@@ -1486,15 +1534,18 @@
       "required": ["parentRefs", "rules"],
       "properties": {
         "annotations": {
+          "description": "Annotations of the route, merged with global.commonAnnotations, this one winning.",
           "type": "object",
           "additionalProperties": { "type": "string" }
         },
         "parentRefs": {
+          "description": "The existing Gateway listeners the route attaches to, rendered verbatim as spec.parentRefs. Required, at least one.",
           "type": "array",
           "minItems": 1,
           "items": { "$ref": "#/$defs/gatewayParentRef" }
         },
         "rules": {
+          "description": "The rules of the route, rendered as spec.rules. Required, at least one.",
           "type": "array",
           "minItems": 1,
           "items": { "$ref": "#/$defs/l4RouteRule" }
@@ -1506,8 +1557,9 @@
       "additionalProperties": false,
       "required": ["backendRefs"],
       "properties": {
-        "name": { "$ref": "#/$defs/dns1123Subdomain", "maxLength": 253 },
+        "name": { "description": "Name of the rule, rendered as rules[].name. Unset, omitted.", "$ref": "#/$defs/dns1123Subdomain", "maxLength": 253 },
         "backendRefs": {
+          "description": "The backends of the rule, each resolved by resolveBackend to a Service name and port. Required, at least one; the port must carry the route's protocol, TCP for tcpRoutes and UDP for udpRoutes.",
           "type": "array",
           "minItems": 1,
           "items": { "$ref": "#/$defs/routeBackendRef" }
@@ -1519,17 +1571,19 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "workload": { "type": "string" },
+        "workload": { "description": "Name of a workloads entry: resolves to its Service, <fullname>-<name>, and the port portName picks. The render fails if the workload does not exist, is empty, or has enabled or service.enabled false.", "type": "string" },
         "deployment": { "description": "removed in 4.0.0, issue #221: use workload." },
-        "portName": { "$ref": "#/$defs/backendPortName" },
-        "service": { "$ref": "#/$defs/backendServiceRef" },
-        "weight": { "type": "integer", "minimum": 0, "maximum": 1000000 },
+        "portName": { "description": "With workload: the name of the workload Service port to route to; omitted, the primary port. Must be a TCP port.", "$ref": "#/$defs/backendPortName" },
+        "service": { "description": "An explicit Service backend {name, port}, in place of workload. Set with a name, it takes precedence over workload; rejected together with portName.", "$ref": "#/$defs/backendServiceRef" },
+        "weight": { "description": "Share of the rule's traffic sent to this backend, relative to the others, rendered as backendRefs[].weight when set. Unset, the Gateway API default applies (1).", "type": "integer", "minimum": 0, "maximum": 1000000 },
         "filters": {
+          "description": "Gateway API filters applied to this backend only, rendered verbatim as backendRefs[].filters. Only type is checked; the other fields of a filter pass through.",
           "type": "array",
           "items": {
             "type": "object",
             "properties": {
               "type": {
+                "description": "The Gateway API filter type. Required, a null item is rejected at render time.",
                 "type": "string",
                 "enum": [
                   "RequestHeaderModifier",
@@ -1551,11 +1605,11 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "workload": { "type": "string" },
+        "workload": { "description": "Name of a workloads entry: resolves to its Service, <fullname>-<name>, and the port portName picks. The render fails if the workload does not exist, is empty, or has enabled or service.enabled false.", "type": "string" },
         "deployment": { "description": "removed in 4.0.0, issue #221: use workload." },
-        "portName": { "$ref": "#/$defs/backendPortName" },
-        "service": { "$ref": "#/$defs/backendServiceRef" },
-        "weight": { "type": "integer", "minimum": 0, "maximum": 1000000 }
+        "portName": { "description": "With workload: the name of the workload Service port to route to; omitted, the primary port. Its protocol must be the route's.", "$ref": "#/$defs/backendPortName" },
+        "service": { "description": "An explicit Service backend {name, port}, in place of workload. Set with a name, it takes precedence over workload; rejected together with portName.", "$ref": "#/$defs/backendServiceRef" },
+        "weight": { "description": "Share of the rule's traffic sent to this backend, relative to the others, rendered as backendRefs[].weight when set. Unset, the Gateway API default applies (1).", "type": "integer", "minimum": 0, "maximum": 1000000 }
       }
     },
     "defaults": {
@@ -1569,14 +1623,16 @@
       "type": "object",
       "properties": {
         "roles": {
+          "description": "One Role per entry, bound to the entry's ServiceAccount by a RoleBinding when it declares one. A hook running as that ServiceAccount gets a hook-prerequisite copy of the Role and RoleBinding (ADR 0010).",
           "type": "array",
           "items": {
             "type": "object",
             "required": ["name", "rules"],
             "properties": {
-              "name": { "$ref": "#/$defs/dns1123Subdomain", "maxLength": 253 },
-              "serviceAccount": { "$ref": "#/$defs/serviceAccount" },
+              "name": { "description": "The Role's name, used verbatim. The RoleBinding is <name>-rolebinding, a trailing -role dropped, and the default ServiceAccount <name>-sa, both truncated to 63 characters; a name landing on another the chart renders is a render fail.", "$ref": "#/$defs/dns1123Subdomain", "maxLength": 253 },
+              "serviceAccount": { "description": "The ServiceAccount the Role is bound to, created as <name>-sa by default; {} is enough to declare it. With create: false it binds an existing one, <name>-sa unless name is set. Without this key no ServiceAccount and no RoleBinding are rendered.", "$ref": "#/$defs/serviceAccount" },
               "rules": {
+                "description": "The Role's PolicyRules, rendered verbatim; the hook-prerequisite copy grants the same ones.",
                 "type": "array",
                 "items": { "type": "object" }
               }

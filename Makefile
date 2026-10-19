@@ -200,10 +200,10 @@ scenario-coverage: ## Every map or list node of the schema is set by a scenario,
 	@python3 tests/check-scenario-coverage.py ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) tests/scenario-coverage-baseline.txt \
 		$(foreach e,$(TEST_CASES),$(firstword $(subst :, ,$(e))))
 
-schema-descriptions: ## Every schema property carries a description (new gaps fail; the baseline only shrinks)
+schema-descriptions: ## Every schema property carries a description
 	@echo "==> Checking the schema descriptions..."
 	@python3 tests/check-schema-descriptions.py --self-test
-	@python3 tests/check-schema-descriptions.py ./$(CHART_DIR)/$(GLOBAL_CHART_NAME)/values.schema.json tests/schema-descriptions-baseline.txt
+	@python3 tests/check-schema-descriptions.py ./$(CHART_DIR)/$(GLOBAL_CHART_NAME)/values.schema.json
 
 lint-labels: ## Every triage label docs/agents/triage-labels.md names exists on GitHub (needs gh; not in check, which stays offline)
 	@echo "==> Checking triage labels..."

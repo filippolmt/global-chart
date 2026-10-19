@@ -19,7 +19,7 @@ make lint-inheritance       # the schema and docs/values-authors/ state what a j
 make unit-test              # helm-unittest suites via Docker; SUITE=tests/hpa_test.yaml runs one
 make lint-labels            # the triage labels of docs/agents/triage-labels.md exist on GitHub (needs gh)
 make scenario-coverage      # every map or list node of the schema set by a scenario, every type a node accepts used by one
-make schema-descriptions    # every schema property carries a description; tests/schema-descriptions-baseline.txt only shrinks
+make schema-descriptions    # every schema property carries a description
 make null-sweep             # null every values node of every scenario, then give each map and list the wrong type: each must render or fail naming its path
 make generate-docs          # regenerate the helm-docs README
 make e2e                    # install/upgrade/rollback/uninstall on a throwaway kind cluster (runs e2e-dryrun first)

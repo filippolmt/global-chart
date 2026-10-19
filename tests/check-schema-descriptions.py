@@ -21,12 +21,10 @@ lands). A removed key (ADR 0022) is a property too: its description names the
 replacement. The schema under `additionalProperties` or `patternProperties` is
 a map's value, not a property: the map's own property describes it.
 
-The ratchet. tests/schema-descriptions-baseline.txt lists the properties of the
-day the check arrived that carried no description. A property missing from both
-fails: a new property comes with its description. A baseline line that names no
-undescribed property fails too, so the file only shrinks: delete the line.
+The baseline of the day the check arrived, the properties without one, emptied
+and went away with issue #247: a property without a description fails.
 
-Usage: check-schema-descriptions.py <schema file> <baseline file>
+Usage: check-schema-descriptions.py <schema file>
        check-schema-descriptions.py --self-test
 """
 import importlib.util
@@ -72,12 +70,6 @@ def undescribed(schema):
     return out
 
 
-def problems(missing, baseline, baseline_name):
-    out = [f"{p}: no description; add one to the property" for p in sorted(missing - baseline)]
-    out += [f"{p}: described now, or gone; delete the line from {baseline_name}" for p in sorted(baseline - missing)]
-    return out
-
-
 def self_test():
     schema = {
         "properties": {
@@ -103,31 +95,23 @@ def self_test():
             "z/else/properties/j/properties/l"}
     got = undescribed(schema)
     assert got == want, f"undescribed: got {sorted(got)}, want {sorted(want)}"
-    assert problems(want, want, "b.txt") == []
-    new = problems(want, want - {"properties/b"}, "b.txt")
-    assert new == ["properties/b: no description; add one to the property"], new
-    stale = problems(want - {"properties/b"}, want, "b.txt")
-    assert stale == ["properties/b: described now, or gone; delete the line from b.txt"], stale
     print("    OK: self-test")
 
 
 def main(argv):
     if argv == ["--self-test"]:
         return self_test()
-    if len(argv) != 2:
+    if len(argv) != 1:
         sys.exit(__doc__.rsplit("Usage: ", 1)[1])
     schema = json.loads(pathlib.Path(argv[0]).read_text())
-    baseline_file = pathlib.Path(argv[1])
-    baseline = {line for line in baseline_file.read_text().splitlines() if line and not line.startswith("#")}
     missing = undescribed(schema)
-    found = problems(missing, baseline, baseline_file.name)
-    if found:
-        print("    FAIL: the schema properties and the description baseline do not match:")
-        for p in found:
+    if missing:
+        print("    FAIL: schema properties without a description; add one to each:")
+        for p in sorted(missing):
             print(f"          - {p}")
         sys.exit(1)
     total = sum(1 for _ in walk_properties(schema))
-    print(f"    OK: {total} schema properties, {len(missing)} without a description, all in {baseline_file.name}")
+    print(f"    OK: {total} schema properties, each with a description")
 
 
 if __name__ == "__main__":
