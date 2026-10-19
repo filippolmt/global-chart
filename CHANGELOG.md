@@ -198,6 +198,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   workload and of a probe, `tolerationSeconds`, `activeDeadlineSeconds` of a
   hook or cronjob, `startingDeadlineSeconds`) now take at most
   9007199254740991 (2⁵³-1), `tolerationSeconds` at least its negative.
+  A hook `weight` takes the same bounds as a number, and at most 18 digits as
+  a string: a longer one overflowed the weight arithmetic and rendered
+  `hook-weight: "0"`.
   The int64 fields of `securityContext` (`runAsUser`, `fsGroup`…) stay out of
   reach: the schema does not declare that passthrough (ADR 0017).
 

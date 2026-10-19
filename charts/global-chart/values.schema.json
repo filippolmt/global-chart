@@ -587,7 +587,7 @@
         "minAvailable": {
           "description": "A count as an integer, or a percentage from 0% to 100% as a string (\"25%\"), as the API server requires. A digit string with no percent sign is rejected: spell a count as a number. The render fails when it leaves no pod to evict at the replica owner's floor (replicaCount, autoscaling.minReplicas or keda.minReplicaCount): set maxUnavailable: 0 to block evictions on purpose.",
           "oneOf": [
-            { "type": "integer", "minimum": 0 },
+            { "type": "integer", "minimum": 0, "maximum": 2147483647 },
             { "type": "string", "pattern": "^(100|[1-9]?[0-9])%$" }
           ]
         },
@@ -1103,7 +1103,7 @@
     "hookJobSpec": {
       "type": "object",
       "properties": {
-        "weight": { "type": ["string", "integer"], "pattern": "^-?(0|[1-9][0-9]*)$", "description": "Hook weight. A string holds a plain integer: a leading zero is rejected, since the weight arithmetic would read \"010\" as octal 8." },
+        "weight": { "type": ["string", "integer"], "pattern": "^-?(0|[1-9][0-9]{0,17})$", "minimum": -9007199254740991, "maximum": 9007199254740991, "description": "Hook weight. A string holds a plain integer: a leading zero is rejected, since the weight arithmetic would read \"010\" as octal 8. A number stays within ±(2^53-1), the integers Helm carries exactly; a string within 18 digits, past which the arithmetic overflows int64 and reads it as 0." },
         "deletePolicy": { "description": "helm.sh/hook-delete-policy of the hook's Job and of the ServiceAccount it creates. Unset: before-hook-creation on the Job, so the last run stays as the record of what ran; before-hook-creation,hook-succeeded,hook-failed on the ServiceAccount.", "type": "string" },
         "activeDeadlineSeconds": {
           "description": "Bound on the hook Job's run time. The only bound on a hook pod that waits for a Secret: it never reaches Failed, so backoffLimit never counts it.",
