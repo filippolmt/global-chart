@@ -9,7 +9,7 @@ rules below.
 
 ```bash
 make all                    # check + null-sweep + generate + kubeconform + kube-linter
-make check                  # the fast loop: lint-chart, lint-templates, lint-docs, lint-shell, lint-glossary, unit-test, bad-values, scenario-coverage (not null-sweep: make all and CI run it)
+make check                  # the fast loop: lint-chart, lint-templates, lint-docs, lint-shell, lint-glossary, unit-test, bad-values, scenario-coverage, schema-descriptions (not null-sweep: make all and CI run it)
 make lint-chart             # lint every scenario in TEST_CASES
 make lint-templates         # the mechanical rules of CODING_STANDARDS.md
 make lint-docs              # every file a document or a comment points at exists
@@ -18,6 +18,7 @@ make lint-glossary          # no phrase GLOSSARY.md avoids with one reading only
 make unit-test              # helm-unittest suites via Docker; SUITE=tests/hpa_test.yaml runs one
 make lint-labels            # the triage labels of docs/agents/triage-labels.md exist on GitHub (needs gh)
 make scenario-coverage      # every map or list node of the schema set by a scenario, every type a node accepts used by one
+make schema-descriptions    # every schema property carries a description; tests/schema-descriptions-baseline.txt only shrinks
 make null-sweep             # null every values node of every scenario, then give each map and list the wrong type: each must render or fail naming its path
 make generate-docs          # regenerate the helm-docs README
 make e2e                    # install/upgrade/rollback/uninstall on a throwaway kind cluster (runs e2e-dryrun first)

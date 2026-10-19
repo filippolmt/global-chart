@@ -3,7 +3,7 @@
   "type": "object",
   "additionalProperties": false,
   "properties": {
-    "global": { "$ref": "#/$defs/global" },
+    "global": { "description": "Values shared by every workload, hook and cronjob: image registry, pull secrets, common labels and annotations.", "$ref": "#/$defs/global" },
     "nameOverride": {
       "description": "Replaces the chart name in the fullname and in app.kubernetes.io/name. A DNS-1123 subdomain, the loosest name it reaches; the stricter labels it can reach are checked at render time, where the release name is visible (issue #120). The empty string means no override.",
       "anyOf": [{ "const": "" }, { "$ref": "#/$defs/dns1123Subdomain" }]
@@ -14,33 +14,39 @@
     },
     "deployments": { "description": "removed in 4.0.0, issue #221: use workloads." },
     "workloads": {
+      "description": "The workloads of the release, keyed by name. Each entry renders a Deployment, or a StatefulSet with kind: StatefulSet, with its Service, ServiceAccount, ConfigMap, Secret, HPA, PDB and NetworkPolicy, named <fullname>-<key>.",
       "type": "object",
       "propertyNames": { "$ref": "#/$defs/deploymentName" },
       "additionalProperties": { "$ref": "#/$defs/deployment" }
     },
-    "ingress": { "$ref": "#/$defs/ingress" },
-    "httpRoute": { "$ref": "#/$defs/httpRoute" },
+    "ingress": { "description": "The single Ingress of the release, rendered when enabled. Part of the HTTP routing layer: it excludes httpRoute and httpRoutes.", "$ref": "#/$defs/ingress" },
+    "httpRoute": { "description": "The single HTTPRoute of the release (Gateway API), rendered when enabled. Excludes ingress; coexists with httpRoutes.", "$ref": "#/$defs/httpRoute" },
     "httpRoutes": {
+      "description": "HTTPRoutes keyed by name, each rendered as <fullname>-<key> (issue #195). An entry present is a route rendered. Excludes ingress; coexists with httpRoute.",
       "type": "object",
       "propertyNames": { "$ref": "#/$defs/dns1123Label", "maxLength": 63 },
       "additionalProperties": { "$ref": "#/$defs/httpRouteEntry" }
     },
     "tcpRoutes": {
+      "description": "TCPRoutes keyed by name, each rendered as <fullname>-<key>: L4 routes for raw TCP ports on an existing Gateway listener. Needs gateway.networking.k8s.io/v1 TCPRoute (Gateway API v1.6.0 or later).",
       "type": "object",
       "propertyNames": { "$ref": "#/$defs/dns1123Label", "maxLength": 63 },
       "additionalProperties": { "$ref": "#/$defs/l4Route" }
     },
     "udpRoutes": {
+      "description": "UDPRoutes keyed by name, each rendered as <fullname>-<key>: the same shape as tcpRoutes, for UDP ports. Needs gateway.networking.k8s.io/v1 UDPRoute (Gateway API v1.6.0 or later).",
       "type": "object",
       "propertyNames": { "$ref": "#/$defs/dns1123Label", "maxLength": 63 },
       "additionalProperties": { "$ref": "#/$defs/l4Route" }
     },
     "cronJobs": {
+      "description": "Root-scope CronJobs keyed by name. They inherit nothing from a workload: set image, or fromWorkload to run a workload's image. A cronjob under workloads.<name>.cronJobs inherits from its workload instead.",
       "type": "object",
       "propertyNames": { "$ref": "#/$defs/jobName" },
       "additionalProperties": { "$ref": "#/$defs/cronJob" }
     },
     "hooks": {
+      "description": "Root-scope Helm hooks: hooks.<hook type>.<name>, each a Job run at that phase. They inherit nothing from a workload: set image, or fromWorkload to run a workload's image. A hook under workloads.<name>.hooks inherits from its workload instead.",
       "type": "object",
       "propertyNames": { "$ref": "#/$defs/hookType" },
       "additionalProperties": {
@@ -55,17 +61,19 @@
       }
     },
     "externalSecrets": {
+      "description": "ExternalSecrets keyed by name, each rendered as one ExternalSecret (External Secrets Operator). Workloads and jobs read the Secret it produces through their own externalSecrets list, by this key.",
       "type": "object",
       "propertyNames": { "$ref": "#/$defs/dns1123Subdomain" },
       "additionalProperties": { "$ref": "#/$defs/externalSecret" }
     },
     "kedaTriggerAuthentications": {
+      "description": "KEDA TriggerAuthentications keyed by name, each rendered as <fullname>-<key>. A trigger's authenticationRef.name that is a key here resolves to the rendered name.",
       "type": "object",
       "propertyNames": { "$ref": "#/$defs/dns1123Subdomain" },
       "additionalProperties": { "$ref": "#/$defs/kedaTriggerAuthentication" }
     },
-    "defaults": { "$ref": "#/$defs/defaults" },
-    "rbacs": { "$ref": "#/$defs/rbacs" }
+    "defaults": { "description": "Fallbacks for hooks and cronjobs of both scopes.", "$ref": "#/$defs/defaults" },
+    "rbacs": { "description": "Roles, RoleBindings and ServiceAccounts the release creates.", "$ref": "#/$defs/rbacs" }
   },
   "$defs": {
     "imagePullSecret": {
@@ -77,7 +85,7 @@
     },
     "imagePullSecretMap": {
       "type": "object",
-      "properties": { "name": { "type": "string" } },
+      "properties": { "name": { "description": "Name of an existing image pull Secret in the release namespace.", "type": "string" } },
       "required": ["name"],
       "additionalProperties": false
     },
@@ -90,14 +98,17 @@
           "description": "Registry host, with optional port and path, prepended to every image whose first segment is not already a registry. A host carries a \".\" or a \":\" port, or is localhost: the same test imageString applies. Never a URL."
         },
         "imagePullSecrets": {
+          "description": "Pull secrets of a pod that sets no imagePullSecrets key, when neither does the workload a workload-scope job belongs to.",
           "type": "array",
           "items": { "$ref": "#/$defs/imagePullSecret" }
         },
         "commonLabels": {
+          "description": "Labels added to metadata.labels of every resource, never to the selector labels. The chart's own app.kubernetes.io/* and helm.sh/chart labels win over them, and a per-resource label (podLabels) wins over both.",
           "type": "object",
           "additionalProperties": { "type": "string" }
         },
         "commonAnnotations": {
+          "description": "Annotations added to metadata.annotations of every resource, pod templates included. A per-resource annotation of the same name wins, the empty string included. helm.sh/hook, helm.sh/hook-weight and helm.sh/hook-delete-policy here are dropped: the chart emits those itself.",
           "type": "object",
           "additionalProperties": { "type": "string" }
         }
@@ -135,6 +146,7 @@
           "description": "A digest as the kubelet parses it (distribution/reference): <algorithm>:<hex>, at least 32 hex characters, e.g. sha256:<64 hex>. Wins over a plain tag when both are set; together with a tag that carries its own @<digest> it is rejected, even when the two are equal (ADR 0018)."
         },
         "pullPolicy": {
+          "description": "The container's imagePullPolicy; IfNotPresent when unset. A job running this image takes it with the image, unless it sets imagePullPolicy.",
           "type": "string",
           "enum": ["Always", "IfNotPresent", "Never"]
         }
@@ -154,27 +166,30 @@
       "type": "object",
       "properties": {
         "requests": {
+          "description": "Resource requests of the container, rendered verbatim: Kubernetes quantities, such as cpu: 100m and memory: 128Mi.",
           "type": "object",
           "properties": {
-            "cpu": { "type": ["string", "number"] },
-            "memory": { "type": ["string", "number"] }
+            "cpu": { "description": "CPU request: a Kubernetes quantity, such as 100m or 0.5.", "type": ["string", "number"] },
+            "memory": { "description": "Memory request: a Kubernetes quantity, such as 128Mi.", "type": ["string", "number"] }
           },
           "additionalProperties": { "type": ["string", "number"] }
         },
         "limits": {
+          "description": "Resource limits of the container, rendered verbatim: Kubernetes quantities.",
           "type": "object",
           "properties": {
-            "cpu": { "type": ["string", "number"] },
-            "memory": { "type": ["string", "number"] }
+            "cpu": { "description": "CPU limit: a Kubernetes quantity, such as 500m or 1.", "type": ["string", "number"] },
+            "memory": { "description": "Memory limit: a Kubernetes quantity, such as 512Mi. A container above it is OOM-killed.", "type": ["string", "number"] }
           },
           "additionalProperties": { "type": ["string", "number"] }
         },
         "claims": {
+          "description": "Dynamic resource claims of the container (Kubernetes DRA), rendered verbatim: each names an entry of the pod's resourceClaims.",
           "type": "array",
           "items": {
             "type": "object",
             "properties": {
-              "name": { "type": "string" }
+              "name": { "description": "Name of a resource claim of the pod.", "type": "string" }
             },
             "required": ["name"]
           }
@@ -189,14 +204,16 @@
         "type": "object",
         "required": ["name"],
         "properties": {
-          "name": { "type": "string", "minLength": 1 },
+          "name": { "description": "Name of the pod volume, which a volumeMounts item mounts. Unique within the pod, generated volumes included.", "type": "string", "minLength": 1 },
           "type": { "description": "removed in 4.0.0, issue #183: write the native volume source." },
           "secret": {
+            "description": "A native secret volume source, rendered verbatim.",
             "properties": {
               "name": { "description": "removed in 4.0.0, issue #183: use secret.secretName." }
             }
           },
           "persistentVolumeClaim": {
+            "description": "A native persistentVolumeClaim volume source, rendered verbatim.",
             "properties": {
               "name": { "description": "removed in 4.0.0, issue #183: use persistentVolumeClaim.claimName." }
             }
@@ -211,8 +228,8 @@
         "type": "object",
         "required": ["name", "mountPath"],
         "properties": {
-          "name": { "type": "string", "minLength": 1 },
-          "mountPath": { "type": "string", "minLength": 1 }
+          "name": { "description": "Name of the pod volume to mount.", "type": "string", "minLength": 1 },
+          "mountPath": { "description": "Path in the container. Unique within the container, the mounts the chart generates included.", "type": "string", "minLength": 1 }
         }
       }
     },
@@ -221,28 +238,31 @@
       "description": "Kubernetes probe configuration (httpGet, tcpSocket, exec, grpc). Closed in full, handler bodies included: a small, fixed shape (ADR 0017). The rule \"exactly one handler\" stays with the API server.",
       "properties": {
         "exec": {
+          "description": "Run a command in the container: healthy when it exits 0.",
           "type": "object",
           "properties": {
-            "command": { "type": "array", "items": { "type": "string" } }
+            "command": { "description": "The command and its arguments, run without a shell: wrap it in [\"sh\", \"-c\", ...] for one.", "type": "array", "items": { "type": "string" } }
           },
           "additionalProperties": false
         },
         "httpGet": {
+          "description": "An HTTP GET against the container: healthy on a status from 200 to 399.",
           "type": "object",
           "required": ["port"],
           "properties": {
-            "host": { "type": "string" },
-            "path": { "type": "string" },
-            "port": { "$ref": "#/$defs/portNumberOrName" },
-            "scheme": { "type": "string", "enum": ["HTTP", "HTTPS"] },
+            "host": { "description": "Host to connect to; the pod IP when unset. To set the Host header, use httpHeaders.", "type": "string" },
+            "path": { "description": "Path of the request, such as /healthz.", "type": "string" },
+            "port": { "description": "Port to probe: a number, or the name of a container port.", "$ref": "#/$defs/portNumberOrName" },
+            "scheme": { "description": "HTTP (the default) or HTTPS. HTTPS skips certificate verification.", "type": "string", "enum": ["HTTP", "HTTPS"] },
             "httpHeaders": {
+              "description": "Extra headers of the request.",
               "type": "array",
               "items": {
                 "type": "object",
                 "required": ["name", "value"],
                 "properties": {
-                  "name": { "type": "string" },
-                  "value": { "type": "string" }
+                  "name": { "description": "Header name.", "type": "string" },
+                  "value": { "description": "Header value.", "type": "string" }
                 },
                 "additionalProperties": false
               }
@@ -251,38 +271,41 @@
           "additionalProperties": false
         },
         "tcpSocket": {
+          "description": "Open a TCP connection to the container: healthy when it connects.",
           "type": "object",
           "required": ["port"],
           "properties": {
-            "host": { "type": "string" },
-            "port": { "$ref": "#/$defs/portNumberOrName" }
+            "host": { "description": "Host to connect to; the pod IP when unset.", "type": "string" },
+            "port": { "description": "Port to probe: a number, or the name of a container port.", "$ref": "#/$defs/portNumberOrName" }
           },
           "additionalProperties": false
         },
         "grpc": {
+          "description": "A gRPC health check (grpc.health.v1) against the container.",
           "type": "object",
           "required": ["port"],
           "properties": {
-            "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
-            "service": { "type": "string" }
+            "port": { "description": "Port of the gRPC server, a number: a port name is not accepted here.", "type": "integer", "minimum": 1, "maximum": 65535 },
+            "service": { "description": "Service name sent in the health check request; empty checks the server as a whole.", "type": "string" }
           },
           "additionalProperties": false
         },
-        "initialDelaySeconds": { "type": "integer" },
-        "periodSeconds": { "type": "integer" },
-        "timeoutSeconds": { "type": "integer" },
-        "successThreshold": { "type": "integer" },
-        "failureThreshold": { "type": "integer" },
-        "terminationGracePeriodSeconds": { "type": "integer" }
+        "initialDelaySeconds": { "description": "Seconds after the container starts before the first probe. Kubernetes defaults to 0.", "type": "integer" },
+        "periodSeconds": { "description": "Seconds between probes. Kubernetes defaults to 10.", "type": "integer" },
+        "timeoutSeconds": { "description": "Seconds before a probe times out. Kubernetes defaults to 1.", "type": "integer" },
+        "successThreshold": { "description": "Consecutive successes to count as healthy after a failure. Kubernetes defaults to 1, and requires 1 for a liveness or startup probe.", "type": "integer" },
+        "failureThreshold": { "description": "Consecutive failures to count as unhealthy. Kubernetes defaults to 3.", "type": "integer" },
+        "terminationGracePeriodSeconds": { "description": "Grace period after a failed liveness or startup probe kills the container, overriding the pod's terminationGracePeriodSeconds.", "type": "integer" }
       },
       "additionalProperties": false
     },
     "serviceAccount": {
       "type": "object",
       "properties": {
-        "create": { "type": "boolean" },
-        "automount": { "type": "boolean" },
+        "create": { "description": "Create the ServiceAccount. Defaults to true for a workload and an rbacs.roles entry. A hook or cronjob creates one by default only when nothing else names a ServiceAccount for it: not its own name, not its workload's.", "type": "boolean" },
+        "automount": { "description": "automountServiceAccountToken of the ServiceAccount itself; true when unset, after a job's own automountServiceAccountToken. A pod-level automountServiceAccountToken wins over it at admission.", "type": "boolean" },
         "annotations": {
+          "description": "Annotations on the ServiceAccount, such as eks.amazonaws.com/role-arn, merged over global.commonAnnotations.",
           "type": "object",
           "additionalProperties": { "type": "string" }
         },
@@ -299,40 +322,47 @@
     "service": {
       "type": "object",
       "properties": {
-        "enabled": { "type": "boolean" },
-        "portName": { "anyOf": [{ "const": "" }, { "$ref": "#/$defs/ianaSvcName" }] },
+        "enabled": { "description": "Render the workload's Service; true when unset. false drops it, and an ingress or route backend naming the workload fails the render. A StatefulSet keeps its headless Service either way.", "type": "boolean" },
+        "portName": { "description": "Name of the primary port, on the Service and the container; \"http\" when unset. A route or ingress backend picks a port by this name.", "anyOf": [{ "const": "" }, { "$ref": "#/$defs/ianaSvcName" }] },
         "type": {
+          "description": "ClusterIP (the default), NodePort or LoadBalancer.",
           "type": "string",
           "enum": ["ClusterIP", "NodePort", "LoadBalancer"]
         },
-        "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "port": { "description": "Port the Service exposes for the primary port; 80 when unset.", "type": "integer", "minimum": 1, "maximum": 65535 },
         "targetPort": {
+          "description": "The pod port the primary port forwards to: a number, which becomes the container's declared port, or the name of a declared container port. Defaults to portName, with the container port then equal to port. A name no container port declares fails the render.",
           "anyOf": [{ "const": "" }, { "$ref": "#/$defs/portNumberOrName" }]
         },
         "protocol": {
+          "description": "Protocol of the primary port: TCP (the default), UDP or SCTP.",
           "type": "string",
           "enum": ["TCP", "UDP", "SCTP"]
         },
         "annotations": {
+          "description": "Annotations on the Service, such as for external-dns or a cloud load balancer, merged over global.commonAnnotations. Not copied onto a StatefulSet's headless Service.",
           "type": "object",
           "additionalProperties": { "type": "string" }
         },
         "extraPorts": {
+          "description": "More ports of the same Service, after the primary one. Names and port+protocol pairs are unique across the primary port and every entry. A numeric targetPort is also declared on the container, under the entry's name, unless the container already declares that number and protocol.",
           "type": "array",
           "items": {
             "type": "object",
             "properties": {
-              "name": { "$ref": "#/$defs/ianaSvcName" },
-              "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+              "name": { "description": "Port name, on the Service and, for a numeric targetPort, on the container.", "$ref": "#/$defs/ianaSvcName" },
+              "port": { "description": "Port the Service exposes.", "type": "integer", "minimum": 1, "maximum": 65535 },
               "targetPort": {
+                "description": "The pod port it forwards to: a number, declared on the container under the entry's name unless that number and protocol already are, or the name of a declared container port.",
                 "anyOf": [{ "const": "" }, { "$ref": "#/$defs/portNumberOrName" }]
               },
               "protocol": {
+                "description": "TCP (the default), UDP or SCTP.",
                 "type": "string",
                 "enum": ["TCP", "UDP", "SCTP"]
               },
-              "appProtocol": { "type": "string" },
-              "nodePort": { "type": "integer", "minimum": 30000, "maximum": 32767 }
+              "appProtocol": { "description": "The port's appProtocol, rendered verbatim, such as http or kubernetes.io/h2c.", "type": "string" },
+              "nodePort": { "description": "Fixed node port, in the cluster's default NodePort range: for a NodePort or LoadBalancer Service only. Unset, Kubernetes picks one.", "type": "integer", "minimum": 30000, "maximum": 32767 }
             },
             "required": ["name", "port", "targetPort"],
             "additionalProperties": false
@@ -776,48 +806,50 @@
       "type": "object",
       "description": "A workload of the release (ADR 0020). strategy and progressDeadlineSeconds apply to a Deployment only; updateStrategy, podManagementPolicy, volumeClaimTemplates and persistentVolumeClaimRetentionPolicy to a StatefulSet only.",
       "properties": {
-        "enabled": { "type": "boolean" },
+        "enabled": { "description": "false skips the entry and every resource it renders, its hooks and cronjobs included; true when unset. An ingress or route backend naming it fails the render.", "type": "boolean" },
         "kind": {
           "description": "The workload kind this entry renders as (ADR 0020): Deployment (the default) for interchangeable pods, StatefulSet for pods with a stable identity and claims of their own. Changing it on an installed entry replaces the workload.",
           "type": "string",
           "enum": ["Deployment", "StatefulSet"]
         },
-        "replicaCount": { "type": "integer", "minimum": 0 },
-        "image": { "$ref": "#/$defs/image" },
-        "command": { "type": "array", "items": { "type": "string" } },
-        "args": { "type": "array", "items": { "type": "string" } },
-        "imagePullSecrets": { "type": "array", "items": { "$ref": "#/$defs/imagePullSecret" } },
-        "serviceAccount": { "$ref": "#/$defs/serviceAccount" },
+        "replicaCount": { "description": "Pods of the workload; 2 when unset. Ignored, and spec.replicas omitted, while autoscaling or keda owns the replicas.", "type": "integer", "minimum": 0 },
+        "image": { "description": "Image of the main container: a full reference string, or a map of repository, tag or digest and pullPolicy. Required. Workload-scope hooks and cronjobs run it unless they set their own.", "$ref": "#/$defs/image" },
+        "command": { "description": "Overrides the image ENTRYPOINT of the main container; the image's own when unset. Never inherited by the workload's hooks and cronjobs.", "type": "array", "items": { "type": "string" } },
+        "args": { "description": "Overrides the image CMD of the main container; the image's own when unset. Never inherited by the workload's hooks and cronjobs.", "type": "array", "items": { "type": "string" } },
+        "imagePullSecrets": { "description": "Pull secrets of the pod; global.imagePullSecrets when unset, and [] renders none. Inherited by the workload's hooks and cronjobs.", "type": "array", "items": { "$ref": "#/$defs/imagePullSecret" } },
+        "serviceAccount": { "description": "The workload's ServiceAccount: created by default, named <fullname>-<key> unless name is set. With create: false, name binds an existing one; with no name, the pod runs as the namespace's default. Inherited by the workload's hooks and cronjobs.", "$ref": "#/$defs/serviceAccount" },
         "annotations": {
           "description": "Annotations on the workload's own metadata, merged over global.commonAnnotations. Not podAnnotations, and not propagated to the Service, ServiceAccount, HPA or any other resource of the workload.",
           "type": "object",
           "additionalProperties": { "type": "string" }
         },
         "podAnnotations": {
+          "description": "Annotations on the pod template, merged over global.commonAnnotations and the annotations the chart adds to roll the pods on a change of a watched source (checksum/config and the like), this one winning.",
           "type": "object",
           "additionalProperties": { "type": "string" }
         },
         "podLabels": {
+          "description": "Labels on the pod template, merged over global.commonLabels and the chart's own labels, this one winning: a key that overrides a selector label makes the template stop matching the workload's selector, which the API server rejects.",
           "type": "object",
           "additionalProperties": { "type": "string" }
         },
-        "podSecurityContext": { "type": "object" },
-        "securityContext": { "type": "object" },
-        "automountServiceAccountToken": { "type": "boolean" },
-        "service": { "$ref": "#/$defs/service" },
-        "resources": { "$ref": "#/$defs/resources" },
-        "livenessProbe": { "$ref": "#/$defs/probe" },
-        "readinessProbe": { "$ref": "#/$defs/probe" },
-        "startupProbe": { "$ref": "#/$defs/probe" },
-        "lifecycle": { "type": "object" },
-        "terminationGracePeriodSeconds": { "type": "integer", "minimum": 0 },
-        "autoscaling": { "$ref": "#/$defs/autoscaling" },
-        "keda": { "$ref": "#/$defs/kedaScaledObject" },
-        "reloader": { "$ref": "#/$defs/deploymentReloader" },
-        "strategy": { "type": "object" },
-        "revisionHistoryLimit": { "type": "integer", "minimum": 0 },
-        "progressDeadlineSeconds": { "type": "integer", "minimum": 0 },
-        "updateStrategy": { "$ref": "#/$defs/statefulSetUpdateStrategy" },
+        "podSecurityContext": { "description": "The pod's securityContext, rendered verbatim (fsGroup, runAsNonRoot, ...). Inherited by the workload's hooks and cronjobs.", "type": "object" },
+        "securityContext": { "description": "The main container's securityContext, rendered verbatim (runAsUser, readOnlyRootFilesystem, ...). Inherited by the workload's hooks and cronjobs.", "type": "object" },
+        "automountServiceAccountToken": { "description": "Pod-level automountServiceAccountToken; omitted when unset, and the ServiceAccount decides. Wins over the ServiceAccount's setting. Inherited by the workload's hooks and cronjobs (ADR 0014).", "type": "boolean" },
+        "service": { "description": "The Service in front of the workload, rendered by default: one primary port plus extraPorts. Its ports also declare the main container's ports.", "$ref": "#/$defs/service" },
+        "resources": { "description": "Resource requests and limits of the main container, rendered verbatim; none when unset. Not inherited by the workload's hooks and cronjobs, which fall back to defaults.resources.", "$ref": "#/$defs/resources" },
+        "livenessProbe": { "description": "The main container's liveness probe, rendered verbatim: the kubelet restarts the container when it fails.", "$ref": "#/$defs/probe" },
+        "readinessProbe": { "description": "The main container's readiness probe, rendered verbatim: the pod receives Service traffic only while it passes.", "$ref": "#/$defs/probe" },
+        "startupProbe": { "description": "The main container's startup probe, rendered verbatim: liveness and readiness probes wait until it passes once.", "$ref": "#/$defs/probe" },
+        "lifecycle": { "description": "The main container's lifecycle hooks (postStart, preStop), rendered verbatim: a preStop sleep gives endpoints time to drop the pod.", "type": "object" },
+        "terminationGracePeriodSeconds": { "description": "Seconds between SIGTERM and SIGKILL on pod shutdown. Kubernetes defaults to 30.", "type": "integer", "minimum": 0 },
+        "autoscaling": { "description": "A HorizontalPodAutoscaler for the workload. With enabled: true it owns the replicas: spec.replicas is omitted. Excludes keda.", "$ref": "#/$defs/autoscaling" },
+        "keda": { "description": "A KEDA ScaledObject for the workload; KEDA creates and owns its own HPA. With enabled: true it owns the replicas: spec.replicas is omitted. Excludes autoscaling. Needs the keda.sh CRDs.", "$ref": "#/$defs/kedaScaledObject" },
+        "reloader": { "description": "Opt-in Stakater Reloader annotations on the workload's metadata (ADR 0016).", "$ref": "#/$defs/deploymentReloader" },
+        "strategy": { "description": "Deployment only: spec.strategy, rendered verbatim (type RollingUpdate with maxSurge and maxUnavailable, or Recreate).", "type": "object" },
+        "revisionHistoryLimit": { "description": "Old revisions kept for rollback: ReplicaSets for a Deployment, ControllerRevisions for a StatefulSet. Kubernetes defaults to 10.", "type": "integer", "minimum": 0 },
+        "progressDeadlineSeconds": { "description": "Deployment only: seconds a rollout may go without progress before Kubernetes marks it failed. Kubernetes defaults to 600.", "type": "integer", "minimum": 0 },
+        "updateStrategy": { "description": "StatefulSet only: RollingUpdate, with an optional partition, or OnDelete.", "$ref": "#/$defs/statefulSetUpdateStrategy" },
         "podManagementPolicy": {
           "description": "StatefulSet only: OrderedReady (the Kubernetes default) starts and stops the pods one at a time, in ordinal order; Parallel does not wait. Immutable once the StatefulSet exists.",
           "type": "string",
@@ -828,13 +860,14 @@
           "type": "array",
           "items": { "$ref": "#/$defs/volumeClaimTemplate" }
         },
-        "persistentVolumeClaimRetentionPolicy": { "$ref": "#/$defs/persistentVolumeClaimRetentionPolicy" },
-        "topologySpreadConstraints": { "type": "array" },
-        "pdb": { "$ref": "#/$defs/pdb" },
-        "networkPolicy": { "$ref": "#/$defs/networkPolicy" },
-        "volumes": { "$ref": "#/$defs/volumes" },
-        "volumeMounts": { "$ref": "#/$defs/volumeMounts" },
+        "persistentVolumeClaimRetentionPolicy": { "description": "StatefulSet only: whether the claims are kept or deleted when the StatefulSet is deleted or scaled down. Both default to Retain.", "$ref": "#/$defs/persistentVolumeClaimRetentionPolicy" },
+        "topologySpreadConstraints": { "description": "The pod's topologySpreadConstraints, rendered verbatim: its labelSelector is not filled in, so name the selector labels yourself.", "type": "array" },
+        "pdb": { "description": "A PodDisruptionBudget for the workload, rendered when enabled.", "$ref": "#/$defs/pdb" },
+        "networkPolicy": { "description": "A NetworkPolicy selecting the workload's pods, rendered when enabled.", "$ref": "#/$defs/networkPolicy" },
+        "volumes": { "description": "The pod's volumes, each a native volume source. Not inherited by the workload's hooks and cronjobs.", "$ref": "#/$defs/volumes" },
+        "volumeMounts": { "description": "The main container's volumeMounts. Not inherited by the workload's hooks and cronjobs.", "$ref": "#/$defs/volumeMounts" },
         "nodeSelector": {
+          "description": "The pod's nodeSelector. Inherited by the workload's hooks and cronjobs.",
           "type": "object",
           "additionalProperties": { "type": "string" }
         },
@@ -842,36 +875,41 @@
           "description": "Name of an existing PriorityClass for the pod (a DNS-1123 subdomain, at most 253 characters). The PriorityClass itself is cluster-scoped and not rendered by the chart. Workload-scope hooks and cronjobs inherit it; null or \"\" means unset.",
           "$ref": "#/$defs/optionalObjectName"
         },
-        "tolerations": { "type": "array", "items": { "$ref": "#/$defs/toleration" } },
-        "affinity": { "type": "object" },
-        "secret": { "type": "object", "additionalProperties": {} },
-        "configMap": { "type": "object", "additionalProperties": {} },
-        "hostAliases": { "type": "array", "items": { "$ref": "#/$defs/hostAlias" } },
-        "dnsConfig": { "$ref": "#/$defs/dnsConfig" },
+        "tolerations": { "description": "The pod's tolerations. Inherited by the workload's hooks and cronjobs.", "type": "array", "items": { "$ref": "#/$defs/toleration" } },
+        "affinity": { "description": "The pod's affinity, rendered verbatim (nodeAffinity, podAffinity, podAntiAffinity). Inherited by the workload's hooks and cronjobs.", "type": "object" },
+        "secret": { "description": "Key/value pairs of a Secret named <fullname>-<key>, base64-encoded by the chart, read by the main container as an envFrom source. A change rolls the pods. Inherited by the workload's hooks and cronjobs unless they set inheritWorkloadSecret: false.", "type": "object", "additionalProperties": {} },
+        "configMap": { "description": "Key/value pairs of a ConfigMap named <fullname>-<key>, read by the main container as an envFrom source. A change rolls the pods. Inherited by the workload's hooks and cronjobs unless they set inheritWorkloadConfigMap: false.", "type": "object", "additionalProperties": {} },
+        "hostAliases": { "description": "The pod's hostAliases: extra /etc/hosts entries. Inherited by the workload's hooks and cronjobs.", "type": "array", "items": { "$ref": "#/$defs/hostAlias" } },
+        "dnsConfig": { "description": "The pod's dnsConfig (nameservers, searches, options). Inherited by the workload's cronjobs, not by its hooks.", "$ref": "#/$defs/dnsConfig" },
         "envFromConfigMaps": {
+          "description": "Names of existing ConfigMaps the main container reads as envFrom sources. The workload's hooks and cronjobs read them too, before their own, unless they set inheritWorkloadEnvFromConfigMaps: false.",
           "type": "array",
           "items": { "type": "string" }
         },
         "envFromSecrets": {
+          "description": "Names of existing Secrets the main container reads as envFrom sources. The workload's hooks and cronjobs read them too, before their own, unless they set inheritWorkloadEnvFromSecrets: false. For a Secret the release's own ExternalSecret produces, use externalSecrets.",
           "type": "array",
           "items": { "type": "string" }
         },
         "externalSecrets": {
+          "description": "Secrets of the root externalSecrets map, by key: an envFrom source, or a read-only volume with mountPath. Inherited by the workload's hooks and cronjobs; a job's own list, [] included, replaces it.",
           "type": "array",
           "items": { "$ref": "#/$defs/externalSecretRef" }
         },
-        "additionalEnvs": { "type": "array", "items": { "$ref": "#/$defs/envVar" } },
-        "extraInitContainers": { "type": "array", "items": { "$ref": "#/$defs/container" } },
-        "extraContainers": { "type": "array", "items": { "$ref": "#/$defs/container" } },
+        "additionalEnvs": { "description": "Environment variables of the main container. The workload's hooks and cronjobs get them too, before their own env.", "type": "array", "items": { "$ref": "#/$defs/envVar" } },
+        "extraInitContainers": { "description": "Init containers of the pod, rendered verbatim.", "type": "array", "items": { "$ref": "#/$defs/container" } },
+        "extraContainers": { "description": "Sidecar containers of the pod, after the main container, rendered verbatim.", "type": "array", "items": { "$ref": "#/$defs/container" } },
         "podRecreation": {
+          "description": "Roll the pods on every render.",
           "type": "object",
           "properties": {
-            "enabled": { "type": "boolean" }
+            "enabled": { "description": "true adds a timestamp annotation to the pod template, so every helm upgrade rolls the pods: with pullPolicy: Always, a moved tag is pulled again. A change to configMap, secret, mountedConfigFiles, or the spec of a referenced externalSecrets entry, rolls the pods without it.", "type": "boolean" }
           },
           "additionalProperties": false
         },
-        "mountedConfigFiles": { "$ref": "#/$defs/mountedConfigFiles" },
+        "mountedConfigFiles": { "description": "Files the chart renders as ConfigMaps and mounts into the main container. Never inherited by the workload's hooks and cronjobs.", "$ref": "#/$defs/mountedConfigFiles" },
         "hooks": {
+          "description": "Workload-scope Helm hooks: hooks.<hook type>.<name>, each a Job run at that phase. They inherit the workload's image, ServiceAccount, configMap, secret, envFrom lists, externalSecrets, additionalEnvs, imagePullSecrets, hostAliases, security contexts, automountServiceAccountToken and placement (nodeSelector, tolerations, affinity, priorityClassName); never command, args or mountedConfigFiles.",
           "type": "object",
           "propertyNames": { "$ref": "#/$defs/hookType" },
           "additionalProperties": {
@@ -881,6 +919,7 @@
           }
         },
         "cronJobs": {
+          "description": "Workload-scope CronJobs keyed by name. They inherit the workload's image, ServiceAccount, configMap, secret, envFrom lists, externalSecrets, additionalEnvs, imagePullSecrets, hostAliases, security contexts, automountServiceAccountToken and placement (nodeSelector, tolerations, affinity, priorityClassName), and dnsConfig; never command, args or mountedConfigFiles.",
           "type": "object",
           "propertyNames": { "$ref": "#/$defs/jobName" },
           "additionalProperties": { "$ref": "#/$defs/deploymentCronJob" }
@@ -955,78 +994,86 @@
     "jobCommon": {
       "type": "object",
       "properties": {
-        "image": { "$ref": "#/$defs/image" },
-        "command": { "type": "array", "items": { "type": "string" } },
-        "args": { "type": "array", "items": { "type": "string" } },
-        "resources": { "$ref": "#/$defs/resources" },
-        "serviceAccount": { "$ref": "#/$defs/serviceAccount" },
+        "image": { "description": "Image of the job: a full reference string, or a map of repository, tag or digest and pullPolicy. Workload scope: the workload's when unset. Root scope: required, unless fromWorkload is set.", "$ref": "#/$defs/image" },
+        "command": { "description": "Overrides the image ENTRYPOINT; the image's own when unset. Never inherited from the workload.", "type": "array", "items": { "type": "string" } },
+        "args": { "description": "Overrides the image CMD; the image's own when unset. Never inherited from the workload.", "type": "array", "items": { "type": "string" } },
+        "resources": { "description": "Resource requests and limits of the job's container; defaults.resources when unset, and {} renders none. Never inherited from the workload.", "$ref": "#/$defs/resources" },
+        "serviceAccount": { "description": "The job's ServiceAccount. Its name: serviceAccountName or serviceAccount.name, else the workload's ServiceAccount, else one the chart creates under the job's name. create: false with nothing named leaves the pod on the namespace default. A hook may run as a hook-prerequisite copy of it (ADR 0011).", "$ref": "#/$defs/serviceAccount" },
         "serviceAccountName": {
           "description": "Existing ServiceAccount the job runs as. Same rule as serviceAccount.name: a DNS-1123 subdomain of at most 253 characters; null or \"\" means unset.",
           "$ref": "#/$defs/optionalObjectName"
         },
         "serviceAccountAnnotations": {
+          "description": "Annotations on the ServiceAccount the job creates, when serviceAccount.annotations is unset.",
           "type": "object",
           "additionalProperties": { "type": "string" }
         },
         "imagePullPolicy": {
+          "description": "Overrides the pull policy; else the pullPolicy of the image the job runs, inherited one included, else IfNotPresent.",
           "type": "string",
           "enum": ["Always", "IfNotPresent", "Never"]
         },
-        "imagePullSecrets": { "type": "array", "items": { "$ref": "#/$defs/imagePullSecret" } },
+        "imagePullSecrets": { "description": "Pull secrets of the job's pod. Workload scope: the workload's when unset, then global.imagePullSecrets. Root scope: global.imagePullSecrets. [] renders none.", "type": "array", "items": { "$ref": "#/$defs/imagePullSecret" } },
         "nodeSelector": {
+          "description": "The pod's nodeSelector. Workload scope: the workload's when unset; {} stops the inheritance.",
           "type": "object",
           "additionalProperties": { "type": "string" }
         },
         "priorityClassName": {
-          "description": "Name of an existing PriorityClass for the job pod. Workload scope: explicit > inherited from the workload. Explicit null or \"\" stops the inheritance. Root scope: only this value.",
+          "description": "Name of an existing PriorityClass for the job pod. Workload scope: explicit > inherited from the workload. \"\" stops the inheritance; null is unset, so the workload's value is inherited. Root scope: only this value.",
           "$ref": "#/$defs/optionalObjectName"
         },
-        "tolerations": { "type": "array", "items": { "$ref": "#/$defs/toleration" } },
-        "affinity": { "type": "object" },
-        "hostAliases": { "type": "array", "items": { "$ref": "#/$defs/hostAlias" } },
-        "dnsConfig": { "$ref": "#/$defs/dnsConfig" },
-        "env": { "type": "array", "items": { "$ref": "#/$defs/envVar" } },
+        "tolerations": { "description": "The pod's tolerations. Workload scope: the workload's when unset; [] stops the inheritance.", "type": "array", "items": { "$ref": "#/$defs/toleration" } },
+        "affinity": { "description": "The pod's affinity, rendered verbatim. Workload scope: the workload's when unset; {} stops the inheritance.", "type": "object" },
+        "hostAliases": { "description": "The pod's hostAliases. Workload scope: the workload's when unset; [] stops the inheritance.", "type": "array", "items": { "$ref": "#/$defs/hostAlias" } },
+        "dnsConfig": { "description": "The pod's dnsConfig. A workload-scope cronjob takes the workload's when unset; a hook never inherits it.", "$ref": "#/$defs/dnsConfig" },
+        "env": { "description": "Environment variables of the job's container. Workload scope: added after the workload's additionalEnvs.", "type": "array", "items": { "$ref": "#/$defs/envVar" } },
         "envFromConfigMaps": {
+          "description": "Names of existing ConfigMaps read as envFrom sources. Workload scope: added after the workload's envFromConfigMaps, never replacing them.",
           "type": "array",
           "items": { "type": "string" }
         },
         "envFromSecrets": {
+          "description": "Names of existing Secrets read as envFrom sources. Workload scope: added after the workload's envFromSecrets, never replacing them.",
           "type": "array",
           "items": { "type": "string" }
         },
         "externalSecrets": {
+          "description": "Secrets of the root externalSecrets map, by key: an envFrom source, or a read-only volume with mountPath. Workload scope: replaces the workload's list, [] included. A pre-* hook (pre-delete excepted) and a post-delete hook read the hook-prerequisite copy (ADR 0007).",
           "type": "array",
           "items": { "$ref": "#/$defs/externalSecretRef" }
         },
         "annotations": {
+          "description": "Annotations on the CronJob, or on the hook's Job, merged over global.commonAnnotations.",
           "type": "object",
           "additionalProperties": { "type": "string" }
         },
-        "automountServiceAccountToken": { "type": "boolean" },
-        "volumes": { "$ref": "#/$defs/volumes" },
-        "volumeMounts": { "$ref": "#/$defs/volumeMounts" },
-        "restartPolicy": { "type": "string", "enum": ["OnFailure", "Never"] },
-        "podSecurityContext": { "type": "object" },
-        "securityContext": { "type": "object" }
+        "automountServiceAccountToken": { "description": "Pod-level automountServiceAccountToken. Workload scope: the workload's when unset; else omitted, and the ServiceAccount decides (ADR 0014).", "type": "boolean" },
+        "volumes": { "description": "The job pod's volumes, each a native volume source. The job's own: never inherited from the workload.", "$ref": "#/$defs/volumes" },
+        "volumeMounts": { "description": "The job container's volumeMounts. The job's own: never inherited from the workload.", "$ref": "#/$defs/volumeMounts" },
+        "restartPolicy": { "description": "The pod's restartPolicy: Never (the default) or OnFailure.", "type": "string", "enum": ["OnFailure", "Never"] },
+        "podSecurityContext": { "description": "The pod's securityContext, rendered verbatim. Workload scope: the workload's when unset; {} stops the inheritance.", "type": "object" },
+        "securityContext": { "description": "The container's securityContext, rendered verbatim. Workload scope: the workload's when unset; {} stops the inheritance.", "type": "object" }
       }
     },
     "cronJobSpec": {
       "type": "object",
       "required": ["schedule"],
       "properties": {
-        "schedule": { "type": "string" },
-        "initContainers": { "type": "array", "items": { "$ref": "#/$defs/container" } },
-        "successfulJobsHistoryLimit": { "type": "integer", "minimum": 0 },
-        "failedJobsHistoryLimit": { "type": "integer", "minimum": 0 },
-        "backoffLimit": { "type": "integer", "minimum": 0 },
-        "ttlSecondsAfterFinished": { "type": "integer", "minimum": 0 },
-        "activeDeadlineSeconds": { "type": "integer", "minimum": 1 },
-        "startingDeadlineSeconds": { "type": "integer", "minimum": 0 },
-        "parallelism": { "type": "integer", "minimum": 0 },
-        "completions": { "type": "integer", "minimum": 1 },
-        "timeZone": { "type": "string" },
-        "suspend": { "type": "boolean" },
+        "schedule": { "description": "Cron schedule in the five-field format, such as \"0 2 * * *\".", "type": "string" },
+        "initContainers": { "description": "Init containers of the job's pod, rendered verbatim. CronJobs only.", "type": "array", "items": { "$ref": "#/$defs/container" } },
+        "successfulJobsHistoryLimit": { "description": "Successful Jobs kept; 2 when unset.", "type": "integer", "minimum": 0 },
+        "failedJobsHistoryLimit": { "description": "Failed Jobs kept; 2 when unset.", "type": "integer", "minimum": 0 },
+        "backoffLimit": { "description": "Retries before a Job is marked failed. Kubernetes defaults to 6.", "type": "integer", "minimum": 0 },
+        "ttlSecondsAfterFinished": { "description": "Seconds after a Job finishes before Kubernetes deletes it.", "type": "integer", "minimum": 0 },
+        "activeDeadlineSeconds": { "description": "Bound on a Job's run time: its pods are stopped and the Job marked failed past it.", "type": "integer", "minimum": 1 },
+        "startingDeadlineSeconds": { "description": "Seconds after a missed schedule within which the run may still start; unset, no deadline.", "type": "integer", "minimum": 0 },
+        "parallelism": { "description": "Pods of a Job running at once.", "type": "integer", "minimum": 0 },
+        "completions": { "description": "Successful pods a Job needs to complete.", "type": "integer", "minimum": 1 },
+        "timeZone": { "description": "Time zone of the schedule, an IANA name such as Europe/Rome; the controller manager's when unset.", "type": "string" },
+        "suspend": { "description": "true stops new runs without removing the CronJob; running Jobs are left alone.", "type": "boolean" },
         "concurrencyPolicy": {
+          "description": "Forbid (the default) skips a run while the previous one is active; Allow runs them side by side; Replace stops the previous one.",
           "type": "string",
           "enum": ["Allow", "Forbid", "Replace"]
         }
@@ -1036,7 +1083,7 @@
       "type": "object",
       "properties": {
         "weight": { "type": ["string", "integer"], "pattern": "^-?(0|[1-9][0-9]*)$", "description": "Hook weight. A string holds a plain integer: a leading zero is rejected, since the weight arithmetic would read \"010\" as octal 8." },
-        "deletePolicy": { "type": "string" },
+        "deletePolicy": { "description": "helm.sh/hook-delete-policy of the hook's Job and of the ServiceAccount it creates. Unset: before-hook-creation on the Job, so the last run stays as the record of what ran; before-hook-creation,hook-succeeded,hook-failed on the ServiceAccount.", "type": "string" },
         "activeDeadlineSeconds": {
           "description": "Bound on the hook Job's run time. The only bound on a hook pod that waits for a Secret: it never reaches Failed, so backoffLimit never counts it.",
           "type": "integer",
@@ -1052,15 +1099,15 @@
     "rootJobSpec": {
       "type": "object",
       "properties": {
-        "fromWorkload": { "type": "string" },
+        "fromWorkload": { "description": "Key of a workload whose image, with its pullPolicy, the job runs; a key naming no workload fails the render. Ignored when the job sets image. Nothing else is inherited.", "type": "string" },
         "fromDeployment": { "description": "removed in 4.0.0, issue #221: use fromWorkload." }
       }
     },
     "deploymentJobSpec": {
       "type": "object",
       "properties": {
-        "inheritWorkloadConfigMap": { "type": "boolean" },
-        "inheritWorkloadSecret": { "type": "boolean" },
+        "inheritWorkloadConfigMap": { "description": "false drops the workload's generated ConfigMap (configMap) from this job's envFrom. Default true.", "type": "boolean" },
+        "inheritWorkloadSecret": { "description": "false drops the workload's generated Secret (secret) from this job's envFrom. Default true.", "type": "boolean" },
         "inheritWorkloadEnvFromConfigMaps": {
           "type": "boolean",
           "description": "false drops the workload's envFromConfigMaps from this job's envFrom. Default true."
@@ -1514,7 +1561,7 @@
     "defaults": {
       "type": "object",
       "properties": {
-        "resources": { "$ref": "#/$defs/resources" }
+        "resources": { "description": "Resources of a hook or cronjob that sets no resources key of its own. A job's resources: {} renders none; a workload's resources never reach its jobs.", "$ref": "#/$defs/resources" }
       },
       "additionalProperties": false
     },

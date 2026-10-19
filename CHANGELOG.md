@@ -114,6 +114,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Fixed
 
+- **The `global.commonLabels` comment in `values.yaml` states the precedence
+  `mergeLabels` applies** (issue #203 review): a per-resource label
+  (`podLabels`) wins over the chart's own labels, which win over
+  `commonLabels`. It said the chart's labels won over both. The schema
+  description of a job's `priorityClassName` said an explicit null stops the
+  inheritance: `isSet` reads a null as unset, so the job inherits the
+  workload's value, and only `""` stops it. Documentation only: no manifest
+  changes.
 - **A values node of the wrong type fails naming its path** (issue #235). Under
   `--skip-schema-validation`, a map or list a template reads given as a number,
   a string or the other container (`hooks: {pre-install: 3}`,
@@ -150,6 +158,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Tests
 
+- New `make schema-descriptions`, in `make check` and CI (issue #203): every
+  property of `values.schema.json` carries a non-empty `description`. The
+  properties without one sit in `tests/schema-descriptions-baseline.txt`, which
+  only shrinks: a new property without a description fails, and so does a
+  baseline line whose property has one now. `--self-test` checks the walk and
+  the ratchet on a small schema. The fields every release uses now carry one —
+  `workloads.<name>` (image, service, resources, probes, hooks, cronJobs and
+  the rest of the entry), every hook and cronjob field, the root keys and
+  `global` — so the baseline holds 198 of 407 properties, down from 360.
 - New `make scenario-coverage`, in `make check` and CI: every map or list node
   the schema declares is set by a `TEST_CASES` scenario, and every type a node
   accepts beside another is used by one, so the checks over the scenarios see
