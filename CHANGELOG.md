@@ -194,6 +194,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   run found the fixes above, and a digit-only name rendered unquoted (#251).
   `make scenario-coverage` now also reports a bounded node no scenario sets:
   31 such gaps joined the baseline.
+- Guardrails from the #226 retro: `make lint-templates` gains `errctx`, a
+  `(dict …)` call of a helper that requires `errCtx` without one fails (the
+  #252 `printScalar` slip); `make kind-cluster` starts a control-plane
+  container an earlier session left stopped, waits for its API server, and
+  fails naming `make kind-delete` when it has no address, instead of writing
+  `https://invalid IP:6443` into the kubeconfig; new `make -s scenarios`
+  prints the `TEST_CASES` values files for a check script run by hand.
 - New `make schema-descriptions`, in `make check` and CI (issue #203): every
   property of `values.schema.json` carries a non-empty `description`, and a
   property without one fails. `--self-test` checks the walk on a small schema.
