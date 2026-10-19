@@ -188,6 +188,7 @@ lint-glossary: ## The phrases GLOSSARY.md avoids with one reading only stay out 
 
 lint-inheritance: ## The schema and the values-author guide state the inheritance the jobPodSpec header lists
 	@echo "==> Checking the inheritance rules..."
+	@python3 tests/check-inheritance.py --self-test ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) docs/values-authors/README.md
 	@python3 tests/check-inheritance.py ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) docs/values-authors/README.md
 
 null-sweep: ## Null every values node of every scenario in turn, then give each map and list the wrong type: each must render or fail naming its path

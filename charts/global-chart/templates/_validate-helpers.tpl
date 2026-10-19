@@ -17,7 +17,8 @@ checks every fail against them: change both.
 {{/*
 The values path of a map entry: "<map path>.<key>", the key alone at the
 root (an empty map path). The single home of that join, read by the walks
-over values maps: rejectRemovedKeys, checkValueType, rejectNullInLists.
+over values maps: rejectRemovedKeys, checkValueType, rejectNullInLists,
+rejectNullItemsAt.
 Usage: {{ include "global-chart.childValuesPath" (list $errCtx $key) }}
 */}}
 {{- define "global-chart.childValuesPath" -}}
@@ -368,8 +369,9 @@ Validate that no list in values carries a null item, and that no item of a list
 the chart reads carries a null in a field it needs (issue #198). Two parts:
 - rejectNullInLists over the whole of .Values: a null item fails anywhere,
   passthrough lists included, naming its path;
-- the required fields of the lists nullItemFields names, for every owner
-  podSpecOwners lists.
+- the required fields of the lists nullItemFields names: its root lists once,
+  its owner lists for every owner podSpecOwners lists, its workload lists for
+  every workload among them.
 Those helpers skip a null item or field instead of reading through it, so this
 is the one error such a null reaches, whatever order Helm renders the templates
 in (isNamedEntry is their skip). Runs in validate.yaml right after
@@ -405,7 +407,9 @@ dotted path from the root of values (root), from every pod-spec owner (owner),
 or from a workload only (workload); `x[]` steps into every item of list x.
 Every path must be a list of maps in valuesShape: the two answer different
 questions (a null field vs. a wrong type) over the same nodes, and `make
-null-sweep` fails a path valuesShape does not read as such (issue #238).
+null-sweep` (make all and CI, not make check) fails a path valuesShape does not
+read as such (issue #238). One direction only: a list of maps valuesShape adds
+may have no required field, so it does not have to be here.
 Read only by validateNullItems.
 */}}
 {{- define "global-chart.nullItemFields" -}}

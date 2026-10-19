@@ -262,7 +262,9 @@ def null_item_findings(tmp, shape):
     except (IndexError, ValueError):
         return ["nullItemFields does not render as a JSON object behind a `# Source:` header: "
                 + (" ".join(out.stderr.split())[:240] or out.stdout[:240])]
-    # Where each scope's paths start in valuesShape: an owner is a workload or a job
+    # Where each scope's paths start in valuesShape. An owner is a workload or a
+    # job; every job of every scope shares the *job anchor of valuesShape, so
+    # hooks.*.* stands for all of them (owner_findings holds each owner to it)
     bases = {"root": [()], "owner": [("workloads", "*"), ("hooks", "*", "*")], "workload": [("workloads", "*")]}
     findings = []
     for scope, paths in fields.items():

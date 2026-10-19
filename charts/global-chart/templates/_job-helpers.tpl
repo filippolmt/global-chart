@@ -11,7 +11,8 @@ _serviceaccount-helpers.tpl (see ADR 0001).
 
 Inheritance, workload scope. What a job takes from its workload, by values
 key; tests/check-inheritance.py holds the schema descriptions and
-docs/values-authors/README.md to these three lines (issue #245):
+docs/values-authors/README.md to these three lines (issue #245). Nothing holds
+the lines to the code of jobPodSpec: a change to what it inherits edits them.
   inherited: image serviceAccount configMap secret envFromConfigMaps envFromSecrets externalSecrets additionalEnvs imagePullSecrets hostAliases podSecurityContext securityContext automountServiceAccountToken nodeSelector tolerations affinity priorityClassName
   cronjobs only: dnsConfig
   never: command args mountedConfigFiles volumes volumeMounts resources

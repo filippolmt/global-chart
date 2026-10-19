@@ -15,6 +15,7 @@ holds both copies to the header:
   the header's fields, in backticks.
 
 Usage: check-inheritance.py <chart dir> <guide>
+       check-inheritance.py --self-test <chart dir> <guide>
 """
 import json
 import pathlib
@@ -31,15 +32,17 @@ def names(text):
     return {n for n in re.split(r",\s*|\s+and\s+|\s+or\s+", text.strip()) if n}
 
 
-def main(chart, guide):
-    header = (chart / "templates" / "_job-helpers.tpl").read_text()
+def problems(header, schema, text, guide="the guide"):
     rules = {k: set(m.group(1).split()) for k in MARKS
              if (m := re.search(rf"^\s*{k}: (.+)$", header, re.M))}
     if set(rules) != set(MARKS):
         return [f"_job-helpers.tpl: the jobPodSpec header lacks a `{k}:` line" for k in MARKS if k not in rules]
     findings = []
 
-    workload = json.loads((chart / "values.schema.json").read_text())["$defs"]["deployment"]["properties"]
+    workload = schema.get("$defs", {}).get("deployment", {}).get("properties")
+    if not isinstance(workload, dict) or not {"hooks", "cronJobs"} <= workload.keys():
+        return ["values.schema.json: no $defs/deployment/properties with hooks and cronJobs, where the workload "
+                "properties were expected"]
     for field, prop in workload.items():
         desc = prop.get("description", "")
         marked = next((k for k, mark in MARKS.items() if re.search(mark, desc)), None)
@@ -59,7 +62,6 @@ def main(chart, guide):
                 findings.append(f"values.schema.json: workloads.<name>.{field}: \"{what}\" lists "
                                 f"{sorted(got - want)} beyond the header and misses {sorted(want - got)}")
 
-    text = guide.read_text()
     for pattern, want, what in ((r"inherits from\s+that workload:(.+?)An\s+explicit value",
                                  rules["inherited"] | rules["cronjobs only"], "inherited"),
                                 (r"- Never inherited:(.+?)\.", rules["never"], "never inherited")):
@@ -68,15 +70,37 @@ def main(chart, guide):
         if got != want:
             findings.append(f"{guide}: the {what} list names {sorted(got - want)} beyond the jobPodSpec header "
                             f"and misses {sorted(want - got)}")
-        if what == "inherited" and m:
-            findings += [f"{guide}: `{f}` is inherited by cronjobs only, and the guide does not say "
-                         "\"for a cronjob only\" after it"
-                         for f in rules["cronjobs only"] if not re.search(rf"`{f}`\s+for a cronjob only", m.group(1))]
+    findings += [f"{guide}: `{f}` is inherited by cronjobs only, and the guide does not say "
+                 "\"for a cronjob only\" after it"
+                 for f in rules["cronjobs only"] if not re.search(rf"`{f}`\s+for a cronjob only", text)]
     return findings
 
 
+def read(chart, guide):
+    try:
+        return ((chart / "templates" / "_job-helpers.tpl").read_text(),
+                json.loads((chart / "values.schema.json").read_text()), guide.read_text())
+    except (OSError, ValueError) as e:
+        print(f"    FAIL: cannot read the jobPodSpec header, the schema or the guide: {e}")
+        sys.exit(1)
+
+
+def self_test(chart, guide):
+    """The real files pass; a field added to the header's inherited line fails the schema and the guide."""
+    header, schema, text = read(chart, guide)
+    assert problems(header, schema, text) == [], "the real files must pass"
+    probe = problems(header.replace("  inherited: ", "  inherited: probeField ", 1), schema, text)
+    assert any("probeField" in f and "hooks" in f for f in probe), probe
+    assert any("probeField" in f and "guide" in f for f in probe), probe
+    print("    OK: self-test")
+
+
 if __name__ == "__main__":
-    found = main(pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2]))
+    if sys.argv[1] == "--self-test":
+        self_test(pathlib.Path(sys.argv[2]), pathlib.Path(sys.argv[3]))
+        sys.exit(0)
+    chart, guide = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])
+    found = problems(*read(chart, guide), guide)
     for f in found:
         print(f"    FAIL: {f}")
     if found:

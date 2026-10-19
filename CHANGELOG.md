@@ -168,14 +168,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 ### Tests
 
 - New `make schema-descriptions`, in `make check` and CI (issue #203): every
-  property of `values.schema.json` carries a non-empty `description`. The
-  properties without one sit in `tests/schema-descriptions-baseline.txt`, which
-  only shrinks: a new property without a description fails, and so does a
-  baseline line whose property has one now. `--self-test` checks the walk and
-  the ratchet on a small schema. The fields every release uses now carry one —
-  `workloads.<name>` (image, service, resources, probes, hooks, cronJobs and
-  the rest of the entry), every hook and cronjob field, the root keys and
-  `global` — so the baseline holds 198 of 407 properties, down from 360.
+  property of `values.schema.json` carries a non-empty `description`, and a
+  property without one fails. `--self-test` checks the walk on a small schema.
+  All 407 properties are described, each checked against the template that
+  reads the field (issues #203, #247).
 - New `make scenario-coverage`, in `make check` and CI: every map or list node
   the schema declares is set by a `TEST_CASES` scenario, and every type a node
   accepts beside another is used by one, so the checks over the scenarios see
@@ -198,10 +194,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   `nullItemFields`, and each must be a list of maps in `valuesShape`. The check
   found `volumeClaimTemplates` checked on hooks and cronjobs, which carry none;
   it is now checked on workloads only.
-- Every schema property carries a description (issue #247): the 198 left in
-  `tests/schema-descriptions-baseline.txt` are described, each checked against
-  the template that reads the field, and the baseline is gone. `make
-  schema-descriptions` now fails any property without one.
 - New `make lint-inheritance`, in `make check` and CI (issue #245): the
   `inherited:`, `cronjobs only:` and `never:` lines of the `jobPodSpec` header
   list what a workload-scope job takes from its workload, and
