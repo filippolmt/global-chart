@@ -132,6 +132,6 @@ def main(argv):
 if __name__ == "__main__":
     try:
         main(sys.argv[1:])
-    except (OSError, ValueError) as e:
+    except (OSError, json.JSONDecodeError) as e:
         print(f"    FAIL: cannot read the schema, the baseline or a scenario: {e}")
         sys.exit(1)

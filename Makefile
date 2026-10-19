@@ -151,7 +151,7 @@ help: ## Show this help message
 all: check null-sweep generate-templates kubeconform kube-linter ## make check, the null sweep, then generate, validate and lint the manifests
 	@echo "==> make all: every check passed"
 
-check: lint-chart lint-templates lint-docs lint-shell lint-glossary lint-inheritance lint-checks unit-test validate-bad-values scenario-coverage schema-descriptions ## The development loop: lint, template rules, doc pointers, inheritance docs, check scripts, unit tests, bad-values, scenario coverage, schema descriptions (no null sweep, no manifest validation: make all and CI run them)
+check: lint-chart lint-templates lint-docs lint-shell lint-glossary lint-inheritance lint-checks unit-test validate-bad-values scenario-coverage schema-descriptions ## The development loop: every fast check, its prerequisites listed here (no null sweep, no manifest validation: make all and CI run them)
 
 lint-chart: ## Lint chart with all test values files
 	@echo "==> Linting chart with all test cases..."
@@ -188,6 +188,8 @@ lint-glossary: ## The phrases GLOSSARY.md avoids with one reading only stay out 
 
 lint-checks: ## Every make all target has a CI step; every check script fails with a FAIL line, not a traceback, on a missing input
 	@echo "==> Checking the check scripts..."
+	@python3 tests/lint-checks.py --self-test
+	@python3 tests/tools/schema-describe.py --self-test
 	@python3 tests/lint-checks.py
 
 lint-inheritance: ## The schema and the values-author guide state the inheritance the jobPodSpec header lists

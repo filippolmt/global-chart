@@ -109,6 +109,8 @@ if __name__ == "__main__":
             text = f.read()
         with open(sys.argv[2]) as f:
             descriptions = json.load(f)
+        if not isinstance(descriptions, dict):
+            raise ValueError(f"{sys.argv[2]}: not a JSON object from property pointer to description")
         text = describe(text, descriptions)
     except (OSError, ValueError) as e:
         print(f"    FAIL: {e}")

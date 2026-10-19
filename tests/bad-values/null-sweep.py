@@ -361,6 +361,10 @@ def main(argv):
     flags = argv[argv.index("--") + 1:] if "--" in argv else []
     argv = argv[:argv.index("--")] if "--" in argv else argv
     chart, files = pathlib.Path(argv[0]), argv[1:]
+    missing = [str(p) for p in [chart / "Chart.yaml", chart / "values.yaml", *map(pathlib.Path, files)] if not p.is_file()]
+    if missing:
+        print(f"    FAIL: no such chart or scenario: {', '.join(missing)}")
+        sys.exit(1)
     findings = []
     with tempfile.TemporaryDirectory() as tmp:
         scratch = pathlib.Path(tmp) / "values-to-json"
@@ -412,8 +416,4 @@ def main(argv):
 if __name__ == "__main__":
     if len(sys.argv) < 3:
         sys.exit(__doc__.rsplit("Usage: ", 1)[1])
-    try:
-        main(sys.argv[1:])
-    except (OSError, ValueError, subprocess.CalledProcessError) as e:
-        print(f"    FAIL: cannot read the chart or a scenario: {e}")
-        sys.exit(1)
+    main(sys.argv[1:])

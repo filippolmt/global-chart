@@ -9,7 +9,7 @@ rules below.
 
 ```bash
 make all                    # check + null-sweep + generate + kubeconform + kube-linter
-make check                  # the fast loop; `make help` lists what it runs (not null-sweep: make all and CI run it)
+make check                  # the fast loop; its prerequisites in the Makefile are what it runs (not null-sweep: make all and CI run it)
 make lint-chart             # lint every scenario in TEST_CASES
 make lint-templates         # the mechanical rules of CODING_STANDARDS.md
 make lint-docs              # every file a document or a comment points at exists
