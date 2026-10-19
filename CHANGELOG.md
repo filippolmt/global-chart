@@ -193,6 +193,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   in a message counts as a raw error.
 - `make null-sweep` leaves `make check`; `make all` and CI run it (issue
   #239): its type pass made the fast loop take about 3.5 minutes.
+- `make null-sweep` ties `validateNullItems` to `valuesShape` (issue #238):
+  the lists whose required fields it checks now sit in one table,
+  `nullItemFields`, and each must be a list of maps in `valuesShape`. The check
+  found `volumeClaimTemplates` checked on hooks and cronjobs, which carry none;
+  it is now checked on workloads only.
 - `make all` depends on `make check` instead of repeating its prerequisites
   (issue #246): a target added to `check` runs in `make all` too. `make -n all`
   prints the same commands as before.
