@@ -47,11 +47,12 @@ the label changes, and the upgrade fails with `field is immutable`. Changing
 
 **Where a job lives decides what it inherits.** A hook or cronjob declared
 under `workloads.<name>.hooks` / `.cronJobs` (*workload scope*) inherits from
-that workload: image, `configMap`, `secret`, ServiceAccount,
+that workload: `image`, `configMap`, `secret`, `serviceAccount`,
 `envFromConfigMaps` / `envFromSecrets`, `externalSecrets`,
 `additionalEnvs`, `imagePullSecrets`, `hostAliases`,
-`podSecurityContext`, `securityContext`, `nodeSelector`, `tolerations`,
-`affinity`, `priorityClassName`, and `dnsConfig` for a cronjob only. An
+`podSecurityContext`, `securityContext`, `automountServiceAccountToken`,
+`nodeSelector`, `tolerations`, `affinity`, `priorityClassName`, and
+`dnsConfig` for a cronjob only. An
 explicit value overrides; an empty `{}` or `[]` stops the inheritance, and so
 does `priorityClassName: ""`.
 The list fields below are the exceptions.

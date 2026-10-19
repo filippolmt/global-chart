@@ -813,7 +813,7 @@
           "enum": ["Deployment", "StatefulSet"]
         },
         "replicaCount": { "description": "Pods of the workload; 2 when unset. Ignored, and spec.replicas omitted, while autoscaling or keda owns the replicas.", "type": "integer", "minimum": 0 },
-        "image": { "description": "Image of the main container: a full reference string, or a map of repository, tag or digest and pullPolicy. Required. Workload-scope hooks and cronjobs run it unless they set their own.", "$ref": "#/$defs/image" },
+        "image": { "description": "Image of the main container: a full reference string, or a map of repository, tag or digest and pullPolicy. Required. Inherited by the workload's hooks and cronjobs unless they set their own.", "$ref": "#/$defs/image" },
         "command": { "description": "Overrides the image ENTRYPOINT of the main container; the image's own when unset. Never inherited by the workload's hooks and cronjobs.", "type": "array", "items": { "type": "string" } },
         "args": { "description": "Overrides the image CMD of the main container; the image's own when unset. Never inherited by the workload's hooks and cronjobs.", "type": "array", "items": { "type": "string" } },
         "imagePullSecrets": { "description": "Pull secrets of the pod; global.imagePullSecrets when unset, and [] renders none. Inherited by the workload's hooks and cronjobs.", "type": "array", "items": { "$ref": "#/$defs/imagePullSecret" } },
@@ -872,7 +872,7 @@
           "additionalProperties": { "type": "string" }
         },
         "priorityClassName": {
-          "description": "Name of an existing PriorityClass for the pod (a DNS-1123 subdomain, at most 253 characters). The PriorityClass itself is cluster-scoped and not rendered by the chart. Workload-scope hooks and cronjobs inherit it; null or \"\" means unset.",
+          "description": "Name of an existing PriorityClass for the pod (a DNS-1123 subdomain, at most 253 characters). The PriorityClass itself is cluster-scoped and not rendered by the chart. Inherited by the workload's hooks and cronjobs; null or \"\" means unset.",
           "$ref": "#/$defs/optionalObjectName"
         },
         "tolerations": { "description": "The pod's tolerations. Inherited by the workload's hooks and cronjobs.", "type": "array", "items": { "$ref": "#/$defs/toleration" } },
@@ -882,12 +882,12 @@
         "hostAliases": { "description": "The pod's hostAliases: extra /etc/hosts entries. Inherited by the workload's hooks and cronjobs.", "type": "array", "items": { "$ref": "#/$defs/hostAlias" } },
         "dnsConfig": { "description": "The pod's dnsConfig (nameservers, searches, options). Inherited by the workload's cronjobs, not by its hooks.", "$ref": "#/$defs/dnsConfig" },
         "envFromConfigMaps": {
-          "description": "Names of existing ConfigMaps the main container reads as envFrom sources. The workload's hooks and cronjobs read them too, before their own, unless they set inheritWorkloadEnvFromConfigMaps: false.",
+          "description": "Names of existing ConfigMaps the main container reads as envFrom sources. Inherited by the workload's hooks and cronjobs, read before their own, unless they set inheritWorkloadEnvFromConfigMaps: false.",
           "type": "array",
           "items": { "type": "string" }
         },
         "envFromSecrets": {
-          "description": "Names of existing Secrets the main container reads as envFrom sources. The workload's hooks and cronjobs read them too, before their own, unless they set inheritWorkloadEnvFromSecrets: false. For a Secret the release's own ExternalSecret produces, use externalSecrets.",
+          "description": "Names of existing Secrets the main container reads as envFrom sources. Inherited by the workload's hooks and cronjobs, read before their own, unless they set inheritWorkloadEnvFromSecrets: false. For a Secret the release's own ExternalSecret produces, use externalSecrets.",
           "type": "array",
           "items": { "type": "string" }
         },
@@ -896,7 +896,7 @@
           "type": "array",
           "items": { "$ref": "#/$defs/externalSecretRef" }
         },
-        "additionalEnvs": { "description": "Environment variables of the main container. The workload's hooks and cronjobs get them too, before their own env.", "type": "array", "items": { "$ref": "#/$defs/envVar" } },
+        "additionalEnvs": { "description": "Environment variables of the main container. Inherited by the workload's hooks and cronjobs, before their own env.", "type": "array", "items": { "$ref": "#/$defs/envVar" } },
         "extraInitContainers": { "description": "Init containers of the pod, rendered verbatim.", "type": "array", "items": { "$ref": "#/$defs/container" } },
         "extraContainers": { "description": "Sidecar containers of the pod, after the main container, rendered verbatim.", "type": "array", "items": { "$ref": "#/$defs/container" } },
         "podRecreation": {
@@ -909,7 +909,7 @@
         },
         "mountedConfigFiles": { "description": "Files the chart renders as ConfigMaps and mounts into the main container. Never inherited by the workload's hooks and cronjobs.", "$ref": "#/$defs/mountedConfigFiles" },
         "hooks": {
-          "description": "Workload-scope Helm hooks: hooks.<hook type>.<name>, each a Job run at that phase. They inherit the workload's image, ServiceAccount, configMap, secret, envFrom lists, externalSecrets, additionalEnvs, imagePullSecrets, hostAliases, security contexts, automountServiceAccountToken and placement (nodeSelector, tolerations, affinity, priorityClassName); never command, args or mountedConfigFiles.",
+          "description": "Workload-scope Helm hooks: hooks.<hook type>.<name>, each a Job run at that phase. They inherit the workload's image, serviceAccount, configMap, secret, envFromConfigMaps, envFromSecrets, externalSecrets, additionalEnvs, imagePullSecrets, hostAliases, podSecurityContext, securityContext, automountServiceAccountToken, nodeSelector, tolerations, affinity and priorityClassName; never command, args, mountedConfigFiles, volumes, volumeMounts or resources.",
           "type": "object",
           "propertyNames": { "$ref": "#/$defs/hookType" },
           "additionalProperties": {
@@ -919,7 +919,7 @@
           }
         },
         "cronJobs": {
-          "description": "Workload-scope CronJobs keyed by name. They inherit the workload's image, ServiceAccount, configMap, secret, envFrom lists, externalSecrets, additionalEnvs, imagePullSecrets, hostAliases, security contexts, automountServiceAccountToken and placement (nodeSelector, tolerations, affinity, priorityClassName), and dnsConfig; never command, args or mountedConfigFiles.",
+          "description": "Workload-scope CronJobs keyed by name. They inherit the workload's image, serviceAccount, configMap, secret, envFromConfigMaps, envFromSecrets, externalSecrets, additionalEnvs, imagePullSecrets, hostAliases, podSecurityContext, securityContext, automountServiceAccountToken, nodeSelector, tolerations, affinity, priorityClassName and dnsConfig; never command, args, mountedConfigFiles, volumes, volumeMounts or resources.",
           "type": "object",
           "propertyNames": { "$ref": "#/$defs/jobName" },
           "additionalProperties": { "$ref": "#/$defs/deploymentCronJob" }

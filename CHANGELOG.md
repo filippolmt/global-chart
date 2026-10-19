@@ -198,6 +198,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   `nullItemFields`, and each must be a list of maps in `valuesShape`. The check
   found `volumeClaimTemplates` checked on hooks and cronjobs, which carry none;
   it is now checked on workloads only.
+- New `make lint-inheritance`, in `make check` and CI (issue #245): the
+  `inherited:`, `cronjobs only:` and `never:` lines of the `jobPodSpec` header
+  list what a workload-scope job takes from its workload, and
+  `tests/check-inheritance.py` holds the workload property descriptions of
+  `values.schema.json`, its `hooks` / `cronJobs` descriptions and the
+  inheritance lists of `docs/values-authors/README.md` to them. Those
+  descriptions now name each field instead of groups ("security contexts",
+  "placement"), and the `hooks` / `cronJobs` ones add `volumes`,
+  `volumeMounts` and `resources` to what is never inherited. The check found
+  `automountServiceAccountToken` missing from the guide's list.
 - `make all` depends on `make check` instead of repeating its prerequisites
   (issue #246): a target added to `check` runs in `make all` too. `make -n all`
   prints the same commands as before.
