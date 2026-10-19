@@ -111,7 +111,12 @@ TEST_CASES := \
 	tests/httproutes.yaml:httproutes:httproutes \
 	tests/keda.yaml:keda:keda \
 	tests/common-annotations.yaml:common-annotations:common-annotations \
-	tests/statefulset.yaml:statefulset:statefulset
+	tests/statefulset.yaml:statefulset:statefulset \
+	docs/values-authors/examples/web.yaml:example-web:example-web \
+	docs/values-authors/examples/worker.yaml:example-worker:example-worker \
+	docs/values-authors/examples/cronjob.yaml:example-cronjob:example-cronjob \
+	docs/values-authors/examples/migration-hook.yaml:example-migration-hook:example-migration-hook \
+	docs/values-authors/examples/externalsecret.yaml:example-externalsecret:example-externalsecret
 
 # Default target
 .DEFAULT_GOAL := help

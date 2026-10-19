@@ -1,0 +1,26 @@
+# A database migration: a hook of the workload it migrates, so it runs the
+# image being rolled out with the workload's configuration, before the new pods.
+# pre-install covers the first install, pre-upgrade every later release: a hook
+# is keyed by its phase, so the job is written once per phase.
+workloads:
+  api:
+    image:
+      repository: ghcr.io/example/api
+      tag: "2.0.1"
+    service:
+      targetPort: 3000
+    configMap:
+      DB_HOST: postgres.db.svc
+    envFromSecrets:
+      - api-db-credentials
+    hooks:
+      pre-install:
+        migrate:
+          command: ["./bin/migrate", "up"]          # never inherited: always set it
+          activeDeadlineSeconds: 600
+          backoffLimit: 1
+      pre-upgrade:
+        migrate:
+          command: ["./bin/migrate", "up"]
+          activeDeadlineSeconds: 600
+          backoffLimit: 1
