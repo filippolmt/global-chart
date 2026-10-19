@@ -54,6 +54,12 @@ a rule below cannot recognise: a check that sees nothing is not a pass.
   recursion). The exhaustive form is the one checked: a "read by" in prose
   may name some readers only. A reader added to a helper whose header claims
   the full list is a stale header the reviews found by hand (issue #248).
+- errctx: a helper that demands its caller's values path (`required
+  "<helper>: errCtx is required …" .errCtx`) gets it from every caller that
+  builds its argument with `(dict …)`: a call missing it renders while the
+  branch is never taken and dies with the helper's own message, not the user's
+  key, the day it is (a printScalar in a min>max fail, issue #226). An
+  argument built elsewhere (`$ctx`) is the builder's to check.
 
 Comments (`{{/* … */}}`) are stripped before matching, so a rule may be named in
 prose. Matching runs over the whole file, so an expression split across lines
@@ -83,6 +89,8 @@ KIND_HOMES = {"global-chart.workloadKind", "global-chart.isStatefulSet"}
 DEFINE_NAME = re.compile(r'\{\{-?\s*define\s+"([^"]+)"')
 INCLUDE = re.compile(r'\b(?:include|template)\s+"global-chart\.([\w-]+)"')
 READ_ONLY_BY = re.compile(r"\bRead only by\s+(.*?)\.(?:\s|$)", re.S)
+ERRCTX_HELPER = re.compile(r'required\s+"([\w-]+): errCtx is required')
+DICT_CALL = re.compile(r'\b(?:include|template)\s+"global-chart\.([\w-]+)"\s+\(dict\b')
 HEADER_BEFORE = re.compile(r'\{\{-?\s*/\*((?:(?!\*/).)*)\*/\s*-?\}\}\s*$', re.S)
 
 
@@ -222,6 +230,29 @@ def read_only_by(chart):
     return problems
 
 
+def errctx(chart):
+    """Every (dict …) call of a helper that requires errCtx, with no "errCtx" key at the dict's top level."""
+    texts = {p: blank_comments(p.read_text()) for p in sorted((chart / "templates").rglob("*")) if p.is_file()}
+    needs = {name for t in texts.values() for name in ERRCTX_HELPER.findall(t)}
+    if not needs:
+        return ["errctx: no helper requires errCtx any more; the rule reads nothing: update or drop it"]
+    out = []
+    for path, text in texts.items():
+        for m in DICT_CALL.finditer(text):
+            if m.group(1) not in needs:
+                continue
+            # The dict's own keys sit at paren depth 1; a nested (dict …) passing errCtx onward is not this call's
+            depth, i, top = 1, m.end(), []
+            while depth and i < len(text):
+                depth += {"(": 1, ")": -1}.get(text[i], 0)
+                top.append(text[i] if depth == 1 else " ")
+                i += 1
+            if '"errCtx"' not in "".join(top):
+                out.append(f"{path.relative_to(chart)}:{lineno(text, m.start())}: errctx: {m.group(1)} requires errCtx, "
+                           "and this (dict …) call passes none")
+    return out
+
+
 def main(chart):
     chart = pathlib.Path(chart)
     templates = chart / "templates"
@@ -271,6 +302,7 @@ def main(chart):
     problems += workload_kind(chart)
     problems += render_order(chart)
     problems += read_only_by(chart)
+    problems += errctx(chart)
     if problems:
         print("    FAIL: templates break a mechanical rule of CODING_STANDARDS.md:")
         for p in problems:

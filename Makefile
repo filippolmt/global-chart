@@ -122,7 +122,7 @@ TEST_CASES := \
 .DEFAULT_GOAL := help
 
 # All phony targets
-.PHONY: help all check lint-chart render-diff lint-templates lint-docs lint-shell lint-glossary lint-inheritance lint-checks lint-labels unit-test null-sweep scenario-coverage schema-descriptions validate-bad-values generate-templates \
+.PHONY: help scenarios all check lint-chart render-diff lint-templates lint-docs lint-shell lint-glossary lint-inheritance lint-checks lint-labels unit-test null-sweep scenario-coverage schema-descriptions validate-bad-values generate-templates \
 	kubeconform kube-linter-manifests kube-linter generate-docs package \
 	install install-test01 render clean clean-all \
 	kind-install kind-cluster kind-keda kind-eso kind-gateway-api kind-argocd kind-delete e2e e2e-dryrun bound-sweep e2e-routes e2e-argocd check-helm-floor
@@ -143,6 +143,9 @@ help: ## Show this help message
 	@echo ""
 	@echo "Available scenarios:"
 	@for entry in $(TEST_CASES); do slug="$${entry##*:}"; printf "  %s\n" "$$slug"; done
+
+scenarios: ## Print the values file of every TEST_CASES scenario, one per line, for a check script run by hand: $(make -s scenarios)
+	@for entry in $(TEST_CASES); do printf '%s\n' "$${entry%%:*}"; done
 
 # ============================================================================
 # Main targets
@@ -415,10 +418,23 @@ kind-cluster: kind-install ## Create the e2e kind cluster (isolated kubeconfig, 
 		echo "==> Creating kind cluster $(KIND_CLUSTER)..."; \
 		$(KIND) create cluster --name "$(KIND_CLUSTER)" --kubeconfig "$(KIND_KUBECONFIG)"; \
 	fi
+	@# A cluster from an earlier session survives a Docker restart stopped: kind
+	@# still lists it, and a stopped container has no address to repoint at.
+	@if [ "$$(docker inspect "$(KIND_CLUSTER)-control-plane" -f '{{.State.Running}}' 2>/dev/null)" = false ]; then \
+		echo "==> Starting the stopped control-plane container $(KIND_CLUSTER)-control-plane..."; \
+		docker start "$(KIND_CLUSTER)-control-plane" >/dev/null; \
+		for i in $$(seq 1 60); do \
+			docker exec "$(KIND_CLUSTER)-control-plane" kubectl --kubeconfig /etc/kubernetes/admin.conf \
+				get --raw /readyz >/dev/null 2>&1 && break; \
+			[ "$$i" = 60 ] && { echo "FAIL: the API server of $(KIND_CLUSTER) is not ready 120s after the start; run make kind-delete and retry"; exit 1; }; \
+			sleep 2; \
+		done; \
+	fi
 	@# When make runs inside a container the kubeconfig's 127.0.0.1 endpoint is the
 	@# Docker *host*, not us: fall back to the control-plane container's own address.
 	@if ! KUBECONFIG=$(KIND_KUBECONFIG) kubectl get nodes >/dev/null 2>&1; then \
 		ip=$$(docker inspect "$(KIND_CLUSTER)-control-plane" -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}'); \
+		case "$$ip" in *.*) ;; *) echo "FAIL: $(KIND_CLUSTER)-control-plane has no IP address ($$ip); run make kind-delete and retry"; exit 1 ;; esac; \
 		echo "==> Repointing kubeconfig at the control-plane container ($$ip)..."; \
 		KUBECONFIG=$(KIND_KUBECONFIG) kubectl config set-cluster "kind-$(KIND_CLUSTER)" --server="https://$$ip:6443" >/dev/null; \
 	fi
