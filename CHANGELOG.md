@@ -5,6 +5,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ---
 
+## [Unreleased]
+
+### Tests
+
+- New `make lint-release`, in `make check` and CI: `Chart.yaml`'s `version`
+  and the CHANGELOG's top section name the same release. `make release
+  VERSION=x.y.z` makes the release PR's edit (the section renamed, the
+  version bumped, the README regenerated), and refuses a version that is not
+  above the last release, or keeps the major over a `### Removed` section.
+
 ## [4.0.0] — 2026-10-19
 
 ### Added
