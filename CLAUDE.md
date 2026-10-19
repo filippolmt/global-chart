@@ -22,6 +22,7 @@ make scenario-coverage      # every map or list node of the schema set by a scen
 make schema-descriptions    # every schema property carries a description
 make schema-bounds          # every schema integer has a maximum within 2^53-1, every digit string a digit count
 make lint-release           # Chart.yaml's version is the CHANGELOG's last release, or the one its top section names
+make release VERSION=4.1.0  # the release PR's edit: [Unreleased] renamed, Chart.yaml bumped, README regenerated
 make null-sweep             # null every values node of every scenario, then give each map and list the wrong type: each must render or fail naming its path
 make generate-docs          # regenerate the helm-docs README
 make e2e                    # install/upgrade/rollback/uninstall on a throwaway kind cluster (runs e2e-dryrun first)

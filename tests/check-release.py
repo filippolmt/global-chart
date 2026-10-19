@@ -9,9 +9,13 @@ chart-releaser publishes whatever version Chart.yaml carries on a push to main
 - the top section is `## [x.y.z] — <yyyy-mm-dd>`, a release PR: Chart.yaml
   carries x.y.z, and x.y.z is above the section after it.
 
+Every `## [` heading is `## [x.y.z] — yyyy-mm-dd`, or `## [Unreleased]` on
+top; one in any other form fails, rather than drop out of the release order.
+
 --bump x.y.z is the release PR's edit (make release VERSION=x.y.z): it renames
 `[Unreleased]` to `[x.y.z] — <today>` and sets Chart.yaml's version. It refuses
-a version not above the last release, and a non-major one when the section
+when the two files already disagree, when `[Unreleased]` holds no entry, a
+version not above the last release, and a non-major one when the section
 carries `### Removed`: a key is removed only in a major (ADR 0022). 1.3.0
 removed keys in a minor, before the policy, so the rule binds the bump only,
 never the history.
@@ -25,9 +29,11 @@ import pathlib
 import re
 import sys
 
-SECTION = re.compile(r"^## \[([^\]]+)\](?: — (\d{4}-\d{2}-\d{2}))?\s*$", re.M)
+HEADING = re.compile(r"^## \[.*$", re.M)
+RELEASE = re.compile(r"^## \[(\d+\.\d+\.\d+)\] — (\d{4}-\d{2}-\d{2})$")
+UNRELEASED = "## [Unreleased]"
 # [ \t], not \s: \s* before $ would take the newline and the blank line after it
-CHART_VERSION = re.compile(r"^version:[ \t]*(\S+)[ \t]*$", re.M)
+CHART_VERSION = re.compile(r'^version:[ \t]*"?([^"\s#]+)"?[ \t]*(?:#.*)?$', re.M)
 SEMVER = re.compile(r"^(\d+)\.(\d+)\.(\d+)$")
 
 
@@ -43,33 +49,41 @@ def semver(v, where):
 
 
 def sections(changelog):
-    """[(name, date, body)] in file order."""
-    found = list(SECTION.finditer(changelog))
+    """[(name, body, heading match)] in file order. Every `## [` heading is
+    `## [x.y.z] — yyyy-mm-dd`, or `## [Unreleased]` on top: a heading in any
+    other form (a hyphen for the em dash, no date) would drop out of the
+    release order unseen, so it fails."""
+    found = list(HEADING.finditer(changelog))
     if not found:
         raise Failure("CHANGELOG.md: no `## [<version>]` section")
-    ends = [m.start() for m in found[1:]] + [len(changelog)]
-    return [(m.group(1), m.group(2), changelog[m.end():e]) for m, e in zip(found, ends)]
+    out = []
+    for i, m in enumerate(found):
+        line = m.group(0).rstrip()
+        rel = RELEASE.match(line)
+        if not rel and not (i == 0 and line == UNRELEASED):
+            raise Failure(f"CHANGELOG.md:{changelog.count(chr(10), 0, m.start()) + 1}: {line!r} is neither "
+                          f"`## [x.y.z] — yyyy-mm-dd` nor a top `{UNRELEASED}`")
+        end = found[i + 1].start() if i + 1 < len(found) else len(changelog)
+        out.append((rel.group(1) if rel else "Unreleased", changelog[m.end():end], m))
+    return out
 
 
 def chart_version(chart):
     m = CHART_VERSION.search(chart)
     if not m:
         raise Failure("Chart.yaml: no `version:` line")
-    return m.group(1)
+    return m
 
 
 def problems(changelog, chart):
-    secs, version = sections(changelog), chart_version(chart)
-    (top, date, _), rest = secs[0], secs[1:]
+    secs, version = sections(changelog), chart_version(chart).group(1)
+    top, rest = secs[0][0], secs[1:]
     if top == "Unreleased":
-        last = next((name for name, d, _ in rest if d), None)
-        if last is None:
-            return ["CHANGELOG.md: no dated section under [Unreleased]"]
-        return [] if version == last else [
-            f"Chart.yaml: version {version}, but the last release in CHANGELOG.md is {last}; "
+        if not rest:
+            return ["CHANGELOG.md: no release under [Unreleased]"]
+        return [] if version == rest[0][0] else [
+            f"Chart.yaml: version {version}, but the last release in CHANGELOG.md is {rest[0][0]}; "
             f"a version bump is a release PR: make release VERSION={version}"]
-    if not date:
-        return [f"CHANGELOG.md: the top section [{top}] carries no `— <yyyy-mm-dd>` date"]
     out = [] if version == top else [f"Chart.yaml: version {version}, but CHANGELOG.md's top section is [{top}]"]
     if rest and semver(top, "CHANGELOG.md") <= semver(rest[0][0], "CHANGELOG.md"):
         out.append(f"CHANGELOG.md: [{top}] is not above the release before it, [{rest[0][0]}]")
@@ -78,42 +92,57 @@ def problems(changelog, chart):
 
 def bump(changelog, chart, version, today):
     new = semver(version, "VERSION")
+    drift = problems(changelog, chart)
+    if drift:
+        raise Failure(f"Chart.yaml and CHANGELOG.md disagree before the bump: {drift[0]}")
     secs = sections(changelog)
-    top, _, body = secs[0]
+    (top, body, heading), last = secs[0], secs[1][0]
     if top != "Unreleased":
         raise Failure(f"CHANGELOG.md: the top section is [{top}], not [Unreleased]: nothing to release")
-    last = next((name for name, d, _ in secs[1:] if d), None)
-    if last and new <= semver(last, "CHANGELOG.md"):
+    if not re.search(r"^- ", body, re.M):
+        raise Failure("CHANGELOG.md: [Unreleased] holds no entry: nothing to release")
+    if new <= semver(last, "CHANGELOG.md"):
         raise Failure(f"VERSION: {version} is not above the last release, {last}")
-    if last and re.search(r"^### Removed\s*$", body, re.M) and new[0] == semver(last, "CHANGELOG.md")[0]:
+    if re.search(r"^### Removed\b", body, re.M) and new[0] == semver(last, "CHANGELOG.md")[0]:
         raise Failure(f"VERSION: [Unreleased] carries `### Removed`, and a key is removed only in a major "
                       f"(ADR 0022): {version} keeps the major of {last}")
-    changelog = changelog.replace("## [Unreleased]", f"## [{version}] — {today}", 1)
-    chart = CHART_VERSION.sub(f"version: {version}", chart, count=1)
+    changelog = f"{changelog[:heading.start()]}## [{version}] — {today}{changelog[heading.end():]}"
+    v = chart_version(chart)
+    chart = f"{chart[:v.start(1)]}{version}{chart[v.end(1):]}"
     return changelog, chart
 
 
 def self_test():
     def log(*heads):
         return "# Changelog\n\n" + "".join(f"{h}\n\n### Added\n\n- x\n\n" for h in heads)
-    chart = "name: c\nversion: 1.2.0\n\n# a comment\n"
-    assert problems(log("## [Unreleased]", "## [1.2.0] — 2026-01-02"), chart) == []
-    assert problems(log("## [Unreleased]", "## [1.1.0] — 2026-01-01"), chart), "a bump with no section"
-    assert problems(log("## [1.2.0] — 2026-01-02", "## [1.1.0] — 2026-01-01"), chart) == []
-    assert problems(log("## [1.3.0] — 2026-01-02", "## [1.2.0] — 2026-01-01"), chart), "a section with no bump"
-    assert problems(log("## [1.2.0]", "## [1.1.0] — 2026-01-01"), chart), "no date"
-    assert problems(log("## [1.2.0] — 2026-01-02", "## [1.2.0] — 2026-01-01"), chart), "not above"
-    c, ch = bump(log("## [Unreleased]", "## [1.2.0] — 2026-01-01"), chart, "1.3.0", "2026-02-03")
-    assert "## [1.3.0] — 2026-02-03" in c and problems(c, ch) == []
-    assert ch == chart.replace("1.2.0", "1.3.0"), f"bump changed more than the version: {ch!r}"
-    removed = "## [Unreleased]\n\n### Removed\n\n- k\n\n## [1.2.0] — 2026-01-01\n"
-    for v, why in (("1.2.0", "not above"), ("1.3.0", "removed in a minor"), ("1.2", "not x.y.z")):
+
+    def fails(fn, *args):
         try:
-            bump(removed, chart, v, "2026-02-03")
+            fn(*args)
         except Failure:
-            continue
-        raise AssertionError(f"bump {v} accepted: {why}")
+            return True
+        return False
+    chart = "name: c\nversion: 1.2.0\n\n# a comment\n"
+    unreleased, r120, r110 = "## [Unreleased]", "## [1.2.0] — 2026-01-02", "## [1.1.0] — 2026-01-01"
+    assert problems(log(unreleased, r120, r110), chart) == []
+    assert problems(log(unreleased, r110), chart), "a bump with no section"
+    assert problems(log(r120, r110), chart) == []
+    assert problems(log("## [1.3.0] — 2026-01-03", r120), chart), "a section with no bump"
+    assert problems(log("## [1.2.0] — 2026-01-03", r120), chart), "not above"
+    assert problems(log(unreleased, r120), 'version: "1.2.0" # pinned\n') == [], "a quoted version"
+    for heads, why in (((unreleased, "## [1.2.0]"), "no date"), ((unreleased, "## [1.2.0] - 2026-01-02"), "a hyphen"),
+                       ((r120, unreleased, r110), "[Unreleased] not on top")):
+        assert fails(problems, log(*heads), chart), f"accepted: {why}"
+    c, ch = bump(log(unreleased, r120), chart, "1.3.0", "2026-02-03")
+    assert c.startswith("# Changelog\n\n## [1.3.0] — 2026-02-03\n") and problems(c, ch) == []
+    assert ch == chart.replace("1.2.0", "1.3.0"), f"bump changed more than the version: {ch!r}"
+    assert fails(bump, c, ch, "1.4.0", "2026-02-04"), "bumped twice"
+    removed = f"{unreleased}\n\n### Removed (breaking)\n\n- k\n\n{r120}\n"
+    for v, why in (("1.2.0", "not above"), ("1.3.0", "removed in a minor"), ("1.2", "not x.y.z")):
+        assert fails(bump, removed, chart, v, "2026-02-03"), f"bump {v} accepted: {why}"
     assert "## [2.0.0]" in bump(removed, chart, "2.0.0", "2026-02-03")[0]
+    assert fails(bump, f"{unreleased}\n\n{r120}\n", chart, "1.3.0", "2026-02-03"), "an empty [Unreleased]"
+    assert fails(bump, log(unreleased, r120), "version: 1.1.0\n", "1.3.0", "2026-02-03"), "a drift"
     print("    OK: self-test")
 
 
@@ -130,13 +159,14 @@ def main(argv):
         return
     if len(argv) != 2:
         sys.exit(__doc__.rsplit("Usage: ", 1)[1])
-    found = problems(pathlib.Path(argv[0]).read_text(), pathlib.Path(argv[1]).read_text())
-    if found:
+    chart = pathlib.Path(argv[1]).read_text()
+    mismatches = problems(pathlib.Path(argv[0]).read_text(), chart)
+    if mismatches:
         print("    FAIL: Chart.yaml and CHANGELOG.md name different releases:")
-        for p in found:
+        for p in mismatches:
             print(f"          - {p}")
         sys.exit(1)
-    print(f"    OK: Chart.yaml and CHANGELOG.md agree on {chart_version(pathlib.Path(argv[1]).read_text())}")
+    print(f"    OK: Chart.yaml and CHANGELOG.md agree on {chart_version(chart).group(1)}")
 
 
 if __name__ == "__main__":

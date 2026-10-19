@@ -228,7 +228,7 @@ lint-release: ## Chart.yaml's version is the CHANGELOG's last release, or the re
 	@python3 tests/check-release.py CHANGELOG.md ./$(CHART_DIR)/$(GLOBAL_CHART_NAME)/Chart.yaml
 
 release: ## The release PR's edit: VERSION=x.y.z renames [Unreleased], bumps Chart.yaml, regenerates the README; refuses a non-major over a Removed section
-	@[ -n "$(VERSION)" ] || { echo "    FAIL: make release VERSION=x.y.z"; exit 1; }
+	@[ -n "$(VERSION)" ] || { echo "    FAIL: VERSION: not set; make release VERSION=x.y.z"; exit 1; }
 	@python3 tests/check-release.py --bump $(VERSION) CHANGELOG.md ./$(CHART_DIR)/$(GLOBAL_CHART_NAME)/Chart.yaml
 	@$(MAKE) --no-print-directory generate-docs
 
