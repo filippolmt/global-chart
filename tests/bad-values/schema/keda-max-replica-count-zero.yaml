@@ -1,0 +1,11 @@
+# maxReplicaCount 0: the ScaledObject CRD requires at least 1 (issue #226).
+workloads:
+  app:
+    image: nginx:1.25
+    keda:
+      enabled: true
+      maxReplicaCount: 0
+      triggers:
+        - type: cpu
+          metricType: Utilization
+          metadata: { value: "60" }

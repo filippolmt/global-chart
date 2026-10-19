@@ -58,6 +58,13 @@ route is still a valid object. A scenario that renders nothing is skipped. A
 new route kind goes in `GATEWAY_ROUTE_KINDS` too, which mirrors the kinds the
 templates render.
 
+Then `bound-sweep` sends the same scenarios again, each scalar with a bound set
+in turn to a value the API server is likely to refuse (an int32 overflow, a
+`"150%"`, a 253-character name). Each value the schema accepts must pass the
+server-side dry run: a refusal means the schema is looser than the API server
+there (issue #226). The rules and the candidate table:
+`tests/bad-values/bound-sweep.py`.
+
 It also runs in CI as its own job in `.github/workflows/helm-ci.yml`.
 
 Extend `values.yaml` and the assertion block in the `e2e` target when adding

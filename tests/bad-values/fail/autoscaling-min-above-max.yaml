@@ -1,0 +1,11 @@
+# minReplicas above maxReplicas: the schema bounds each field alone, and the API
+# server refused the HPA at apply (issue #226).
+# Expected fail substring: "workloads.app.autoscaling.minReplicas: 5 is above maxReplicas 3"
+workloads:
+  app:
+    image: nginx:1.25
+    autoscaling:
+      enabled: true
+      minReplicas: 5
+      maxReplicas: 3
+      targetCPUUtilizationPercentage: 80

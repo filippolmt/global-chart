@@ -1,0 +1,14 @@
+# minReplicaCount above maxReplicaCount: the ScaledObject CRD's rule refused it
+# at apply (issue #226).
+# Expected fail substring: "workloads.app.keda.minReplicaCount: 4 is above maxReplicaCount 2"
+workloads:
+  app:
+    image: nginx:1.25
+    keda:
+      enabled: true
+      minReplicaCount: 4
+      maxReplicaCount: 2
+      triggers:
+        - type: cpu
+          metricType: Utilization
+          metadata: { value: "60" }

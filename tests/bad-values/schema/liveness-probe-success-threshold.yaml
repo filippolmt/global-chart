@@ -1,0 +1,8 @@
+# A liveness probe's successThreshold other than 1: the API server refuses it
+# (issue #226). A readiness probe takes any count.
+workloads:
+  app:
+    image: nginx:1.25
+    livenessProbe:
+      httpGet: { path: /, port: 80 }
+      successThreshold: 2

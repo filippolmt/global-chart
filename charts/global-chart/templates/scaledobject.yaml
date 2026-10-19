@@ -37,6 +37,11 @@ spec:
   {{- if hasKey $keda "maxReplicaCount" }}
   maxReplicaCount: {{ include "global-chart.printScalar" (dict "value" $keda.maxReplicaCount "errCtx" (printf "%s.keda.maxReplicaCount" $errCtx)) }}
   {{- end }}
+  {{- /* The CRD's rule: minReplicaCount <= maxReplicaCount, KEDA's default 100 when unset */}}
+  {{- $maxCount := ternary $keda.maxReplicaCount 100 (hasKey $keda "maxReplicaCount") }}
+  {{- if and (hasKey $keda "minReplicaCount") (gt (float64 $keda.minReplicaCount) (float64 $maxCount)) }}
+  {{- fail (printf "%s.keda.minReplicaCount: %s is above maxReplicaCount %s%s; the API server refuses the ScaledObject" $errCtx (include "global-chart.printScalar" (dict "value" $keda.minReplicaCount "errCtx" (printf "%s.keda.minReplicaCount" $errCtx))) (include "global-chart.printScalar" (dict "value" $maxCount "errCtx" (printf "%s.keda.maxReplicaCount" $errCtx))) (ternary "" " (KEDA's default)" (hasKey $keda "maxReplicaCount"))) }}
+  {{- end }}
   {{- if hasKey $keda "idleReplicaCount" }}
   idleReplicaCount: {{ include "global-chart.printScalar" (dict "value" $keda.idleReplicaCount "errCtx" (printf "%s.keda.idleReplicaCount" $errCtx)) }}
   {{- end }}

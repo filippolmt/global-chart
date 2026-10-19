@@ -167,6 +167,36 @@ tests:
       - failedTemplate:
           errorMessage: "workloads.main.autoscaling.maxReplicas: required when HPA is enabled"
 
+  # The API server refuses minReplicas > maxReplicas: the render fails first (issue #226)
+  - it: should fail when autoscaling.minReplicas is above maxReplicas
+    set:
+      workloads:
+        main:
+          image: nginx:1.25
+          autoscaling:
+            enabled: true
+            minReplicas: 5
+            maxReplicas: 3
+            targetCPUUtilizationPercentage: 80
+    asserts:
+      - failedTemplate:
+          errorMessage: "workloads.main.autoscaling.minReplicas: 5 is above maxReplicas 3; the API server refuses the HPA"
+
+  - it: should render when autoscaling.minReplicas equals maxReplicas
+    set:
+      workloads:
+        main:
+          image: nginx:1.25
+          autoscaling:
+            enabled: true
+            minReplicas: 3
+            maxReplicas: 3
+            targetCPUUtilizationPercentage: 80
+    asserts:
+      - equal:
+          path: spec.minReplicas
+          value: 3
+
   # ====== Workload annotations stay on the workload (issue #112) ======
   - it: should not propagate the workload's own annotations to its HPA
     set:

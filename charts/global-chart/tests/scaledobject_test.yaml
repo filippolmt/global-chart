@@ -90,7 +90,7 @@ tests:
           keda:
             enabled: true
             minReplicaCount: 0
-            pollingInterval: 0
+            cooldownPeriod: 0
             triggers:
               - type: cron
                 metadata: { timezone: UTC, start: "0 0 * * *", end: "59 23 * * *", desiredReplicas: "3" }
@@ -99,7 +99,7 @@ tests:
           path: spec.minReplicaCount
           value: 0
       - equal:
-          path: spec.pollingInterval
+          path: spec.cooldownPeriod
           value: 0
 
   - it: should omit optional scaling fields that are not set
@@ -431,3 +431,37 @@ tests:
             apiVersion: apps/v1
             kind: StatefulSet
             name: rel-global-chart-db
+
+  # The ScaledObject CRD refuses minReplicaCount > maxReplicaCount: the render fails first (issue #226)
+  - it: should fail when keda.minReplicaCount is above maxReplicaCount
+    set:
+      workloads:
+        worker:
+          image: nginx:1.25
+          keda:
+            enabled: true
+            minReplicaCount: 4
+            maxReplicaCount: 2
+            triggers:
+              - type: cpu
+                metricType: Utilization
+                metadata: { value: "60" }
+    asserts:
+      - failedTemplate:
+          errorMessage: "workloads.worker.keda.minReplicaCount: 4 is above maxReplicaCount 2; the API server refuses the ScaledObject"
+
+  - it: should fail when keda.minReplicaCount is above KEDA's default maxReplicaCount
+    set:
+      workloads:
+        worker:
+          image: nginx:1.25
+          keda:
+            enabled: true
+            minReplicaCount: 101
+            triggers:
+              - type: cpu
+                metricType: Utilization
+                metadata: { value: "60" }
+    asserts:
+      - failedTemplate:
+          errorMessage: "workloads.worker.keda.minReplicaCount: 101 is above maxReplicaCount 100 (KEDA's default); the API server refuses the ScaledObject"

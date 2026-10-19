@@ -290,11 +290,11 @@
           },
           "additionalProperties": false
         },
-        "initialDelaySeconds": { "description": "Seconds after the container starts before the first probe. Kubernetes defaults to 0.", "type": "integer" },
-        "periodSeconds": { "description": "Seconds between probes. Kubernetes defaults to 10.", "type": "integer" },
-        "timeoutSeconds": { "description": "Seconds before a probe times out. Kubernetes defaults to 1.", "type": "integer" },
-        "successThreshold": { "description": "Consecutive successes to count as healthy after a failure. Kubernetes defaults to 1, and requires 1 for a liveness or startup probe.", "type": "integer" },
-        "failureThreshold": { "description": "Consecutive failures to count as unhealthy. Kubernetes defaults to 3.", "type": "integer" },
+        "initialDelaySeconds": { "description": "Seconds after the container starts before the first probe. Kubernetes defaults to 0.", "type": "integer", "maximum": 2147483647 },
+        "periodSeconds": { "description": "Seconds between probes. Kubernetes defaults to 10.", "type": "integer", "maximum": 2147483647 },
+        "timeoutSeconds": { "description": "Seconds before a probe times out. Kubernetes defaults to 1.", "type": "integer", "maximum": 2147483647 },
+        "successThreshold": { "description": "Consecutive successes to count as healthy after a failure. Kubernetes defaults to 1, and requires 1 for a liveness or startup probe.", "type": "integer", "maximum": 2147483647 },
+        "failureThreshold": { "description": "Consecutive failures to count as unhealthy. Kubernetes defaults to 3.", "type": "integer", "maximum": 2147483647 },
         "terminationGracePeriodSeconds": { "description": "Grace period after a failed liveness or startup probe kills the container, overriding the pod's terminationGracePeriodSeconds.", "type": "integer" }
       },
       "additionalProperties": false
@@ -376,9 +376,10 @@
     },
     "hpaTargetPercent": {
       "type": ["integer", "string"],
-      "pattern": "^(0|[1-9][0-9]*)?$",
+      "pattern": "^(0|[1-9][0-9]{0,8})?$",
       "minimum": 0,
-      "description": "0 or \"\" turns this metric off. A string holds digits only: \"80%\" is rejected, and so is a leading zero, which prints unquoted and reads as octal. With enabled: true at least one of the two targets must be positive."
+      "maximum": 2147483647,
+      "description": "0 or \"\" turns this metric off. A string holds digits only, at most 9 of them (the API field is an int32): \"80%\" is rejected, and so is a leading zero, which prints unquoted and reads as octal. With enabled: true at least one of the two targets must be positive."
     },
     "deploymentReloader": {
       "type": "object",
@@ -395,8 +396,8 @@
       "type": "object",
       "properties": {
         "enabled": { "description": "Renders an autoscaling/v2 HorizontalPodAutoscaler for the workload, which becomes its replica owner: spec.replicas is omitted. The render fails with keda.enabled also true, or when neither target is positive.", "type": "boolean" },
-        "minReplicas": { "description": "The HPA's spec.minReplicas. Required when enabled: the render fails without it. The replica owner's floor the pdb check reads.", "type": "integer", "minimum": 1 },
-        "maxReplicas": { "description": "The HPA's spec.maxReplicas. Required when enabled: the render fails without it.", "type": "integer", "minimum": 1 },
+        "minReplicas": { "description": "The HPA's spec.minReplicas. Required when enabled: the render fails without it. The replica owner's floor the pdb check reads.", "type": "integer", "minimum": 1, "maximum": 2147483647 },
+        "maxReplicas": { "description": "The HPA's spec.maxReplicas. Required when enabled: the render fails without it.", "type": "integer", "minimum": 1, "maximum": 2147483647 },
         "targetCPUUtilizationPercentage": { "description": "Average CPU utilization, as a percentage of the request, rendered as a Resource metric with target type Utilization.", "$ref": "#/$defs/hpaTargetPercent" },
         "targetMemoryUtilizationPercentage": { "description": "Average memory utilization, as a percentage of the request, rendered as a Resource metric with target type Utilization.", "$ref": "#/$defs/hpaTargetPercent" },
         "behavior": { "description": "The HPA's spec.behavior. Only scaleUp and scaleDown are read, each rendered verbatim; any other key is ignored.", "type": "object" }
@@ -412,18 +413,18 @@
           "type": "object",
           "additionalProperties": { "type": "string" }
         },
-        "minReplicaCount": { "description": "Fewest replicas KEDA scales to. Omitted when unset: KEDA's default is 0, the floor the pdb check then reads.", "type": "integer", "minimum": 0 },
-        "maxReplicaCount": { "description": "Most replicas KEDA scales to. Omitted when unset: KEDA's default is 100.", "type": "integer", "minimum": 0 },
-        "idleReplicaCount": { "description": "Replicas while no trigger is active; KEDA requires it below minReplicaCount. Omitted when unset.", "type": "integer", "minimum": 0 },
-        "pollingInterval": { "description": "Seconds between KEDA's checks of each trigger. Omitted when unset: KEDA's default is 30.", "type": "integer", "minimum": 0 },
-        "cooldownPeriod": { "description": "Seconds after the last trigger reported active before KEDA scales the workload to 0; applies only when minReplicaCount is 0. Omitted when unset: KEDA's default is 300.", "type": "integer", "minimum": 0 },
-        "initialCooldownPeriod": { "description": "Seconds after the ScaledObject is created before cooldownPeriod applies. Omitted when unset: KEDA's default is 0.", "type": "integer", "minimum": 0 },
+        "minReplicaCount": { "description": "Fewest replicas KEDA scales to. Omitted when unset: KEDA's default is 0, the floor the pdb check then reads.", "type": "integer", "minimum": 0, "maximum": 2147483647 },
+        "maxReplicaCount": { "description": "Most replicas KEDA scales to. Omitted when unset: KEDA's default is 100.", "type": "integer", "minimum": 1, "maximum": 2147483647 },
+        "idleReplicaCount": { "description": "Replicas while no trigger is active; KEDA requires it below minReplicaCount. Omitted when unset.", "type": "integer", "minimum": 0, "maximum": 2147483647 },
+        "pollingInterval": { "description": "Seconds between KEDA's checks of each trigger. Omitted when unset: KEDA's default is 30.", "type": "integer", "minimum": 1, "maximum": 2147483647 },
+        "cooldownPeriod": { "description": "Seconds after the last trigger reported active before KEDA scales the workload to 0; applies only when minReplicaCount is 0. Omitted when unset: KEDA's default is 300.", "type": "integer", "minimum": 0, "maximum": 2147483647 },
+        "initialCooldownPeriod": { "description": "Seconds after the ScaledObject is created before cooldownPeriod applies. Omitted when unset: KEDA's default is 0.", "type": "integer", "minimum": 0, "maximum": 2147483647 },
         "fallback": {
           "description": "The ScaledObject's spec.fallback: the replicas KEDA keeps while a scaler keeps failing. Rendered verbatim when non-empty.",
           "type": "object",
           "properties": {
-            "failureThreshold": { "description": "Consecutive scaler failures before KEDA falls back; rendered verbatim.", "type": "integer", "minimum": 0 },
-            "replicas": { "description": "Replicas KEDA sets once failureThreshold is reached; rendered verbatim.", "type": "integer", "minimum": 0 },
+            "failureThreshold": { "description": "Consecutive scaler failures before KEDA falls back; rendered verbatim.", "type": "integer", "minimum": 0, "maximum": 2147483647 },
+            "replicas": { "description": "Replicas KEDA sets once failureThreshold is reached; rendered verbatim.", "type": "integer", "minimum": 0, "maximum": 2147483647 },
             "behavior": { "description": "How KEDA applies fallback.replicas, e.g. static or currentReplicasIfHigher; rendered verbatim.", "type": "string" }
           },
           "additionalProperties": false
@@ -593,7 +594,7 @@
         "maxUnavailable": {
           "description": "A count as an integer, or a percentage from 0% to 100% as a string (\"25%\"), as the API server requires. A digit string with no percent sign is rejected: spell a count as a number.",
           "oneOf": [
-            { "type": "integer", "minimum": 0 },
+            { "type": "integer", "minimum": 0, "maximum": 2147483647 },
             { "type": "string", "pattern": "^(100|[1-9]?[0-9])%$" }
           ]
         }
@@ -831,7 +832,7 @@
           "type": "string",
           "enum": ["Deployment", "StatefulSet"]
         },
-        "replicaCount": { "description": "Pods of the workload; 2 when unset. Ignored, and spec.replicas omitted, while autoscaling or keda owns the replicas.", "type": "integer", "minimum": 0 },
+        "replicaCount": { "description": "Pods of the workload; 2 when unset. Ignored, and spec.replicas omitted, while autoscaling or keda owns the replicas.", "type": "integer", "minimum": 0, "maximum": 2147483647 },
         "image": { "description": "Image of the main container: a full reference string, or a map of repository, tag or digest and pullPolicy. Required. Inherited by the workload's hooks and cronjobs unless they set their own.", "$ref": "#/$defs/image" },
         "command": { "description": "Overrides the image ENTRYPOINT of the main container; the image's own when unset. Never inherited by the workload's hooks and cronjobs.", "type": "array", "items": { "type": "string" } },
         "args": { "description": "Overrides the image CMD of the main container; the image's own when unset. Never inherited by the workload's hooks and cronjobs.", "type": "array", "items": { "type": "string" } },
@@ -857,17 +858,17 @@
         "automountServiceAccountToken": { "description": "Pod-level automountServiceAccountToken; omitted when unset, and the ServiceAccount decides. Wins over the ServiceAccount's setting. Inherited by the workload's hooks and cronjobs (ADR 0014).", "type": "boolean" },
         "service": { "description": "The Service in front of the workload, rendered by default: one primary port plus extraPorts. Its ports also declare the main container's ports.", "$ref": "#/$defs/service" },
         "resources": { "description": "Resource requests and limits of the main container, rendered verbatim; none when unset. Not inherited by the workload's hooks and cronjobs, which fall back to defaults.resources.", "$ref": "#/$defs/resources" },
-        "livenessProbe": { "description": "The main container's liveness probe, rendered verbatim: the kubelet restarts the container when it fails.", "$ref": "#/$defs/probe" },
+        "livenessProbe": { "description": "The main container's liveness probe, rendered verbatim: the kubelet restarts the container when it fails.", "$ref": "#/$defs/probe", "properties": { "successThreshold": { "description": "1, or unset: the API server refuses any other value on a liveness or startup probe.", "const": 1 } } },
         "readinessProbe": { "description": "The main container's readiness probe, rendered verbatim: the pod receives Service traffic only while it passes.", "$ref": "#/$defs/probe" },
-        "startupProbe": { "description": "The main container's startup probe, rendered verbatim: liveness and readiness probes wait until it passes once.", "$ref": "#/$defs/probe" },
+        "startupProbe": { "description": "The main container's startup probe, rendered verbatim: liveness and readiness probes wait until it passes once.", "$ref": "#/$defs/probe", "properties": { "successThreshold": { "description": "1, or unset: the API server refuses any other value on a liveness or startup probe.", "const": 1 } } },
         "lifecycle": { "description": "The main container's lifecycle hooks (postStart, preStop), rendered verbatim: a preStop sleep gives endpoints time to drop the pod.", "type": "object" },
         "terminationGracePeriodSeconds": { "description": "Seconds between SIGTERM and SIGKILL on pod shutdown. Kubernetes defaults to 30.", "type": "integer", "minimum": 0 },
         "autoscaling": { "description": "A HorizontalPodAutoscaler for the workload. With enabled: true it owns the replicas: spec.replicas is omitted. Excludes keda.", "$ref": "#/$defs/autoscaling" },
         "keda": { "description": "A KEDA ScaledObject for the workload; KEDA creates and owns its own HPA. With enabled: true it owns the replicas: spec.replicas is omitted. Excludes autoscaling. Needs the keda.sh CRDs.", "$ref": "#/$defs/kedaScaledObject" },
         "reloader": { "description": "Opt-in Stakater Reloader annotations on the workload's metadata (ADR 0016).", "$ref": "#/$defs/deploymentReloader" },
         "strategy": { "description": "Deployment only: spec.strategy, rendered verbatim (type RollingUpdate with maxSurge and maxUnavailable, or Recreate).", "type": "object" },
-        "revisionHistoryLimit": { "description": "Old revisions kept for rollback: ReplicaSets for a Deployment, ControllerRevisions for a StatefulSet. Kubernetes defaults to 10.", "type": "integer", "minimum": 0 },
-        "progressDeadlineSeconds": { "description": "Deployment only: seconds a rollout may go without progress before Kubernetes marks it failed. Kubernetes defaults to 600.", "type": "integer", "minimum": 0 },
+        "revisionHistoryLimit": { "description": "Old revisions kept for rollback: ReplicaSets for a Deployment, ControllerRevisions for a StatefulSet. Kubernetes defaults to 10.", "type": "integer", "minimum": 0, "maximum": 2147483647 },
+        "progressDeadlineSeconds": { "description": "Deployment only: seconds a rollout may go without progress before Kubernetes marks it failed. Kubernetes defaults to 600.", "type": "integer", "minimum": 1, "maximum": 2147483647 },
         "updateStrategy": { "description": "StatefulSet only: RollingUpdate, with an optional partition, or OnDelete.", "$ref": "#/$defs/statefulSetUpdateStrategy" },
         "podManagementPolicy": {
           "description": "StatefulSet only: OrderedReady (the Kubernetes default) starts and stops the pods one at a time, in ordinal order; Parallel does not wait. Immutable once the StatefulSet exists.",
@@ -965,7 +966,7 @@
           "description": "Only with type RollingUpdate: partition, the lowest ordinal the rollout updates.",
           "type": "object",
           "properties": {
-            "partition": { "description": "Only the pods with an ordinal at or above it are updated.", "type": "integer", "minimum": 0 }
+            "partition": { "description": "Only the pods with an ordinal at or above it are updated.", "type": "integer", "minimum": 0, "maximum": 2147483647 }
           },
           "additionalProperties": false
         }
@@ -1082,14 +1083,14 @@
       "properties": {
         "schedule": { "description": "Cron schedule in the five-field format, such as \"0 2 * * *\".", "type": "string" },
         "initContainers": { "description": "Init containers of the job's pod, rendered verbatim. CronJobs only.", "type": "array", "items": { "$ref": "#/$defs/container" } },
-        "successfulJobsHistoryLimit": { "description": "Successful Jobs kept; 2 when unset.", "type": "integer", "minimum": 0 },
-        "failedJobsHistoryLimit": { "description": "Failed Jobs kept; 2 when unset.", "type": "integer", "minimum": 0 },
-        "backoffLimit": { "description": "Retries before a Job is marked failed. Kubernetes defaults to 6.", "type": "integer", "minimum": 0 },
-        "ttlSecondsAfterFinished": { "description": "Seconds after a Job finishes before Kubernetes deletes it.", "type": "integer", "minimum": 0 },
+        "successfulJobsHistoryLimit": { "description": "Successful Jobs kept; 2 when unset.", "type": "integer", "minimum": 0, "maximum": 2147483647 },
+        "failedJobsHistoryLimit": { "description": "Failed Jobs kept; 2 when unset.", "type": "integer", "minimum": 0, "maximum": 2147483647 },
+        "backoffLimit": { "description": "Retries before a Job is marked failed. Kubernetes defaults to 6.", "type": "integer", "minimum": 0, "maximum": 2147483647 },
+        "ttlSecondsAfterFinished": { "description": "Seconds after a Job finishes before Kubernetes deletes it.", "type": "integer", "minimum": 0, "maximum": 2147483647 },
         "activeDeadlineSeconds": { "description": "Bound on a Job's run time: its pods are stopped and the Job marked failed past it.", "type": "integer", "minimum": 1 },
         "startingDeadlineSeconds": { "description": "Seconds after a missed schedule within which the run may still start; unset, no deadline.", "type": "integer", "minimum": 0 },
-        "parallelism": { "description": "Pods of a Job running at once.", "type": "integer", "minimum": 0 },
-        "completions": { "description": "Successful pods a Job needs to complete.", "type": "integer", "minimum": 1 },
+        "parallelism": { "description": "Pods of a Job running at once.", "type": "integer", "minimum": 0, "maximum": 2147483647 },
+        "completions": { "description": "Successful pods a Job needs to complete.", "type": "integer", "minimum": 1, "maximum": 2147483647 },
         "timeZone": { "description": "Time zone of the schedule, an IANA name such as Europe/Rome; the controller manager's when unset.", "type": "string" },
         "suspend": { "description": "true stops new runs without removing the CronJob; running Jobs are left alone.", "type": "boolean" },
         "concurrencyPolicy": {
@@ -1112,7 +1113,8 @@
         "backoffLimit": {
           "description": "Retries before the hook Job is marked failed; Kubernetes defaults to 6. The hook's own: no fallback from the workload or global. Why the other Job spec fields are not offered on a hook: see jobSpecVerbatimFields in _job-helpers.tpl.",
           "type": "integer",
-          "minimum": 0
+          "minimum": 0,
+          "maximum": 2147483647
         }
       }
     },

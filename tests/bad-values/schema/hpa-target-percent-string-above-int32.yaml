@@ -1,0 +1,10 @@
+# A digit string the HPA's int32 averageUtilization cannot hold: the integer
+# form has a maximum, the string form a 9-digit cap (issue #226).
+workloads:
+  app:
+    image: nginx:1.25
+    autoscaling:
+      enabled: true
+      minReplicas: 1
+      maxReplicas: 3
+      targetCPUUtilizationPercentage: "2147483648"
