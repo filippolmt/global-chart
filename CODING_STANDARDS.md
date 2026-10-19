@@ -10,14 +10,13 @@ Two kinds of rule:
   them): `default true` on a boolean, `set` on `.Values`, the shape of a
   `fail` message, a suite per template, a quoted name. `make null-sweep` nulls
   every values node of every scenario, then gives each map and list the wrong
-  type, and holds `valuesShape` to the schema's types. `make e2e-dryrun` sends every
-  scenario to a real API server. `lint-templates`' kind-fields rule holds the
-  backstop guard's `$kindOnly` to the schema's `if/then/else` on `kind`, and
-  its workload-kind
-  rule keeps a quoted kind (`"Deployment"`) in `workloadKind`, `isStatefulSet`
-  and `$kindOnly`. `make lint-glossary` keeps out the phrases GLOSSARY.md
-  avoids with one reading only. The rules stay written
-  below for their reason; the check is what holds them.
+  type, and holds `valuesShape` to the schema's types. `make e2e-dryrun` sends
+  every scenario to a real API server. `lint-templates`' kind-fields rule
+  holds the backstop guard's `$kindOnly` to the schema's `if/then/else` on
+  `kind`, and its workload-kind rule keeps a quoted kind (`"Deployment"`) in
+  `workloadKind`, `isStatefulSet` and `$kindOnly`. `make lint-glossary` keeps
+  out the phrases GLOSSARY.md avoids with one reading only. The rules stay
+  written below for their reason; the check is what holds them.
 - **Judgement**: no pattern can see it — the review's job.
 
 ## Template rules

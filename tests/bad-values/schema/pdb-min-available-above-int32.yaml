@@ -1,5 +1,5 @@
 # An integer minAvailable above 2147483647: the API reads it as an int32
-# (IntOrString), so the schema caps it as it caps the other int32 fields (#226).
+# (IntOrString), so the schema caps it as it caps the other int32 fields (issue #226).
 workloads:
   app:
     image: nginx:1.25

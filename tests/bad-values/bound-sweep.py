@@ -26,6 +26,10 @@ What renders is diffed against the scenario's own render, and only the documents
 that changed go to `kubectl apply --dry-run=server`. A refusal is a finding. A
 bounded node no scenario sets is never swept: check-scenario-coverage.py reports
 it, reading bounded() from here.
+A bound a template `fail` shadows in every scenario is never swept either:
+pdb.minAvailable at 2^31 always failed validatePdbEvictions first, and its
+missing int32 maximum went unseen (PR #254). Such a bound is checked by
+reading the schema, not by the sweep.
 
 The self-test. Before the sweep, the PDB percentage pattern is put back to its
 pre-#225 form `^[0-9]+%$` in a scratch copy of the chart, and the sweep of the
