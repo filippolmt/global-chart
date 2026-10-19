@@ -193,6 +193,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   in a message counts as a raw error.
 - `make null-sweep` leaves `make check`; `make all` and CI run it (issue
   #239): its type pass made the fast loop take about 3.5 minutes.
+- `make all` depends on `make check` instead of repeating its prerequisites
+  (issue #246): a target added to `check` runs in `make all` too. `make -n all`
+  prints the same commands as before.
 - `make e2e-dryrun` replaces `make e2e-routes`, which stays as an alias. It
   sends every `TEST_CASES` scenario to the kind API server as a server-side dry
   run, not only those that render a route, so the rules between fields of a
