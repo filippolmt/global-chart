@@ -26,7 +26,8 @@ import re
 import sys
 
 SECTION = re.compile(r"^## \[([^\]]+)\](?: — (\d{4}-\d{2}-\d{2}))?\s*$", re.M)
-CHART_VERSION = re.compile(r"^version:\s*(\S+)\s*$", re.M)
+# [ \t], not \s: \s* before $ would take the newline and the blank line after it
+CHART_VERSION = re.compile(r"^version:[ \t]*(\S+)[ \t]*$", re.M)
 SEMVER = re.compile(r"^(\d+)\.(\d+)\.(\d+)$")
 
 
@@ -95,7 +96,7 @@ def bump(changelog, chart, version, today):
 def self_test():
     def log(*heads):
         return "# Changelog\n\n" + "".join(f"{h}\n\n### Added\n\n- x\n\n" for h in heads)
-    chart = "name: c\nversion: 1.2.0\n"
+    chart = "name: c\nversion: 1.2.0\n\n# a comment\n"
     assert problems(log("## [Unreleased]", "## [1.2.0] — 2026-01-02"), chart) == []
     assert problems(log("## [Unreleased]", "## [1.1.0] — 2026-01-01"), chart), "a bump with no section"
     assert problems(log("## [1.2.0] — 2026-01-02", "## [1.1.0] — 2026-01-01"), chart) == []
@@ -103,7 +104,8 @@ def self_test():
     assert problems(log("## [1.2.0]", "## [1.1.0] — 2026-01-01"), chart), "no date"
     assert problems(log("## [1.2.0] — 2026-01-02", "## [1.2.0] — 2026-01-01"), chart), "not above"
     c, ch = bump(log("## [Unreleased]", "## [1.2.0] — 2026-01-01"), chart, "1.3.0", "2026-02-03")
-    assert "## [1.3.0] — 2026-02-03" in c and "version: 1.3.0" in ch and problems(c, ch) == []
+    assert "## [1.3.0] — 2026-02-03" in c and problems(c, ch) == []
+    assert ch == chart.replace("1.2.0", "1.3.0"), f"bump changed more than the version: {ch!r}"
     removed = "## [Unreleased]\n\n### Removed\n\n- k\n\n## [1.2.0] — 2026-01-01\n"
     for v, why in (("1.2.0", "not above"), ("1.3.0", "removed in a minor"), ("1.2", "not x.y.z")):
         try:
