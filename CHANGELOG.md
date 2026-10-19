@@ -208,6 +208,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 - `make lint-templates` gains `quoted-name`: a `name` or `*Name` key whose
   whole value is a print fails unless the print ends in `| quote` (issue #251).
+- Guardrails from the #251/#250 retro:
+  - New `make schema-bounds`, in `make check` and CI: every schema integer has
+    a `maximum` (or a `const` or `enum`) within ±(2⁵³-1), and a digit-string
+    `pattern` bounds its digits. On the 4.x schema it finds the nine bounds
+    this release adds; the bound sweep could not see the one a template `fail`
+    shadowed (`pdb.minAvailable`).
+  - `make unit-test SUITE=<path>` fails on a path that names no suite:
+    helm-unittest ran 0 tests and passed.
+  - `make render-diff QUOTES=ignore` reads `"x"` as `x` where `x` stays a
+    string, so a change that only quotes proves it renders the same.
+  - A project hook (`.claude/hooks/kind-kubeconfig-only.py`) blocks an
+    agent's `kubectl` or cluster `helm` call that does not name
+    `.bin/kind-kubeconfig`: the default context can be production.
 - New `make bound-sweep`, run before `make e2e` and so in CI (issue #226):
   each scalar a scenario sets is given, in turn, values the API server is
   likely to refuse (integer bounds, 2³¹-1 and 2³¹, the candidates

@@ -29,6 +29,7 @@ PROBES = {
     "tests/check-inheritance.py": [MISSING, MISSING],
     "tests/check-scenario-coverage.py": [MISSING, MISSING, MISSING],
     "tests/check-schema-descriptions.py": [MISSING],
+    "tests/check-schema-bounds.py": [MISSING],
     "tests/bad-values/null-sweep.py": [MISSING, MISSING],
     "tests/bad-values/bound-sweep.py": [MISSING, MISSING],
     "tests/render-diff.py": ["refs/nonexistent-lint-checks"],

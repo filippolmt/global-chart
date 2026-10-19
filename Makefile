@@ -122,7 +122,7 @@ TEST_CASES := \
 .DEFAULT_GOAL := help
 
 # All phony targets
-.PHONY: help scenarios all check lint-chart render-diff lint-templates lint-docs lint-shell lint-glossary lint-inheritance lint-checks lint-labels unit-test null-sweep scenario-coverage schema-descriptions validate-bad-values generate-templates \
+.PHONY: help scenarios all check lint-chart render-diff lint-templates lint-docs lint-shell lint-glossary lint-inheritance lint-checks lint-labels unit-test null-sweep scenario-coverage schema-descriptions schema-bounds validate-bad-values generate-templates \
 	kubeconform kube-linter-manifests kube-linter generate-docs package \
 	install install-test01 render clean clean-all \
 	kind-install kind-cluster kind-keda kind-eso kind-gateway-api kind-argocd kind-delete e2e e2e-dryrun bound-sweep e2e-routes e2e-argocd check-helm-floor
@@ -154,7 +154,7 @@ scenarios: ## Print the values file of every TEST_CASES scenario, one per line, 
 all: check null-sweep generate-templates kubeconform kube-linter ## make check, the null sweep, then generate, validate and lint the manifests
 	@echo "==> make all: every check passed"
 
-check: lint-chart lint-templates lint-docs lint-shell lint-glossary lint-inheritance lint-checks unit-test validate-bad-values scenario-coverage schema-descriptions ## The development loop: every fast check, its prerequisites listed here (no null sweep, no manifest validation: make all and CI run them)
+check: lint-chart lint-templates lint-docs lint-shell lint-glossary lint-inheritance lint-checks unit-test validate-bad-values scenario-coverage schema-descriptions schema-bounds ## The development loop: every fast check, its prerequisites listed here (no null sweep, no manifest validation: make all and CI run them)
 
 lint-chart: ## Lint chart with all test values files
 	@echo "==> Linting chart with all test cases..."
@@ -193,6 +193,8 @@ lint-checks: ## Every make all target has a CI step; every check script fails wi
 	@echo "==> Checking the check scripts..."
 	@python3 tests/lint-checks.py --self-test
 	@python3 tests/tools/schema-describe.py --self-test
+	@python3 .claude/hooks/kind-kubeconfig-only.py --self-test
+	@python3 tests/render-diff.py --self-test
 	@python3 tests/lint-checks.py
 
 lint-inheritance: ## The schema and the values-author guide state the inheritance the jobPodSpec header lists
@@ -215,18 +217,25 @@ schema-descriptions: ## Every schema property carries a description
 	@python3 tests/check-schema-descriptions.py --self-test
 	@python3 tests/check-schema-descriptions.py ./$(CHART_DIR)/$(GLOBAL_CHART_NAME)/values.schema.json
 
+schema-bounds: ## Every schema integer has a maximum within 2^53-1, every digit-string pattern a digit count
+	@echo "==> Checking the schema's integer bounds..."
+	@python3 tests/check-schema-bounds.py --self-test
+	@python3 tests/check-schema-bounds.py ./$(CHART_DIR)/$(GLOBAL_CHART_NAME)/values.schema.json
+
 lint-labels: ## Every triage label docs/agents/triage-labels.md names exists on GitHub (needs gh; not in check, which stays offline)
 	@echo "==> Checking triage labels..."
 	@python3 tests/lint-labels.py
 
 unit-test: ## Run helm-unittest via Docker; SUITE=tests/<name>_test.yaml (space-separated, relative to the chart) runs only those suites
 	@echo "==> Running helm unit tests..."
+	@# helm-unittest runs 0 suites and passes on a SUITE path that names no file
+	@for f in $(SUITE); do [ -f "$(CHART_DIR)/$(GLOBAL_CHART_NAME)/$$f" ] || { echo "    FAIL: SUITE=$$f names no file under $(CHART_DIR)/$(GLOBAL_CHART_NAME)/ (the path is relative to the chart: tests/<name>_test.yaml)"; exit 1; }; done
 	@docker run --rm -u $$(id -u):$$(id -g) -v $(CURDIR)/$(CHART_DIR)/$(GLOBAL_CHART_NAME):/apps -w /apps $(HELM_UNITTEST_IMAGE) $(foreach f,$(SUITE),-f $(f)) .
 	@echo "==> All unit tests passed!"
 
-render-diff: ## Render every TEST_CASES scenario on BASE (default main) and on the working tree, and diff them; BASE=<ref> picks the base
+render-diff: ## Render every TEST_CASES scenario on BASE (default main) and on the working tree, and diff them; BASE=<ref> picks the base, QUOTES=ignore reads "x" as x where x stays a string
 	@echo "==> Diffing the rendered manifests against $(or $(BASE),main)..."
-	@python3 tests/render-diff.py $(or $(BASE),main) $(HELM_API_VERSIONS)
+	@python3 tests/render-diff.py $(if $(filter ignore,$(QUOTES)),--ignore-quotes) $(or $(BASE),main) $(HELM_API_VERSIONS)
 
 validate-bad-values: ## Verify bad-values are rejected: schema/ by values.schema.json, fail/ by the template fail each names, skip-schema/ by both (the fail under --skip-schema-validation)
 	@echo "==> Validating bad-values are correctly rejected..."
