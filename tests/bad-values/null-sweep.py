@@ -48,6 +48,11 @@ reject, so such a node joins valuesShape by hand, with its fixture. Each list
 nullItemFields names, whose required fields validateNullItems checks, must be a
 list of maps in valuesShape (issue #238): the two helpers walk the same nodes.
 
+Comparisons ignore generated Basic Auth password/hash values only (the source
+and Secret kind identify them), like the pod recreation timestamp. Username,
+keys and other Secret data remain comparable. check-basic-auth.py separately
+verifies the random password and its htpasswd hash against the standard format.
+
 Usage: null-sweep.py <chart dir> <values file>... [-- <helm flags>...]
 """
 import concurrent.futures
@@ -338,10 +343,34 @@ def needle(path):
     return str(last)
 
 
+def stable_render(text):
+    """Ignore only volatile password/hash values of chart-generated Basic Auth Secrets.
+
+    Keep username, keys and all other Secret data comparable; the independent
+    credential check verifies password/hash consistency on actual renders.
+    """
+    docs = text.split("\n---")
+    for i, doc in enumerate(docs):
+        if "# Source: global-chart/templates/securitypolicy.yaml\n" in doc and "\nkind: Secret\n" in doc:
+            docs[i] = re.sub(r'^(  (?:password|\.htpasswd): )"[A-Za-z0-9+/=]+"[ \t]*$',
+                             r'\1"<random>"', doc, flags=re.M)
+    return TIMESTAMP.sub("", "\n---".join(docs))
+
+
+def stable_render_self_test():
+    doc = '# Source: global-chart/templates/securitypolicy.yaml\nkind: Secret\ndata:\n  username: "dXNlcg=="\n  password: "YQ=="\n  .htpasswd: "Yg=="\n'
+    changed = doc.replace('"YQ=="', '"Yw=="').replace('"Yg=="', '"ZA=="')
+    assert stable_render(doc) == stable_render(changed)
+    assert stable_render(doc) != stable_render(doc.replace('"dXNlcg=="', '"YWRtaW4="'))
+    assert stable_render(doc) != stable_render(doc.replace('  password: "YQ=="\n', ''))
+    other = doc.replace("securitypolicy.yaml", "secret.yaml")
+    assert stable_render(other) != stable_render(other.replace('"YQ=="', '"Yw=="'))
+
+
 def verdict(out, base, path, unset=None):
     if out.returncode == 0:
         if unset is not None and unset.returncode == 0 and \
-                TIMESTAMP.sub("", NULL_VALUE.sub("", out.stdout)) != TIMESTAMP.sub("", unset.stdout):
+                stable_render(NULL_VALUE.sub("", out.stdout)) != stable_render(unset.stdout):
             return "renders otherwise than with the key removed: a null map value is not read as unset"
         if len(NULLISH.findall(out.stdout)) > len(NULLISH.findall(base)):
             new = [l.strip() for l in out.stdout.splitlines() if NULLISH.search(l) and l not in base.splitlines()]
@@ -358,6 +387,7 @@ def verdict(out, base, path, unset=None):
 
 
 def main(argv):
+    stable_render_self_test()
     flags = argv[argv.index("--") + 1:] if "--" in argv else []
     argv = argv[:argv.index("--")] if "--" in argv else argv
     chart, files = pathlib.Path(argv[0]), argv[1:]

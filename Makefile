@@ -18,7 +18,8 @@ GENERATED_DIR := generated-manifests
 HELM_API_VERSIONS := --api-versions keda.sh/v1alpha1 \
 	--api-versions gateway.networking.k8s.io/v1/HTTPRoute \
 	--api-versions gateway.networking.k8s.io/v1/TCPRoute \
-	--api-versions gateway.networking.k8s.io/v1/UDPRoute
+	--api-versions gateway.networking.k8s.io/v1/UDPRoute \
+	--api-versions gateway.envoyproxy.io/v1alpha1/SecurityPolicy
 
 # Docker images
 KUBE_LINTER_VERSION := 0.7.1
@@ -59,6 +60,10 @@ ESO_NAMESPACE := external-secrets
 # (issue #194). Nothing routes traffic: there is no Gateway controller.
 # renovate: datasource=github-releases depName=kubernetes-sigs/gateway-api
 GATEWAY_API_VERSION := v1.6.3
+# SecurityPolicy CRD only, no Envoy Gateway controller: validate the opt-in
+# policy against its upstream schema without claiming authentication works.
+# renovate: datasource=github-releases depName=envoyproxy/gateway
+ENVOY_GATEWAY_VERSION := v1.7.2
 # The Gateway API kinds the chart renders: httproute.yaml and l4RouteKinds
 # (_render-helpers.tpl) are their source, mirrored here; change both.
 # kind-gateway-api waits for their CRDs, and e2e-dryrun asserts that some
@@ -105,6 +110,7 @@ TEST_CASES := \
 	tests/hooks-sa-inheritance.yaml:hooks-sa:hooks-sa-inheritance \
 	tests/name-collision.yaml:default:name-collision \
 	tests/httproute-basic.yaml:httproute-basic:httproute-basic \
+	tests/httproute-basic-auth.yaml:httproute-basic-auth:httproute-basic-auth \
 	tests/httproute-canary.yaml:httproute-canary:httproute-canary \
 	tests/httproute-filters.yaml:httproute-filters:httproute-filters \
 	tests/l4routes.yaml:l4routes:l4routes \
@@ -125,7 +131,7 @@ TEST_CASES := \
 .PHONY: help scenarios all check lint-chart render-diff lint-templates lint-docs lint-shell lint-glossary lint-inheritance lint-checks lint-labels unit-test null-sweep scenario-coverage schema-descriptions schema-bounds lint-release release validate-bad-values generate-templates \
 	kubeconform kube-linter-manifests kube-linter generate-docs package \
 	install install-test01 render clean clean-all \
-	kind-install kind-cluster kind-keda kind-eso kind-gateway-api kind-argocd kind-delete e2e e2e-dryrun bound-sweep e2e-routes e2e-argocd check-helm-floor
+	kind-install kind-cluster kind-keda kind-eso kind-gateway-api kind-envoy-gateway kind-argocd kind-delete e2e e2e-dryrun bound-sweep e2e-routes e2e-argocd check-helm-floor
 
 # ============================================================================
 # Help
@@ -236,11 +242,12 @@ lint-labels: ## Every triage label docs/agents/triage-labels.md names exists on 
 	@echo "==> Checking triage labels..."
 	@python3 tests/lint-labels.py
 
-unit-test: ## Run helm-unittest via Docker; SUITE=tests/<name>_test.yaml (space-separated, relative to the chart) runs only those suites
+unit-test: ## Run helm-unittest via Docker and verify random Basic Auth credentials;  SUITE=tests/<name>_test.yaml (space-separated, relative to the chart) runs only those suites
 	@echo "==> Running helm unit tests..."
 	@# helm-unittest runs 0 suites and passes on a SUITE path that names no file
 	@for f in $(SUITE); do [ -f "$(CHART_DIR)/$(GLOBAL_CHART_NAME)/$$f" ] || { echo "    FAIL: SUITE=$$f names no file under $(CHART_DIR)/$(GLOBAL_CHART_NAME)/ (the path is relative to the chart: tests/<name>_test.yaml)"; exit 1; }; done
 	@docker run --rm -u $$(id -u):$$(id -g) -v $(CURDIR)/$(CHART_DIR)/$(GLOBAL_CHART_NAME):/apps -w /apps $(HELM_UNITTEST_IMAGE) $(foreach f,$(SUITE),-f $(f)) .
+	@python3 tests/check-basic-auth.py
 	@echo "==> All unit tests passed!"
 
 render-diff: ## Render every TEST_CASES scenario on BASE (default main) and on the working tree, and diff them; BASE=<ref> picks the base, QUOTES=ignore reads "x" as x where x stays a string
@@ -331,6 +338,7 @@ kubeconform: generate-templates ## Validate generated manifests against K8s 1.29
 		-schema-location default \
 		-schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/external-secrets.io/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
 		-schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/gateway.networking.k8s.io/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
+		-schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/gateway.envoyproxy.io/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
 		-schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/keda.sh/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
 		-output pretty \
 		/work/$(GENERATED_DIR)
@@ -497,7 +505,15 @@ kind-gateway-api: kind-cluster ## Install the Gateway API CRDs (standard channel
 		$(GATEWAY_ROUTE_CRDS) --timeout=60s >/dev/null
 	@echo "    Gateway API CRDs established"
 
-e2e-dryrun: kind-cluster kind-keda kind-eso kind-gateway-api ## Send every TEST_CASES scenario to the API server as a server-side dry run (routes, StatefulSets, every kind)
+kind-envoy-gateway: kind-cluster ## Install only the Envoy Gateway SecurityPolicy CRD into the e2e kind cluster (no controller)
+	@echo "==> Installing Envoy Gateway $(ENVOY_GATEWAY_VERSION) SecurityPolicy CRD..."
+	@kubectl --kubeconfig "$(KIND_KUBECONFIG)" apply --server-side --force-conflicts \
+		-f https://raw.githubusercontent.com/envoyproxy/gateway/$(ENVOY_GATEWAY_VERSION)/charts/gateway-helm/crds/generated/gateway.envoyproxy.io_securitypolicies.yaml >/dev/null
+	@kubectl --kubeconfig "$(KIND_KUBECONFIG)" wait --for=condition=Established \
+		crd/securitypolicies.gateway.envoyproxy.io --timeout=60s >/dev/null
+	@echo "    SecurityPolicy CRD established"
+
+e2e-dryrun: kind-cluster kind-keda kind-eso kind-gateway-api kind-envoy-gateway ## Send every TEST_CASES scenario to the API server as a server-side dry run (routes, StatefulSets, every kind)
 	@# A server-side dry run runs the API server's whole validation, the CRDs'
 	@# OpenAPI schemas and CEL rules included, and persists nothing. It sees what
 	@# kubeconform cannot: the rules between fields (a StatefulSet's rollingUpdate
@@ -517,7 +533,7 @@ e2e-dryrun: kind-cluster kind-keda kind-eso kind-gateway-api ## Send every TEST_
 	done; \
 	[ "$$routes" -gt 0 ] || { echo "FAIL: no TEST_CASES scenario renders a Gateway API route"; exit 1; }
 
-bound-sweep: kind-cluster kind-keda kind-eso kind-gateway-api ## Every bound value the schema accepts on a scenario node, sent to the API server as a server-side dry run (issue #226)
+bound-sweep: kind-cluster kind-keda kind-eso kind-gateway-api kind-envoy-gateway ## Every bound value the schema accepts on a scenario node, sent to the API server as a server-side dry run (issue #226)
 	@echo "==> Sweeping the schema bounds against the API server..."
 	@KUBECONFIG=$(KIND_KUBECONFIG) python3 tests/bad-values/bound-sweep.py ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) \
 		$(foreach e,$(TEST_CASES),$(firstword $(subst :, ,$(e)))) -- $(HELM_API_VERSIONS)

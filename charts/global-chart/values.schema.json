@@ -1359,6 +1359,15 @@
       },
       "unevaluatedProperties": false
     },
+    "httpRouteBasicAuth": {
+      "description": "Opt-in Envoy Gateway Basic Auth for every rule of this HTTPRoute. Generates a random credentials Secret and a SecurityPolicy. Argo CD must ignore this Secret's /data with RespectIgnoreDifferences=true to preserve credentials across syncs; Helm alone regenerates them on every render.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "description": "Render an Envoy SecurityPolicy and a Secret with a random 32-character password. Default false. Requires gateway.envoyproxy.io/v1alpha1 SecurityPolicy and an HTTPS listener managed outside this chart.", "type": "boolean" },
+        "username": { "description": "Basic Auth username, stored with the password in the generated Secret. Default admin. Letters, digits, underscores and hyphens only. With Argo CD preserving Secret data, changing this value does not rotate existing credentials.", "type": "string", "minLength": 1, "pattern": "^[a-zA-Z0-9_-]+$" }
+      }
+    },
     "httpRouteFields": {
       "description": "The fields of an HTTPRoute the chart renders, shared by httpRoute and an httpRoutes entry (issue #195). An allOf branch: never closed; the two that reference it are, through unevaluatedProperties (Helm >= 3.18.6).",
       "type": "object",
@@ -1368,6 +1377,7 @@
           "type": "object",
           "additionalProperties": { "type": "string" }
         },
+        "basicAuth": { "description": "Envoy Gateway Basic Auth for this route only, disabled by default. Generates a Secret and SecurityPolicy; requires the documented Argo CD ignoreDifferences configuration to keep credentials stable.", "$ref": "#/$defs/httpRouteBasicAuth" },
         "parentRefs": {
           "description": "The existing Gateways the HTTPRoute attaches to, rendered verbatim as spec.parentRefs. At least one, or the render fails.",
           "type": "array",

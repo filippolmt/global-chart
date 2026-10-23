@@ -1,0 +1,137 @@
+suite: Envoy HTTPRoute basic authentication
+templates:
+  - templates/securitypolicy.yaml
+capabilities:
+  apiVersions:
+    - gateway.envoyproxy.io/v1alpha1/SecurityPolicy
+tests:
+  - it: creates a random credentials Secret and a policy targeting only the enabled route
+    release:
+      name: dev
+    set:
+      httpRoute: &route
+        enabled: true
+        basicAuth:
+          enabled: true
+        parentRefs: [{name: shared-gateway, sectionName: https}]
+        hostnames: [dev.example.com]
+        rules: [{backendRefs: [{service: {name: web, port: 80}}]}]
+    asserts:
+      - hasDocuments:
+          count: 2
+      - isKind:
+          of: Secret
+        documentIndex: 0
+      - equal:
+          path: metadata.name
+          value: dev-global-chart-basic-auth
+        documentIndex: 0
+      - equal:
+          path: type
+          value: Opaque
+        documentIndex: 0
+      - equal:
+          path: data.username
+          value: YWRtaW4=
+        documentIndex: 0
+      - matchRegex:
+          path: data.password
+          pattern: '^[A-Za-z0-9]{32}$'
+          decodeBase64: true
+        documentIndex: 0
+      - matchRegex:
+          path: data[".htpasswd"]
+          pattern: '^admin:\{SHA\}[A-Za-z0-9+/]{27}=$'
+          decodeBase64: true
+        documentIndex: 0
+      - isKind:
+          of: SecurityPolicy
+        documentIndex: 1
+      - equal:
+          path: spec.targetRefs
+          value:
+            - group: gateway.networking.k8s.io
+              kind: HTTPRoute
+              name: dev-global-chart
+        documentIndex: 1
+      - equal:
+          path: spec.basicAuth.users.name
+          value: dev-global-chart-basic-auth
+        documentIndex: 1
+
+  - it: creates no authentication resources by default
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: creates no authentication resources for a disabled route
+    set:
+      httpRoute:
+        <<: *route
+        enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: respects explicit false even on an enabled route
+    set:
+      httpRoute:
+        <<: *route
+        basicAuth:
+          enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: treats null authentication as unset
+    set:
+      httpRoute:
+        <<: *route
+        basicAuth: null
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: scopes credentials to the named route and merges common annotations and labels
+    release:
+      name: dev
+    set:
+      global:
+        commonAnnotations: {owner: platform}
+        commonLabels: {team: web}
+      httpRoutes:
+        preview:
+          parentRefs: [{name: shared-gateway, sectionName: https}]
+          hostnames: [preview.example.com]
+          rules: [{backendRefs: [{service: {name: web, port: 80}}]}]
+          basicAuth:
+            enabled: true
+            username: preview_user
+        public:
+          parentRefs: [{name: shared-gateway}]
+          rules: [{backendRefs: [{service: {name: public, port: 80}}]}]
+    asserts:
+      - hasDocuments:
+          count: 2
+      - equal:
+          path: metadata.name
+          value: dev-global-chart-preview-basic-auth
+        documentIndex: 0
+      - equal:
+          path: data.username
+          value: cHJldmlld191c2Vy
+        documentIndex: 0
+      - equal:
+          path: spec.targetRefs[0].name
+          value: dev-global-chart-preview
+        documentIndex: 1
+      - equal:
+          path: spec.basicAuth.users.name
+          value: dev-global-chart-preview-basic-auth
+        documentIndex: 1
+      - equal:
+          path: metadata.annotations.owner
+          value: platform
+      - equal:
+          path: metadata.labels.team
+          value: web

@@ -411,7 +411,7 @@ ingress:
     #       pathType: Prefix
 
 # -- HTTPRoute (Gateway API v1) — alternative to Ingress.
-# The chart renders only the HTTPRoute resource; the referenced Gateway must be
+# The chart renders HTTPRoutes and optional Envoy Basic Auth resources; the referenced Gateway must be
 # managed externally (e.g. by your platform team or a separate infra chart).
 # Mutually exclusive with `ingress.enabled` — enabling both fails template render.
 httpRoute:
@@ -422,6 +422,18 @@ httpRoute:
 
   # -- Annotations applied to the HTTPRoute resource. Like every annotations field, merged with global.commonAnnotations, this one winning
   annotations: {}
+
+  # -- Envoy Gateway Basic Auth for every rule of this route. Requires HTTPS and
+  # the SecurityPolicy CRD. With Argo CD, ignore /data of the generated Secret
+  # and enable RespectIgnoreDifferences=true BEFORE the first sync; otherwise
+  # every render generates new credentials. See the repository README.
+  basicAuth:
+    # -- Generate a random credentials Secret and an Envoy SecurityPolicy.
+    enabled: false
+    # -- Basic Auth username; letters, digits, underscores and hyphens only.
+    # Defaults to admin in httpRoutes entries too. Existing Secret data is
+    # preserved by Argo CD, so editing this does not rotate credentials.
+    username: admin
 
   # -- References to existing Gateway resources. At least one is required when enabled.
   # Each entry: { name, namespace?, sectionName?, port?, kind?, group? }

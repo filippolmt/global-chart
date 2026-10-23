@@ -48,7 +48,9 @@ copy of the kubeconfig, so it never touches `~/.kube/config` either.
 
 Also before it, `e2e-dryrun` (`e2e-routes` is its alias) installs the Gateway
 API CRDs (standard channel, version pinned in the Makefile, no controller)
-beside KEDA and ESO, and sends every `TEST_CASES` scenario to the API server
+and only Envoy Gateway's SecurityPolicy CRD (`kind-envoy-gateway`,
+`ENVOY_GATEWAY_VERSION` pinned in the Makefile) beside KEDA and ESO, and sends
+every `TEST_CASES` scenario to the API server
 as a server-side dry run. That runs the API server's whole validation, the
 CRDs' own schemas and CEL rules included, which kubeconform, reading a
 third-party copy of each schema field by field, does not: a RequestRedirect
@@ -57,6 +59,15 @@ StatefulSet's `rollingUpdate` beside `OnDelete`. Nothing routes: an unattached
 route is still a valid object. A scenario that renders nothing is skipped. A
 new route kind goes in `GATEWAY_ROUTE_KINDS` too, which mirrors the kinds the
 templates render.
+
+`kind-envoy-gateway` applies the single upstream SecurityPolicy CRD
+artifact at the pinned `envoyproxy/gateway` release tag (the Makefile carries
+its URL), then waits for the CRD
+to be established. Both `e2e-dryrun` and `bound-sweep` require it. The
+`tests/httproute-basic-auth.yaml` scenario checks the opt-in SecurityPolicy
+against the API server's CRD validation; kubeconform uses the
+[SecurityPolicy schema in the Datree CRDs catalog](https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/gateway.envoyproxy.io/securitypolicy_v1alpha1.json). Neither check tests authentication at runtime: no Envoy Gateway
+controller or proxy is installed, and no authenticated request is sent.
 
 Then `bound-sweep` sends the same scenarios again, each scalar with a bound set
 in turn to a value the API server is likely to refuse (an int32 overflow, a
