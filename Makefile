@@ -50,7 +50,7 @@ HELM_REPO_ENV := HELM_REPOSITORY_CONFIG=$(KIND_BIN_DIR)/helm-repositories.yaml \
 # External Secrets Operator + CRDs, so a hook reading an ExternalSecret's Secret
 # is exercised for real (issue #110, ADR 0007): the store is ESO's fake provider.
 # renovate: datasource=helm depName=external-secrets registryUrl=https://charts.external-secrets.io
-ESO_VERSION := 2.13.0
+ESO_VERSION := 2.14.0
 ESO_REPO_URL := https://charts.external-secrets.io
 ESO_NAMESPACE := external-secrets
 # Gateway API CRDs (standard channel, no controller), so the routes the chart
