@@ -53,7 +53,34 @@ def check():
     return None
 
 
+def self_test():
+    from unittest.mock import patch
+
+    def secret(username, password, digest):
+        fields = {"username": username, "password": password,
+                  ".htpasswd": username + ":{SHA}" + digest}
+        return "\n---\nkind: Secret\ndata:\n" + "".join(
+            f'  {k}: "{base64.b64encode(v.encode()).decode()}"\n' for k, v in fields.items())
+
+    # Known SHA-1/base64 vectors for 32 'a' and 32 'b' characters.
+    first = secret("dev", "a" * 32, "aPhKWaPKLQ5csWRvuxZNpAm12PI=")
+    second = secret("admin", "b" * 32, "FC4nym0XmXBQf0B24qyW/sWDT4I=")
+    cases = [
+        (first + second, "separate routes or renders reused a random password"),
+        (first + secret("admin", "a" * 32, "aPhKWaPKLQ5csWRvuxZNpAm12PI="),
+         "separate routes or renders reused a random password"),
+        (first + secret("admin", "b" * 32, "wrong"),
+         "htpasswd hash does not authenticate the stored password"),
+        (first.replace('password: "', 'password: "!') + second,
+         "generated Secret must contain username, password and .htpasswd as base64 data"),
+    ]
+    for output, expected in cases:
+        with patch("subprocess.run", return_value=subprocess.CompletedProcess([], 0, stdout=output)):
+            assert check() == expected
+
+
 if __name__ == "__main__":
+    self_test()
     try:
         problem = check()
     except OSError as exc:
