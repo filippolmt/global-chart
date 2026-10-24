@@ -1,6 +1,6 @@
 # global-chart
 
-![Version: 4.0.0](https://img.shields.io/badge/Version-4.0.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square)
+![Version: 4.1.0](https://img.shields.io/badge/Version-4.1.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square)
 
 Reusable Helm chart for multi-workload Kubernetes applications—Deployments, StatefulSets, Services, Ingress, CronJobs, Hooks, ExternalSecrets, RBAC, HPA, PDB, NetworkPolicy, and more.
 
