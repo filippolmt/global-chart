@@ -1,0 +1,29 @@
+# Envoy Gateway, HTTPS only. Argo CD must preserve /data of each generated
+# Basic Auth Secret with ignoreDifferences + RespectIgnoreDifferences=true.
+httpRoute:
+  enabled: true
+  basicAuth:
+    enabled: true
+    username: dev
+  parentRefs:
+    - name: shared-gateway
+      namespace: envoy-gateway-system
+      sectionName: https
+  hostnames: [dev.example.com]
+  rules:
+    - matches:
+        - path: {type: PathPrefix, value: /}
+      backendRefs:
+        - service: {name: web, port: 80}
+httpRoutes:
+  preview:
+    basicAuth:
+      enabled: true
+    parentRefs:
+      - name: shared-gateway
+        namespace: envoy-gateway-system
+        sectionName: https
+    hostnames: [preview.example.com]
+    rules:
+      - backendRefs:
+          - service: {name: preview, port: 8080}

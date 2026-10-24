@@ -212,7 +212,7 @@ workloads:
         port: 80
         httpHeaders:
           - name: Host
-            value: stage.odoo.errediweb.com
+            value: stage.odoo.example.com
       periodSeconds: 10
       failureThreshold: 70
       timeoutSeconds: 3
@@ -222,7 +222,7 @@ workloads:
         port: 80
         httpHeaders:
           - name: Host
-            value: stage.odoo.errediweb.com
+            value: stage.odoo.example.com
       periodSeconds: 10
       failureThreshold: 3
       timeoutSeconds: 3
@@ -232,7 +232,7 @@ workloads:
         port: 80
         httpHeaders:
           - name: Host
-            value: stage.odoo.errediweb.com
+            value: stage.odoo.example.com
       periodSeconds: 20
       failureThreshold: 5
       timeoutSeconds: 3
@@ -286,7 +286,7 @@ workloads:
 
             server {
               listen       80;
-              server_name  stage.odoo.errediweb.com;
+              server_name  stage.odoo.example.com;
 
               # --- Real client IP from Cloudflare ---
               real_ip_header CF-Connecting-IP;

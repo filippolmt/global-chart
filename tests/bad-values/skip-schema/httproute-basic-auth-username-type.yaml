@@ -1,0 +1,8 @@
+# Expected fail substring: "httpRoute.basicAuth.username: must be a non-empty string of letters, digits, underscores and hyphens."
+httpRoute:
+  enabled: true
+  basicAuth:
+    enabled: true
+    username: 42
+  parentRefs: [{name: gw}]
+  rules: [{backendRefs: [{service: {name: web, port: 80}}]}]

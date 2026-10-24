@@ -1,0 +1,6 @@
+# Expected fail substring: "httpRoute.basicAuth: a number, where the chart reads a map"
+httpRoute:
+  enabled: true
+  basicAuth: 42
+  parentRefs: [{name: gw}]
+  rules: [{backendRefs: [{service: {name: web, port: 80}}]}]

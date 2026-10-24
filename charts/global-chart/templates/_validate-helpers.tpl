@@ -280,6 +280,7 @@ ingress:
   hosts: [{paths: [map], service: map}]
   tls: [{hosts: list}]
 httpRoute: &httpRoute
+  basicAuth: map
   annotations: map
   hostnames: list
   parentRefs: [map]
@@ -680,6 +681,9 @@ Called from validate.yaml.
 {{- $httpRouteNames := dict -}}
 {{- range (include "global-chart.httpRouteEntries" $root | fromJsonArray) -}}
   {{- include "global-chart.registerName" (dict "names" $httpRouteNames "kind" "HTTPRoute" "name" .name "owner" .errCtx) -}}
+  {{- if (default (dict) .route.basicAuth).enabled -}}
+    {{- include "global-chart.registerName" (dict "names" $secretNames "kind" "Secret" "name" (include "global-chart.httpRouteBasicAuthSecretName" .name) "owner" (printf "%s.basicAuth" .errCtx)) -}}
+  {{- end -}}
 {{- end -}}
 {{- range (include "global-chart.l4RouteKinds" $root | fromJsonArray) -}}
   {{- $routeNames := dict -}}

@@ -1,6 +1,6 @@
 # global-chart
 
-![Version: 4.0.0](https://img.shields.io/badge/Version-4.0.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square)
+![Version: 4.1.0](https://img.shields.io/badge/Version-4.1.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square)
 
 Reusable Helm chart for multi-workload Kubernetes applications—Deployments, StatefulSets, Services, Ingress, CronJobs, Hooks, ExternalSecrets, RBAC, HPA, PDB, NetworkPolicy, and more.
 
@@ -42,9 +42,12 @@ Kubernetes: `>=1.27.0-0`
 | ingress.hosts[0].service | object | `{"name":""}` | Service backend override (use instead of workload for external services). Optional `port`, 1-65535: omitted, it is the workload's service.port, or 80 for a service.name backend |
 | ingress.hosts[0].service.name | string | `""` | Explicit service name (overrides workload reference) |
 | ingress.hosts[0].paths | list | `[{"path":"/","pathType":"ImplementationSpecific"}]` | HTTP path definitions for this host |
-| httpRoute | object | `{"annotations":{},"enabled":false,"hostnames":[],"parentRefs":[],"rules":[]}` | HTTPRoute (Gateway API v1) — alternative to Ingress. The chart renders only the HTTPRoute resource; the referenced Gateway must be managed externally (e.g. by your platform team or a separate infra chart). Mutually exclusive with `ingress.enabled` — enabling both fails template render. |
+| httpRoute | object | `{"annotations":{},"basicAuth":{"enabled":false,"username":"admin"},"enabled":false,"hostnames":[],"parentRefs":[],"rules":[]}` | HTTPRoute (Gateway API v1) — alternative to Ingress. The chart renders HTTPRoutes and optional Envoy Basic Auth resources; the referenced Gateway must be managed externally (e.g. by your platform team or a separate infra chart). Mutually exclusive with `ingress.enabled` — enabling both fails template render. |
 | httpRoute.enabled | bool | `false` | Enable HTTPRoute rendering. The render fails unless the cluster serves gateway.networking.k8s.io/v1 HTTPRoute (Gateway API v1.0.0 or later); an offline render needs `--api-versions gateway.networking.k8s.io/v1/HTTPRoute`. |
 | httpRoute.annotations | object | `{}` | Annotations applied to the HTTPRoute resource. Like every annotations field, merged with global.commonAnnotations, this one winning |
+| httpRoute.basicAuth | object | `{"enabled":false,"username":"admin"}` | Envoy Gateway Basic Auth for every rule of this route. Requires HTTPS and the SecurityPolicy CRD. With Argo CD, ignore /data of the generated Secret and enable RespectIgnoreDifferences=true BEFORE the first sync; otherwise every render generates new credentials. See the repository README. |
+| httpRoute.basicAuth.enabled | bool | `false` | Generate a random credentials Secret and an Envoy SecurityPolicy. |
+| httpRoute.basicAuth.username | string | `"admin"` | Basic Auth username; letters, digits, underscores and hyphens only. Defaults to admin in httpRoutes entries too. Existing Secret data is preserved by Argo CD, so editing this does not rotate credentials. |
 | httpRoute.parentRefs | list | `[]` | References to existing Gateway resources. At least one is required when enabled. Each entry: { name, namespace?, sectionName?, port?, kind?, group? } |
 | httpRoute.hostnames | list | `[]` | Hostnames the HTTPRoute responds to. Optional but typical for HTTP routing. |
 | httpRoute.rules | list | `[]` | Routing rules. Each rule may declare matches, filters, backendRefs, timeouts. backendRefs accept either `workload: <name>` (resolves to the chart-managed Service; an optional `portName` picks service.portName or a service.extraPorts[].name, which must be TCP — omitted, the primary port) or `service: { name, port }` for an external Service. |

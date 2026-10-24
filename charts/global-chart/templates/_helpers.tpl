@@ -397,3 +397,15 @@ Usage: {{ include "global-chart.gatewayRouteName" (dict "root" . "key" $key) }}
 {{- include "global-chart.fullname" .root -}}
 {{- end -}}
 {{- end -}}
+
+{{/*
+Name of an HTTPRoute's generated Basic Auth Secret: <route name>-basic-auth,
+not truncated. A Secret name is a DNS subdomain and a route name stops at 63,
+so it fits; a cut would only manufacture collisions between long route names.
+All Secret sources still meet in validateNameCollisions. The SecurityPolicy
+uses the route's own name, so HTTPRoute name uniqueness also covers its policies.
+Usage: {{ include "global-chart.httpRouteBasicAuthSecretName" $entry.name }}
+*/}}
+{{- define "global-chart.httpRouteBasicAuthSecretName" -}}
+{{- printf "%s-basic-auth" . -}}
+{{- end -}}

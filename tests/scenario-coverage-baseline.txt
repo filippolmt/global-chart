@@ -53,12 +53,10 @@ hooks.*.*.serviceAccountAnnotations: never set
 hooks.*.*.volumeMounts: never set
 httpRoute.annotations: never set
 httpRoute.rules[].backendRefs[].filters: never set
-httpRoute.rules[].backendRefs[].service: never set
 httpRoute.rules[].matches[].headers: never set
 httpRoute.rules[].matches[].queryParams: never set
 httpRoute.rules[].timeouts: never set
 httpRoutes.*.rules[].backendRefs[].filters: never set
-httpRoutes.*.rules[].backendRefs[].service: never set
 httpRoutes.*.rules[].matches[].headers: never set
 httpRoutes.*.rules[].matches[].queryParams: never set
 httpRoutes.*.rules[].timeouts: never set

@@ -16,6 +16,7 @@ The chart supports **multiple workloads** in a single release, each with indepen
 - **Networking**
   First-class Service configuration (with per-service annotations) plus optional Ingress with TLS, class annotations, and routes to specific workloads. DNS options and host aliases can be defined per workload.
   HTTP reaches the workloads through one routing layer, Ingress or Gateway API HTTPRoutes (`httpRoute` for one, `httpRoutes` for one per entry), never both. Ports that are not HTTP go through TCPRoutes and UDPRoutes (`tcpRoutes`, `udpRoutes`), alongside either (see [Exposing a TCP or UDP port](#exposing-a-tcp-or-udp-port-through-a-gateway)). A `workload:` backend picks a port of its Service by name with `portName`.
+  Envoy Gateway users can opt into [per-HTTPRoute Basic Auth](#protecting-an-httproute-with-envoy-basic-auth); stable credentials require the Argo CD configuration below.
 - **Configuration distribution**
   Inline ConfigMap/Secret data, mounted config files (single file) or bundles (projected lists of files), and `volumes` in the native Kubernetes form (any volume source) are supported.
 - **Lifecycle and batch**
@@ -407,6 +408,103 @@ httpRoutes:
       - backendRefs: [{ workload: traccar }]
 ```
 
+## Protecting an HTTPRoute with Envoy Basic Auth
+
+`httpRoute.basicAuth` defaults to `{enabled: false, username: admin}`. Each
+`httpRoutes.<key>` entry accepts the same optional block, independently.
+Enabling it creates an Envoy `gateway.envoyproxy.io/v1alpha1` SecurityPolicy
+named exactly like the route, targeting only that HTTPRoute, and an `Opaque`
+Secret in the route's namespace named `<routeName>-basic-auth`, never
+truncated; use that name in Argo CD. There is no Gateway-wide policy.
+
+For a dev route to an existing Service `web` on port 80:
+
+```yaml
+fullnameOverride: dev
+httpRoute:
+  enabled: true
+  basicAuth:
+    enabled: true
+    username: admin   # default; letters, digits, underscores and hyphens only
+  parentRefs:
+    - name: shared-gateway
+      namespace: envoy-gateway-system
+      sectionName: https
+  hostnames: [dev.example.com]
+  rules:
+    - backendRefs:
+        - service: {name: web, port: 80}
+```
+
+This creates HTTPRoute `dev`, SecurityPolicy `dev` and Secret `dev-basic-auth`.
+Envoy Gateway and its SecurityPolicy CRD must already be installed. An offline
+render also needs `--api-versions gateway.envoyproxy.io/v1alpha1/SecurityPolicy`
+and `--api-versions gateway.networking.k8s.io/v1/HTTPRoute`.
+
+**Use HTTPS only.** The platform must configure the Gateway's HTTPS listener,
+certificate and route attachment permissions. `sectionName` selects a listener;
+the chart neither creates it nor guarantees that it exists or uses TLS.
+Authentication covers every path of this HTTPRoute, including health endpoints:
+there is no health-path exception. Other routes are not protected, including
+routes on the same Gateway. Audit overlapping hostname/path routes: an
+unprotected route to the same backend can bypass this protection.
+
+### Preserve the credential tuple with Argo CD before the first sync
+
+The password is deliberately a new random 32-character alphanumeric string on
+**every render**. There is no Job, ExternalSecret or `lookup` to retain it, and
+no password value to set. Stable credentials are supported only with the Argo CD
+configuration below; direct Helm upgrades rotate them.
+
+Before the first sync, add both settings to the **Application**, not the chart
+values. For this example the Application deploys into namespace `dev`; replace
+that namespace with the actual destination namespace. Keep any existing sync
+options and add one narrowly scoped entry per enabled route's actual Secret:
+
+```yaml
+spec:
+  ignoreDifferences:
+    - group: ''
+      kind: Secret
+      name: dev-basic-auth
+      namespace: dev
+      jsonPointers:
+        - /data
+  syncPolicy:
+    syncOptions:
+      - RespectIgnoreDifferences=true
+```
+
+`ignoreDifferences` alone hides the diff but does not preserve data during sync.
+With both settings, Argo CD creates the initial data when the Secret is absent,
+then preserves the existing **whole `/data`** on later syncs. It contains the
+credential tuple `username`, `password`, and `.htpasswd`; ignoring just the
+password would leave the hash inconsistent. `.htpasswd` decodes to
+`<username>:{SHA}<base64(SHA1(password))>`. The username defaults to `admin`;
+once live data exists, **username edits in values are ignored too**.
+
+This intentionally ignores all `/data` drift, including manual edits or
+corruption; Argo CD will not repair it. Secret deletion, pruning or recreation
+rotates the credentials. For manual rotation, plan an outage and deliberately
+recreate the Secret through Argo CD so the whole tuple is regenerated atomically;
+never edit only one key. Do not use force/replace as a routine sync workaround:
+replacement can discard the preserved credentials.
+
+The password is plaintext-readable in the Secret, rendered manifests and
+render/repo-server caches: Kubernetes Secret base64 is **not encryption**.
+Restrict Secret and cache access, do not commit rendered credentials, and do not
+put passwords in values. Read the password locally with an explicitly selected
+cluster context (the username is stored in the same Secret):
+
+```bash
+kubectl --context <context> --namespace dev get secret dev-basic-auth \
+  -o jsonpath='{.data.password}' | base64 --decode
+```
+
+The SHA-1 htpasswd format is required by [Envoy Basic Auth](https://gateway.envoyproxy.io/docs/tasks/security/basic-auth/),
+not a recommendation for general password storage. The credential preservation
+behavior is documented in [Argo CD's sync options](https://argo-cd.readthedocs.io/en/latest/user-guide/sync-options/#respect-ignore-differences-configs).
+
 ## Exposing a TCP or UDP port through a Gateway
 
 `tcpRoutes` and `udpRoutes` are maps: one TCPRoute (or UDPRoute) per entry,
@@ -458,7 +556,9 @@ route, and the traffic would never arrive.
 `gateway.networking.k8s.io/v1` HTTPRoute (Gateway API v1.0.0 or later), and an
 offline render needs `--api-versions gateway.networking.k8s.io/v1/HTTPRoute`.
 Argo CD passes the destination cluster's API versions, kinds included, so an
-Argo CD Application needs nothing; a pre-render in CI does need the flag.
+Argo CD Application needs no API-version flag; a pre-render in CI does need it.
+Basic Auth still requires the Application's credential-preservation settings
+[above](#preserve-the-credential-tuple-with-argo-cd-before-the-first-sync).
 
 Only `gateway.networking.k8s.io/v1` is rendered. TCPRoute and UDPRoute reach it
 in **Gateway API v1.6.0**, in the standard and experimental channels alike; up to
@@ -541,6 +641,7 @@ The `tests/` directory is the list — `TEST_CASES` in the `Makefile` is what
 | `ingress-custom.yaml`            | Ingress with workload reference                                                           |
 | `external-ingress.yaml`          | Ingress pointing to external service                                                      |
 | `httproute-basic.yaml`           | Gateway API HTTPRoute, plain backend                                                      |
+| `httproute-basic-auth.yaml`      | Envoy Basic Auth on `httpRoute` and on an `httpRoutes` entry                              |
 | `httproute-canary.yaml`          | HTTPRoute with weighted backends                                                          |
 | `httproute-filters.yaml`         | HTTPRoute rule filters                                                                    |
 | `httproutes.yaml`                | `httpRoutes` entries next to `httpRoute`, a redirect-only route                           |

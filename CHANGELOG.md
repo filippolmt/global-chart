@@ -5,7 +5,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ---
 
-## [Unreleased]
+## [4.1.0] — 2026-10-24
+
+### Added
+
+- **Opt-in Envoy Gateway Basic Auth per HTTPRoute**: `httpRoute.basicAuth`
+  (defaults to `{enabled: false, username: admin}`) and the same optional block
+  on each `httpRoutes` entry. Each enabled route gets a
+  `gateway.envoyproxy.io/v1alpha1` SecurityPolicy named exactly like the route,
+  targeting only that HTTPRoute, and an Opaque Secret named
+  `<routeName>-basic-auth`, never truncated. The Secret holds `username`, a
+  random 32-character alphanumeric `password`, and `.htpasswd` in
+  `user:{SHA}base64(SHA1(password))` format. Credentials are random per render,
+  with no Job, ExternalSecret, `lookup` or password in values. **Before the
+  first sync**, the Argo CD Application must ignore the exact Secret's `/data`
+  and set `RespectIgnoreDifferences=true` to preserve the whole tuple, including
+  the username; all data drift and later username edits are ignored. Direct
+  Helm upgrades and Secret deletion/pruning/recreation rotate credentials;
+  stable credentials without that Argo CD configuration are unsupported.
+  Manual rotation requires planned-outage recreation of the whole tuple, not
+  force/replace syncing. All paths, including health endpoints, are protected;
+  other routes are not, and overlapping routes can bypass protection. HTTPS
+  must be platform-configured: the chart guarantees neither a listener nor TLS.
+  Passwords remain plaintext-readable in Secrets and render/repo-server caches
+  (base64 is not encryption). See the
+  [dev example and Application settings](README.md#protecting-an-httproute-with-envoy-basic-auth).
 
 ### Tests
 

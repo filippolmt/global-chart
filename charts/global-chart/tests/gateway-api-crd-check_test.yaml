@@ -2,9 +2,36 @@ suite: Gateway API CRD presence check
 templates:
   - templates/httproute.yaml
   - templates/l4routes.yaml
+  - templates/securitypolicy.yaml
 # Deliberately declares NO capabilities, like keda-crd-check_test.yaml: a
 # per-test `capabilities.apiVersions: []` does not clear a suite-level list.
 tests:
+  - it: rejects Basic Auth when Envoy SecurityPolicy is unavailable
+    template: templates/securitypolicy.yaml
+    set:
+      httpRoute:
+        enabled: true
+        basicAuth: {enabled: true}
+        parentRefs: [{name: gw}]
+        rules: [{backendRefs: [{service: {name: web, port: 80}}]}]
+    asserts:
+      - failedTemplate:
+          errorPattern: 'httpRoute\.basicAuth: needs the CRD gateway\.envoyproxy\.io/v1alpha1/SecurityPolicy'
+
+  - it: does not require Envoy for an unauthenticated route
+    template: templates/securitypolicy.yaml
+    capabilities:
+      apiVersions:
+        - gateway.networking.k8s.io/v1/HTTPRoute
+    set:
+      httpRoute:
+        enabled: true
+        parentRefs: [{name: gw}]
+        rules: [{backendRefs: [{service: {name: web, port: 80}}]}]
+    asserts:
+      - hasDocuments:
+          count: 0
+
   - it: should fail a TCPRoute when the cluster does not serve gateway.networking.k8s.io/v1 TCPRoute
     template: templates/l4routes.yaml
     set:

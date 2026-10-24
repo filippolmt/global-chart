@@ -111,11 +111,36 @@ An object the chart cannot render belongs in another chart or in the
 application's own manifests. Do not move a rejected block somewhere else that
 accepts it, and keep `--skip-schema-validation` out of the application's CI.
 
+**Envoy Basic Auth is per HTTPRoute, with credentials preserved by Argo CD.**
+`httpRoute.basicAuth` defaults to `{enabled: false, username: admin}`; each
+`httpRoutes.<key>` accepts the same optional block. Enabling it creates a
+SecurityPolicy named exactly like the route, targeting only that HTTPRoute,
+and an Opaque Secret named `<routeName>-basic-auth`, never truncated.
+Before the first sync, the Application must set `ignoreDifferences` for that
+exact Secret's group (`''`), kind, name and namespace with `jsonPointers: [/data]`,
+**and** `syncPolicy.syncOptions: [RespectIgnoreDifferences=true]`. Preserve the
+whole `username`, `password`, `.htpasswd` tuple: the password is random on every
+render, and later username edits in values are ignored along with all `/data`
+drift. No Job, ExternalSecret or `lookup` retains it; direct Helm upgrades
+rotate it, and stable credentials without this Argo CD configuration are
+unsupported. Deletion/pruning/recreation rotates too; plan an outage to recreate
+and regenerate the whole tuple atomically, not a force/replace sync or edits to
+individual keys. There is no password value to set.
+
+The platform must supply HTTPS; selecting a listener does not guarantee TLS or
+that the listener exists. Every path, including health endpoints, is protected
+on this route only. Other routes, even overlapping hostname/path routes to the
+same backend, can bypass it. The password is plaintext-readable in the Secret
+and render/repo-server caches; base64 is not encryption. See the
+[root README's dev example and Application settings](../../README.md#protecting-an-httproute-with-envoy-basic-auth)
+before enabling it.
+
 **Offline renders of a CRD.** KEDA and Gateway API routes are checked against
 the cluster's API versions: `helm template` needs `--api-versions
 keda.sh/v1alpha1`, `--api-versions gateway.networking.k8s.io/v1/HTTPRoute`
-(or `TCPRoute`, `UDPRoute`). The fail message names the flag. ExternalSecrets
-need none.
+(or `TCPRoute`, `UDPRoute`). Envoy Basic Auth also needs `--api-versions
+gateway.envoyproxy.io/v1alpha1/SecurityPolicy`. The fail message names the flag.
+ExternalSecrets need none.
 
 ## Reading a failure
 

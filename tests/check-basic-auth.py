@@ -1,0 +1,92 @@
+#!/usr/bin/env python3
+"""Verify rendered random credentials against the standard htpasswd SHA format.
+
+No YAML dependency: extract only the three base64-encoded Secret data fields
+whose format the rendering suite asserts. Never print generated credentials.
+Run by make unit-test alongside helm-unittest, with the Makefile's
+HELM_API_VERSIONS as the helm flags.
+
+Usage: check-basic-auth.py [helm template flags...]
+"""
+import base64
+import hashlib
+import pathlib
+import re
+import subprocess
+import sys
+
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+
+
+def check(flags):
+    passwords = set()
+    for _ in range(8):
+        result = subprocess.run(
+            ["helm", "template", "auth-check", str(ROOT / "charts/global-chart"),
+             "-f", str(ROOT / "tests/httproute-basic-auth.yaml"),
+             *flags, "--show-only", "templates/securitypolicy.yaml"],
+            capture_output=True, text=True,
+        )
+        if result.returncode:
+            return "helm template could not render the Basic Auth scenario (check it with make render)"
+        secrets = []
+        for doc in result.stdout.split("\n---"):
+            if "\nkind: Secret\n" not in doc:
+                continue
+            fields = dict(re.findall(r'^  (username|password|\.htpasswd): "([A-Za-z0-9+/=]+)"$', doc, re.M))
+            if len(fields) != 3:
+                return "generated Secret must contain username, password and .htpasswd as base64 data"
+            try:
+                data = {k: base64.b64decode(v, validate=True).decode("ascii") for k, v in fields.items()}
+            except (ValueError, UnicodeError):
+                return "generated credentials are not valid base64-encoded ASCII"
+            if not re.fullmatch(r"[A-Za-z0-9]{32}", data["password"]):
+                return "random password must contain 32 alphanumeric characters"
+            digest = base64.b64encode(hashlib.sha1(data["password"].encode("ascii")).digest()).decode("ascii")
+            if data[".htpasswd"] != data["username"] + ":{SHA}" + digest:
+                return "htpasswd hash does not authenticate the stored password"
+            if data["password"] in passwords:
+                return "separate routes or renders reused a random password"
+            passwords.add(data["password"])
+            secrets.append(data["username"])
+        if secrets != ["dev", "admin"]:
+            return "expected independent credentials for the single route and the named route"
+    return None
+
+
+def self_test():
+    from unittest.mock import patch
+
+    def secret(username, password, digest):
+        fields = {"username": username, "password": password,
+                  ".htpasswd": username + ":{SHA}" + digest}
+        return "\n---\nkind: Secret\ndata:\n" + "".join(
+            f'  {k}: "{base64.b64encode(v.encode()).decode()}"\n' for k, v in fields.items())
+
+    # Known SHA-1/base64 vectors for 32 'a' and 32 'b' characters.
+    first = secret("dev", "a" * 32, "aPhKWaPKLQ5csWRvuxZNpAm12PI=")
+    second = secret("admin", "b" * 32, "FC4nym0XmXBQf0B24qyW/sWDT4I=")
+    cases = [
+        (first + second, "separate routes or renders reused a random password"),
+        (first + secret("admin", "a" * 32, "aPhKWaPKLQ5csWRvuxZNpAm12PI="),
+         "separate routes or renders reused a random password"),
+        (first + secret("admin", "b" * 32, "wrong"),
+         "htpasswd hash does not authenticate the stored password"),
+        (first.replace('password: "', 'password: "!') + second,
+         "generated Secret must contain username, password and .htpasswd as base64 data"),
+    ]
+    for output, expected in cases:
+        with patch("subprocess.run", return_value=subprocess.CompletedProcess([], 0, stdout=output)):
+            assert check([]) == expected
+
+
+if __name__ == "__main__":
+    self_test()
+    try:
+        problem = check(sys.argv[1:])
+    except OSError as exc:
+        problem = f"could not execute helm: {exc}"
+    if problem:
+        print(f"    FAIL: Basic Auth: {problem}")
+        sys.exit(1)
+    print("    OK: random credentials authenticate against the rendered htpasswd hash")

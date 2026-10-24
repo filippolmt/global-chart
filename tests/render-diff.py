@@ -41,6 +41,10 @@ MASKS = (
     (re.compile(r'(\btimestamp: )"\d{14}"'), r'\1"<now>"'),
     (re.compile(r"(helm\.sh/chart: \S+?-)\d+\.\d+\.\d+\S*"), r"\1<version>"),
 )
+# The Basic Auth password and its hash are random on every render (ADR 0024):
+# masked in securitypolicy.yaml only, so a Secret of the values keeps its diff
+RANDOM_SOURCE = "# Source: global-chart/templates/securitypolicy.yaml"
+RANDOM = re.compile(r'^(  (?:password|\.htpasswd): )"[A-Za-z0-9+/=]+"$')
 QUOTED = re.compile(r'^(\s*(?:- )?[\w./-]+: )"([A-Za-z/][-A-Za-z0-9./_]*)"$')
 # YAML 1.1 words a plain scalar resolves to a bool or a null; a leading digit,
 # sign or dot is excluded by QUOTED itself (a number, "1e3", a timestamp)
@@ -64,6 +68,8 @@ def self_test():
         assert unquote(line) == want, f"unquote({line!r}) = {unquote(line)!r}, want {want!r}"
     for line in kept:
         assert unquote(line) == line, f"unquote({line!r}) changed it"
+    assert RANDOM.sub(r'\1"<random>"', '  password: "YWJj"') == '  password: "<random>"'
+    assert RANDOM.sub(r'\1"<random>"', '  username: "YWJj"') == '  username: "YWJj"'
     print("    OK: self-test")
 
 
@@ -97,10 +103,13 @@ def pairs(head, old):
 def render(cwd, values, namespace, flags, ignore_quotes=False):
     run = subprocess.run(["helm", "template", "render-diff", f"./{CHART}", "-f", values,
                           "--namespace", namespace, *flags], cwd=cwd, capture_output=True, text=True)
-    lines = []
+    lines, source = [], ""
     for line in (run.stdout + run.stderr).splitlines():
         if line.startswith("# Source:"):
+            source = line
             continue
+        if source == RANDOM_SOURCE:
+            line = RANDOM.sub(r'\1"<random>"', line)
         for pattern, repl in MASKS:
             line = pattern.sub(repl, line)
         lines.append(unquote(line) if ignore_quotes else line)

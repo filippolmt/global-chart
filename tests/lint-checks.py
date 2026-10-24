@@ -37,7 +37,7 @@ PROBES = {
     "tests/tools/schema-describe.py": [MISSING, MISSING],
 }
 NO_INPUT = {"tests/lint-docs.py", "tests/lint-shell.py", "tests/lint-glossary.py", "tests/lint-labels.py",
-            "tests/lint-checks.py", "tests/bad-values/check-closure-coverage.py"}
+            "tests/lint-checks.py", "tests/check-basic-auth.py", "tests/bad-values/check-closure-coverage.py"}
 
 
 def ci_problems(makefile, ci):

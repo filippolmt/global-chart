@@ -63,6 +63,7 @@ SUBDOMAIN_253 = ".".join(["a" * 63, "b" * 63, "c" * 63, "d" * 61])
 
 # Candidates per schema location (a JSON pointer) carrying a pattern or a maxLength
 CANDIDATES = {
+    "/$defs/httpRouteBasicAuth/properties/username": None,  # htpasswd input, not an API server constraint
     "/$defs/global/properties/imageRegistry": IMAGE,
     "/$defs/image/oneOf/1": IMAGE,
     "/$defs/imageMap/properties/repository": IMAGE,
