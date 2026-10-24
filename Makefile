@@ -51,7 +51,7 @@ HELM_REPO_ENV := HELM_REPOSITORY_CONFIG=$(KIND_BIN_DIR)/helm-repositories.yaml \
 # External Secrets Operator + CRDs, so a hook reading an ExternalSecret's Secret
 # is exercised for real (issue #110, ADR 0007): the store is ESO's fake provider.
 # renovate: datasource=helm depName=external-secrets registryUrl=https://charts.external-secrets.io
-ESO_VERSION := 2.13.0
+ESO_VERSION := 2.14.0
 ESO_REPO_URL := https://charts.external-secrets.io
 ESO_NAMESPACE := external-secrets
 # Gateway API CRDs (standard channel, no controller), so the routes the chart
@@ -75,7 +75,7 @@ GATEWAY_ROUTE_KIND_RE := ^kind: ($(subst $(subst ,, ),|,$(GATEWAY_ROUTE_KINDS)))
 # copies under a real sync, where pre-install runs on every sync and a failed
 # operation marks every hook HookFailed (issues #149, #164).
 # renovate: datasource=github-releases depName=argoproj/argo-cd
-ARGOCD_VERSION := v3.5.5
+ARGOCD_VERSION := v3.5.6
 ARGOCD_NAMESPACE := argocd
 # Helm just below the floor the job schema closures need (issue #116): the
 # NOTES.txt warning must show on it. helm-unittest runs its own newer Helm and
