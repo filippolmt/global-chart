@@ -135,3 +135,21 @@ tests:
       - equal:
           path: metadata.labels.team
           value: web
+  - it: keeps the whole -basic-auth suffix on a route name cut at 63
+    set:
+      fullnameOverride: dev
+      httpRoutes:
+        aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:
+          basicAuth:
+            enabled: true
+          parentRefs: [{name: gw}]
+          rules: [{backendRefs: [{service: {name: web, port: 80}}]}]
+    asserts:
+      - equal:
+          path: metadata.name
+          value: dev-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-basic-auth
+        documentIndex: 0
+      - equal:
+          path: spec.basicAuth.users.name
+          value: dev-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-basic-auth
+        documentIndex: 1

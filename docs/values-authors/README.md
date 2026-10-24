@@ -115,7 +115,7 @@ accepts it, and keep `--skip-schema-validation` out of the application's CI.
 `httpRoute.basicAuth` defaults to `{enabled: false, username: admin}`; each
 `httpRoutes.<key>` accepts the same optional block. Enabling it creates a
 SecurityPolicy named exactly like the route, targeting only that HTTPRoute,
-and an Opaque Secret named `truncName(routeName + '-basic-auth', 63)`.
+and an Opaque Secret named `<routeName>-basic-auth`, never truncated.
 Before the first sync, the Application must set `ignoreDifferences` for that
 exact Secret's group (`''`), kind, name and namespace with `jsonPointers: [/data]`,
 **and** `syncPolicy.syncOptions: [RespectIgnoreDifferences=true]`. Preserve the

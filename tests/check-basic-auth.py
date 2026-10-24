@@ -3,7 +3,10 @@
 
 No YAML dependency: extract only the three base64-encoded Secret data fields
 whose format the rendering suite asserts. Never print generated credentials.
-Run by make unit-test alongside helm-unittest.
+Run by make unit-test alongside helm-unittest, with the Makefile's
+HELM_API_VERSIONS as the helm flags.
+
+Usage: check-basic-auth.py [helm template flags...]
 """
 import base64
 import hashlib
@@ -15,15 +18,13 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 
 
-def check():
+def check(flags):
     passwords = set()
     for _ in range(8):
         result = subprocess.run(
             ["helm", "template", "auth-check", str(ROOT / "charts/global-chart"),
              "-f", str(ROOT / "tests/httproute-basic-auth.yaml"),
-             "--api-versions", "gateway.networking.k8s.io/v1/HTTPRoute",
-             "--api-versions", "gateway.envoyproxy.io/v1alpha1/SecurityPolicy",
-             "--show-only", "templates/securitypolicy.yaml"],
+             *flags, "--show-only", "templates/securitypolicy.yaml"],
             capture_output=True, text=True,
         )
         if result.returncode:
@@ -76,13 +77,13 @@ def self_test():
     ]
     for output, expected in cases:
         with patch("subprocess.run", return_value=subprocess.CompletedProcess([], 0, stdout=output)):
-            assert check() == expected
+            assert check([]) == expected
 
 
 if __name__ == "__main__":
     self_test()
     try:
-        problem = check()
+        problem = check(sys.argv[1:])
     except OSError as exc:
         problem = f"could not execute helm: {exc}"
     if problem:

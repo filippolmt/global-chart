@@ -9,11 +9,8 @@
 {{- $ctx := printf "%s.basicAuth" .errCtx -}}
 {{- include "global-chart.requireCrd" (dict "root" $root "apiVersion" "gateway.envoyproxy.io/v1alpha1/SecurityPolicy" "install" "Install Envoy Gateway's SecurityPolicy CRD" "errCtx" $ctx) -}}
 {{- $username := ternary $auth.username "admin" (eq (include "global-chart.isSet" (list $auth "username")) "true") -}}
-{{- if not (kindIs "string" $username) -}}
-  {{- fail (printf "%s.username: must be a string containing only letters, digits, underscores and hyphens." $ctx) -}}
-{{- end -}}
-{{- if not (regexMatch "^[a-zA-Z0-9_-]+$" $username) -}}
-  {{- fail (printf "%s.username: must contain only letters, digits, underscores and hyphens and must not be empty." $ctx) -}}
+{{- if not (and (kindIs "string" $username) (regexMatch "^[a-zA-Z0-9_-]+$" $username)) -}}
+  {{- fail (printf "%s.username: must be a non-empty string of letters, digits, underscores and hyphens." $ctx) -}}
 {{- end -}}
 {{- $secretName := include "global-chart.httpRouteBasicAuthSecretName" .name -}}
 {{- $password := randAlphaNum 32 }}

@@ -14,7 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   on each `httpRoutes` entry. Each enabled route gets a
   `gateway.envoyproxy.io/v1alpha1` SecurityPolicy named exactly like the route,
   targeting only that HTTPRoute, and an Opaque Secret named
-  `truncName(routeName + '-basic-auth', 63)`. The Secret holds `username`, a
+  `<routeName>-basic-auth`, never truncated. The Secret holds `username`, a
   random 32-character alphanumeric `password`, and `.htpasswd` in
   `user:{SHA}base64(SHA1(password))` format. Credentials are random per render,
   with no Job, ExternalSecret, `lookup` or password in values. **Before the

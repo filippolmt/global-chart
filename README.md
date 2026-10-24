@@ -414,9 +414,8 @@ httpRoutes:
 `httpRoutes.<key>` entry accepts the same optional block, independently.
 Enabling it creates an Envoy `gateway.envoyproxy.io/v1alpha1` SecurityPolicy
 named exactly like the route, targeting only that HTTPRoute, and an `Opaque`
-Secret in the route's namespace. The Secret name is
-`truncName(routeName + '-basic-auth', 63)`; use that actual name in Argo CD,
-including truncation for long route names. There is no Gateway-wide policy.
+Secret in the route's namespace named `<routeName>-basic-auth`, never
+truncated; use that name in Argo CD. There is no Gateway-wide policy.
 
 For a dev route to an existing Service `web` on port 80:
 
@@ -642,6 +641,7 @@ The `tests/` directory is the list — `TEST_CASES` in the `Makefile` is what
 | `ingress-custom.yaml`            | Ingress with workload reference                                                           |
 | `external-ingress.yaml`          | Ingress pointing to external service                                                      |
 | `httproute-basic.yaml`           | Gateway API HTTPRoute, plain backend                                                      |
+| `httproute-basic-auth.yaml`      | Envoy Basic Auth on `httpRoute` and on an `httpRoutes` entry                              |
 | `httproute-canary.yaml`          | HTTPRoute with weighted backends                                                          |
 | `httproute-filters.yaml`         | HTTPRoute rule filters                                                                    |
 | `httproutes.yaml`                | `httpRoutes` entries next to `httpRoute`, a redirect-only route                           |

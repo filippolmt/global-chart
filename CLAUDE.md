@@ -16,7 +16,7 @@ make lint-docs              # every file a document or a comment points at exist
 make lint-shell             # a value piped onward goes through printf, not echo
 make lint-glossary          # no phrase GLOSSARY.md avoids with one reading only (`tests/lint-glossary.py` lists them)
 make lint-inheritance       # the schema and docs/values-authors/ state what a job inherits as the jobPodSpec header lists it
-make unit-test              # helm-unittest suites via Docker; SUITE=tests/hpa_test.yaml runs one
+make unit-test              # helm-unittest suites via Docker, then check-basic-auth.py (local helm); SUITE=tests/hpa_test.yaml runs one suite
 make lint-labels            # the triage labels of docs/agents/triage-labels.md exist on GitHub (needs gh)
 make scenario-coverage      # every map or list node of the schema set by a scenario, every type a node accepts used by one
 make schema-descriptions    # every schema property carries a description
@@ -98,6 +98,7 @@ is the source of truth, this table is only the routing.
 | `_hook-helpers.tpl` | The `helm.sh/hook*` annotations from the role table, the phase cut `hookReadsPrereqCopy`, the hook-copy consumer scans |
 | `_render-helpers.tpl` | `workloadKind` / `isStatefulSet`, `replicaFloor`, `podVolumeNames`, `printScalar`, `isSet`, null checks (`rejectNull`, `rejectNullItems`, `isNamedEntry`), render blocks, ports, `resolveBackend`, `podSpecOwners`, route lists |
 | `_keda-helpers.tpl` | KEDA names, trigger and `authenticationRef` resolution |
+| `_basicauth-helpers.tpl` | Envoy Basic Auth on an HTTPRoute: the `{SHA}` htpasswd hash; random credentials kept by Argo CD (ADR 0024) |
 | `_validate-helpers.tpl` | Values paths, the `fail` shape, `validateRemovedKeys` (every key removed in 4.0.0, ADR 0023), `validateValueTypes` / `valuesShape` (the kind of every map and list a template reads), cross-resource validators, `validateStatefulSets`, `validatePdbEvictions`, `validateNullItems` / `rejectNullInLists`, `hpaActiveTargets`, `requireCrd` / `requireGatewayApiCrd` |
 
 ### Invariants
@@ -153,7 +154,7 @@ Read the pointer before changing the domain it names.
 
 ### Resource Naming Limits
 
-Kubernetes caps a name at 63 characters, so most resources truncate there. Four
+Kubernetes caps a name at 63 characters, so most resources truncate there. Five
 exceptions, each owned by a name helper in `_helpers.tpl` (the StatefulSet's by
 `validateStatefulSets`):
 
@@ -163,6 +164,7 @@ exceptions, each owned by a name helper in `_helpers.tpl` (the StatefulSet's by
 | StatefulSets | 52, a render `fail` in `validateStatefulSets`, not a truncation: each pod's `controller-revision-hash` label is `<name>-<hash>`, the hash up to 10 chars. Truncating would split the StatefulSet's name from its Service and HPA |
 | `mountedConfigFiles` `name` | 52, DNS-1123 label, enforced by `values.schema.json` — it feeds the pod volume name, and a volume name is a DNS-1123 *label* |
 | Mounted config file ConfigMap | Not truncated at all: a ConfigMap name is a DNS *subdomain*, so it has room the volume does not. Truncating would manufacture the collision `validateNameCollisions` exists to catch |
+| Basic Auth Secret | Not truncated, for the same reason: `<route name>-basic-auth`, a DNS subdomain, on a route name of at most 63 |
 
 ## Coding standards
 

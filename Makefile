@@ -242,12 +242,12 @@ lint-labels: ## Every triage label docs/agents/triage-labels.md names exists on 
 	@echo "==> Checking triage labels..."
 	@python3 tests/lint-labels.py
 
-unit-test: ## Run helm-unittest via Docker and verify random Basic Auth credentials;  SUITE=tests/<name>_test.yaml (space-separated, relative to the chart) runs only those suites
+unit-test: ## Run helm-unittest via Docker and verify random Basic Auth credentials; SUITE=tests/<name>_test.yaml (space-separated, relative to the chart) runs only those suites
 	@echo "==> Running helm unit tests..."
 	@# helm-unittest runs 0 suites and passes on a SUITE path that names no file
 	@for f in $(SUITE); do [ -f "$(CHART_DIR)/$(GLOBAL_CHART_NAME)/$$f" ] || { echo "    FAIL: SUITE=$$f names no file under $(CHART_DIR)/$(GLOBAL_CHART_NAME)/ (the path is relative to the chart: tests/<name>_test.yaml)"; exit 1; }; done
 	@docker run --rm -u $$(id -u):$$(id -g) -v $(CURDIR)/$(CHART_DIR)/$(GLOBAL_CHART_NAME):/apps -w /apps $(HELM_UNITTEST_IMAGE) $(foreach f,$(SUITE),-f $(f)) .
-	@python3 tests/check-basic-auth.py
+	@python3 tests/check-basic-auth.py $(HELM_API_VERSIONS)
 	@echo "==> All unit tests passed!"
 
 render-diff: ## Render every TEST_CASES scenario on BASE (default main) and on the working tree, and diff them; BASE=<ref> picks the base, QUOTES=ignore reads "x" as x where x stays a string

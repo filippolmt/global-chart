@@ -1,4 +1,4 @@
-# Expected fail substring: "httpRoute.basicAuth.username: must be a string containing only letters, digits, underscores and hyphens."
+# Expected fail substring: "httpRoute.basicAuth.username: must be a non-empty string of letters, digits, underscores and hyphens."
 httpRoute:
   enabled: true
   basicAuth:

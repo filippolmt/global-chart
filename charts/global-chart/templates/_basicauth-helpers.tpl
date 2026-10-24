@@ -1,4 +1,11 @@
 {{/*
+Envoy Gateway Basic Auth on an HTTPRoute (securitypolicy.yaml). Rules:
+- the password is random on every render; Argo CD keeps the Secret's whole
+  /data, so a hash never outlives its password (ADR 0024)
+- the Secret's name comes from httpRouteBasicAuthSecretName in _helpers.tpl and
+  meets the other Secrets in validateNameCollisions
+- the SecurityPolicy takes the route's own name and targets only that route
+
 Envoy Basic Auth uses htpasswd's {SHA} format, not Sprig htpasswd's bcrypt.
 SHA-1 here is an upstream compatibility requirement, not a password-storage
 recommendation: use only with HTTPS and a cryptographically random password.
