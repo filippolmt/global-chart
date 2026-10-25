@@ -11,7 +11,6 @@ cronJobs.*.externalSecrets: never set
 cronJobs.*.hostAliases: never set
 cronJobs.*.image: never map
 cronJobs.*.imagePullSecrets: never set
-cronJobs.*.initContainers: never set
 cronJobs.*.parallelism: never set
 cronJobs.*.podSecurityContext: never set
 cronJobs.*.priorityClassName: never set
@@ -83,7 +82,6 @@ workloads.*.cronJobs.*.envFromSecrets: never set
 workloads.*.cronJobs.*.hostAliases: never set
 workloads.*.cronJobs.*.image: never set
 workloads.*.cronJobs.*.imagePullSecrets: never set
-workloads.*.cronJobs.*.initContainers: never set
 workloads.*.cronJobs.*.nodeSelector: never set
 workloads.*.cronJobs.*.parallelism: never set
 workloads.*.cronJobs.*.podSecurityContext: never set
@@ -100,7 +98,6 @@ workloads.*.cronJobs.*.startingDeadlineSeconds: never set
 workloads.*.cronJobs.*.tolerations: never set
 workloads.*.cronJobs.*.ttlSecondsAfterFinished: never set
 workloads.*.cronJobs.*.volumeMounts: never set
-workloads.*.cronJobs.*.volumes: never set
 workloads.*.dnsConfig.options[].value: never number
 workloads.*.extraContainers[].env: never set
 workloads.*.extraInitContainers[].env: never set
@@ -124,7 +121,6 @@ workloads.*.hooks.*.*.serviceAccount: never set
 workloads.*.hooks.*.*.serviceAccountAnnotations: never set
 workloads.*.hooks.*.*.tolerations: never set
 workloads.*.hooks.*.*.volumeMounts: never set
-workloads.*.hooks.*.*.volumes: never set
 workloads.*.hostAliases[]: never set
 workloads.*.keda.advanced.scalingModifiers: never set
 workloads.*.keda.idleReplicaCount: never set

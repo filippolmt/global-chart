@@ -25,6 +25,10 @@ A hook-annotated duplicate of a resource that a hook's Job must find already in 
 A copy never carries the real resource's name: it exists in every phase where the real resource might be missing, and in at least one of those phases the real resource is already there. A tool that reruns the hooks on every sync would overwrite it and then delete it. The price is the identity bound to the name: a Job that runs as the copy of a release-created ServiceAccount does not inherit its external identity.
 _Avoid_: temporary copy, shadow resource, support resource
 
+**Copy-reading hook**:
+A hook whose phase can run while the release's normal resources are missing, so it reads the hook prerequisite copies instead of the originals: every `pre-*` phase but `pre-delete`, and `post-delete`. Every other hook reads the originals. What a values author writes verbatim in a hook, such as an init container naming a Secret, is not rewritten and reads the original.
+_Avoid_: pre-* hook (`pre-delete` reads the originals, and `post-delete` the copies)
+
 **Release-created ServiceAccount**:
 A ServiceAccount that the chart itself creates, for a workload or for a role entry, as opposed to one the chart merely binds because it already exists outside the release. The distinction decides whether a hook that must find it before the normal resources runs as the copy or as the original: a release-created ServiceAccount is copied, an external one is used as is. Who creates it does not change the answer: the same question has one answer for every hook, in both scopes.
 _Avoid_: managed SA, chart SA, internal SA

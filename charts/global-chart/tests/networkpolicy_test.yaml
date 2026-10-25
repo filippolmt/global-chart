@@ -205,3 +205,21 @@ tests:
     asserts:
       - hasDocuments:
           count: 2
+
+  # A rule that holds for every kind is tested on every kind (CODING_STANDARDS.md)
+  - it: should select a StatefulSet workload's pods by their component label
+    set:
+      workloads:
+        db:
+          kind: StatefulSet
+          image: nginx:1.25
+          networkPolicy:
+            enabled: true
+            policyTypes: [Ingress]
+    asserts:
+      - equal:
+          path: spec.podSelector.matchLabels
+          value:
+            app.kubernetes.io/name: global-chart
+            app.kubernetes.io/instance: RELEASE-NAME
+            app.kubernetes.io/component: db

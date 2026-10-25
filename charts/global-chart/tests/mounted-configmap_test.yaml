@@ -254,3 +254,21 @@ tests:
     asserts:
       - failedTemplate:
           errorMessage: "workloads.main.mountedConfigFiles.files[0].content: required"
+
+  # A rule that holds for every kind is tested on every kind (CODING_STANDARDS.md)
+  - it: should render the mounted config file ConfigMap of a StatefulSet workload
+    set:
+      workloads:
+        db:
+          kind: StatefulSet
+          image: nginx:1.25
+          mountedConfigFiles:
+            files:
+              - name: conf
+                filename: app.conf
+                targetPath: /etc/app.conf
+                content: x
+    asserts:
+      - equal:
+          path: metadata.name
+          value: RELEASE-NAME-global-chart-db-md-cm-conf

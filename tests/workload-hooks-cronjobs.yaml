@@ -89,6 +89,25 @@ workloads:
           env:
             - name: MIGRATION_DRY_RUN
               value: "false"
+          # A native sidecar: the hook's own, never the workload's extraInitContainers
+          initContainers:
+            - name: db-proxy
+              image: busybox:1.36
+              restartPolicy: Always
+              command: ["sleep", "infinity"]
+              env:
+                - name: PROXY_PORT
+                  value: "5432"
+                - name: POD_NAME
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.name
+              volumeMounts:
+                - name: proxy-socket
+                  mountPath: /cloudsql
+          volumes:
+            - name: proxy-socket
+              emptyDir: {}
 
       post-upgrade:
         warm-cache:
@@ -107,6 +126,24 @@ workloads:
         args: ["--full"]
         successfulJobsHistoryLimit: 3
         failedJobsHistoryLimit: 1
+        # The cronjob's own: never the workload's extraInitContainers
+        initContainers:
+          - name: wait-for-db
+            image: busybox:1.36
+            command: ["sh", "-c", "until nc -z $DB_HOST 5432; do sleep 2; done"]
+            env:
+              - name: DB_HOST
+                value: postgres.db.svc
+              - name: POD_NAME
+                valueFrom:
+                  fieldRef:
+                    fieldPath: metadata.name
+            volumeMounts:
+              - name: backup-scratch
+                mountPath: /scratch
+        volumes:
+          - name: backup-scratch
+            emptyDir: {}
 
       cleanup:
         schedule: "0 4 * * *"
@@ -164,6 +201,25 @@ hooks:
       command: ["curl", "-X", "POST"]
       args: ["-d", '{"text":"Deployment complete"}', "https://hooks.slack.com/xxx"]
       weight: "100"
+      # A native sidecar: the Job completes when the main container exits (issue #262)
+      initContainers:
+        - name: log-shipper
+          image: busybox:1.36
+          restartPolicy: Always
+          command: ["sleep", "infinity"]
+          env:
+            - name: SHIP_TO
+              value: https://logs.example.com
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          volumeMounts:
+            - name: logs
+              mountPath: /var/log/notify
+      volumes:
+        - name: logs
+          emptyDir: {}
 
 # Root-level cronJobs (standalone, must specify image or fromWorkload)
 cronJobs:
@@ -172,3 +228,20 @@ cronJobs:
     image: myapp/reports:latest
     command: ["generate-report"]
     args: ["--weekly"]
+    initContainers:
+      - name: fetch-templates
+        image: busybox:1.36
+        command: ["sh", "-c", "echo fetching from $TEMPLATES_URL"]
+        env:
+          - name: TEMPLATES_URL
+            value: https://templates.example.com
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+        volumeMounts:
+          - name: templates
+            mountPath: /templates
+    volumes:
+      - name: templates
+        emptyDir: {}
