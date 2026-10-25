@@ -238,7 +238,7 @@ schema-bounds: ## Every schema integer has a maximum within 2^53-1, every digit-
 	@python3 tests/check-schema-bounds.py --self-test
 	@python3 tests/check-schema-bounds.py ./$(CHART_DIR)/$(GLOBAL_CHART_NAME)/values.schema.json
 
-lint-release: ## Chart.yaml's version is the CHANGELOG's last release, or the release its top section names
+lint-release: ## Chart.yaml's version is the CHANGELOG's last release, or the release its top section names; a new template fail has its Breaking entry
 	@echo "==> Checking Chart.yaml against the CHANGELOG..."
 	@python3 tests/check-release.py --self-test
 	@python3 tests/check-release.py CHANGELOG.md ./$(CHART_DIR)/$(GLOBAL_CHART_NAME)/Chart.yaml
