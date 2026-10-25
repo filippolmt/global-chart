@@ -129,6 +129,9 @@ holds the shell side: a value piped onward goes through `printf '%s\n'`.
 
 ## Judgement rules
 
+**Review workflow.** Use `code-review:code-review` for code reviews, with
+separate Standards and Spec assessments.
+
 **A review accounts for each behavioural requirement.** For each requirement
 in the issue and agreed decisions, the reviewer identifies the test or other
 concrete evidence that proves it, or reports it as unverified. A passing suite
