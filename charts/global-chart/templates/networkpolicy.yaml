@@ -7,6 +7,7 @@
 {{- $depFullname := include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $name) }}
 {{- $errCtx := include "global-chart.deploymentValuesPath" $name }}
 {{- $labelCtx := dict "root" $root "deploymentName" $name }}
+{{- include "global-chart.validateNetworkPolicyPorts" (dict "np" $np "errCtx" $errCtx) }}
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy

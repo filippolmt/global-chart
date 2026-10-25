@@ -16,6 +16,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   fields may now report an earlier scalar validation error before its image
   error.
 
+### Fixed
+
+- **NetworkPolicy `endPort`** (issue #271): an `ingress` or `egress` port
+  whose `endPort` is below its `port`, set with a named `port`, or set with no
+  `port` now fails at render, naming the values path. The schema accepted all
+  three and the API server refused the NetworkPolicy at apply. A valid range
+  renders unchanged.
+
 ### Tests
 
 - Guardrails from the #265 retro: `make lint-templates` gains
