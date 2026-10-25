@@ -21,7 +21,7 @@ make lint-labels            # the triage labels of docs/agents/triage-labels.md 
 make scenario-coverage      # every map or list node of the schema set by a scenario, every type a node accepts used by one
 make schema-descriptions    # every schema property carries a description
 make schema-bounds          # every schema integer has a maximum within 2^53-1, every digit string a digit count
-make lint-release           # Chart.yaml's version is the CHANGELOG's last release, or the one its top section names; a new template fail has its Breaking entry
+make lint-release           # Chart.yaml's version is the CHANGELOG's last release, or the one its top section names
 make release VERSION=4.1.0  # the release PR's edit: [Unreleased] renamed, Chart.yaml bumped, README regenerated
 make null-sweep             # null every values node of every scenario, then give each map and list the wrong type: each must render or fail naming its path
 make generate-docs          # regenerate the helm-docs README
@@ -51,9 +51,7 @@ The Makefile carries the rest. Three rules about when to run what:
   template reads → also `make null-sweep`; a bound (`minimum`, `maximum`,
   `pattern`, `maxLength`), a new integer field, or a scenario value on a node
   `make scenario-coverage` counts as bounded → also `make bound-sweep`, whose
-  `CANDIDATES` table takes every new `pattern` and `maxLength`. A cluster
-  target starts a stopped kind cluster itself: run the target, then read its
-  output.
+  `CANDIDATES` table takes every new `pattern` and `maxLength`.
 - Schema or user-visible values changed (new fields, defaults, descriptions) →
   also `make generate-docs`, to refresh `charts/global-chart/README.md`.
 - Runtime behaviour touched — `hook.yaml`, hook weights, delete policies,
@@ -63,7 +61,9 @@ The Makefile carries the rest. Three rules about when to run what:
 - Any `kubectl` or `helm` call against a cluster → `--kubeconfig
   .bin/kind-kubeconfig`: the default context can be production, and the hook
   `.claude/hooks/kind-kubeconfig-only.py` blocks a call that does not name it.
-  How to probe the e2e cluster by hand: `tests/e2e/README.md`.
+  A cluster target starts a stopped kind cluster itself: run the target
+  instead of probing the cluster with `kubectl`. How to probe the e2e cluster
+  by hand: `tests/e2e/README.md`.
 
 Offline renders: `.Capabilities.APIVersions` carries CRDs only during a real
 install, so `helm template` of a KEDA or Gateway API scenario needs the

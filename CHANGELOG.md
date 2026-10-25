@@ -45,11 +45,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   found the NetworkPolicy `endPort` above (issue #271).
 - Guardrails from the #266/#271 retro: `make lint-release` fails when the
   templates call `fail` more often than at the last release's tag and
-  `[Unreleased]` has no `**Breaking: …**` entry, or has one and no
-  *Migration guide from <last release>*; CI's lint job checks out the full
+  `[Unreleased]` has no `**Breaking: …**` entry, naming the new messages, or
+  has one and no *Migration guide from <last release>*; CI's lint job checks out the full
   history for it. CLAUDE.md runs `make bound-sweep` for a scenario value on
-  a bounded node too, and CODING_STANDARDS.md fixes a check that misreads a
-  correct change instead of routing around it.
+  a bounded node too, and CODING_STANDARDS.md has a check that misreads a
+  correct change fixed instead of routed around.
 
 ### Migration guide from 4.2.0
 
