@@ -508,7 +508,7 @@ kind-gateway-api: kind-cluster ## Install the Gateway API CRDs (standard channel
 kind-envoy-gateway: kind-cluster ## Install only the Envoy Gateway SecurityPolicy CRD into the e2e kind cluster (no controller)
 	@echo "==> Installing Envoy Gateway $(ENVOY_GATEWAY_VERSION) SecurityPolicy CRD..."
 	@kubectl --kubeconfig "$(KIND_KUBECONFIG)" apply --server-side --force-conflicts \
-		-f https://raw.githubusercontent.com/envoyproxy/gateway/$(ENVOY_GATEWAY_VERSION)/charts/gateway-helm/crds/generated/gateway.envoyproxy.io_securitypolicies.yaml >/dev/null
+		-f https://raw.githubusercontent.com/envoyproxy/gateway/$(ENVOY_GATEWAY_VERSION)/charts/gateway-helm/charts/crds/crds/generated/gateway.envoyproxy.io_securitypolicies.yaml >/dev/null
 	@kubectl --kubeconfig "$(KIND_KUBECONFIG)" wait --for=condition=Established \
 		crd/securitypolicies.gateway.envoyproxy.io --timeout=60s >/dev/null
 	@echo "    SecurityPolicy CRD established"
