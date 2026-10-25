@@ -1,7 +1,7 @@
 # endPort with a named port (issue #271): a range starts at a numeric port, and
 # the API server rejects the NetworkPolicy at apply.
 # Must be rejected by global-chart.validateNetworkPolicyPorts.
-# Expected fail substring: "workloads.app.networkPolicy.egress[0].ports[0].endPort: 8100 is set with the named port 'http'"
+# Expected fail substring: "workloads.app.networkPolicy.egress[0].ports[0].endPort: 8100 is set with the port 'http', a string"
 workloads:
   app:
     image: nginx:1.25

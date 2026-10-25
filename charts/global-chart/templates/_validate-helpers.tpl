@@ -1070,10 +1070,9 @@ endPort needs a numeric port, and may not be below it. The schema cannot
 compare two fields, so it accepts both, and the API server refused them only
 at apply. Ingress and egress rules alike; the rest of a rule renders verbatim.
 A rule or a port that is not a map is skipped: the schema rejects it, and
-toYaml renders it as written. A null port or endPort is unset, as isSet reads
-it; not isSet itself, which would hold the verbatim list to null-sweep's
-null-equals-removed rule, and a "port: null" line the API server drops reads
-there as a change.
+toYaml renders it as written. A string port is a name to the API server, a
+quoted number too; a string endPort is left to the API server, which refuses
+it as a type.
 Called from networkpolicy.yaml. Emits nothing on success.
 Usage: {{- include "global-chart.validateNetworkPolicyPorts" (dict "np" $np "errCtx" $errCtx) }}
 */}}
@@ -1084,13 +1083,14 @@ Usage: {{- include "global-chart.validateNetworkPolicyPorts" (dict "np" $np "err
   {{- range $r, $rule := (kindIs "slice" $rules | ternary $rules list) -}}
     {{- $ports := (kindIs "map" $rule | ternary $rule dict).ports -}}
     {{- range $i, $port := (kindIs "slice" $ports | ternary $ports list) -}}
-      {{- if not (kindIs "invalid" (kindIs "map" $port | ternary $port dict).endPort) -}}
+      {{- if eq (include "global-chart.isSet" (list $port "endPort")) "true" -}}
         {{- $path := printf "%s.networkPolicy.%s[%d].ports[%d]" $errCtx $direction $r $i -}}
         {{- $end := include "global-chart.printScalar" $port.endPort -}}
-        {{- if kindIs "invalid" $port.port -}}
+        {{- if ne (include "global-chart.isSet" (list $port "port")) "true" -}}
           {{- fail (printf "%s.endPort: %s is set without port, which the API server rejects: a range starts at a numeric port. Set port, or drop endPort." $path $end) -}}
         {{- else if kindIs "string" $port.port -}}
-          {{- fail (printf "%s.endPort: %s is set with the named port '%s', which the API server rejects: a range starts at a numeric port. Set port to a number, or drop endPort." $path $end $port.port) -}}
+          {{- fail (printf "%s.endPort: %s is set with the port '%s', a string, which the API server reads as a port name and rejects: a range starts at a numeric port. Set port to a number, or drop endPort." $path $end $port.port) -}}
+        {{- else if kindIs "string" $port.endPort -}}
         {{- else if lt (float64 $port.endPort) (float64 $port.port) -}}
           {{- fail (printf "%s.endPort: %s is below port %s, which the API server rejects: the range ends at or after its first port." $path $end (include "global-chart.printScalar" $port.port)) -}}
         {{- end -}}

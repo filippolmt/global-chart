@@ -15,14 +15,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   inherited-image diagnostics are preserved. A job with multiple invalid
   fields may now report an earlier scalar validation error before its image
   error.
-
-### Fixed
-
-- **NetworkPolicy `endPort`** (issue #271): an `ingress` or `egress` port
-  whose `endPort` is below its `port`, set with a named `port`, or set with no
-  `port` now fails at render, naming the values path. The schema accepted all
-  three and the API server refused the NetworkPolicy at apply. A valid range
-  renders unchanged.
+- **Breaking: a NetworkPolicy `endPort` the API server refuses fails the
+  render** (issue #271). An `ingress` or `egress` port whose `endPort` is
+  below its `port`, comes with a named `port`, or comes with no `port` now
+  fails naming its values path. The schema accepted all three, and the API
+  server refused the NetworkPolicy at apply, so no working release breaks. A
+  valid range renders unchanged. **Migration**: give the range a numeric
+  `port` at or below `endPort`, or drop `endPort`.
 
 ### Tests
 
@@ -32,6 +31,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   never asserted; `make render VALUES=<file> BASE=<ref>` renders one values
   file on a base ref and on the working tree and prints the diff, errors
   included, the proof of a moved fail order.
+- `make null-sweep` compares a null on a list item's first key with the item
+  as toYaml writes it without the key: the dash moves to the next key, or the
+  item is `- {}`. It dropped the whole line, dash included, so a null `port`
+  in a NetworkPolicy port list read as a change (issue #271).
+
+### Migration guide from 4.2.0
+
+- A NetworkPolicy port with an `endPort` below its `port`, a named `port`, or
+  no `port`: set a numeric `port` at or below `endPort`, or drop `endPort`.
+  Such a policy never applied, so only a render that used to pass and then
+  failed at apply changes.
 
 ## [4.2.0] — 2026-10-25
 
