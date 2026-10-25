@@ -101,9 +101,9 @@ once the sidecar stops on SIGTERM: one that ignores it holds the Job for its
 It needs Kubernetes 1.29 or later: on an older cluster the entry runs as a
 plain init container that never exits, and the hook hangs until its
 `activeDeadlineSeconds` or the Helm or Argo CD timeout. An init container is
-rendered as written: in a hook that reads copies (a `pre-*` other than
-`pre-delete`, or `post-delete`), one that names a release Secret reads that
-Secret, not its copy, and waits for it on the first install.
+rendered as written: in a *copy-reading hook* (`GLOSSARY.md`: a `pre-*` other
+than `pre-delete`, or `post-delete`), one that names a release Secret reads
+that Secret, not its copy, and waits for it on the first install.
 
 **`envFrom` order: the last source wins on a shared key.** A workload lists
 `configMap`, `envFromConfigMaps`, `secret`, `envFromSecrets`, then

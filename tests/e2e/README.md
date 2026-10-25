@@ -150,3 +150,11 @@ The project hook `.claude/hooks/kind-kubeconfig-only.py` blocks an agent's
 went to the default context in the #254 session). The target also repoints the API server at the control-plane
 container's address when it runs inside a container, where the kubeconfig's
 `127.0.0.1` is the Docker host rather than the caller.
+
+## When it fails
+
+A failed `make e2e` prints the namespace's Jobs and pods, its last events and
+the logs of every Job pod that did not succeed, then removes the namespace: a
+hook timeout reports only "Job in progress", and these name the cause (issue
+#262). `make e2e E2E_KEEP=1` leaves the namespace in place for a probe by hand;
+the next run clears it.

@@ -26,6 +26,11 @@ a rule below cannot recognise: a check that sees nothing is not a pass.
   (`notes_test.yaml` for NOTES.txt), and every file in `tests/` but
   `__snapshot__/` is a `*_test.yaml` suite: helm-unittest skips any other name
   without a word, so a misnamed suite (`pdb_tests.yaml`) never runs.
+- every-kind: a template that reads a `workloads` entry is rendered with
+  `kind: StatefulSet` by one suite case at least, as CODING_STANDARDS.md asks
+  of a rule that holds for every kind. The pattern sees the template, not the
+  rule: which of its paths hold for every kind stays the review's call. The
+  hooks and cronjobs of a StatefulSet went untested until issue #262.
 - kind-fields: the backstop guard's `$kindOnly` in workload.yaml lists, per
   kind, the fields the other kind rejects, and the `if/then/else` on `kind` of
   `$defs/deployment` rejects the same ones with `false` (ADR 0020). The two are
@@ -261,6 +266,25 @@ def errctx(chart):
     return out
 
 
+def every_kind(chart):
+    """Each template reading a `workloads` entry, with no suite case setting kind: StatefulSet."""
+    suites = {}
+    for path in (chart / "tests").glob("*_test.yaml"):
+        text = path.read_text()
+        listed = re.search(r"^templates:\n((?:\s+-\s+\S+\n)+)", text, re.M)
+        sts = re.search(r"^\s*kind:\s*[\"']?StatefulSet[\"']?\s*$", text, re.M) is not None
+        for t in re.findall(r"-\s+(\S+)", listed.group(1)) if listed else []:
+            suites[t] = suites.get(t, False) or sts
+    problems = []
+    for path in sorted((chart / "templates").rglob("*")):
+        if path.suffix not in {".yaml", ".txt"} or path.name.startswith("_"):
+            continue
+        rel = path.relative_to(chart).as_posix()
+        if "workloads" in blank_comments(path.read_text()) and not suites.get(rel, False):
+            problems.append(f"{rel}: every-kind: reads a workloads entry, and no suite case renders it with kind: StatefulSet")
+    return problems
+
+
 def main(chart):
     chart = pathlib.Path(chart)
     templates = chart / "templates"
@@ -309,6 +333,7 @@ def main(chart):
     for path in sorted((chart / "tests").iterdir()):
         if path.name != "__snapshot__" and not path.name.endswith("_test.yaml"):
             problems.append(f"{path.relative_to(chart)}: template-suite: not a *_test.yaml suite, so helm-unittest never runs it")
+    problems += every_kind(chart)
     problems += kind_fields(chart, schema)
     problems += workload_kind(chart)
     problems += render_order(chart)

@@ -85,6 +85,15 @@ HELM_FLOOR_KUBECONFIG := $(KIND_BIN_DIR)/floor-kubeconfig
 E2E_VALUES := tests/e2e/values.yaml
 E2E_RELEASE := e2e
 E2E_NAMESPACE := global-chart-e2e
+# On a failed e2e, before the namespace goes: a hook timeout says only "Job in
+# progress", and its pods, events and logs are what name the cause (issue #262).
+# E2E_KEEP=1 leaves the namespace in place for a probe by hand.
+E2E_KEEP ?=
+E2E_DUMP = { echo "==> e2e failed: the state of $$ns"; \
+	kubectl -n $$ns get jobs,pods -o wide; \
+	kubectl -n $$ns get events --sort-by=.lastTimestamp | tail -30; \
+	for p in $$(kubectl -n $$ns get pods -l batch.kubernetes.io/job-name --field-selector=status.phase!=Succeeded -o name); do \
+		echo "--- $$p"; kubectl -n $$ns logs $$p --all-containers --prefix --tail=50; done; } || true
 
 # Test cases: values_file:namespace:slug
 # Used by lint-chart, generate-templates, and kube-linter
@@ -573,7 +582,9 @@ e2e: kind-cluster kind-keda kind-eso check-helm-floor e2e-dryrun bound-sweep ## 
 	@set -e; \
 	export KUBECONFIG=$(KIND_KUBECONFIG); \
 	ns=$(E2E_NAMESPACE); rel=$(E2E_RELEASE); \
-	trap 'helm uninstall $$rel -n $$ns >/dev/null 2>&1 || true; kubectl delete ns $$ns --wait=false >/dev/null 2>&1 || true' EXIT; \
+	trap 'rc=$$?; [ $$rc -eq 0 ] || $(E2E_DUMP); \
+		if [ -n "$(E2E_KEEP)" ]; then echo "    E2E_KEEP set: namespace $$ns left in place"; \
+		else helm uninstall $$rel -n $$ns >/dev/null 2>&1 || true; kubectl delete ns $$ns --wait=false >/dev/null 2>&1 || true; fi' EXIT; \
 	echo "==> Clearing any namespace left by a previous run..."; \
 	kubectl delete ns $$ns --ignore-not-found --timeout=180s >/dev/null 2>&1 || true; \
 	echo "==> Installing $$rel from $(E2E_VALUES)..."; \
