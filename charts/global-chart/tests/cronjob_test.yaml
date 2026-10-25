@@ -109,35 +109,6 @@ tests:
           path: spec.jobTemplate.spec.template.spec.containers[0].imagePullPolicy
           value: IfNotPresent
 
-  # The schema rejects null first, so these pass on either fail order; the order is held by
-  # the tests/bad-values/skip-schema/*-before-image.yaml fixtures (make validate-bad-values).
-  - it: should reject a root cronjob's null history limit even with a missing image (issue #265)
-    set:
-      cronJobs:
-        backup:
-          schedule: "0 2 * * *"
-          successfulJobsHistoryLimit: null
-          command: ["true"]
-    asserts:
-      - failedTemplate:
-          errorPattern: "(cronJobs.backup.successfulJobsHistoryLimit: null, a value nobody wrote|at '/cronJobs/backup/successfulJobsHistoryLimit': got null, want integer)"
-
-  - it: should reject a workload cronjob's null history limit even with an invalid image (issue #265)
-    set:
-      workloads:
-        backend:
-          image: myapp:v2
-          cronJobs:
-            backup:
-              schedule: "0 2 * * *"
-              image:
-                digest: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-              successfulJobsHistoryLimit: null
-              command: ["true"]
-    asserts:
-      - failedTemplate:
-          errorPattern: "(workloads.backend.cronJobs.backup.successfulJobsHistoryLimit: null, a value nobody wrote|at '/workloads/backend/cronJobs/backup/successfulJobsHistoryLimit': got null, want integer)"
-
   # ====== Root-level CronJob naming (52 char truncation) ======
   - it: should truncate root-level cronjob name to 52 chars
     documentSelector:

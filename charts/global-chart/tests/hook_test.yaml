@@ -44,35 +44,6 @@ tests:
           path: spec.template.spec.containers[0].imagePullPolicy
           value: Never
 
-  # The schema rejects null first, so these pass on either fail order; the order is held by
-  # the tests/bad-values/skip-schema/*-before-image.yaml fixtures (make validate-bad-values).
-  - it: should reject a root hook's null deadline even with a missing image (issue #265)
-    set:
-      hooks:
-        post-install:
-          migrate:
-            activeDeadlineSeconds: null
-            command: ["true"]
-    asserts:
-      - failedTemplate:
-          errorPattern: "(hooks.post-install.migrate.activeDeadlineSeconds: null, a value nobody wrote|at '/hooks/post-install/migrate/activeDeadlineSeconds': got null, want integer)"
-
-  - it: should reject a workload hook's null deadline even with an invalid image (issue #265)
-    set:
-      workloads:
-        backend:
-          image: myapp:v2
-          hooks:
-            post-install:
-              migrate:
-                image:
-                  digest: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-                activeDeadlineSeconds: null
-                command: ["true"]
-    asserts:
-      - failedTemplate:
-          errorPattern: "(workloads.backend.hooks.post-install.migrate.activeDeadlineSeconds: null, a value nobody wrote|at '/workloads/backend/hooks/post-install/migrate/activeDeadlineSeconds': got null, want integer)"
-
   # ====== Root-level hook basic ======
   - it: should render root-level hook with explicit image
     set:
