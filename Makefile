@@ -63,7 +63,7 @@ GATEWAY_API_VERSION := v1.6.3
 # SecurityPolicy CRD only, no Envoy Gateway controller: validate the opt-in
 # policy against its upstream schema without claiming authentication works.
 # renovate: datasource=github-releases depName=envoyproxy/gateway
-ENVOY_GATEWAY_VERSION := v1.7.2
+ENVOY_GATEWAY_VERSION := v1.9.2
 # The Gateway API kinds the chart renders: httproute.yaml and l4RouteKinds
 # (_render-helpers.tpl) are their source, mirrored here; change both.
 # kind-gateway-api waits for their CRDs, and e2e-dryrun asserts that some
@@ -508,7 +508,7 @@ kind-gateway-api: kind-cluster ## Install the Gateway API CRDs (standard channel
 kind-envoy-gateway: kind-cluster ## Install only the Envoy Gateway SecurityPolicy CRD into the e2e kind cluster (no controller)
 	@echo "==> Installing Envoy Gateway $(ENVOY_GATEWAY_VERSION) SecurityPolicy CRD..."
 	@kubectl --kubeconfig "$(KIND_KUBECONFIG)" apply --server-side --force-conflicts \
-		-f https://raw.githubusercontent.com/envoyproxy/gateway/$(ENVOY_GATEWAY_VERSION)/charts/gateway-helm/crds/generated/gateway.envoyproxy.io_securitypolicies.yaml >/dev/null
+		-f https://raw.githubusercontent.com/envoyproxy/gateway/$(ENVOY_GATEWAY_VERSION)/charts/gateway-helm/charts/crds/crds/generated/gateway.envoyproxy.io_securitypolicies.yaml >/dev/null
 	@kubectl --kubeconfig "$(KIND_KUBECONFIG)" wait --for=condition=Established \
 		crd/securitypolicies.gateway.envoyproxy.io --timeout=60s >/dev/null
 	@echo "    SecurityPolicy CRD established"
