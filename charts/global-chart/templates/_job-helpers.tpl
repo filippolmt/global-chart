@@ -76,9 +76,10 @@ Accepts a dict with:
                    (ADR 0007)
   deployName     - the workload key, for the image it inherits and the fail message of an inherited
                    externalSecrets entry; root-level callers omit it
-  errCtx         - values path of the job, from jobValuesPath: leads the fail
-                   messages of its own externalSecrets entries, volumes and
-                   mounts, and names the job in jobImageSource's
+  errCtx         - values path of the job, from jobValuesPath (required):
+                   leads the fail messages of its own image, externalSecrets
+                   entries, volumes and mounts, and names the job in the
+                   "image is required" and jobImageSource fails
 
 The pod-level `automountServiceAccountToken` follows the usual chain: the job's
 own value, then the workload's pod-level value, else omitted and the
@@ -93,7 +94,7 @@ docs/adr/0014-job-pod-automount-follows-the-inheritance-chain.md).
 {{- $saName := .saName -}}
 {{- /* Resolve once: the image and pull policy must follow the same source. */ -}}
 {{- $errCtx := required "jobPodSpec: errCtx is required (build it with jobValuesPath)" .errCtx -}}
-{{- $imageSource := include "global-chart.jobImageSource" . | fromJson -}}
+{{- $imageSource := include "global-chart.jobImageSource" (dict "root" $root "job" $job "deployName" .deployName "errCtx" $errCtx) | fromJson -}}
 {{- $imageRef := "" -}}
 {{- if hasKey $imageSource "image" -}}
   {{- $imgCtx := printf "%s.image" $errCtx -}}
@@ -207,9 +208,9 @@ containers:
   {{- $inheritedCtx := "" -}}
   {{- with .deployName -}}{{- $inheritedCtx = include "global-chart.deploymentValuesPath" . -}}{{- end -}}
   {{- /* Only volumes: a job renders no mountedConfigFiles, so none may count (issue #214) */ -}}
-  {{- $podVolumes := include "global-chart.podVolumeNames" (dict "values" (pick $job "volumes") "errCtx" .errCtx) | fromJson -}}
+  {{- $podVolumes := include "global-chart.podVolumeNames" (dict "values" (pick $job "volumes") "errCtx" $errCtx) | fromJson -}}
   {{- $esInherited := include "global-chart.resolveExternalSecretRefs" (dict "root" $root "refs" $esRefs.inherited "hook" $esReadsCopy "taken" $podVolumes "errCtx" $inheritedCtx) | fromJson -}}
-  {{- $esOwn := include "global-chart.resolveExternalSecretRefs" (dict "root" $root "refs" $esRefs.own "hook" $esReadsCopy "taken" $podVolumes "errCtx" .errCtx) | fromJson -}}
+  {{- $esOwn := include "global-chart.resolveExternalSecretRefs" (dict "root" $root "refs" $esRefs.own "hook" $esReadsCopy "taken" $podVolumes "errCtx" $errCtx) | fromJson -}}
   {{- $esEnvInherited := $esInherited.env -}}
   {{- $esEnvOwn := $esOwn.env -}}
   {{- $esMounted := concat $esInherited.mounted $esOwn.mounted -}}
@@ -272,14 +273,14 @@ containers:
   {{- with (include "global-chart.renderResources" (dict "resources" $job.resources "hasResources" (hasKey $job "resources") "defaults" $root.Values.defaults)) }}
   {{- . | nindent 2 }}
   {{- end }}
-  {{- with (include "global-chart.containerVolumeMounts" (dict "errCtx" .errCtx "volumeMounts" $job.volumeMounts "inherited" $esInherited.mounted "inheritedCtx" $inheritedCtx "externalSecrets" $esOwn.mounted) | fromJsonArray) }}
+  {{- with (include "global-chart.containerVolumeMounts" (dict "errCtx" $errCtx "volumeMounts" $job.volumeMounts "inherited" $esInherited.mounted "inheritedCtx" $inheritedCtx "externalSecrets" $esOwn.mounted) | fromJsonArray) }}
   volumeMounts:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 {{- if or $job.volumes $esMounted }}
 volumes:
   {{- range $i, $v := $job.volumes }}
-  {{- include "global-chart.renderVolume" (dict "volume" $v "errCtx" (printf "%s.volumes[%d]" $.errCtx $i)) | nindent 2 }}
+  {{- include "global-chart.renderVolume" (dict "volume" $v "errCtx" (printf "%s.volumes[%d]" $errCtx $i)) | nindent 2 }}
   {{- end }}
   {{- with $esMounted }}
   {{- include "global-chart.renderExternalSecretVolumes" . | nindent 2 }}

@@ -44,7 +44,8 @@ tests:
           path: spec.template.spec.containers[0].imagePullPolicy
           value: Never
 
-  # The schema rejects null first; a schema-free diagnostic render checks the scalar-first branch.
+  # The schema rejects null first, so these pass on either fail order; the order is held by
+  # the tests/bad-values/skip-schema/*-before-image.yaml fixtures (make validate-bad-values).
   - it: should reject a root hook's null deadline even with a missing image (issue #265)
     set:
       hooks:
