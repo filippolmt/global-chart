@@ -186,7 +186,7 @@ def shape_findings(shape, schema, schema_path=(), path=""):
         return [f"valuesShape: {path}: the schema declares no such node"]
     if declared.untyped:
         return [f"valuesShape: {path}: the schema accepts any type there through a branch with no type; "
-                "give the branch one, or teach schema_types what it means"]
+                "give the branch one, or teach schema_navigation.py what it means"]
     got = declared.types
     out = [] if got == want else [f"valuesShape: {path}: reads {'|'.join(sorted(want))}, "
                                   f"the schema accepts {'|'.join(sorted(got)) or 'any type'}"]

@@ -3,9 +3,13 @@
 Conservative declarations (declaration / declared_paths) follow references as
 replacements, ignoring siblings. They union allOf types, group alternatives,
 ignore null, and use the valuesShape vocabulary (map/list/number/etc.). An
-untyped branch is distinct from an undeclared path. Discovery is a separate
-walk, not repeated lookup: it accumulates duplicate paths in discovery order
-and stops at depth > 20, including the root at depth 0.
+untyped branch is distinct from an undeclared path. What this reading skips
+(if/then/else, not, a reference's siblings, allOf read as a union) can only
+narrow what a node accepts, so its types are a superset and valuesShape
+matching them fails no valid value; the one construct that widens, a branch
+with no type, is reported as untyped, never read as no type. Discovery is a
+separate walk, not repeated lookup: it accumulates duplicate paths in
+discovery order and stops at depth > 20, including the root at depth 0.
 
 Source queries (sources / generic_sources) retain every original (pointer,
 node) contribution, in preorder: node, reference target, allOf, oneOf, anyOf.
@@ -22,7 +26,8 @@ strings with '*' and list suffixes, retaining its legacy list-descent defect.
 
 These are not general JSON Schema evaluators: no pointer decoding, external
 references, cycle protection, conditionals, or new schema forms. Conservative
-anyOf replaces oneOf when both exist; const/enum do not imply types. Keep these
+anyOf replaces oneOf when both exist; const/enum do not imply types; a property
+named '*' or '[]' reads as the wildcard of that name. Keep these
 limitations until a separate behavior change updates the callers' contracts.
 """
 from typing import NamedTuple
@@ -39,10 +44,7 @@ _SCHEMA_TYPES = {"object": "map", "array": "list", "string": "string", "boolean"
 
 def _alternatives(schema, node):
     while "$ref" in node:
-        target = schema
-        for part in node["$ref"].lstrip("#/").split("/"):
-            target = target[part]
-        node = target
+        node = resolve_pointer(schema, node["$ref"].lstrip("#"))
     alternatives = [node]
     for key in ("oneOf", "anyOf"):
         if key in node:
@@ -70,18 +72,21 @@ def _declaration_parts(schema, node):
                      for p in _declaration_parts(schema, a)]
 
 
+def _declaration_entries(part):
+    yield from part.get("properties", {}).items()
+    if isinstance(part.get("additionalProperties"), dict):
+        yield "*", part["additionalProperties"]
+    for child in part.get("patternProperties", {}).values():
+        yield "*", child
+    if isinstance(part.get("items"), dict):
+        yield "[]", part["items"]
+
+
 def _declaration_child(schema, node, key):
     branches = []
     for a in _alternatives(schema, node):
-        found = []
-        for part in _declaration_parts(schema, a):
-            if key == "[]":
-                found += [part["items"]] if "items" in part else []
-            elif key == "*":
-                found += [part["additionalProperties"]] if isinstance(part.get("additionalProperties"), dict) else []
-                found += part.get("patternProperties", {}).values()
-            elif key in part.get("properties", {}):
-                found.append(part["properties"][key])
+        found = [child for part in _declaration_parts(schema, a)
+                 for k, child in _declaration_entries(part) if k == key]
         if found:
             branches.append({"allOf": found})
     return {"anyOf": branches} if branches else None
@@ -107,14 +112,8 @@ def declared_paths(schema):
         out.setdefault(path, set()).update(_types(schema, node))
         for alternative in _alternatives(schema, node):
             for part in _declaration_parts(schema, alternative):
-                for key, child in part.get("properties", {}).items():
-                    walk(child, f"{path}.{key}" if path else key, depth + 1)
-                if isinstance(part.get("additionalProperties"), dict):
-                    walk(part["additionalProperties"], f"{path}.*" if path else "*", depth + 1)
-                for child in part.get("patternProperties", {}).values():
-                    walk(child, f"{path}.*" if path else "*", depth + 1)
-                if isinstance(part.get("items"), dict):
-                    walk(part["items"], path + "[]", depth + 1)
+                for key, child in _declaration_entries(part):
+                    walk(child, path + key if key == "[]" else f"{path}.{key}" if path else key, depth + 1)
     walk(schema, "", 0)
     return out
 
@@ -152,12 +151,16 @@ def _source_child(schema, nodes, key):
     return out
 
 
+def _expand(schema, nodes):
+    return [part for node in nodes for part in _source_parts(schema, *node)]
+
+
 def sources(schema, path):
     """Ordered original terminal contributions at a concrete string/integer tuple path."""
     nodes = [("", schema)]
     for key in path:
         nodes = _source_child(schema, nodes, key)
-    return [part for node in nodes for part in _source_parts(schema, *node)]
+    return _expand(schema, nodes)
 
 
 def generic_sources(schema, path):
@@ -173,4 +176,4 @@ def generic_sources(schema, path):
         nodes = _source_child(schema, nodes, name)
         for _ in range(items.count("[]")):
             nodes = _source_child(schema, nodes, 0)
-    return [part for node in nodes for part in _source_parts(schema, *node)]
+    return _expand(schema, nodes)

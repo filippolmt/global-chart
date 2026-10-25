@@ -1,11 +1,26 @@
 #!/usr/bin/env python3
-"""Dependency-free public-query regression tests. Usage: check-schema-navigation.py --self-test"""
+"""Characterization tests of schema_navigation.py, the schema walk null-sweep,
+bound-sweep and scenario coverage share (issue #266).
+
+They pin both interpretations the module keeps apart: the conservative
+declarations null-sweep and coverage read (reference siblings ignored, allOf
+types unioned, alternatives grouped, untyped branches flagged) and the source
+contributions bound-sweep reads (reference siblings kept, original nodes and
+pointers in preorder), plus bound-sweep's candidates and coverage's generic
+lookup, its legacy list parsing included. Each case runs on a synthetic schema
+and on values.schema.json: a change to either interpretation, or a schema
+change that moves a pinned pointer, fails here. A failed case is a FAIL naming
+the test line; a probe breaks the walk once and expects that FAIL.
+
+Usage: check-schema-navigation.py --self-test
+"""
 from contextlib import redirect_stdout
 import importlib.util
 import io
 import json
 import pathlib
 import sys
+import traceback
 from unittest.mock import patch
 
 HERE = pathlib.Path(__file__).resolve().parent
@@ -245,12 +260,12 @@ def callers_test():
         "b": {"type": ["string", "integer"]}, "c": {"type": "integer", "minimum": 1, "maximum": 2}}}
     assert sweep.shape_findings({"absent": "string", "missingType": "string", "n": "string", "nil": "string"}, schema) == [
         "valuesShape: absent: the schema declares no such node",
-        "valuesShape: missingType: the schema accepts any type there through a branch with no type; give the branch one, or teach schema_types what it means",
+        "valuesShape: missingType: the schema accepts any type there through a branch with no type; give the branch one, or teach schema_navigation.py what it means",
         "valuesShape: n: reads string, the schema accepts number",
         "valuesShape: nil: reads string, the schema accepts any type"]
     assert sweep.shape_findings({"absent": {"nested": "string"}, "missingType": ["map"]}, schema) == [
         "valuesShape: absent: the schema declares no such node",
-        "valuesShape: missingType: the schema accepts any type there through a branch with no type; give the branch one, or teach schema_types what it means"]
+        "valuesShape: missingType: the schema accepts any type there through a branch with no type; give the branch one, or teach schema_navigation.py what it means"]
     assert sweep.shape_findings({"a": {"x": ["string"]}, "b": "number|string", "c": "number"}, schema) == []
     paths = navigation.declared_paths(schema)
     assert coverage.gaps(schema, paths, {"": {"map"}, "b": {"number"}}) == {
@@ -281,29 +296,41 @@ def input_errors_test():
         assert output.getvalue().startswith(f"    FAIL: {schema_file}: "), output.getvalue()
 
 
-def self_test(schema):
-    declarations_test()
-    nested_test()
-    discovery_test()
-    sources_test()
-    pointer_test()
-    candidates_test()
-    repository_test(schema)
-    callers_test()
-    input_errors_test()
-    print("    OK: schema navigation self-test")
+def red_probe_test(schema):
+    output = io.StringIO()
+    with patch.object(navigation, "_alternatives", lambda schema, node: [node]), redirect_stdout(output):
+        assert run(schema, [declarations_test]) == 1
+    assert output.getvalue().startswith(f"    FAIL: {pathlib.Path(__file__).name}:"), output.getvalue()
+
+
+TESTS = [declarations_test, nested_test, discovery_test, sources_test, pointer_test,
+         candidates_test, repository_test, callers_test, input_errors_test, red_probe_test]
+
+
+def run(schema, tests):
+    try:
+        for test in tests:
+            test(schema) if test.__code__.co_argcount else test()
+    except AssertionError as error:
+        frame = [f for f in traceback.extract_tb(error.__traceback__) if f.name.endswith("_test")][-1]
+        print(f"    FAIL: {pathlib.Path(frame.filename).name}:{frame.lineno}: {frame.name}: "
+              f"{frame.line}{f' ({error})' if str(error) else ''}")
+        return 1
+    return 0
 
 
 def main(argv):
     if argv != ["--self-test"]:
-        sys.exit(__doc__)
+        sys.exit(__doc__.rsplit("Usage: ", 1)[1])
     schema_file = HERE.parents[1] / "charts/global-chart/values.schema.json"
     try:
         schema = json.loads(schema_file.read_text())
     except (OSError, json.JSONDecodeError) as error:
         print(f"    FAIL: {schema_file}: cannot read the schema: {error}")
         return 1
-    self_test(schema)
+    if run(schema, TESTS):
+        return 1
+    print("    OK: schema navigation self-test")
     return 0
 
 
