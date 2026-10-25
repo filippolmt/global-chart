@@ -129,6 +129,11 @@ holds the shell side: a value piped onward goes through `printf '%s\n'`.
 
 ## Judgement rules
 
+**A review accounts for each behavioural requirement.** For each requirement
+in the issue and agreed decisions, the reviewer identifies the test or other
+concrete evidence that proves it, or reports it as unverified. A passing suite
+alone is not evidence that a particular behaviour is covered.
+
 **One home per enumeration.** A list of things that more than one template
 reads (kinds, fields, ports, hooks, active targets) lives in one helper, and
 every reader ranges over it: `l4RouteKinds`, `prereqCopyHooks`,
@@ -161,7 +166,12 @@ one key picked the wrong value among several, the path ends on it
 **A guard the schema shadows is a fallback guard.** When the schema already
 rejects a value and a template `fail` repeats it, the `fail` is what a user on
 `--skip-schema-validation` sees, and it gets a `tests/bad-values/skip-schema/`
-fixture. `make null-sweep` covers the scenarios; `make scenario-coverage` fails
+fixture. A change that moves which `fail` fires first gets a fixture with
+both invalid fields, expecting the new first error; `make render
+VALUES=<fixture> BASE=main SKIP_SCHEMA=1` shows the base firing the other, so
+the fixture would go red on the old order. A helm-unittest case cannot hold the
+order, since the schema rejects first (`lint-templates`' schema-alternative
+rule, issue #265). `make null-sweep` covers the scenarios; `make scenario-coverage` fails
 a map or list node no scenario sets, and a type a node accepts that none uses. A
 map or list a template reads goes in `valuesShape` (`_validate-helpers.tpl`),
 and the sweep's type pass fails a raw error on one it misses (issue #235).

@@ -1,0 +1,10 @@
+# A root-level hook with two invalid fields: no image and a null
+# activeDeadlineSeconds (issue #265). The schema rejects the null first; under
+# --skip-schema-validation jobPodSpec assembles the image after the Job spec
+# fields, so the scalar fail wins over "image is required".
+# Expected fail substring: "hooks.post-install.migrate.activeDeadlineSeconds: null"
+hooks:
+  post-install:
+    migrate:
+      activeDeadlineSeconds: null
+      command: ["true"]

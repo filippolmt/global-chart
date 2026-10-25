@@ -1,0 +1,15 @@
+# A workload-scope cronjob with two invalid fields: a digest-only image and a
+# null successfulJobsHistoryLimit (issue #265). The schema rejects the null
+# first; under --skip-schema-validation jobPodSpec assembles the image after
+# the CronJob spec fields, so the scalar fail wins over the image fail.
+# Expected fail substring: "workloads.backend.cronJobs.backup.successfulJobsHistoryLimit: null"
+workloads:
+  backend:
+    image: myapp:v2
+    cronJobs:
+      backup:
+        schedule: "0 2 * * *"
+        image:
+          digest: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        successfulJobsHistoryLimit: null
+        command: ["true"]
