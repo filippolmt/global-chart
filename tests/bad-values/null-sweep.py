@@ -70,8 +70,28 @@ RAW = re.compile(r"nil pointer|error calling|wrong type for value|can't evaluate
                  r"executing \"|invalid value; expected|incompatible types|error converting YAML|%!")
 FAIL = re.compile(r"execution error at \([^)]*\): ")
 # A `key: null` line toYaml writes for a passthrough value: the API server
-# reads it as the key absent, so the comparison with the key removed drops it
-NULL_VALUE = re.compile(r"^[ \t]*(?:- )?[^\s:][^:\n]*:[ \t]+null[ \t]*\n", re.M)
+# reads it as the key absent, so the comparison with the key removed drops it.
+# On a list item's first line the dash moves to the next key, or the item is
+# left `- {}`, as toYaml writes it without the key.
+NULL_VALUE = re.compile(r"^[ \t]*[^\s:-][^:\n]*:[ \t]+null[ \t]*\n", re.M)
+NULL_ITEM_HEAD = re.compile(r"^([ \t]*)- [^\s:][^:\n]*:[ \t]+null[ \t]*\n(?:\1  (?=\S))?", re.M)
+
+
+def drop_nulls(text):
+    """text as toYaml writes it with every `key: null` of a map removed."""
+    while True:
+        dropped = NULL_ITEM_HEAD.sub(lambda m: m[1] + ("- " if m[0].endswith("  ") else "- {}\n"), text)
+        if dropped == text:
+            return NULL_VALUE.sub("", text)
+        text = dropped
+
+
+def drop_nulls_self_test():
+    assert drop_nulls("a:\n  b: null\n  c: 1\n") == "a:\n  c: 1\n"
+    assert drop_nulls("ports:\n  - port: null\n    protocol: TCP\n") == "ports:\n  - protocol: TCP\n"
+    assert drop_nulls("x:\n- a: null\n  b: null\n  c: 1\n") == "x:\n- c: 1\n"
+    assert drop_nulls("x:\n  - a: null\n  - b: 2\n") == "x:\n  - {}\n  - b: 2\n"
+    assert drop_nulls("x:\n  - null\n") == "x:\n  - null\n"
 # podRecreation stamps the pod template with the render time: two renders a
 # second apart differ there and nowhere else
 TIMESTAMP = re.compile(r'^\s*timestamp: "\d{14}"\n', re.M)
@@ -370,7 +390,7 @@ def stable_render_self_test():
 def verdict(out, base, path, unset=None):
     if out.returncode == 0:
         if unset is not None and unset.returncode == 0 and \
-                stable_render(NULL_VALUE.sub("", out.stdout)) != stable_render(unset.stdout):
+                stable_render(drop_nulls(out.stdout)) != stable_render(unset.stdout):
             return "renders otherwise than with the key removed: a null map value is not read as unset"
         if len(NULLISH.findall(out.stdout)) > len(NULLISH.findall(base)):
             new = [l.strip() for l in out.stdout.splitlines() if NULLISH.search(l) and l not in base.splitlines()]
@@ -388,6 +408,7 @@ def verdict(out, base, path, unset=None):
 
 def main(argv):
     stable_render_self_test()
+    drop_nulls_self_test()
     flags = argv[argv.index("--") + 1:] if "--" in argv else []
     argv = argv[:argv.index("--")] if "--" in argv else argv
     chart, files = pathlib.Path(argv[0]), argv[1:]

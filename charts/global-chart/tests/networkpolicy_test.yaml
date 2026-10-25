@@ -223,3 +223,106 @@ tests:
             app.kubernetes.io/name: global-chart
             app.kubernetes.io/instance: RELEASE-NAME
             app.kubernetes.io/component: db
+
+  # issue #271: endPort as the API server validates it
+  - it: should render an endPort at or above a numeric port
+    set:
+      workloads:
+        main:
+          image: "nginx:1.25"
+          networkPolicy:
+            enabled: true
+            ingress:
+              - ports:
+                  - port: 8000
+                    endPort: 8100
+                  - port: 9000
+                    endPort: 9000
+    asserts:
+      - equal:
+          path: spec.ingress[0].ports
+          value:
+            - port: 8000
+              endPort: 8100
+            - port: 9000
+              endPort: 9000
+
+  - it: should fail when endPort is below port
+    set:
+      workloads:
+        main:
+          image: "nginx:1.25"
+          networkPolicy:
+            enabled: true
+            ingress:
+              - ports:
+                  - port: 80
+                  - port: 8000
+                    endPort: 7999
+    asserts:
+      - failedTemplate:
+          errorMessage: "workloads.main.networkPolicy.ingress[0].ports[1].endPort: 7999 is below port 8000, which the API server rejects: the range ends at or after its first port."
+
+  - it: should fail when endPort is set with a named port, on a StatefulSet too
+    set:
+      workloads:
+        main:
+          kind: StatefulSet
+          image: "nginx:1.25"
+          networkPolicy:
+            enabled: true
+            egress:
+              - ports:
+                  - port: http
+                    endPort: 8100
+    asserts:
+      - failedTemplate:
+          errorMessage: "workloads.main.networkPolicy.egress[0].ports[0].endPort: 8100 is set with the port 'http', a string, which the API server reads as a port name and rejects: a range starts at a numeric port. Set port to a number, or drop endPort."
+
+  - it: should fail when endPort is set without port
+    set:
+      workloads:
+        main:
+          image: "nginx:1.25"
+          networkPolicy:
+            enabled: true
+            egress:
+              - to:
+                  - ipBlock:
+                      cidr: 10.0.0.0/8
+              - ports:
+                  - protocol: UDP
+                    endPort: 8100
+    asserts:
+      - failedTemplate:
+          errorMessage: "workloads.main.networkPolicy.egress[1].ports[0].endPort: 8100 is set without port, which the API server rejects: a range starts at a numeric port. Set port, or drop endPort."
+
+  - it: should fail when endPort is below port on egress
+    set:
+      workloads:
+        main:
+          image: "nginx:1.25"
+          networkPolicy:
+            enabled: true
+            egress:
+              - ports:
+                  - port: 9000
+                    endPort: 8999
+    asserts:
+      - failedTemplate:
+          errorMessage: "workloads.main.networkPolicy.egress[0].ports[0].endPort: 8999 is below port 9000, which the API server rejects: the range ends at or after its first port."
+
+  - it: should fail when endPort is set with a named port on ingress
+    set:
+      workloads:
+        main:
+          image: "nginx:1.25"
+          networkPolicy:
+            enabled: true
+            ingress:
+              - ports:
+                  - port: metrics
+                    endPort: 9100
+    asserts:
+      - failedTemplate:
+          errorMessage: "workloads.main.networkPolicy.ingress[0].ports[0].endPort: 9100 is set with the port 'metrics', a string, which the API server reads as a port name and rejects: a range starts at a numeric port. Set port to a number, or drop endPort."
