@@ -54,6 +54,9 @@ import tempfile
 spec = importlib.util.spec_from_file_location("null_sweep", pathlib.Path(__file__).parent / "null-sweep.py")
 sweep = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(sweep)
+spec = importlib.util.spec_from_file_location("schema_navigation", pathlib.Path(__file__).parent / "schema_navigation.py")
+navigation = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(navigation)
 
 INT32_MAX = 2**31 - 1
 IMAGE = None  # the API server does not parse an image reference: the kubelet does, at pull
@@ -97,58 +100,22 @@ CANDIDATES = {
 PDB_PATTERNS = ["/$defs/pdb/properties/minAvailable/oneOf/1", "/$defs/pdb/properties/maxUnavailable/oneOf/1"]
 
 
-def resolve(schema, pointer):
-    node = schema
-    for part in pointer.lstrip("/").split("/"):
-        node = node[int(part)] if isinstance(node, list) else node[part]
-    return node
-
-
-def parts(schema, pointer, node):
-    """Every (pointer, schema) a value at node is checked against: $ref and its
-    siblings (draft 2019-09 applies both), allOf, and each oneOf/anyOf branch."""
-    out = [(pointer, node)]
-    if "$ref" in node:
-        target = node["$ref"].lstrip("#")
-        out += parts(schema, target, resolve(schema, target))
-    for key in ("allOf", "oneOf", "anyOf"):
-        for i, branch in enumerate(node.get(key, [])):
-            out += parts(schema, f"{pointer}/{key}/{i}", branch)
-    return out
-
-
-def child(schema, nodes, key):
-    """The schema nodes of entry key under nodes: a named property, else any entry; an item for an index."""
+def candidates(nodes):
+    """Ordered values to try from terminal sources; bounds stay local to each source."""
     out = []
-    for pointer, node in nodes:
-        for p, n in parts(schema, pointer, node):
-            if isinstance(key, int):
-                if isinstance(n.get("items"), dict):
-                    out.append((f"{p}/items", n["items"]))
-            elif key in n.get("properties", {}):
-                out.append((f"{p}/properties/{key}", n["properties"][key]))
-            elif isinstance(n.get("additionalProperties"), dict):
-                out.append((f"{p}/additionalProperties", n["additionalProperties"]))
-    return out
-
-
-def candidates(schema, nodes):
-    """The values to try at a node, from every schema part that bounds it."""
-    out = []
-    for pointer, node in nodes:
-        for p, n in parts(schema, pointer, node):
-            types = n.get("type", [])
-            types = [types] if isinstance(types, str) else types
-            if "integer" in types:
-                out += [n[k] for k in ("minimum", "maximum") if k in n]
-                out += [] if "maximum" in n else [INT32_MAX, INT32_MAX + 1]
-            if "pattern" in n or "maxLength" in n:
-                out += CANDIDATES.get(p) or []
+    for p, n in nodes:
+        types = n.get("type", [])
+        types = [types] if isinstance(types, str) else types
+        if "integer" in types:
+            out += [n[k] for k in ("minimum", "maximum") if k in n]
+            out += [] if "maximum" in n else [INT32_MAX, INT32_MAX + 1]
+        if "pattern" in n or "maxLength" in n:
+            out += CANDIDATES.get(p) or []
     return list(dict.fromkeys(out))
 
 
-def bounded(schema, nodes):
-    return bool(candidates(schema, nodes))
+def bounded(nodes):
+    return bool(candidates(nodes))
 
 
 def table_findings(schema):
@@ -211,12 +178,10 @@ def run(chart, files, flags, tmp, only=None):
             current = sweep.value_at(values, path)
             if isinstance(current, (dict, list, bool)) or current is None:
                 continue
-            nodes = [("", schema)]
-            for key in path:
-                nodes = child(schema, nodes, key)
-            if only and not any(p in only for n in nodes for p, _ in parts(schema, *n)):
+            nodes = navigation.sources(schema, path)
+            if only and not any(p in only for p, _ in nodes):
                 continue
-            cases += [(f, path, c, sweep.set_at(values, path, c)) for c in candidates(schema, nodes) if c != current]
+            cases += [(f, path, c, sweep.set_at(values, path, c)) for c in candidates(nodes) if c != current]
 
     def job(case):
         f, path, value, values = case
@@ -237,7 +202,10 @@ def self_test(chart, files, flags, tmp):
     shutil.copytree(chart, copy)
     schema = json.loads((copy / "values.schema.json").read_text())
     for pointer in PDB_PATTERNS:
-        resolve(schema, pointer)["pattern"] = "^[0-9]+%$"
+        node = schema
+        for key in pointer.lstrip("/").split("/"):
+            node = node[int(key)] if isinstance(node, list) else node[key]
+        node["pattern"] = "^[0-9]+%$"
     (copy / "values.schema.json").write_text(json.dumps(schema))
     findings, sent = run(copy, files, flags, tmp, only=set(PDB_PATTERNS))
     if any('= "150%"' in f for f in findings):
