@@ -1361,6 +1361,91 @@ tests:
           path: kind
           value: Job
 
+  # ====== initContainers: the hook's own, a native sidecar included (issue #262) ======
+  - it: should render a root-level hook's initContainers, a native sidecar included
+    set:
+      hooks:
+        pre-upgrade:
+          migrate:
+            image: myapp:v1
+            command: ["./migrate.sh"]
+            initContainers:
+              - name: db-proxy
+                image: proxy:1.0
+                restartPolicy: Always
+    documentSelector:
+      path: kind
+      value: Job
+    asserts:
+      - equal:
+          path: spec.template.spec.initContainers
+          value:
+            - name: db-proxy
+              image: proxy:1.0
+              restartPolicy: Always
+
+  - it: should render no initContainers on a hook that sets none
+    set:
+      hooks:
+        pre-upgrade:
+          migrate:
+            image: myapp:v1
+            command: ["./migrate.sh"]
+    documentSelector:
+      path: kind
+      value: Job
+    asserts:
+      - notExists:
+          path: spec.template.spec.initContainers
+
+  # A workload's init container (a wait-for-db, a migrator) started inside a
+  # migration hook would run silently: the hook renders only its own.
+  - it: should not inherit the workload's extraInitContainers on a workload-scope hook
+    set:
+      workloads:
+        backend:
+          image: myapp:v1
+          extraInitContainers:
+            - name: wait-for-db
+              image: busybox:1.36
+          hooks:
+            pre-upgrade:
+              migrate:
+                command: ["./migrate.sh"]
+    documentSelector:
+      path: kind
+      value: Job
+    asserts:
+      - notExists:
+          path: spec.template.spec.initContainers
+
+  - it: should render a workload-scope hook's own initContainers, never the workload's
+    set:
+      workloads:
+        backend:
+          image: myapp:v1
+          extraInitContainers:
+            - name: wait-for-db
+              image: busybox:1.36
+          hooks:
+            pre-upgrade:
+              migrate:
+                command: ["./migrate.sh"]
+                initContainers:
+                  - name: db-proxy
+                    image: proxy:1.0
+                    restartPolicy: Always
+    documentSelector:
+      path: kind
+      value: Job
+    asserts:
+      - equal:
+          path: spec.template.spec.initContainers
+          value:
+            - name: db-proxy
+              image: proxy:1.0
+              restartPolicy: Always
+
   # ====== Workload-scope hook: explicit empty should NOT inherit ======
   - it: should not inherit hostAliases when hook sets empty list
     set:

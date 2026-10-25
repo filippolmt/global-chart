@@ -5,6 +5,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ---
 
+## [Unreleased]
+
+### Added
+
+- **`initContainers` on hooks** (issue #262), root and workload scope, with
+  the shape they have on a cronjob: `hooks.<phase>.<name>.initContainers` and
+  `workloads.<name>.hooks.<phase>.<name>.initContainers`, rendered verbatim in
+  the hook Job's pod. An entry with `restartPolicy: Always` is a native sidecar
+  (Kubernetes 1.29 or later), such as a database proxy next to a migration:
+  the Job completes when the main container exits. On an older cluster the
+  entry runs as a plain init container that never exits, and the hook hangs
+  until its `activeDeadlineSeconds`. A job's `initContainers` are its own,
+  never the workload's `extraInitContainers`, for hooks and cronjobs alike. A
+  hook without `initContainers` renders as before.
+
 ## [4.1.0] — 2026-10-24
 
 ### Added

@@ -917,7 +917,7 @@
           "items": { "$ref": "#/$defs/externalSecretRef" }
         },
         "additionalEnvs": { "description": "Environment variables of the main container. Inherited by the workload's hooks and cronjobs, before their own env.", "type": "array", "items": { "$ref": "#/$defs/envVar" } },
-        "extraInitContainers": { "description": "Init containers of the pod, rendered verbatim.", "type": "array", "items": { "$ref": "#/$defs/container" } },
+        "extraInitContainers": { "description": "Init containers of the pod, rendered verbatim. Never inherited by the workload's hooks and cronjobs, which set their own initContainers.", "type": "array", "items": { "$ref": "#/$defs/container" } },
         "extraContainers": { "description": "Sidecar containers of the pod, after the main container, rendered verbatim.", "type": "array", "items": { "$ref": "#/$defs/container" } },
         "podRecreation": {
           "description": "Roll the pods on every render.",
@@ -929,7 +929,7 @@
         },
         "mountedConfigFiles": { "description": "Files the chart renders as ConfigMaps and mounts into the main container. Never inherited by the workload's hooks and cronjobs.", "$ref": "#/$defs/mountedConfigFiles" },
         "hooks": {
-          "description": "Workload-scope Helm hooks: hooks.<hook type>.<name>, each a Job run at that phase. They inherit the workload's image, serviceAccount, configMap, secret, envFromConfigMaps, envFromSecrets, externalSecrets, additionalEnvs, imagePullSecrets, hostAliases, podSecurityContext, securityContext, automountServiceAccountToken, nodeSelector, tolerations, affinity and priorityClassName; never command, args, mountedConfigFiles, volumes, volumeMounts or resources.",
+          "description": "Workload-scope Helm hooks: hooks.<hook type>.<name>, each a Job run at that phase. They inherit the workload's image, serviceAccount, configMap, secret, envFromConfigMaps, envFromSecrets, externalSecrets, additionalEnvs, imagePullSecrets, hostAliases, podSecurityContext, securityContext, automountServiceAccountToken, nodeSelector, tolerations, affinity and priorityClassName; never command, args, mountedConfigFiles, volumes, volumeMounts, resources or extraInitContainers.",
           "type": "object",
           "propertyNames": { "$ref": "#/$defs/hookType" },
           "additionalProperties": {
@@ -939,7 +939,7 @@
           }
         },
         "cronJobs": {
-          "description": "Workload-scope CronJobs keyed by name. They inherit the workload's image, serviceAccount, configMap, secret, envFromConfigMaps, envFromSecrets, externalSecrets, additionalEnvs, imagePullSecrets, hostAliases, podSecurityContext, securityContext, automountServiceAccountToken, nodeSelector, tolerations, affinity, priorityClassName and dnsConfig; never command, args, mountedConfigFiles, volumes, volumeMounts or resources.",
+          "description": "Workload-scope CronJobs keyed by name. They inherit the workload's image, serviceAccount, configMap, secret, envFromConfigMaps, envFromSecrets, externalSecrets, additionalEnvs, imagePullSecrets, hostAliases, podSecurityContext, securityContext, automountServiceAccountToken, nodeSelector, tolerations, affinity, priorityClassName and dnsConfig; never command, args, mountedConfigFiles, volumes, volumeMounts, resources or extraInitContainers.",
           "type": "object",
           "propertyNames": { "$ref": "#/$defs/jobName" },
           "additionalProperties": { "$ref": "#/$defs/deploymentCronJob" }
@@ -1070,6 +1070,7 @@
           "additionalProperties": { "type": "string" }
         },
         "automountServiceAccountToken": { "description": "Pod-level automountServiceAccountToken. Workload scope: the workload's when unset; else omitted, and the ServiceAccount decides (ADR 0014).", "type": "boolean" },
+        "initContainers": { "description": "Init containers of the job's pod, rendered verbatim. One with restartPolicy: Always is a native sidecar (Kubernetes 1.29 or later; on an older cluster it runs as a plain init container that never exits and blocks the Job): it runs for the whole Job, which completes when the main container exits. The job's own: never the workload's extraInitContainers. A pre-* or post-delete hook's init container naming a release Secret reads that Secret, not its hook-prerequisite copy.", "type": "array", "items": { "$ref": "#/$defs/container" } },
         "volumes": { "description": "The job pod's volumes, each a native volume source. The job's own: never inherited from the workload.", "$ref": "#/$defs/volumes" },
         "volumeMounts": { "description": "The job container's volumeMounts. The job's own: never inherited from the workload.", "$ref": "#/$defs/volumeMounts" },
         "restartPolicy": { "description": "The pod's restartPolicy: Never (the default) or OnFailure.", "type": "string", "enum": ["OnFailure", "Never"] },
@@ -1082,7 +1083,6 @@
       "required": ["schedule"],
       "properties": {
         "schedule": { "description": "Cron schedule in the five-field format, such as \"0 2 * * *\".", "type": "string" },
-        "initContainers": { "description": "Init containers of the job's pod, rendered verbatim. CronJobs only.", "type": "array", "items": { "$ref": "#/$defs/container" } },
         "successfulJobsHistoryLimit": { "description": "Successful Jobs kept; 2 when unset.", "type": "integer", "minimum": 0, "maximum": 2147483647 },
         "failedJobsHistoryLimit": { "description": "Failed Jobs kept; 2 when unset.", "type": "integer", "minimum": 0, "maximum": 2147483647 },
         "backoffLimit": { "description": "Retries before a Job is marked failed. Kubernetes defaults to 6.", "type": "integer", "minimum": 0, "maximum": 2147483647 },

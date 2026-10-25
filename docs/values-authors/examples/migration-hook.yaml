@@ -1,7 +1,9 @@
 # A database migration: a hook of the workload it migrates, so it runs the
 # image being rolled out with the workload's configuration, before the new pods.
 # pre-install covers the first install, pre-upgrade every later release: a hook
-# is keyed by its phase, so the job is written once per phase.
+# is keyed by its phase, so the job is written once per phase. The database
+# proxy is a native sidecar (restartPolicy: Always, Kubernetes 1.29 or later):
+# it runs next to the migration, and the Job completes when the migration exits.
 workloads:
   api:
     image:
@@ -19,8 +21,16 @@ workloads:
           command: ["./bin/migrate", "up"]          # never inherited: always set it
           activeDeadlineSeconds: 600
           backoffLimit: 1
+          initContainers:
+            - name: db-proxy
+              image: ghcr.io/example/db-proxy:1.4.0
+              restartPolicy: Always
       pre-upgrade:
         migrate:
           command: ["./bin/migrate", "up"]
           activeDeadlineSeconds: 600
           backoffLimit: 1
+          initContainers:
+            - name: db-proxy
+              image: ghcr.io/example/db-proxy:1.4.0
+              restartPolicy: Always

@@ -58,8 +58,8 @@ does `priorityClassName: ""`.
 The list fields below are the exceptions.
 
 - Never inherited: `command`, `args`, `mountedConfigFiles`, `resources`,
-  probes, `volumes`, `volumeMounts`. A job without `command` runs the image's
-  entrypoint. A job without `resources` gets the chart's `defaults.resources`,
+  probes, `volumes`, `volumeMounts`, `extraInitContainers`. A job without
+  `command` runs the image's entrypoint. A job without `resources` gets the chart's `defaults.resources`,
   not the workload's. A job mounts its own `volumes`, plus the inherited
   `externalSecrets` entries that carry a `mountPath`.
 - `additionalEnvs` cannot be stopped: the job's own `env` is appended to the
@@ -91,6 +91,15 @@ workload's or the job's `externalSecrets` list, never by the Secret name it
 produces in `envFromSecrets`. Only a reference by key gives a `pre-*` hook a
 copy that exists before the hook runs; by name, the hook waits for a Secret
 nothing has created yet on the first install.
+
+**A helper that runs for the whole job is a native sidecar**: an entry of the
+job's own `initContainers` with `restartPolicy: Always`, such as a database
+proxy next to a migration. The Job completes when the main container exits.
+It needs Kubernetes 1.29 or later: on an older cluster the entry runs as a
+plain init container that never exits, and the hook hangs until its
+`activeDeadlineSeconds`. An init container is rendered as written: one that
+names a release Secret in a `pre-*` hook reads that Secret, not its copy, and
+waits for it on the first install.
 
 **`envFrom` order: the last source wins on a shared key.** A workload lists
 `configMap`, `envFromConfigMaps`, `secret`, `envFromSecrets`, then

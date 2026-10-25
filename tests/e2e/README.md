@@ -26,7 +26,8 @@ pod's replacement (issue #211) → ScaledObject/TriggerAuthentication applied
 with the `authenticationRef` resolved → KEDA marked the ScaledObject `Ready` and
 created the derived HPA with the rendered bounds → the `cron` trigger actually
 scaled the Deployment to its `desiredReplicas` → upgrade ran the pre-upgrade hook as `<sa>-hook` and kept the real SA's UID
-(issue #141) →
+(issue #141) → the pre-upgrade hook completed beside a native sidecar that
+never exits, started before its main container (issue #262) →
 upgrade did **not** reset `spec.replicas` on the KEDA-scaled Deployment → the
 upgrade installs the same chart packaged under another version, so every
 `helm.sh/chart` label moves: one in an immutable field (a selector,

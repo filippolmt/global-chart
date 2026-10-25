@@ -15,7 +15,7 @@ docs/values-authors/README.md to these three lines (issue #245). Nothing holds
 the lines to the code of jobPodSpec: a change to what it inherits edits them.
   inherited: image serviceAccount configMap secret envFromConfigMaps envFromSecrets externalSecrets additionalEnvs imagePullSecrets hostAliases podSecurityContext securityContext automountServiceAccountToken nodeSelector tolerations affinity priorityClassName
   cronjobs only: dnsConfig
-  never: command args mountedConfigFiles volumes volumeMounts resources
+  never: command args mountedConfigFiles volumes volumeMounts resources extraInitContainers
 An explicit value overrides; an empty `{}`, `[]` or `""` (priorityClassName)
 stops the inheritance. Four exceptions to that shape:
 - envFromConfigMaps / envFromSecrets are additive: the job's own (`[]`
@@ -44,14 +44,17 @@ Never inherited:
 - volumes / volumeMounts: the job renders its own only.
 - resources: the job's own, else defaults.resources; a job's `{}` renders
   none (renderResources).
+- extraInitContainers: a workload's init container (a wait-for-db, a
+  migrator) would run silently inside every job. A job renders its own
+  initContainers only, a native sidecar included (issue #262).
 - The probes, lifecycle and the rest of the main container's runtime fields:
   a job has no field for them.
 
 Accepts a dict with:
   root           - top-level chart context (for global values, defaults)
   job            - the cronjob/hook command map
-  kind           - "hook" or "cronjob"; selects the two behaviours that differ
-                   between the two (dnsConfig inheritance and initContainers).
+  kind           - "hook" or "cronjob"; selects the one behaviour that differs
+                   between the two (dnsConfig inheritance).
                    It is the job's kind, NOT its scope: ADR 0001 rejects a
                    `scope` parameter, and this is not one
   deploy         - the parent workload map; omit for root-level jobs
@@ -133,8 +136,8 @@ securityContext:
 {{- with (include "global-chart.renderDnsConfig" $dnsConfig) }}
 {{ . }}
 {{- end }}
-{{- /* InitContainers: only for cronjobs */ -}}
-{{- if and $isCronJob $job.initContainers }}
+{{- /* InitContainers: the job's own, never the workload's extraInitContainers */ -}}
+{{- if $job.initContainers }}
 initContainers:
   {{- toYaml $job.initContainers | nindent 2 }}
 {{- end }}
