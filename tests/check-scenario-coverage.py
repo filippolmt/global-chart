@@ -19,6 +19,8 @@ node it declares. A gap is:
   imagePullSecrets item, a map or a string; a targetPort, a number or a name),
   where no scenario uses that one.
 Only the topmost gap counts: below a node no scenario sets, nothing is reported.
+A new `never set` gap names, after it, the nodes below it that become gaps once
+it is set, so a scenario covers the subtree in one pass, not one level a run.
 A removed key (declared with no type, ADR 0022) has no type to reach. A
 passthrough surface is open: the walk stops where the schema stops declaring.
 
@@ -118,6 +120,13 @@ def gaps(schema, schema_paths, reached):
     return out
 
 
+def below(schema, schema_paths, reached, path):
+    """The nodes under a never-set node that become gaps once it is set, relative to it."""
+    return sorted(p[len(path):].lstrip(".") for p, types in schema_paths.items()
+                  if p.startswith((path + ".", path + "[")) and p not in reached
+                  and (types & {"map", "list"} or bounded(schema, p)))
+
+
 def main(argv):
     if len(argv) < 3:
         sys.exit(__doc__.rsplit("Usage: ", 1)[1])
@@ -135,7 +144,12 @@ def main(argv):
             used(sweep.to_json(f, scratch), schema_paths, "", reached)
     found = gaps(schema, schema_paths, reached)
     baseline = {line for line in baseline_file.read_text().splitlines() if line and not line.startswith("#")}
-    problems = [f"    FAIL: {g}: no scenario reaches it; set it in a TEST_CASES scenario" for g in sorted(found - baseline)]
+    problems = []
+    for g in sorted(found - baseline):
+        path, _, what = g.rpartition(": ")
+        under = below(schema, schema_paths, reached, path) if what == "never set" else []
+        hint = f" (and below it: {', '.join(under)})" if under else ""
+        problems.append(f"    FAIL: {g}: no scenario reaches it; set it in a TEST_CASES scenario{hint}")
     problems += [f"    FAIL: {g}: a scenario reaches it now; delete the line from {baseline_file}"
                  for g in sorted(baseline - found)]
     if problems:

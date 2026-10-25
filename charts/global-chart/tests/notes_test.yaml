@@ -133,3 +133,16 @@ tests:
           pattern: "Hostnames:"
       - matchRegexRaw:
           pattern: "\\(httpRoutes\\.api\\)\\.\\n\\nBound to Gateway\\(s\\):\\n  - gw"
+
+  # A rule that holds for every kind is tested on every kind (CODING_STANDARDS.md)
+  - it: should list a StatefulSet workload and its Service
+    set:
+      workloads:
+        db:
+          kind: StatefulSet
+          image: nginx:1.25
+    asserts:
+      - matchRegexRaw:
+          pattern: "Workloads created:\\n  - db"
+      - matchRegexRaw:
+          pattern: "Services:\\n  - db"

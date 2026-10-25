@@ -148,7 +148,9 @@ they are not part of the values API (ADR 0023).
 render path that reads a `workloads` entry whatever its kind gets a suite
 case with `kind: StatefulSet` beside the Deployment one: the kind changes the
 template's branches, and a rule tested on one kind alone is assumed on the other
-(issue #216).
+(issue #216). `lint-templates`' every-kind rule holds the coarse half: a
+template that reads a `workloads` entry has one StatefulSet case at least.
+Which of its rules need the twin case is the review's call.
 
 **The path names the key that chose.** A `fail` leads with the values path
 "as precise as the caller knows it" (the `_validate-helpers.tpl` header): when

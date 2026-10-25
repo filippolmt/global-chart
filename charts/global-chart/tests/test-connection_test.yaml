@@ -48,3 +48,16 @@ tests:
       - equal:
           path: spec.containers[0].args[0]
           value: "http://myrel-global-chart-beta:9000/"
+
+  # A rule that holds for every kind is tested on every kind (CODING_STANDARDS.md):
+  # a StatefulSet is reached through its Service, not the headless one
+  - it: should test a StatefulSet workload through its Service
+    set:
+      workloads:
+        db:
+          kind: StatefulSet
+          image: nginx:1.25
+    asserts:
+      - contains:
+          path: spec.containers[0].args
+          content: http://RELEASE-NAME-global-chart-db:80/
