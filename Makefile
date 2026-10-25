@@ -698,6 +698,8 @@ e2e: kind-cluster kind-keda kind-eso check-helm-floor e2e-dryrun bound-sweep ## 
 		|| { echo "FAIL: the pre-upgrade hook bound to the workload SA did not succeed"; exit 1; }; \
 	[ "$$(kubectl -n $$ns get job $$rel-$(GLOBAL_CHART_NAME)-app-pre-upgrade-migration -o jsonpath='{.spec.template.spec.serviceAccountName}')" = "$$rel-$(GLOBAL_CHART_NAME)-app-hook" ] \
 		|| { echo "FAIL: the pre-upgrade hook did not run as the workload SA copy (ADR 0011)"; exit 1; }; \
+	[ "$$(kubectl -n $$ns get job $$rel-$(GLOBAL_CHART_NAME)-app-pre-upgrade-migration -o jsonpath='{.spec.template.spec.initContainers[0].restartPolicy}')" = "Always" ] \
+		|| { echo "FAIL: the pre-upgrade hook's sidecar reached the API server without restartPolicy: Always (issue #262)"; exit 1; }; \
 	echo "    pre-upgrade hook completed beside its native sidecar, which never exits on its own (issue #262)"; \
 	kubectl -n $$ns wait --for=delete sa/$$rel-$(GLOBAL_CHART_NAME)-app-hook --timeout=60s >/dev/null 2>&1 \
 		|| { echo "FAIL: the workload SA hook copy survived the pre-upgrade phase"; kubectl -n $$ns get sa; exit 1; }; \
