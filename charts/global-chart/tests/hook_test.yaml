@@ -2,6 +2,76 @@ suite: hook template tests
 templates:
   - templates/hook.yaml
 tests:
+  - it: should inherit a StatefulSet image and its map policy
+    set:
+      workloads:
+        backend:
+          kind: StatefulSet
+          image: { repository: myapp, tag: v2, pullPolicy: Always }
+          hooks:
+            post-upgrade:
+              migrate:
+                command: ["true"]
+    documentSelector:
+      path: kind
+      value: Job
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: myapp:v2
+      - equal:
+          path: spec.template.spec.containers[0].imagePullPolicy
+          value: Always
+
+  - it: should let a workload hook override the inherited image policy
+    set:
+      workloads:
+        backend:
+          image: { repository: myapp, tag: v2, pullPolicy: Always }
+          hooks:
+            post-upgrade:
+              migrate:
+                imagePullPolicy: Never
+                command: ["true"]
+    documentSelector:
+      path: kind
+      value: Job
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: myapp:v2
+      - equal:
+          path: spec.template.spec.containers[0].imagePullPolicy
+          value: Never
+
+  # The schema rejects null first; a schema-free diagnostic render checks the scalar-first branch.
+  - it: should reject a root hook's null deadline even with a missing image (issue #265)
+    set:
+      hooks:
+        post-install:
+          migrate:
+            activeDeadlineSeconds: null
+            command: ["true"]
+    asserts:
+      - failedTemplate:
+          errorPattern: "(hooks.post-install.migrate.activeDeadlineSeconds: null, a value nobody wrote|at '/hooks/post-install/migrate/activeDeadlineSeconds': got null, want integer)"
+
+  - it: should reject a workload hook's null deadline even with an invalid image (issue #265)
+    set:
+      workloads:
+        backend:
+          image: myapp:v2
+          hooks:
+            post-install:
+              migrate:
+                image:
+                  digest: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                activeDeadlineSeconds: null
+                command: ["true"]
+    asserts:
+      - failedTemplate:
+          errorPattern: "(workloads.backend.hooks.post-install.migrate.activeDeadlineSeconds: null, a value nobody wrote|at '/workloads/backend/hooks/post-install/migrate/activeDeadlineSeconds': got null, want integer)"
+
   # ====== Root-level hook basic ======
   - it: should render root-level hook with explicit image
     set:
@@ -57,6 +127,9 @@ tests:
       - equal:
           path: spec.template.spec.containers[0].imagePullPolicy
           value: Always
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: registry.example.com/app:latest
 
   - it: should keep the job's own imagePullPolicy over the fromWorkload one
     set:
@@ -76,6 +149,9 @@ tests:
       - equal:
           path: spec.template.spec.containers[0].imagePullPolicy
           value: Never
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: registry.example.com/app:latest
 
   - it: should not take the fromWorkload pullPolicy when the job sets its own image
     set:
@@ -95,6 +171,9 @@ tests:
       - equal:
           path: spec.template.spec.containers[0].imagePullPolicy
           value: IfNotPresent
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: busybox:1.36
 
   - it: should fail when fromWorkload references non-existent workload
     set:
@@ -653,11 +732,11 @@ tests:
   # the hook inherits the SA and only produces 1 document (Job at index 0).
   # When workload has no SA config, the hook creates its own SA (SA=0, Job=1).
 
-  - it: should render workload-scope hook inheriting image
+  - it: should render workload-scope hook inheriting image and map policy
     set:
       workloads:
         backend:
-          image: myapp:v2
+          image: { repository: myapp, tag: v2, pullPolicy: Always }
           serviceAccount:
             create: true
           hooks:
@@ -673,6 +752,10 @@ tests:
       - equal:
           path: spec.template.spec.containers[0].image
           value: "myapp:v2"
+        documentIndex: 0
+      - equal:
+          path: spec.template.spec.containers[0].imagePullPolicy
+          value: Always
         documentIndex: 0
 
   - it: should inherit a workload tag carrying a digest as written (issue #187)
@@ -801,11 +884,11 @@ tests:
         documentIndex: 0
 
   # ====== Workload-scope hook can override image ======
-  - it: should allow workload-scope hook to override image
+  - it: should allow workload-scope hook to override image without borrowing its policy
     set:
       workloads:
         backend:
-          image: myapp:v2
+          image: { repository: myapp, tag: v2, pullPolicy: Always }
           serviceAccount:
             create: true
           hooks:
@@ -817,6 +900,10 @@ tests:
       - equal:
           path: spec.template.spec.containers[0].image
           value: "custom-migrator:latest"
+        documentIndex: 0
+      - equal:
+          path: spec.template.spec.containers[0].imagePullPolicy
+          value: IfNotPresent
         documentIndex: 0
 
   # ====== Workload-scope hook SA inheritance ======

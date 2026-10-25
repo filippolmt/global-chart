@@ -29,7 +29,7 @@ one interface would trade readability for DRY and create a leaky abstraction in
 a templating language with no debugger and whitespace-sensitive output.
 
 The genuinely-shared, identical logic has already been extracted into deep
-helpers — `jobPodSpec` (pod spec), `jobImageString` (image resolution)
+helpers — `jobPodSpec` (pod spec, including image resolution)
 and `jobServiceAccount` (SA resolution, every scope) in `_job-helpers.tpl`
 (`jobServiceAccount` has since moved to `_serviceaccount-helpers.tpl`, with the
 other ServiceAccount resolvers — issue #126).
@@ -55,6 +55,13 @@ introduced, and no `scope` parameter: the helper's single `kind` parameter
 (`hook` | `cronjob`) distinguishes the two job kinds, which is orthogonal to
 scope. The cost paid once: the field order of root-level **hooks**
 changed to the shared one. Same keys, same values.
+
+*Amended by issue #265:* `jobPodSpec` also owns image assembly and missing-image
+errors, replacing `jobImageString`. It resolves `jobImageSource` once and uses
+that source for both the image and its pull policy. Callers no longer prepare
+an image reference. Image precedence and diagnostics stay the same, except
+that a job with multiple invalid fields may now report an earlier scalar
+validation error before its image error.
 
 What remains in PART 1 / PART 2 is the scope-specific scaffolding — the
 `range` over the values, the names, the metadata, the hook annotations, the

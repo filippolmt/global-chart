@@ -2,6 +2,141 @@ suite: cronjob template tests
 templates:
   - templates/cronjob.yaml
 tests:
+  - it: should inherit a StatefulSet image and its map policy
+    set:
+      workloads:
+        backend:
+          kind: StatefulSet
+          image: { repository: myapp, tag: v2, pullPolicy: Always }
+          cronJobs:
+            backup:
+              schedule: "0 2 * * *"
+              command: ["true"]
+    documentSelector:
+      path: kind
+      value: CronJob
+    asserts:
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.containers[0].image
+          value: myapp:v2
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.containers[0].imagePullPolicy
+          value: Always
+
+  - it: should let a root cronjob override the fromWorkload image policy
+    set:
+      workloads:
+        backend:
+          image: { repository: myapp, tag: v2, pullPolicy: Always }
+      cronJobs:
+        backup:
+          schedule: "0 2 * * *"
+          fromWorkload: backend
+          imagePullPolicy: Never
+          command: ["true"]
+    documentSelector:
+      path: kind
+      value: CronJob
+    asserts:
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.containers[0].image
+          value: myapp:v2
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.containers[0].imagePullPolicy
+          value: Never
+
+  - it: should let a workload cronjob override the inherited image policy
+    set:
+      workloads:
+        backend:
+          image: { repository: myapp, tag: v2, pullPolicy: Always }
+          cronJobs:
+            backup:
+              schedule: "0 2 * * *"
+              imagePullPolicy: Never
+              command: ["true"]
+    documentSelector:
+      path: kind
+      value: CronJob
+    asserts:
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.containers[0].image
+          value: myapp:v2
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.containers[0].imagePullPolicy
+          value: Never
+
+  - it: should not borrow the fromWorkload policy for a root cronjob's explicit image
+    set:
+      workloads:
+        backend:
+          image: { repository: myapp, tag: v2, pullPolicy: Always }
+      cronJobs:
+        backup:
+          schedule: "0 2 * * *"
+          fromWorkload: backend
+          image: busybox:1.36
+          command: ["true"]
+    documentSelector:
+      path: kind
+      value: CronJob
+    asserts:
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.containers[0].image
+          value: busybox:1.36
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.containers[0].imagePullPolicy
+          value: IfNotPresent
+
+  - it: should not borrow the workload policy for a cronjob's explicit image
+    set:
+      workloads:
+        backend:
+          image: { repository: myapp, tag: v2, pullPolicy: Always }
+          cronJobs:
+            backup:
+              schedule: "0 2 * * *"
+              image: busybox:1.36
+              command: ["true"]
+    documentSelector:
+      path: kind
+      value: CronJob
+    asserts:
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.containers[0].image
+          value: busybox:1.36
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.containers[0].imagePullPolicy
+          value: IfNotPresent
+
+  # The schema rejects null first; a schema-free diagnostic render checks the scalar-first branch.
+  - it: should reject a root cronjob's null history limit even with a missing image (issue #265)
+    set:
+      cronJobs:
+        backup:
+          schedule: "0 2 * * *"
+          successfulJobsHistoryLimit: null
+          command: ["true"]
+    asserts:
+      - failedTemplate:
+          errorPattern: "(cronJobs.backup.successfulJobsHistoryLimit: null, a value nobody wrote|at '/cronJobs/backup/successfulJobsHistoryLimit': got null, want integer)"
+
+  - it: should reject a workload cronjob's null history limit even with an invalid image (issue #265)
+    set:
+      workloads:
+        backend:
+          image: myapp:v2
+          cronJobs:
+            backup:
+              schedule: "0 2 * * *"
+              image:
+                digest: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              successfulJobsHistoryLimit: null
+              command: ["true"]
+    asserts:
+      - failedTemplate:
+          errorPattern: "(workloads.backend.cronJobs.backup.successfulJobsHistoryLimit: null, a value nobody wrote|at '/workloads/backend/cronJobs/backup/successfulJobsHistoryLimit': got null, want integer)"
+
   # ====== Root-level CronJob naming (52 char truncation) ======
   - it: should truncate root-level cronjob name to 52 chars
     documentSelector:
@@ -58,6 +193,7 @@ tests:
           image:
             repository: myapp/api
             tag: "v2.0"
+            pullPolicy: Always
       cronJobs:
         cleanup:
           schedule: "0 4 * * *"
@@ -67,6 +203,9 @@ tests:
       - equal:
           path: spec.jobTemplate.spec.template.spec.containers[0].image
           value: "myapp/api:v2.0"
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.containers[0].imagePullPolicy
+          value: Always
 
   - it: should render a job tag carrying a digest as written (issue #187)
     documentSelector:
@@ -147,13 +286,14 @@ tests:
           errorMessage: "workloads.backend.cronJobs.db-backup.image: sets a digest without a repository (expected repository@digest)"
 
   # ====== Workload-scope CronJob inheritance ======
-  - it: should inherit image from parent workload
+  - it: should inherit image and map policy from parent workload
     set:
       workloads:
         backend:
           image:
             repository: myapp/backend
             tag: "v1.0"
+            pullPolicy: Always
           configMap:
             DB_HOST: postgres
           secret:
@@ -178,6 +318,9 @@ tests:
       - equal:
           path: spec.jobTemplate.spec.template.spec.containers[0].image
           value: "myapp/backend:v1.0"
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.containers[0].imagePullPolicy
+          value: Always
       - equal:
           path: spec.jobTemplate.spec.template.spec.nodeSelector.tier
           value: backend

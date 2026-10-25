@@ -8,7 +8,7 @@ Render an image reference from either a plain string or a map with repository/ta
 errCtx (required) is the values path of the image and leads every fail message, in the
 shape "<values path>: <problem>" (issues #188, #190): workloads.<name>.image, a job's
 <jobValuesPath>.image, or, for an inherited image, "workloads.<name>.image (inherited
-by <jobValuesPath>)", which jobImageString builds.
+by <jobValuesPath>)", which jobPodSpec builds.
 When global.imageRegistry is set, the registry is prepended to both string and map images
 unless the first path segment already looks like a registry (contains "." or ":" or equals "localhost").
 Examples: "nginx" → "registry/nginx", "myorg/myapp" → "registry/myorg/myapp", "ghcr.io/org/app" → unchanged.

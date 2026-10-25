@@ -5,6 +5,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ---
 
+## [Unreleased]
+
+### Changed
+
+- Hook and cronjob image assembly now lives in `jobPodSpec`, resolving the
+  image source once for both the image and pull policy (issue #265). Valid
+  values render unchanged; image precedence, pull policy overrides and
+  inherited-image diagnostics are preserved. A job with multiple invalid
+  fields may now report an earlier scalar validation error before its image
+  error.
+
 ## [4.2.0] — 2026-10-25
 
 ### Added

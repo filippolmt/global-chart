@@ -50,6 +50,10 @@ Never inherited:
 - The probes, lifecycle and the rest of the main container's runtime fields:
   a job has no field for them.
 
+Image assembly belongs here too: jobImageSource is resolved once for both the
+image and pull policy. An imageString fail names the job's own image or the
+workload's image with "(inherited by <job>)"; a missing image names the job.
+
 Accepts a dict with:
   root           - top-level chart context (for global values, defaults)
   job            - the cronjob/hook command map
@@ -60,7 +64,6 @@ Accepts a dict with:
                    `scope` parameter, and this is not one
   deploy         - the parent workload map; omit for root-level jobs
   saName         - pre-resolved ServiceAccount name
-  imageRef       - pre-resolved image string
   containerName  - name for the container
   configMapRef   - ConfigMap name for envFrom (hooks use hook-config, cronjobs
                    use deploy name); read only when the workload has a
@@ -88,7 +91,22 @@ docs/adr/0014-job-pod-automount-follows-the-inheritance-chain.md).
 {{- $job := .job -}}
 {{- $deploy := default (dict) .deploy -}}
 {{- $saName := .saName -}}
-{{- $imageRef := .imageRef -}}
+{{- /* Resolve once: the image and pull policy must follow the same source. */ -}}
+{{- $errCtx := required "jobPodSpec: errCtx is required (build it with jobValuesPath)" .errCtx -}}
+{{- $imageSource := include "global-chart.jobImageSource" . | fromJson -}}
+{{- $imageRef := "" -}}
+{{- if hasKey $imageSource "image" -}}
+  {{- $imgCtx := printf "%s.image" $errCtx -}}
+  {{- with $imageSource.from -}}{{- $imgCtx = printf "%s.image (inherited by %s)" . $errCtx -}}{{- end -}}
+  {{- $imageRef = include "global-chart.imageString" (dict "image" $imageSource.image "global" $root.Values.global "errCtx" $imgCtx) -}}
+{{- end -}}
+{{- if not $imageRef -}}
+  {{- if .deployName -}}
+    {{- fail (printf "%s: image is required" $errCtx) -}}
+  {{- else -}}
+    {{- fail (printf "%s: image is required (set %s.image or %s.fromWorkload)" $errCtx $errCtx $errCtx) -}}
+  {{- end -}}
+{{- end -}}
 {{- $containerName := .containerName -}}
 {{- $configMapRef := .configMapRef -}}
 {{- $secretRef := .secretRef -}}
@@ -147,8 +165,7 @@ containers:
   image: {{ $imageRef | quote }}
   {{- /* The pullPolicy follows the image to wherever it came from: a
          root-level fromWorkload copies the workload's pullPolicy with its
-         image (issue #160) */ -}}
-  {{- $imageSource := include "global-chart.jobImageSource" (dict "root" $root "job" $job "deployName" .deployName "errCtx" .errCtx) | fromJson }}
+         image (issue #160) */}}
   imagePullPolicy: {{ include "global-chart.imagePullPolicy" (dict "override" $job.imagePullPolicy "image" $imageSource.image) | quote }}
   {{- if $job.command }}
   command:
@@ -350,8 +367,8 @@ same job.
 
 {{/*
 Choose the image value (a string or a repository/tag map) a cronjob/hook runs:
-the one home of the resolution order, read by jobImageString for the image and
-by jobPodSpec for the pullPolicy, so the two follow one source (issue #160).
+the one home of the resolution order, read once by jobPodSpec for both the
+image and pullPolicy, so the two follow one source (issues #160, #265).
 Returns JSON {"image": <value or null>, "from": <entry>}: "from" is the values
 path of the workload the image was taken from ("workloads.<name>"), empty
 when it is the job's own; fails only on a fromWorkload naming no workload.
@@ -390,33 +407,6 @@ Resolution order:
   {{- $image = dict "image" $dep.image "from" (include "global-chart.deploymentValuesPath" $job.fromWorkload) -}}
 {{- end -}}
 {{- $image | toJson -}}
-{{- end -}}
-
-{{/*
-Resolve the image string for a cronjob/hook command, from jobImageSource.
-Returns the image string, and fails when none resolves: the one home of the
-"image is required" message, which callers used to spell out each with its own
-printf. Takes the same dict as jobImageSource. An imageString fail leads with
-the path of the image: the job's own, or the workload's it inherits, "(inherited
-by <job>)" (issues #188, #190).
-*/}}
-{{- define "global-chart.jobImageString" -}}
-{{- $errCtx := required "jobImageString: errCtx is required (build it with jobValuesPath)" .errCtx -}}
-{{- $source := include "global-chart.jobImageSource" . | fromJson -}}
-{{- $img := "" -}}
-{{- if hasKey $source "image" -}}
-  {{- $imgCtx := printf "%s.image" $errCtx -}}
-  {{- with $source.from -}}{{- $imgCtx = printf "%s.image (inherited by %s)" . $errCtx -}}{{- end -}}
-  {{- $img = include "global-chart.imageString" (dict "image" $source.image "global" .root.Values.global "errCtx" $imgCtx) -}}
-{{- end -}}
-{{- if not $img -}}
-  {{- if .deployName -}}
-    {{- fail (printf "%s: image is required" $errCtx) -}}
-  {{- else -}}
-    {{- fail (printf "%s: image is required (set %s.image or %s.fromWorkload)" $errCtx $errCtx $errCtx) -}}
-  {{- end -}}
-{{- end -}}
-{{- $img -}}
 {{- end -}}
 
 {{/*
