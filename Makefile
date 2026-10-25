@@ -774,18 +774,26 @@ install-test01: ## Install test01 (has kubectl pre-step; or use: make install SC
 # Render (single template debugging)
 # ============================================================================
 
-render: ## Render a values file, with the CRD API versions (usage: make render VALUES=<file> [TEMPLATE=<name>] [SKIP_SCHEMA=1])
+render: ## Render a values file, with the CRD API versions (usage: make render VALUES=<file> [TEMPLATE=<name>] [SKIP_SCHEMA=1] [BASE=<ref>])
 	@if [ -z "$(VALUES)" ]; then \
-		echo "Usage: make render VALUES=<values-file> [TEMPLATE=<template-name>] [SKIP_SCHEMA=1]"; \
+		echo "Usage: make render VALUES=<values-file> [TEMPLATE=<template-name>] [SKIP_SCHEMA=1] [BASE=<ref>]"; \
 		echo "Example: make render VALUES=tests/test01/values.01.yaml TEMPLATE=workload.yaml"; \
-		echo "TEMPLATE left out renders the whole chart; SKIP_SCHEMA=1 adds --skip-schema-validation"; \
+		echo "TEMPLATE left out renders the whole chart; SKIP_SCHEMA=1 adds --skip-schema-validation;"; \
+		echo "BASE=<ref> renders the file on that ref too and prints the diff, errors included"; \
 		exit 1; \
 	fi
+ifdef BASE
+	@python3 tests/render-diff.py --values $(VALUES) $(BASE) \
+		$(HELM_API_VERSIONS) \
+		$(if $(TEMPLATE),-s templates/$(TEMPLATE)) \
+		$(if $(SKIP_SCHEMA),--skip-schema-validation)
+else
 	helm template test-release ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) \
 		-f $(VALUES) \
 		$(HELM_API_VERSIONS) \
 		$(if $(TEMPLATE),-s templates/$(TEMPLATE)) \
 		$(if $(SKIP_SCHEMA),--skip-schema-validation)
+endif
 
 # ============================================================================
 # Cleanup

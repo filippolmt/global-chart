@@ -16,6 +16,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   fields may now report an earlier scalar validation error before its image
   error.
 
+### Tests
+
+- Guardrails from the #265 retro: `make lint-templates` gains
+  `schema-alternative`, a suite `errorPattern` that also accepts the schema's
+  message fails, since the schema rejects first and the template `fail` is
+  never asserted; `make render VALUES=<file> BASE=<ref>` renders one values
+  file on a base ref and on the working tree and prints the diff, errors
+  included, the proof of a moved fail order.
+
 ## [4.2.0] — 2026-10-25
 
 ### Added
