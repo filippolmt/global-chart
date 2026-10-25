@@ -53,8 +53,9 @@ Never inherited:
 Accepts a dict with:
   root           - top-level chart context (for global values, defaults)
   job            - the cronjob/hook command map
-  kind           - "hook" or "cronjob"; selects the one behaviour that differs
-                   between the two (dnsConfig inheritance).
+  kind           - "hook" or "cronjob"; selects the two behaviours that differ
+                   between the two (dnsConfig inheritance, and whether an
+                   externalSecrets entry reads its hook copy, with hookType).
                    It is the job's kind, NOT its scope: ADR 0001 rejects a
                    `scope` parameter, and this is not one
   deploy         - the parent workload map; omit for root-level jobs

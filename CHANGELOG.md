@@ -16,9 +16,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   (Kubernetes 1.29 or later), such as a database proxy next to a migration:
   the Job completes when the main container exits. On an older cluster the
   entry runs as a plain init container that never exits, and the hook hangs
-  until its `activeDeadlineSeconds`. A job's `initContainers` are its own,
-  never the workload's `extraInitContainers`, for hooks and cronjobs alike. A
-  hook without `initContainers` renders as before.
+  until its `activeDeadlineSeconds` or the Helm or Argo CD timeout. A job's `initContainers` are its own,
+  never the workload's `extraInitContainers`, for hooks and cronjobs alike.
+  An init container is rendered as written: in a hook that reads
+  hook-prerequisite copies, one that names a release Secret reads that Secret,
+  not its copy, and waits for it on the first install. A hook without
+  `initContainers` renders as before.
 
 ## [4.1.0] — 2026-10-24
 

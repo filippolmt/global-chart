@@ -59,9 +59,10 @@ The list fields below are the exceptions.
 
 - Never inherited: `command`, `args`, `mountedConfigFiles`, `resources`,
   probes, `volumes`, `volumeMounts`, `extraInitContainers`. A job without
-  `command` runs the image's entrypoint. A job without `resources` gets the chart's `defaults.resources`,
-  not the workload's. A job mounts its own `volumes`, plus the inherited
-  `externalSecrets` entries that carry a `mountPath`.
+  `command` runs the image's entrypoint. A job without `resources` gets the
+  chart's `defaults.resources`, not the workload's. A job mounts its own
+  `volumes`, plus the inherited `externalSecrets` entries that carry a
+  `mountPath`.
 - `additionalEnvs` cannot be stopped: the job's own `env` is appended to the
   workload's.
 - `envFromConfigMaps` / `envFromSecrets` add up: the job's own come after the
@@ -97,9 +98,10 @@ job's own `initContainers` with `restartPolicy: Always`, such as a database
 proxy next to a migration. The Job completes when the main container exits.
 It needs Kubernetes 1.29 or later: on an older cluster the entry runs as a
 plain init container that never exits, and the hook hangs until its
-`activeDeadlineSeconds`. An init container is rendered as written: one that
-names a release Secret in a `pre-*` hook reads that Secret, not its copy, and
-waits for it on the first install.
+`activeDeadlineSeconds` or the Helm or Argo CD timeout. An init container is
+rendered as written: in a hook that reads copies (a `pre-*` other than
+`pre-delete`, or `post-delete`), one that names a release Secret reads that
+Secret, not its copy, and waits for it on the first install.
 
 **`envFrom` order: the last source wins on a shared key.** A workload lists
 `configMap`, `envFromConfigMaps`, `secret`, `envFromSecrets`, then
