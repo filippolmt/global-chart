@@ -95,7 +95,9 @@ nothing has created yet on the first install.
 
 **A helper that runs for the whole job is a native sidecar**: an entry of the
 job's own `initContainers` with `restartPolicy: Always`, such as a database
-proxy next to a migration. The Job completes when the main container exits.
+proxy next to a migration. The Job completes when the main container exits,
+once the sidecar stops on SIGTERM: one that ignores it holds the Job for its
+`terminationGracePeriodSeconds`, 30 seconds by default.
 It needs Kubernetes 1.29 or later: on an older cluster the entry runs as a
 plain init container that never exits, and the hook hangs until its
 `activeDeadlineSeconds` or the Helm or Argo CD timeout. An init container is

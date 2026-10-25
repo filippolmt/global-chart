@@ -9,18 +9,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Added
 
-- **`initContainers` on hooks** (issue #262), root and workload scope, with
-  the shape they have on a cronjob: `hooks.<phase>.<name>.initContainers` and
-  `workloads.<name>.hooks.<phase>.<name>.initContainers`, rendered verbatim in
-  the hook Job's pod. An entry with `restartPolicy: Always` is a native sidecar
-  (Kubernetes 1.29 or later), such as a database proxy next to a migration:
-  the Job completes when the main container exits. On an older cluster the
-  entry runs as a plain init container that never exits, and the hook hangs
-  until its `activeDeadlineSeconds` or the Helm or Argo CD timeout. A job's `initContainers` are its own,
-  never the workload's `extraInitContainers`, for hooks and cronjobs alike.
-  An init container is rendered as written: in a hook that reads
-  hook-prerequisite copies, one that names a release Secret reads that Secret,
-  not its copy, and waits for it on the first install. A hook without
+- **`initContainers` on hooks** (issue #262), at both scopes, with the shape
+  they have on a cronjob, rendered verbatim in the hook Job's pod. An entry
+  with `restartPolicy: Always` is a native sidecar (Kubernetes 1.29 or later),
+  such as a database proxy next to a migration: the Job completes when the
+  main container exits. On an older cluster it never exits, and the hook hangs
+  until `activeDeadlineSeconds` or the Helm or Argo CD timeout. A job's
+  `initContainers` are its own, never the workload's `extraInitContainers`.
+  In a hook that reads hook-prerequisite copies, an init container naming a
+  release Secret reads that Secret, not its copy. A hook without
   `initContainers` renders as before.
 
 ## [4.1.0] — 2026-10-24
