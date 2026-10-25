@@ -2251,3 +2251,94 @@ tests:
               mountPath: /data/sub
     asserts:
       - notFailedTemplate: {}
+
+  # ====== initContainers: the cronjob's own, never the workload's extraInitContainers (issue #262) ======
+  - it: should render a workload-scope cronjob's own initContainers, never the workload's
+    set:
+      workloads:
+        backend:
+          image: myapp:v1
+          extraInitContainers:
+            - name: wait-for-db
+              image: busybox:1.36
+          cronJobs:
+            backup:
+              schedule: "0 2 * * *"
+              command: ["./backup.sh"]
+              initContainers:
+                - name: fetch
+                  image: busybox:1.36
+    documentSelector:
+      path: kind
+      value: CronJob
+    asserts:
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.initContainers
+          value:
+            - name: fetch
+              image: busybox:1.36
+
+  - it: should not inherit the workload's extraInitContainers on a workload-scope cronjob
+    set:
+      workloads:
+        backend:
+          image: myapp:v1
+          extraInitContainers:
+            - name: wait-for-db
+              image: busybox:1.36
+          cronJobs:
+            backup:
+              schedule: "0 2 * * *"
+              command: ["./backup.sh"]
+    documentSelector:
+      path: kind
+      value: CronJob
+    asserts:
+      - notExists:
+          path: spec.jobTemplate.spec.template.spec.initContainers
+
+  - it: should not inherit the StatefulSet workload's extraInitContainers on a workload-scope cronjob
+    set:
+      workloads:
+        backend:
+          kind: StatefulSet
+          image: myapp:v1
+          extraInitContainers:
+            - name: wait-for-db
+              image: busybox:1.36
+          cronJobs:
+            backup:
+              schedule: "0 2 * * *"
+              command: ["./backup.sh"]
+    documentSelector:
+      path: kind
+      value: CronJob
+    asserts:
+      - notExists:
+          path: spec.jobTemplate.spec.template.spec.initContainers
+
+  - it: should render a StatefulSet workload-scope cronjob's own initContainers, never the workload's
+    set:
+      workloads:
+        backend:
+          kind: StatefulSet
+          image: myapp:v1
+          extraInitContainers:
+            - name: wait-for-db
+              image: busybox:1.36
+          cronJobs:
+            backup:
+              schedule: "0 2 * * *"
+              command: ["./backup.sh"]
+              initContainers:
+                - name: fetch
+                  image: busybox:1.36
+    documentSelector:
+      path: kind
+      value: CronJob
+    asserts:
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.initContainers
+          value:
+            - name: fetch
+              image: busybox:1.36
