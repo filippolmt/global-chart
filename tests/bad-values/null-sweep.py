@@ -56,6 +56,7 @@ verifies the random password and its htpasswd hash against the standard format.
 Usage: null-sweep.py <chart dir> <values file>... [-- <helm flags>...]
 """
 import concurrent.futures
+import importlib.util
 import json
 import os
 import pathlib
@@ -64,6 +65,10 @@ import subprocess
 import sys
 import tempfile
 from typing import NamedTuple
+
+spec = importlib.util.spec_from_file_location("schema_navigation", pathlib.Path(__file__).parent / "schema_navigation.py")
+navigation = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(navigation)
 
 # `%!` is a Go fmt error: a value of the wrong type printed into a message
 RAW = re.compile(r"nil pointer|error calling|wrong type for value|can't evaluate|"
@@ -173,87 +178,23 @@ def shape_at(shape, path):
     return shape
 
 
-SCHEMA_TYPES = {"object": "map", "array": "list", "string": "string", "boolean": "boolean",
-                "integer": "number", "number": "number"}
-
-
-# The schema walk reads type, $ref, oneOf, anyOf, allOf and the child keywords.
-# What it skips (if/then/else, not, a $ref's siblings, allOf read as a union)
-# can only narrow what a node accepts: the types it computes are then a
-# superset, and valuesShape matching them still fails no valid value. The one
-# construct that widens is a branch with no type, which accepts any: that is a
-# finding, never read as no type.
-def untyped_branch(schema, node):
-    """Whether node accepts any type: a branch declaring no type whose allOf parts all accept any."""
-    return any("type" not in a and all(untyped_branch(schema, n) for n in a.get("allOf", []))
-               for a in schema_alternatives(schema, node))
-
-
-def schema_alternatives(schema, node):
-    """The schema nodes a value at node may match: $ref followed, oneOf and anyOf spread."""
-    while "$ref" in node:
-        target = schema
-        for part in node["$ref"].lstrip("#/").split("/"):
-            target = target[part]
-        node = target
-    alternatives = [node]
-    for key in ("oneOf", "anyOf"):
-        if key in node:
-            alternatives = [a for n in node[key] for a in schema_alternatives(schema, n)]
-    return alternatives
-
-
-def schema_types(schema, node):
-    types = set()
-    for a in schema_alternatives(schema, node):
-        t = a.get("type")
-        types |= {SCHEMA_TYPES[x] for x in ([t] if isinstance(t, str) else t or []) if x != "null"}
-        for n in a.get("allOf", []):
-            types |= schema_types(schema, n)
-    return types
-
-
-def schema_parts(schema, node):
-    """node and every schema its allOf applies with it, at any depth."""
-    return [node] + [p for n in node.get("allOf", []) for a in schema_alternatives(schema, n)
-                     for p in schema_parts(schema, a)]
-
-
-def schema_child(schema, node, key):
-    """The schema of node's entry key ("*" for any entry, "[]" for an item); None if undeclared.
-    One branch's own declaration and its allOf parts' all apply (allOf); two branches are alternatives (anyOf)."""
-    branches = []
-    for a in schema_alternatives(schema, node):
-        found = []
-        for part in schema_parts(schema, a):
-            if key == "[]":
-                found += [part["items"]] if "items" in part else []
-            elif key == "*":
-                found += [part["additionalProperties"]] if isinstance(part.get("additionalProperties"), dict) else []
-                found += part.get("patternProperties", {}).values()
-            elif key in part.get("properties", {}):
-                found.append(part["properties"][key])
-        if found:
-            branches.append({"allOf": found})
-    return {"anyOf": branches} if branches else None
-
-
-def shape_findings(shape, schema, node, path=""):
+def shape_findings(shape, schema, schema_path=(), path=""):
     """Every node where valuesShape reads other types than the schema accepts."""
     want = {"map"} if isinstance(shape, dict) else {"list"} if isinstance(shape, list) else set(shape.split("|"))
-    if node is None:
+    declared = navigation.declaration(schema, schema_path)
+    if declared is None:
         return [f"valuesShape: {path}: the schema declares no such node"]
-    if untyped_branch(schema, node):
+    if declared.untyped:
         return [f"valuesShape: {path}: the schema accepts any type there through a branch with no type; "
-                "give the branch one, or teach schema_types what it means"]
-    got = schema_types(schema, node)
+                "give the branch one, or teach schema_navigation.py what it means"]
+    got = declared.types
     out = [] if got == want else [f"valuesShape: {path}: reads {'|'.join(sorted(want))}, "
                                   f"the schema accepts {'|'.join(sorted(got)) or 'any type'}"]
     if isinstance(shape, dict):
         for key, child in shape.items():
-            out += shape_findings(child, schema, schema_child(schema, node, key), f"{path}.{key}" if path else key)
+            out += shape_findings(child, schema, schema_path + (key,), f"{path}.{key}" if path else key)
     elif isinstance(shape, list):
-        out += shape_findings(shape[0], schema, schema_child(schema, node, "[]"), path + "[]")
+        out += shape_findings(shape[0], schema, schema_path + ("[]",), path + "[]")
     return out
 
 
@@ -430,7 +371,7 @@ def main(argv):
         defaults = set(paths(to_json(chart / "values.yaml", scratch)))
         shape = values_shape(chart, tmp)
         schema = json.loads((chart / "values.schema.json").read_text())
-        findings += shape_findings(shape, schema, schema)
+        findings += shape_findings(shape, schema)
         findings += null_item_findings(tmp, shape)
         wrongs = []
         for f in files:

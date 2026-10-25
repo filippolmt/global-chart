@@ -35,6 +35,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   as toYaml writes it without the key: the dash moves to the next key, or the
   item is `- {}`. It dropped the whole line, dash included, so a null `port`
   in a NetworkPolicy port list read as a change (issue #271).
+- The schema walk of null-sweep, bound-sweep and `make scenario-coverage` now
+  lives in `tests/bad-values/schema_navigation.py`, with its two readings kept
+  apart and pinned by `check-schema-navigation.py --self-test`, in `make
+  lint-checks` (issue #266). Scenario coverage now descends one list item per
+  `[]`: it read `a[].b` one level too high, so 39 bounded list-item nodes
+  counted as unbounded. The 15 of them no scenario set are now set by one,
+  and bound-sweep sends their bounds to the API server: its first run
+  found the NetworkPolicy `endPort` above (issue #271).
 
 ### Migration guide from 4.2.0
 

@@ -45,6 +45,9 @@ spec.loader.exec_module(sweep)
 spec = importlib.util.spec_from_file_location("bound_sweep", HERE / "bad-values" / "bound-sweep.py")
 bound = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(bound)
+spec = importlib.util.spec_from_file_location("schema_navigation", HERE / "bad-values" / "schema_navigation.py")
+navigation = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(navigation)
 
 
 def value_type(value):
@@ -57,23 +60,6 @@ def value_type(value):
     if isinstance(value, str):
         return "string"
     return "number"
-
-
-def declared(schema, node, path, out, depth=0):
-    """Map each generic path the schema declares to the types it accepts there."""
-    if node is None or depth > 20:
-        return
-    out.setdefault(path, set()).update(sweep.schema_types(schema, node))
-    for alternative in sweep.schema_alternatives(schema, node):
-        for part in sweep.schema_parts(schema, alternative):
-            for key, child in part.get("properties", {}).items():
-                declared(schema, child, f"{path}.{key}" if path else key, out, depth + 1)
-            if isinstance(part.get("additionalProperties"), dict):
-                declared(schema, part["additionalProperties"], f"{path}.*" if path else "*", out, depth + 1)
-            for child in part.get("patternProperties", {}).values():
-                declared(schema, child, f"{path}.*" if path else "*", out, depth + 1)
-            if isinstance(part.get("items"), dict):
-                declared(schema, part["items"], path + "[]", out, depth + 1)
 
 
 def used(values, keys, path, out):
@@ -97,13 +83,7 @@ def parent(path):
 
 def bounded(schema, path):
     """Whether bound-sweep.py has candidates for the node at a generic path (a.*.b[].c)."""
-    nodes = [("", schema)]
-    for part in path.split("."):
-        name, items = part.split("[", 1) if "[" in part else (part, "")
-        nodes = bound.child(schema, nodes, name)
-        for _ in range(items.count("[]")):
-            nodes = bound.child(schema, nodes, 0)
-    return bound.bounded(schema, nodes)
+    return bound.bounded(navigation.generic_sources(schema, path))
 
 
 def gaps(schema, schema_paths, reached):
@@ -132,8 +112,7 @@ def main(argv):
         sys.exit(__doc__.rsplit("Usage: ", 1)[1])
     chart, baseline_file, files = pathlib.Path(argv[0]), pathlib.Path(argv[1]), argv[2:]
     schema = json.loads((chart / "values.schema.json").read_text())
-    schema_paths = {}
-    declared(schema, schema, "", schema_paths)
+    schema_paths = navigation.declared_paths(schema)
     reached = {}
     with tempfile.TemporaryDirectory() as tmp:
         scratch = pathlib.Path(tmp) / "values-to-json"

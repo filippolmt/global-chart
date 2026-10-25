@@ -208,6 +208,7 @@ lint-checks: ## Every make all target has a CI step; every check script fails wi
 	@echo "==> Checking the check scripts..."
 	@python3 tests/lint-checks.py --self-test
 	@python3 tests/tools/schema-describe.py --self-test
+	@python3 tests/bad-values/check-schema-navigation.py --self-test
 	@python3 .claude/hooks/kind-kubeconfig-only.py --self-test
 	@python3 tests/render-diff.py --self-test
 	@python3 tests/lint-checks.py

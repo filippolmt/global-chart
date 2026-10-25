@@ -5,7 +5,10 @@ workloads:
       repository: odoo
       tag: "17"
     service:
-      type: ClusterIP
+      # NodePort so an extra port's nodePort is set by a scenario (issue #266)
+      type: NodePort
+      annotations:
+        ignore-check.kube-linter.io/exposed-services: "the scenario exercises nodePort"
       port: 8069
       targetPort: 8069
       portName: odoo
@@ -14,6 +17,7 @@ workloads:
         - name: gevent
           port: 8072
           targetPort: 8072
+          nodePort: 30072
           protocol: TCP
           appProtocol: http
         # Numeric targetPort: the container declares port 9090 under this entry's
