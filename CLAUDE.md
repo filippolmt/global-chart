@@ -29,7 +29,7 @@ make e2e                    # install/upgrade/rollback/uninstall on a throwaway 
 make e2e-dryrun             # every TEST_CASES scenario, server-side dry run against the real API server and CRDs
 make bound-sweep            # every bound value the schema accepts on a scenario node, server-side dry run (runs before make e2e)
 make e2e-argocd             # the same cluster, synced by Argo CD (hook lifecycle under Argo)
-make render VALUES=tests/test01/values.01.yaml TEMPLATE=workload.yaml  # TEMPLATE left out: the whole chart; SKIP_SCHEMA=1: --skip-schema-validation
+make render VALUES=tests/test01/values.01.yaml TEMPLATE=workload.yaml  # TEMPLATE left out: the whole chart; SKIP_SCHEMA=1: --skip-schema-validation; BASE=main: diff against that ref, errors included
 make render-diff BASE=main  # every scenario renders the same manifests as BASE: the proof a rename or refactor changes none; QUOTES=ignore when it only quotes
 make -s scenarios           # the TEST_CASES values files, one per line, for running a check script by hand
 ```

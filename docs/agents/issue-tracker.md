@@ -11,7 +11,7 @@ Issues and specs live as GitHub issues on `filippolmt/global-chart`, through the
 - **Labels**: `gh issue edit <number> --add-label "..."` / `--remove-label "..."`
 - **Close**: `gh issue close <number> --comment "..."`
 - **The spec of a branch** is the `#<n>` in its commit messages.
-- **Pull requests**: `gh pr view|create|edit`; the PR body names the issue it closes (`Closes #<n>`). Issues and PRs share one number space: resolve a bare `#42` with `gh pr view 42`, falling back to `gh issue view 42`. `main` is squash-merged: a branch opened on top of another PR's branch is moved with `git rebase --onto origin/main <that branch>` once that PR merges, then force-pushed with `--force-with-lease`.
+- **Pull requests**: a branch may already have one: `gh pr list --head <branch>` before pushing or offering to open one. `gh pr view|create|edit`; the PR body names the issue it closes (`Closes #<n>`). Issues and PRs share one number space: resolve a bare `#42` with `gh pr view 42`, falling back to `gh issue view 42`. `main` is squash-merged: a branch opened on top of another PR's branch is moved with `git rebase --onto origin/main <that branch>` once that PR merges, then force-pushed with `--force-with-lease`.
 
 ## When a skill says "publish to the issue tracker"
 

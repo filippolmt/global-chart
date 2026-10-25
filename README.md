@@ -598,6 +598,9 @@ make install SCENARIO=test01
 # Render a single template for debugging
 make render VALUES=tests/test01/values.01.yaml TEMPLATE=workload.yaml
 
+# The same values file on a base ref and on the working tree, diffed (errors too)
+make render VALUES=tests/bad-values/skip-schema/<fixture>.yaml BASE=main SKIP_SCHEMA=1
+
 # Prove a rename or refactor changes no manifest: every scenario, against a base ref
 make render-diff BASE=main
 ```

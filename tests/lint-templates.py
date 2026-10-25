@@ -26,6 +26,11 @@ a rule below cannot recognise: a check that sees nothing is not a pass.
   (`notes_test.yaml` for NOTES.txt), and every file in `tests/` but
   `__snapshot__/` is a `*_test.yaml` suite: helm-unittest skips any other name
   without a word, so a misnamed suite (`pdb_tests.yaml`) never runs.
+- schema-alternative: a suite's `errorPattern` that alternates a template
+  message with the schema's (`…|at '/<path>': got …`) passes whichever rejects
+  first, and helm-unittest validates the schema first: the template `fail`
+  behind it is never asserted (issue #265). A schema-shadowed `fail` gets a
+  tests/bad-values/skip-schema/ fixture; the suite case asserts one message.
 - every-kind: a template that reads a `workloads` entry is rendered with
   `kind: StatefulSet` by one suite case at least, as CODING_STANDARDS.md asks
   of a rule that holds for every kind. The pattern sees the template, not the
@@ -104,6 +109,7 @@ INCLUDE = re.compile(r'\b(?:include|template)\s+"global-chart\.([\w-]+)"')
 READ_ONLY_BY = re.compile(r"\bRead only by\s+(.*?)\.(?:\s|$)", re.S)
 ERRCTX_HELPER = re.compile(r'required\s+"([\w-]+): errCtx is required')
 DICT_CALL = re.compile(r'\b(?:include|template)\s+"global-chart\.([\w-]+)"\s+\(dict\b')
+SCHEMA_ALTERNATIVE = re.compile(r"^\s*errorPattern:.*\|.*\bat '/", re.M)
 HEADER_BEFORE = re.compile(r'\{\{-?\s*/\*((?:(?!\*/).)*)\*/\s*-?\}\}\s*$', re.S)
 
 
@@ -333,6 +339,12 @@ def main(chart):
     for path in sorted((chart / "tests").iterdir()):
         if path.name != "__snapshot__" and not path.name.endswith("_test.yaml"):
             problems.append(f"{path.relative_to(chart)}: template-suite: not a *_test.yaml suite, so helm-unittest never runs it")
+        elif path.is_file():
+            suite = path.read_text()
+            for m in SCHEMA_ALTERNATIVE.finditer(suite):
+                problems.append(f"{path.relative_to(chart)}:{lineno(suite, m.start())}: schema-alternative: the errorPattern also accepts "
+                                "the schema's message, which rejects first; assert one, and hold the template fail with a "
+                                "tests/bad-values/skip-schema/ fixture")
     problems += every_kind(chart)
     problems += kind_fields(chart, schema)
     problems += workload_kind(chart)
