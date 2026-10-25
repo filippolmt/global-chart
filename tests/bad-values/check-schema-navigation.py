@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 """Dependency-free public-query regression tests. Usage: check-schema-navigation.py --self-test"""
+from contextlib import redirect_stdout
 import importlib.util
+import io
 import json
 import pathlib
 import sys
+from unittest.mock import patch
 
 HERE = pathlib.Path(__file__).resolve().parent
 
@@ -128,6 +131,14 @@ def sources_test():
     assert_sources(arrays, ("b", 0, 0), ["/properties/b/items/items"])
 
 
+def pointer_test():
+    schema = {"$defs": {"bound": {"oneOf": [{"type": "integer"}, {"pattern": "percent"}]}},
+              "properties": {"0": {"type": "string"}}}
+    assert navigation.resolve_pointer(schema, "/$defs/bound") is schema["$defs"]["bound"]
+    assert navigation.resolve_pointer(schema, "/$defs/bound/oneOf/1") is schema["$defs"]["bound"]["oneOf"][1]
+    assert navigation.resolve_pointer(schema, "/properties/0") is schema["properties"]["0"]
+
+
 def candidates_test():
     schema = {"$defs": {"integer": {"type": "integer", "minimum": 3}}, "properties": {
         "n": {"$ref": "#/$defs/integer", "maximum": 4,
@@ -155,8 +166,7 @@ def candidates_test():
     assert bound.candidates(nodes) == [5, 2147483647, 2147483648]
 
 
-def repository_test():
-    schema = json.loads((HERE.parents[1] / "charts/global-chart/values.schema.json").read_text())
+def repository_test(schema):
     account = ("workloads", "web", "serviceAccount", "name")
     assert navigation.declaration(schema, ("workloads", "*", "serviceAccount", "name")) == ({"string"}, True)
     nodes = assert_sources(schema, account, ["/$defs/serviceAccount/properties/name",
@@ -260,18 +270,42 @@ def callers_test():
     assert coverage.gaps(pattern, navigation.declared_paths(pattern), {"": {"map"}}) == set()
 
 
-def self_test():
+def input_errors_test():
+    schema_file = HERE.parents[1] / "charts/global-chart/values.schema.json"
+    for failure in ({"side_effect": FileNotFoundError("missing")},
+                    {"side_effect": PermissionError("denied")},
+                    {"return_value": "not JSON"}):
+        output = io.StringIO()
+        with patch.object(pathlib.Path, "read_text", **failure), redirect_stdout(output):
+            assert main(["--self-test"]) == 1
+        assert output.getvalue().startswith(f"    FAIL: {schema_file}: "), output.getvalue()
+
+
+def self_test(schema):
     declarations_test()
     nested_test()
     discovery_test()
     sources_test()
+    pointer_test()
     candidates_test()
-    repository_test()
+    repository_test(schema)
     callers_test()
+    input_errors_test()
     print("    OK: schema navigation self-test")
 
 
-if __name__ == "__main__":
-    if sys.argv[1:] != ["--self-test"]:
+def main(argv):
+    if argv != ["--self-test"]:
         sys.exit(__doc__)
-    self_test()
+    schema_file = HERE.parents[1] / "charts/global-chart/values.schema.json"
+    try:
+        schema = json.loads(schema_file.read_text())
+    except (OSError, json.JSONDecodeError) as error:
+        print(f"    FAIL: {schema_file}: cannot read the schema: {error}")
+        return 1
+    self_test(schema)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

@@ -202,10 +202,7 @@ def self_test(chart, files, flags, tmp):
     shutil.copytree(chart, copy)
     schema = json.loads((copy / "values.schema.json").read_text())
     for pointer in PDB_PATTERNS:
-        node = schema
-        for key in pointer.lstrip("/").split("/"):
-            node = node[int(key)] if isinstance(node, list) else node[key]
-        node["pattern"] = "^[0-9]+%$"
+        navigation.resolve_pointer(schema, pointer)["pattern"] = "^[0-9]+%$"
     (copy / "values.schema.json").write_text(json.dumps(schema))
     findings, sent = run(copy, files, flags, tmp, only=set(PDB_PATTERNS))
     if any('= "150%"' in f for f in findings):

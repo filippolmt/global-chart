@@ -11,6 +11,8 @@ Source queries (sources / generic_sources) retain every original (pointer,
 node) contribution, in preorder: node, reference target, allOf, oneOf, anyOf.
 They apply reference siblings, never merge bounds or deduplicate sources, and
 expand terminal contributions once. Candidate policy belongs to bound-sweep.
+resolve_pointer returns the original node for a slash-prefixed source pointer,
+including list indices, so the bound self-test can mutate its scratch schema.
 
 Paths: declaration takes tuples of property names, '*' (additional/pattern
 properties), or '[]' (items). sources takes concrete string/integer tuples,
@@ -117,7 +119,8 @@ def declared_paths(schema):
     return out
 
 
-def _resolve(schema, pointer):
+def resolve_pointer(schema, pointer):
+    """Original node at a nonempty source pointer; no escapes or external references."""
     node = schema
     for part in pointer.lstrip("/").split("/"):
         node = node[int(part)] if isinstance(node, list) else node[part]
@@ -128,7 +131,7 @@ def _source_parts(schema, pointer, node):
     out = [(pointer, node)]
     if "$ref" in node:
         target = node["$ref"].lstrip("#")
-        out += _source_parts(schema, target, _resolve(schema, target))
+        out += _source_parts(schema, target, resolve_pointer(schema, target))
     for key in ("allOf", "oneOf", "anyOf"):
         for i, branch in enumerate(node.get(key, [])):
             out += _source_parts(schema, f"{pointer}/{key}/{i}", branch)
