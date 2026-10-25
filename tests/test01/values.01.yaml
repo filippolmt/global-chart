@@ -84,6 +84,9 @@ workloads:
           ports:
             - port: 80
               protocol: TCP
+            - port: 8000
+              endPort: 8100
+              protocol: TCP
     hostAliases: []
     dnsConfig:
       nameservers:
@@ -196,6 +199,10 @@ hooks:
           operator: "Equal"
           value: "value"
           effect: "NoSchedule"
+        - key: "node.kubernetes.io/unreachable"
+          operator: "Exists"
+          effect: "NoExecute"
+          tolerationSeconds: 300
       nodeSelector: &nodeSelector
         kubernetes.io/e2e-az-name: e2e-az1
   pre-upgrade:

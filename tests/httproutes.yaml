@@ -29,6 +29,7 @@ httpRoutes:
       - name: shared-gateway
         namespace: envoy-gateway-system
         sectionName: https
+        port: 443
     hostnames:
       - traccar.example.com
     rules:
@@ -38,6 +39,8 @@ httpRoutes:
               value: /
         backendRefs:
           - workload: traccar
+            portName: http
+            weight: 1
   legacy-redirect:
     parentRefs:
       - name: direct-gateway

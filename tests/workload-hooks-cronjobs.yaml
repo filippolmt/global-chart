@@ -77,6 +77,10 @@ workloads:
         operator: "Equal"
         value: "backend"
         effect: "NoSchedule"
+      - key: "node.kubernetes.io/unreachable"
+        operator: "Exists"
+        effect: "NoExecute"
+        tolerationSeconds: 300
 
     # Hooks inside workload - inherit everything from parent
     hooks:

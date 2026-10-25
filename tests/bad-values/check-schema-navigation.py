@@ -7,7 +7,7 @@ declarations null-sweep and coverage read (reference siblings ignored, allOf
 types unioned, alternatives grouped, untyped branches flagged) and the source
 contributions bound-sweep reads (reference siblings kept, original nodes and
 pointers in preorder), plus bound-sweep's candidates and coverage's generic
-lookup, its legacy list parsing included. Each case runs on a synthetic schema
+lookup, one item per '[]'. Each case runs on a synthetic schema
 and on values.schema.json: a change to either interpretation, or a schema
 change that moves a pinned pointer, fails here. A failed case is a FAIL naming
 the test line; a probe breaks the walk once and expects that FAIL.
@@ -140,9 +140,9 @@ def sources_test():
     assert_sources(schema, "", [], generic=True)
     arrays = {"properties": {"b": {"type": "array", "items": {"type": "array", "items": {
         "type": "integer", "minimum": 7, "maximum": 8}}}}}
-    assert_sources(arrays, "b[]", ["/properties/b"], generic=True)
-    assert_sources(arrays, "b[][]", ["/properties/b/items"], generic=True)
-    assert_sources(arrays, "b[][][]", ["/properties/b/items/items"], generic=True)
+    assert_sources(arrays, "b", ["/properties/b"], generic=True)
+    assert_sources(arrays, "b[]", ["/properties/b/items"], generic=True)
+    assert_sources(arrays, "b[][]", ["/properties/b/items/items"], generic=True)
     assert_sources(arrays, ("b", 0, 0), ["/properties/b/items/items"])
 
 
@@ -275,9 +275,9 @@ def callers_test():
     assert coverage.below(schema, paths, {"a.x": {"list"}}, "a") == []
     arrays = {"properties": {"b": {"type": "array", "items": {"type": "array", "items": {
         "type": "integer", "minimum": 1, "maximum": 2}}}}}
+    assert not coverage.bounded(arrays, "b")
     assert not coverage.bounded(arrays, "b[]")
-    assert not coverage.bounded(arrays, "b[][]")
-    assert coverage.bounded(arrays, "b[][][]")
+    assert coverage.bounded(arrays, "b[][]")
     pattern = {"type": "object", "patternProperties": {".*": {
         "type": "integer", "minimum": 1, "maximum": 2}}}
     assert navigation.declared_paths(pattern) == {"": {"map"}, "*": {"number"}}

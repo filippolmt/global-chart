@@ -22,7 +22,7 @@ Paths: declaration takes tuples of property names, '*' (additional/pattern
 properties), or '[]' (items). sources takes concrete string/integer tuples,
 with explicit properties preferred over additionalProperties in each part;
 patternProperties are ignored. generic_sources accepts coverage's dotted
-strings with '*' and list suffixes, retaining its legacy list-descent defect.
+strings with '*' and list suffixes.
 
 These are not general JSON Schema evaluators: no pointer decoding, external
 references, cycle protection, conditionals, or new schema forms. Conservative
@@ -164,16 +164,13 @@ def sources(schema, path):
 
 
 def generic_sources(schema, path):
-    """Coverage-compatible source lookup, including its historical list parser.
+    """sources at coverage's generic path (a.*.b[].c): each '[]' descends one item.
 
-    shortcut: splitting at the first '[' discards that bracket, so b[] stays
-    at b and b[][] descends once; fix only with a coverage behavior migration.
     Even the empty path performs a named-child lookup, unlike sources(schema, ()).
     """
     nodes = [("", schema)]
     for part in path.split("."):
-        name, items = part.split("[", 1) if "[" in part else (part, "")
-        nodes = _source_child(schema, nodes, name)
-        for _ in range(items.count("[]")):
+        nodes = _source_child(schema, nodes, part.split("[")[0])
+        for _ in range(part.count("[]")):
             nodes = _source_child(schema, nodes, 0)
     return _expand(schema, nodes)

@@ -20,11 +20,13 @@ httpRoute:
   parentRefs:
     - name: shared-gateway
       namespace: envoy-gateway-system
+      port: 80
   hostnames:
     - traccar.example.com
   rules:
     - backendRefs:
         - workload: traccar
+          portName: http
 
 tcpRoutes:
   gps:
@@ -34,8 +36,10 @@ tcpRoutes:
       - name: direct-gateway
         namespace: envoy-gateway-system
         sectionName: gps-5027
+        port: 5027
     rules:
-      - backendRefs:
+      - name: gps
+        backendRefs:
           - workload: traccar
             portName: teltonika
             weight: 1
@@ -46,8 +50,10 @@ udpRoutes:
       - name: direct-gateway
         namespace: envoy-gateway-system
         sectionName: osmand-5055
+        port: 5055
     rules:
       - name: osmand
         backendRefs:
           - workload: traccar
             portName: osmand-udp
+            weight: 1
