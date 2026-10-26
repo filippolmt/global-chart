@@ -16,6 +16,7 @@ which runs them one step each so a failure names its check. A target added to
 Usage: lint-checks.py
        lint-checks.py --self-test
 """
+import os
 import pathlib
 import re
 import subprocess
@@ -78,7 +79,36 @@ def probe(script, args, root=ROOT):
     return None
 
 
+def image_pull_self_test():
+    """Exercise the real retry script with a registry stub, without Docker or delays."""
+    with tempfile.TemporaryDirectory() as tmp:
+        root = pathlib.Path(tmp)
+        docker = root / "docker"
+        docker.write_text('#!/bin/sh\n'
+                          'test "$1" = pull && test "$2" = example/image:test || exit 99\n'
+                          'n=0; [ ! -f "$COUNT" ] || n=$(head -n 1 "$COUNT")\n'
+                          'n=$((n + 1)); printf "%s\\n" "$n" > "$COUNT"\n'
+                          '[ "$n" -gt "$FAILURES" ] || exit 7\n')
+        sleep = root / "sleep"
+        sleep.write_text('#!/bin/sh\nprintf "%s\\n" "$1" >> "$SLEEPS"\n')
+        docker.chmod(0o755)
+        sleep.chmod(0o755)
+        for failures, attempts, status in [(0, 1, 0), (1, 2, 0), (2, 3, 0), (3, 3, 7)]:
+            count, sleeps = root / "count", root / "sleeps"
+            count.unlink(missing_ok=True)
+            sleeps.unlink(missing_ok=True)
+            env = dict(os.environ, PATH=f"{root}:{os.environ['PATH']}", COUNT=str(count),
+                       SLEEPS=str(sleeps), FAILURES=str(failures))
+            out = subprocess.run(['sh', str(ROOT / 'tests/tools/pull-image.sh'), 'example/image:test'],
+                                 env=env, capture_output=True, text=True, timeout=10)
+            assert out.returncode == status, out.stderr
+            assert int(count.read_text()) == attempts
+            assert (sleeps.read_text().splitlines() if sleeps.exists() else []) == ['5'] * (attempts - 1)
+            assert ('FAIL:' in out.stderr) == (status != 0)
+
+
 def self_test():
+    image_pull_self_test()
     makefile = "all: check b ## x\ncheck: a\n\ta:\n\t@python3 tests/x.py\n"
     assert ci_problems(makefile, "run: make a\nrun: make b\n") == []
     assert ci_problems(makefile, "run: make a\n") == [
