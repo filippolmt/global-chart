@@ -181,8 +181,8 @@ booleans, `printScalar` for numbers, `hasKey` for inheritance, the
 `<values path>: <problem>` shape of a `fail`, one home per enumeration. Read it
 before writing a template or helper. The mechanical rules are checked by
 `make lint-templates`, `make null-sweep-preflight` and `make null-sweep`;
-`make check` runs the fast loop, which currently leaves both null-sweep targets
-out.
+`make check` runs the fast loop, including `null-sweep-preflight` but leaving
+the full `null-sweep` out.
 
 ## Agent skills
 
