@@ -37,7 +37,8 @@ make -s scenarios           # the TEST_CASES values files, one per line, for run
 Releases: chart-releaser publishes on every push to `main` whose `Chart.yaml`
 `version` is not yet released (`skip_existing`). A feature PR leaves the version
 as is and adds its CHANGELOG entry under `## [Unreleased]`; a Breaking entry
-also adds its bullet to the *Migration guide from <previous release>* there.
+(a new template `fail` is one) also adds its bullet to the *Migration guide
+from <previous release>* there, and `make lint-release` checks both.
 A change that alters what an earlier `[Unreleased]` entry states edits that
 entry: the release ships one statement per behaviour. The bump is its own
 release PR, made by `make release VERSION=x.y.z` (`tests/check-release.py`
@@ -48,8 +49,9 @@ The Makefile carries the rest. Three rules about when to run what:
 - Templates or values changed → `make lint-chart` and `make unit-test`;
   `valuesShape`, a type in `values.schema.json`, or a new map or list a
   template reads → also `make null-sweep`; a bound (`minimum`, `maximum`,
-  `pattern`, `maxLength`) or a new integer field → also `make bound-sweep`,
-  whose `CANDIDATES` table takes every new `pattern` and `maxLength`.
+  `pattern`, `maxLength`), a new integer field, or a scenario value on a node
+  `make scenario-coverage` counts as bounded → also `make bound-sweep`, whose
+  `CANDIDATES` table takes every new `pattern` and `maxLength`.
 - Schema or user-visible values changed (new fields, defaults, descriptions) →
   also `make generate-docs`, to refresh `charts/global-chart/README.md`.
 - Runtime behaviour touched — `hook.yaml`, hook weights, delete policies,
@@ -59,7 +61,9 @@ The Makefile carries the rest. Three rules about when to run what:
 - Any `kubectl` or `helm` call against a cluster → `--kubeconfig
   .bin/kind-kubeconfig`: the default context can be production, and the hook
   `.claude/hooks/kind-kubeconfig-only.py` blocks a call that does not name it.
-  How to probe the e2e cluster by hand: `tests/e2e/README.md`.
+  A cluster target starts a stopped kind cluster itself: run the target
+  instead of probing the cluster with `kubectl`. How to probe the e2e cluster
+  by hand: `tests/e2e/README.md`.
 
 Offline renders: `.Capabilities.APIVersions` carries CRDs only during a real
 install, so `helm template` of a KEDA or Gateway API scenario needs the

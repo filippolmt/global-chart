@@ -129,6 +129,13 @@ holds the shell side: a value piped onward goes through `printf '%s\n'`.
 
 ## Judgement rules
 
+**A check that misreads a correct change is fixed, not routed around.** When a
+template is right and a check fails on it, the fix goes in the check, with a
+self-test case for what it misread. Rewriting the template into a form the
+check does not see (another helper, another key name) leaves the defect for
+the next change (issue #271: null-sweep's null stripping, met by a validator
+rewritten off `isSet`).
+
 **A review accounts for each behavioural requirement.** For each requirement
 in the issue and agreed decisions, the reviewer identifies the test or other
 concrete evidence that proves it, or reports it as unverified. A passing suite

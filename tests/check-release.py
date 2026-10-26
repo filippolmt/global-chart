@@ -9,6 +9,19 @@ chart-releaser publishes whatever version Chart.yaml carries on a push to main
 - the top section is `## [x.y.z] — <yyyy-mm-dd>`, a release PR: Chart.yaml
   carries x.y.z, and x.y.z is above the section after it.
 
+A new template `fail` is Breaking (CODING_STANDARDS.md, the deprecation rule):
+while the top section is `[Unreleased]`, templates that call `fail` more often
+than at the last release's tag (`<chart name>-<version>`, chart-releaser's)
+need a `- **Breaking: …**` entry there, and a Breaking entry needs its
+`### Migration guide from <last release>` (CLAUDE.md, *Releases*). The fail
+calls are read with lint-templates.py's patterns, comments left out, and the
+FAIL lists the messages that are not at the tag. Right after a release PR
+merges, the tag lands when CI's release job finishes.
+shortcut: the trigger is the net count, and any Breaking entry satisfies it, so
+a change that adds one fail and drops another passes, as does a new fail beside
+an unrelated Breaking entry; tie each new message to an entry if a Breaking
+change ships unmarked that way.
+
 Every `## [` heading is `## [x.y.z] — yyyy-mm-dd`, or `## [Unreleased]` on
 top; one in any other form fails, rather than drop out of the release order.
 
@@ -28,16 +41,24 @@ Usage: check-release.py <CHANGELOG.md> <Chart.yaml>
        check-release.py --bump <x.y.z> <CHANGELOG.md> <Chart.yaml>
        check-release.py --self-test
 """
+import collections
 import datetime
+import importlib.util
 import os
 import pathlib
 import re
+import subprocess
 import sys
+
+spec = importlib.util.spec_from_file_location("lint_templates", pathlib.Path(__file__).parent / "lint-templates.py")
+lint_templates = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(lint_templates)
 
 HEADING = re.compile(r"^## \[.*$", re.M)
 RELEASE = re.compile(r"^## \[(\d+\.\d+\.\d+)\] — (\d{4}-\d{2}-\d{2})$")
 UNRELEASED = "## [Unreleased]"
 # [ \t], not \s: \s* before $ would take the newline and the blank line after it
+CHART_NAME = re.compile(r'^name:[ \t]*"?([^"\s#]+)', re.M)
 CHART_VERSION = re.compile(r'^version:[ \t]*"?([^"\s#]+)"?[ \t]*(?:#.*)?$', re.M)
 SEMVER = re.compile(r"^(\d+)\.(\d+)\.(\d+)$")
 
@@ -95,6 +116,63 @@ def problems(changelog, chart):
     return out
 
 
+def fail_calls(texts):
+    """The fail calls of the template texts, comments left out: a printf or
+    literal message by its text, any other argument as written."""
+    out = []
+    for text in texts:
+        text = lint_templates.blank_comments(text)
+        out += [m.group(2) for m in lint_templates.FAIL.finditer(text)]
+        out += [m.group(1) for m in lint_templates.FAIL_ANY.finditer(text)]
+    return out
+
+
+def breaking_problems(changelog, fails_at_release, fails_now):
+    secs = sections(changelog)
+    if secs[0][0] != "Unreleased" or len(secs) < 2:
+        return []
+    body, last = secs[0][1], secs[1][0]
+    breaking = re.search(r"^- \*\*Breaking\b", body, re.M)
+    out = []
+    if len(fails_now) > len(fails_at_release) and not breaking:
+        new = collections.Counter(fails_now) - collections.Counter(fails_at_release)
+        out.append(f"CHANGELOG.md: the templates call fail {len(fails_now) - len(fails_at_release)} more "
+                   f"time(s) than at {last}, and [Unreleased] has no `- **Breaking: …**` entry: a new fail is "
+                   f"Breaking (CODING_STANDARDS.md, the deprecation rule). Not at {last}: "
+                   + "; ".join(f'"{m[:100]}"' for m in new.elements()))
+    if breaking and not re.search(rf"^### Migration guide from {re.escape(last)}[ \t]*$", body, re.M):
+        out.append(f"CHANGELOG.md: [Unreleased] has a Breaking entry and no `### Migration guide from {last}`")
+    return out
+
+
+def release_templates(chart_file, version):
+    """The template texts at the release tag of version, read through git."""
+    name = CHART_NAME.search(chart_file.read_text())
+    if not name:
+        raise Failure("Chart.yaml: no `name:` line")
+    tag, templates = f"{name.group(1)}-{version}", chart_file.parent / "templates"
+
+    def git(*args):
+        out = subprocess.run(["git", "-C", str(templates), *args], capture_output=True, text=True)
+        if out.returncode:
+            missing = "Not a valid object name" in out.stderr or "unknown revision" in out.stderr
+            hint = ("fetch the tags (git fetch --tags; in CI, checkout with fetch-depth: 0)" if missing
+                    else f"{templates} must be in a git clone")
+            raise Failure(f"git: cannot read the templates at {tag}, the last release ({out.stderr.strip()}): {hint}")
+        return out.stdout
+    # run inside templates/: ls-tree lists paths relative to it, and <tag>:./<path> reads them
+    return [git("show", f"{tag}:./{p}") for p in git("ls-tree", "-r", "--name-only", tag, ".").splitlines()]
+
+
+def unmarked_breaking(changelog, chart_file):
+    """breaking_problems against the last release's tag; nothing to check on a release PR."""
+    secs = sections(changelog)
+    if secs[0][0] != "Unreleased" or len(secs) < 2:
+        return []
+    now = [p.read_text() for p in sorted((chart_file.parent / "templates").rglob("*")) if p.is_file()]
+    return breaking_problems(changelog, fail_calls(release_templates(chart_file, secs[1][0])), fail_calls(now))
+
+
 def bump(changelog, chart, version, today):
     new = semver(version, "VERSION")
     drift = problems(changelog, chart)
@@ -149,6 +227,21 @@ def self_test():
     assert fails(bump, f"{unreleased}\n\n{r120}\n", chart, "1.3.0", "2026-02-03"), "an empty [Unreleased]"
     assert fails(bump, log(unreleased, r120), "version: 1.1.0\n", "1.3.0", "2026-02-03"), "a drift"
     assert fails(bump, log(unreleased, r120), chart, "1.3.0-rc.1", "2026-02-03"), "a pre-release"
+    breaking = f"{unreleased}\n\n### Changed\n\n- **Breaking: x** y\n\n### Migration guide from 1.2.0\n\n- z\n\n{r120}\n"
+    assert breaking_problems(log(unreleased, r120), ["a"], ["a"]) == []
+    found = breaking_problems(log(unreleased, r120), ["a"], ["a", "b: new"])
+    assert found and '"b: new"' in found[0], f"a new fail with no Breaking entry, named: {found}"
+    assert breaking_problems(breaking, ["a"], ["a", "b"]) == []
+    assert breaking_problems(breaking.replace("from 1.2.0", "from 1.1.0"), [], []), "a guide from another release"
+    assert breaking_problems(log(r120, r110), [], ["b"]) == [], "a release PR is not checked"
+    assert fail_calls(['{{- fail "a: b" }}{{/* fail "c" */}}', '{{ fail (printf "%s: d" $x) }} {{ fail $m }}']) == \
+        ["a: b", "%s: d", "$m"]
+    assert unmarked_breaking(log(r120, r110), pathlib.Path("no-such-chart/Chart.yaml")) == [], "a release PR reads no tag"
+    try:
+        release_templates(pathlib.Path(__file__).resolve().parents[1] / "charts/global-chart/Chart.yaml", "0.0.0")
+        raise AssertionError("read the templates at a tag that does not exist")
+    except Failure as e:
+        assert "global-chart-0.0.0" in str(e) and "fetch the tags" in str(e), e
     print("    OK: self-test")
 
 
@@ -168,14 +261,18 @@ def main(argv):
         return
     if len(argv) != 2:
         sys.exit(__doc__.rsplit("Usage: ", 1)[1])
-    chart = pathlib.Path(argv[1]).read_text()
-    mismatches = problems(pathlib.Path(argv[0]).read_text(), chart)
-    if mismatches:
-        print("    FAIL: Chart.yaml and CHANGELOG.md name different releases:")
-        for p in mismatches:
-            print(f"          - {p}")
-        sys.exit(1)
-    print(f"    OK: Chart.yaml and CHANGELOG.md agree on {chart_version(chart).group(1)}")
+    chart_file = pathlib.Path(argv[1])
+    chart, changelog = chart_file.read_text(), pathlib.Path(argv[0]).read_text()
+    for header, check in (("Chart.yaml and CHANGELOG.md name different releases", lambda: problems(changelog, chart)),
+                          ("a Breaking change is not marked in [Unreleased]",
+                           lambda: unmarked_breaking(changelog, chart_file))):
+        found = check()
+        if found:
+            print(f"    FAIL: {header}:")
+            for p in found:
+                print(f"          - {p}")
+            sys.exit(1)
+    print(f"    OK: Chart.yaml and CHANGELOG.md agree on {chart_version(chart).group(1)}, every new fail is Breaking")
 
 
 if __name__ == "__main__":
