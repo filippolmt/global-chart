@@ -76,6 +76,9 @@ jobs:
       - name: Check Chart.yaml against the CHANGELOG
         run: make lint-release
 
+      - name: Check null-sweep metadata contracts
+        run: make null-sweep-preflight
+
       - name: Sweep nulls under --skip-schema-validation
         run: make null-sweep
 
