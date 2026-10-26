@@ -5,7 +5,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ---
 
-## [Unreleased]
+## [4.2.1] — 2026-10-26
 
 ### Changed
 
@@ -25,6 +25,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Tests
 
+- CI pre-pulls the Helm floor image in the e2e job, retrying registry failures
+  up to three times without retrying tests. The lint job uses the same tested
+  pull helper and now fails when all pull attempts fail. Agent delivery guidance
+  covers staged-diff checks, delegation and commit-specific CI status; check
+  membership stays authoritative in the Makefile instead of repeated prose.
 - `make null-sweep-preflight` runs the schema/`valuesShape`, `nullItemFields`
   and scenario pod-spec-owner contract checks without mutation renders
   (issue #267). The shared implementation in `tests/bad-values/null_preflight.py`

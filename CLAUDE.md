@@ -45,10 +45,8 @@ entry: the release ships one statement per behaviour. The bump is its own
 release PR, made by `make release VERSION=x.y.z` (`tests/check-release.py`
 says how it picks and refuses the version).
 
-The Makefile carries the rest. `make check` includes `null-sweep-preflight`
-(helper contracts), measured below the five-second budget (README, *Testing & CI*).
-Full `null-sweep` remains in `make all` and CI: it tests mutation behaviour.
-Three rules about when to run what:
+The Makefile's prerequisites define what each check runs; timing evidence lives
+in README, *Testing & CI*. Rules about when to run what:
 
 - Templates or values changed → `make lint-chart` and `make unit-test`;
   `valuesShape`, a type in `values.schema.json`, or a new map or list a
@@ -180,14 +178,16 @@ exceptions, each owned by a name helper in `_helpers.tpl` (the StatefulSet's by
 booleans, `printScalar` for numbers, `hasKey` for inheritance, the
 `<values path>: <problem>` shape of a `fail`, one home per enumeration. Read it
 before writing a template or helper. The mechanical rules are checked by
-`make lint-templates`, `make null-sweep-preflight` and `make null-sweep`;
-`make check` runs the fast loop, including `null-sweep-preflight` but leaving
-the full `null-sweep` out.
+`make lint-templates`, `make null-sweep-preflight` and `make null-sweep`.
 
 ## Agent skills
 
 `GLOSSARY.md`, `docs/agents/` and `docs/adr/` are tracked. They stay out of the
 chart package, which contains only `charts/global-chart/`.
+
+### Delivery and orchestration
+
+Before delegation, committing or reporting CI status, follow `docs/agents/delivery.md`.
 
 ### Issue tracker
 

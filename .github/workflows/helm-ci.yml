@@ -27,9 +27,7 @@ jobs:
             ghcr.io/yannh/kubeconform:v0.7.0 \
             helmunittest/helm-unittest:3.19.0-1.0.3 \
             jnorwood/helm-docs:latest; do
-            for i in 1 2 3; do
-              docker pull "$img" && break || sleep 5
-            done
+            sh tests/tools/pull-image.sh "$img"
           done
 
       - name: Lint chart scenarios
@@ -127,6 +125,9 @@ jobs:
 
       - name: Set up kubectl
         uses: azure/setup-kubectl@v5
+
+      - name: Pre-pull Helm floor image
+        run: sh tests/tools/pull-image.sh "$(make -s helm-floor-image)"
 
       # Downloads kind into .bin/, creates a throwaway cluster, installs KEDA,
       # then runs the install/upgrade/uninstall assertions.

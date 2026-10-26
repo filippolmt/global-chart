@@ -140,7 +140,7 @@ TEST_CASES := \
 .PHONY: help scenarios all check lint-chart render-diff lint-templates lint-docs lint-shell lint-glossary lint-inheritance lint-checks lint-labels unit-test null-sweep null-sweep-preflight scenario-coverage schema-descriptions schema-bounds lint-release release validate-bad-values generate-templates \
 	kubeconform kube-linter-manifests kube-linter generate-docs package \
 	install install-test01 render clean clean-all \
-	kind-install kind-cluster kind-keda kind-eso kind-gateway-api kind-envoy-gateway kind-argocd kind-delete e2e e2e-dryrun bound-sweep e2e-routes e2e-argocd check-helm-floor
+	kind-install kind-cluster kind-keda kind-eso kind-gateway-api kind-envoy-gateway kind-argocd kind-delete e2e e2e-dryrun bound-sweep e2e-routes e2e-argocd check-helm-floor helm-floor-image
 
 # ============================================================================
 # Help
@@ -568,6 +568,9 @@ kind-argocd: kind-cluster ## Install Argo CD (core) into the e2e kind cluster
 kind-delete: ## Delete the e2e kind cluster
 	@if [ -x "$(KIND)" ]; then $(KIND) delete cluster --name "$(KIND_CLUSTER)"; fi
 	@rm -f "$(KIND_KUBECONFIG)" "$(HELM_FLOOR_KUBECONFIG)"
+
+helm-floor-image: ## Print the image used to test the Helm floor warning
+	@printf '%s\n' '$(HELM_FLOOR_IMAGE)'
 
 check-helm-floor: kind-cluster ## Assert NOTES.txt warns on a Helm below 3.18.6
 	@# NOTES.txt renders only on install/upgrade, and Helm 3's --dry-run=client
