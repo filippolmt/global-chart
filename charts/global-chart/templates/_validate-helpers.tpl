@@ -202,8 +202,10 @@ item is a map or a string). Called second from validate/validate.yaml, after
 validateRemovedKeys, so the helpers every later check and template reads may
 take these types for granted; they stay unguarded. A null is skipped: a null
 map value is unset (issue #198), a null list item validateNullItems'.
-`make null-sweep` holds valuesShape to the schema, then gives each map and
-list node of each scenario the wrong type: a node in valuesShape must fail
+`make null-sweep-preflight` holds valuesShape to the schema and checks the
+nullItemFields and scenario pod-spec-owner contracts. `make null-sweep` runs
+that preflight, then gives each map and list node of each scenario the wrong
+type: a node in valuesShape must fail
 here, one outside it must render or fail naming its path. A silent wrong
 render outside it is invisible to any sweep: such a node joins valuesShape by
 hand, with a skip-schema/ fixture.
@@ -221,8 +223,9 @@ one-item list for a list whose items are read, the item its shape; a leaf
 naming the types read, `|` between two (an image is a map or a string). A
 node under a leaf is not read as a container. The pod-spec owners (a workload,
 its hooks and cronjobs, the root ones) mirror podSpecOwners: an owner added
-there joins this tree too, or `make null-sweep` fails each one a scenario
-reaches. Read only by validateValueTypes.
+there joins this tree too, or `make null-sweep-preflight` (also run by
+`make null-sweep`) fails each one a scenario reaches.
+Read only by validateValueTypes.
 */}}
 {{- define "global-chart.valuesShape" -}}
 global:
@@ -407,9 +410,9 @@ The lists validateNullItems checks, each with the item fields it needs: a
 dotted path from the root of values (root), from every pod-spec owner (owner),
 or from a workload only (workload); `x[]` steps into every item of list x.
 Every path must be a list of maps in valuesShape: the two answer different
-questions (a null field vs. a wrong type) over the same nodes, and `make
-null-sweep` (make all and CI, not make check) fails a path valuesShape does not
-read as such (issue #238). One direction only: a list of maps valuesShape adds
+questions (a null field vs. a wrong type) over the same nodes, and
+`make null-sweep-preflight` (also run by `make null-sweep`) fails a path
+valuesShape does not read as such (issue #238). One direction only: a list of maps valuesShape adds
 may have no required field, so it does not have to be here.
 Read only by validateNullItems.
 */}}

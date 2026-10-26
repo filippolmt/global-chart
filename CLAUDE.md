@@ -23,7 +23,8 @@ make schema-descriptions    # every schema property carries a description
 make schema-bounds          # every schema integer has a maximum within 2^53-1, every digit string a digit count
 make lint-release           # Chart.yaml's version is the CHANGELOG's last release, or the one its top section names
 make release VERSION=4.1.0  # the release PR's edit: [Unreleased] renamed, Chart.yaml bumped, README regenerated
-make null-sweep             # null every values node of every scenario, then give each map and list the wrong type: each must render or fail naming its path
+make null-sweep-preflight   # schema/valuesShape, nullItemFields and scenario pod-spec-owner contracts; no mutation renders
+make null-sweep             # preflight, then null every values node and give each map/list the wrong type: render or fail naming its path
 make generate-docs          # regenerate the helm-docs README
 make e2e                    # install/upgrade/rollback/uninstall on a throwaway kind cluster (runs e2e-dryrun first)
 make e2e-dryrun             # every TEST_CASES scenario, server-side dry run against the real API server and CRDs
@@ -44,7 +45,10 @@ entry: the release ships one statement per behaviour. The bump is its own
 release PR, made by `make release VERSION=x.y.z` (`tests/check-release.py`
 says how it picks and refuses the version).
 
-The Makefile carries the rest. Three rules about when to run what:
+The Makefile carries the rest. `make check` includes `null-sweep-preflight`
+(helper contracts), measured below the five-second budget (README, *Testing & CI*).
+Full `null-sweep` remains in `make all` and CI: it tests mutation behaviour.
+Three rules about when to run what:
 
 - Templates or values changed → `make lint-chart` and `make unit-test`;
   `valuesShape`, a type in `values.schema.json`, or a new map or list a
@@ -176,8 +180,9 @@ exceptions, each owned by a name helper in `_helpers.tpl` (the StatefulSet's by
 booleans, `printScalar` for numbers, `hasKey` for inheritance, the
 `<values path>: <problem>` shape of a `fail`, one home per enumeration. Read it
 before writing a template or helper. The mechanical rules are checked by
-`make lint-templates` and `make null-sweep`; `make check` runs the fast loop,
-which leaves `null-sweep` out.
+`make lint-templates`, `make null-sweep-preflight` and `make null-sweep`;
+`make check` runs the fast loop, including `null-sweep-preflight` but leaving
+the full `null-sweep` out.
 
 ## Agent skills
 

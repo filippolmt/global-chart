@@ -31,6 +31,10 @@ When it arrived the sweep found 166 such nulls (issue #198), all fixed; a
 finding now fails CI. The rule it holds is in CODING_STANDARDS.md (fallback
 guards and nulls).
 
+Before any baseline or mutation work, null_preflight.py verifies the scratch
+helper metadata/schema contracts and every scenario's reached pod-spec owners.
+--preflight-only stops there: it checks no real-chart baselines or mutations.
+
 The type pass (issue #235). Every map and list node is then given the wrong type
 in turn: the number 3, and the opposite container (a map becomes [3], a list
 {"x": 3}). The types the templates read are valuesShape in _validate-helpers.tpl,
@@ -53,7 +57,7 @@ and Secret kind identify them), like the pod recreation timestamp. Username,
 keys and other Secret data remain comparable. check-basic-auth.py separately
 verifies the random password and its htpasswd hash against the standard format.
 
-Usage: null-sweep.py <chart dir> <values file>... [-- <helm flags>...]
+Usage: null-sweep.py [--preflight-only] <chart dir> <values file>... [-- <helm flags>...]
 """
 import concurrent.futures
 import importlib.util
@@ -66,9 +70,14 @@ import sys
 import tempfile
 from typing import NamedTuple
 
-spec = importlib.util.spec_from_file_location("schema_navigation", pathlib.Path(__file__).parent / "schema_navigation.py")
-navigation = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(navigation)
+spec = importlib.util.spec_from_file_location("null_preflight", pathlib.Path(__file__).parent / "null_preflight.py")
+contracts = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(contracts)
+# Compatibility bindings: bound-sweep and scenario coverage import this module.
+to_json = contracts.to_json
+shape_at = contracts.shape_at
+shape_findings = contracts.shape_findings
+preflight = contracts.preflight
 
 # `%!` is a Go fmt error: a value of the wrong type printed into a message
 RAW = re.compile(r"nil pointer|error calling|wrong type for value|can't evaluate|"
@@ -104,12 +113,6 @@ TIMESTAMP = re.compile(r'^\s*timestamp: "\d{14}"\n', re.M)
 # key absent. Read from the templates, so the list cannot drift from them.
 IS_SET = re.compile(r'isSet" \(list \S+ "(\w+)"\)')
 NULLISH = re.compile(r"<nil>|^\s*-\s+null\s*$|^\s*-?\s*name:\s*(\"\")?\s*$", re.M)
-
-
-def to_json(values, scratch):
-    out = subprocess.run(["helm", "template", "x", str(scratch), "-f", str(values)],
-                         capture_output=True, text=True, check=True).stdout
-    return json.loads(out.split("\n", 2)[2])
 
 
 def paths(node, prefix=()):
@@ -164,107 +167,6 @@ def value_at(values, path):
     for key in path:
         values = values[key]
     return values
-
-
-def shape_at(shape, path):
-    """The shape valuesShape gives the node at path, as validateValueTypes walks it; None outside it."""
-    for key in path:
-        if isinstance(shape, list) and isinstance(key, int):
-            shape = shape[0]
-        elif isinstance(shape, dict) and not isinstance(key, int):
-            shape = shape.get(key, shape.get("*"))
-        else:
-            return None
-    return shape
-
-
-def shape_findings(shape, schema, schema_path=(), path=""):
-    """Every node where valuesShape reads other types than the schema accepts."""
-    want = {"map"} if isinstance(shape, dict) else {"list"} if isinstance(shape, list) else set(shape.split("|"))
-    declared = navigation.declaration(schema, schema_path)
-    if declared is None:
-        return [f"valuesShape: {path}: the schema declares no such node"]
-    if declared.untyped:
-        return [f"valuesShape: {path}: the schema accepts any type there through a branch with no type; "
-                "give the branch one, or teach schema_navigation.py what it means"]
-    got = declared.types
-    out = [] if got == want else [f"valuesShape: {path}: reads {'|'.join(sorted(want))}, "
-                                  f"the schema accepts {'|'.join(sorted(got)) or 'any type'}"]
-    if isinstance(shape, dict):
-        for key, child in shape.items():
-            out += shape_findings(child, schema, schema_path + (key,), f"{path}.{key}" if path else key)
-    elif isinstance(shape, list):
-        out += shape_findings(shape[0], schema, schema_path + ("[]",), path + "[]")
-    return out
-
-
-def values_shape(chart, tmp):
-    scratch = pathlib.Path(tmp) / "values-shape"
-    (scratch / "templates").mkdir(parents=True)
-    (scratch / "Chart.yaml").write_text("apiVersion: v2\nname: values-shape\nversion: 0.0.0\n")
-    for helper in (chart / "templates").glob("_*.tpl"):
-        (scratch / "templates" / helper.name).write_text(helper.read_text())
-    (scratch / "templates" / "shape.json").write_text('{{ include "global-chart.valuesShape" . | fromYaml | toJson }}\n')
-    # Wrapped in an object: helm template fails a template whose output is a
-    # top-level JSON array ("cannot unmarshal array"), even one -s leaves out
-    (scratch / "templates" / "owners.json").write_text('{"owners": {{ include "global-chart.podSpecOwners" . }}}\n')
-    (scratch / "templates" / "null-items.json").write_text('{{ include "global-chart.nullItemFields" . | fromYaml | toJson }}\n')
-    out = subprocess.run(["helm", "template", "x", str(scratch), "-s", "templates/shape.json"],
-                         capture_output=True, text=True)
-    try:
-        return json.loads(out.stdout.split("\n", 2)[2])
-    except (IndexError, ValueError):
-        print("    FAIL: valuesShape in _validate-helpers.tpl does not render as a JSON object behind a `# Source:` "
-              "header: " + (" ".join(out.stderr.split())[:240] or out.stdout[:240]))
-        sys.exit(1)
-
-
-def null_item_findings(tmp, shape):
-    """Every list nullItemFields names that valuesShape does not read as a list of maps."""
-    out = subprocess.run(["helm", "template", "x", str(pathlib.Path(tmp) / "values-shape"),
-                          "-s", "templates/null-items.json"], capture_output=True, text=True)
-    try:
-        fields = json.loads(out.stdout.split("\n", 2)[2])
-    except (IndexError, ValueError):
-        return ["nullItemFields does not render as a JSON object behind a `# Source:` header: "
-                + (" ".join(out.stderr.split())[:240] or out.stdout[:240])]
-    # Where each scope's paths start in valuesShape. An owner is a workload or a
-    # job; every job of every scope shares the *job anchor of valuesShape, so
-    # hooks.*.* stands for all of them (owner_findings holds each owner to it)
-    bases = {"root": [()], "owner": [("workloads", "*"), ("hooks", "*", "*")], "workload": [("workloads", "*")]}
-    findings = []
-    for scope, paths in fields.items():
-        for dotted_path in paths:
-            # x[] steps into the items of list x, as shape_at does on an index
-            keys = tuple(k for part in dotted_path.split(".")
-                         for k in ((part[:-2], 0) if part.endswith("[]") else (part,)))
-            for base in bases.get(scope, [None]):
-                node = shape_at(shape, base + keys) if base is not None else None
-                item = node[0] if isinstance(node, list) else None
-                if not (isinstance(item, dict) or (isinstance(item, str) and "map" in item.split("|"))):
-                    where = ".".join(base) + "." if base else ""
-                    findings.append(f"nullItemFields: {scope}: {dotted_path}: not a list of maps in valuesShape at "
-                                    f"{where}{dotted_path}")
-    return findings
-
-
-def owner_findings(values, tmp, shape):
-    """Every pod-spec owner podSpecOwners finds in values that valuesShape gives no pod spec."""
-    fd, name = tempfile.mkstemp(suffix=".json", dir=tmp)
-    with os.fdopen(fd, "w") as f:
-        json.dump(values, f)
-    out = subprocess.run(["helm", "template", "x", str(pathlib.Path(tmp) / "values-shape"),
-                          "-s", "templates/owners.json", "-f", name], capture_output=True, text=True)
-    os.unlink(name)
-    try:
-        owners = json.loads(out.stdout.split("\n", 2)[2])["owners"]
-    except (IndexError, KeyError, ValueError):
-        return ["podSpecOwners does not render as a JSON list behind a `# Source:` header: "
-                + (" ".join(out.stderr.split())[:240] or out.stdout[:240])]
-    # Workload, hook and job names are DNS labels: a dot only joins keys
-    specs = {o["path"]: shape_at(shape, tuple(o["path"].split("."))) for o in owners}
-    return [f"valuesShape: {path}: a pod-spec owner podSpecOwners lists, with no pod spec in valuesShape"
-            for path, spec in specs.items() if not (isinstance(spec, dict) and "volumes" in spec)]
 
 
 def type_verdict(out, path):
@@ -352,11 +254,20 @@ def main(argv):
     drop_nulls_self_test()
     flags = argv[argv.index("--") + 1:] if "--" in argv else []
     argv = argv[:argv.index("--")] if "--" in argv else argv
+    standalone = "--preflight-only" in argv
+    argv = [arg for arg in argv if arg != "--preflight-only"]
+    if len(argv) < 2:
+        sys.exit(__doc__.rsplit("Usage: ", 1)[1])
     chart, files = pathlib.Path(argv[0]), argv[1:]
-    missing = [str(p) for p in [chart / "Chart.yaml", chart / "values.yaml", *map(pathlib.Path, files)] if not p.is_file()]
-    if missing:
-        print(f"    FAIL: no such chart or scenario: {', '.join(missing)}")
+    shape, scenarios, findings = preflight(chart, files)
+    if findings:
+        print("    FAIL: null-sweep preflight contracts:")
+        for line in findings:
+            print(f"          - {line}")
         sys.exit(1)
+    if standalone:
+        print(f"    OK: preflight metadata/schema contracts and reached owners across {len(scenarios)} scenarios (no baselines or mutations checked)")
+        return
     findings = []
     with tempfile.TemporaryDirectory() as tmp:
         scratch = pathlib.Path(tmp) / "values-to-json"
@@ -369,14 +280,8 @@ def main(argv):
         is_set = {k for t in (chart / "templates").rglob("*") if t.is_file()
                   for k in IS_SET.findall(t.read_text())} - {"name"}
         defaults = set(paths(to_json(chart / "values.yaml", scratch)))
-        shape = values_shape(chart, tmp)
-        schema = json.loads((chart / "values.schema.json").read_text())
-        findings += shape_findings(shape, schema)
-        findings += null_item_findings(tmp, shape)
         wrongs = []
-        for f in files:
-            values = to_json(f, scratch)
-            findings += [f"{f}: {line}" for line in owner_findings(values, tmp, shape)]
+        for f, values in scenarios:
             bases[f] = render(chart, flags, values, tmp).stdout
             jobs += [Case(f, p, None, nulled(values, p),
                           removed(values, p) if p[-1] in is_set and p not in defaults else None)

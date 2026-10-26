@@ -25,6 +25,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Tests
 
+- `make null-sweep-preflight` runs the schema/`valuesShape`, `nullItemFields`
+  and scenario pod-spec-owner contract checks without mutation renders
+  (issue #267). The shared implementation in `tests/bad-values/null_preflight.py`
+  also runs first in `make null-sweep`; `null-sweep.py --preflight-only` runs
+  it alone. The full sweep keeps its null and wrong-type render checks.
 - Guardrails from the #265 retro: `make lint-templates` gains
   `schema-alternative`, a suite `errorPattern` that also accepts the schema's
   message fails, since the schema rejects first and the template `fail` is

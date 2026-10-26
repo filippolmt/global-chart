@@ -38,7 +38,7 @@ PROBES = {
 }
 NO_INPUT = {"tests/lint-docs.py", "tests/lint-shell.py", "tests/lint-glossary.py", "tests/lint-labels.py",
             "tests/lint-checks.py", "tests/check-basic-auth.py", "tests/bad-values/check-closure-coverage.py",
-            "tests/bad-values/check-schema-navigation.py"}
+            "tests/bad-values/check-schema-navigation.py", "tests/bad-values/check-null-preflight.py"}
 
 
 def ci_problems(makefile, ci):

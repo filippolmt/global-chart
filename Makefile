@@ -137,7 +137,7 @@ TEST_CASES := \
 .DEFAULT_GOAL := help
 
 # All phony targets
-.PHONY: help scenarios all check lint-chart render-diff lint-templates lint-docs lint-shell lint-glossary lint-inheritance lint-checks lint-labels unit-test null-sweep scenario-coverage schema-descriptions schema-bounds lint-release release validate-bad-values generate-templates \
+.PHONY: help scenarios all check lint-chart render-diff lint-templates lint-docs lint-shell lint-glossary lint-inheritance lint-checks lint-labels unit-test null-sweep null-sweep-preflight scenario-coverage schema-descriptions schema-bounds lint-release release validate-bad-values generate-templates \
 	kubeconform kube-linter-manifests kube-linter generate-docs package \
 	install install-test01 render clean clean-all \
 	kind-install kind-cluster kind-keda kind-eso kind-gateway-api kind-envoy-gateway kind-argocd kind-delete e2e e2e-dryrun bound-sweep e2e-routes e2e-argocd check-helm-floor
@@ -169,7 +169,7 @@ scenarios: ## Print the values file of every TEST_CASES scenario, one per line, 
 all: check null-sweep generate-templates kubeconform kube-linter ## make check, the null sweep, then generate, validate and lint the manifests
 	@echo "==> make all: every check passed"
 
-check: lint-chart lint-templates lint-docs lint-shell lint-glossary lint-inheritance lint-checks unit-test validate-bad-values scenario-coverage schema-descriptions schema-bounds lint-release ## The development loop: every fast check, its prerequisites listed here (no null sweep, no manifest validation: make all and CI run them)
+check: null-sweep-preflight lint-chart lint-templates lint-docs lint-shell lint-glossary lint-inheritance lint-checks unit-test validate-bad-values scenario-coverage schema-descriptions schema-bounds lint-release ## The development loop: every fast check, its prerequisites listed here (no null sweep, no manifest validation: make all and CI run them)
 
 lint-chart: ## Lint chart with all test values files
 	@echo "==> Linting chart with all test cases..."
@@ -209,6 +209,7 @@ lint-checks: ## Every make all target has a CI step; every check script fails wi
 	@python3 tests/lint-checks.py --self-test
 	@python3 tests/tools/schema-describe.py --self-test
 	@python3 tests/bad-values/check-schema-navigation.py --self-test
+	@python3 tests/bad-values/check-null-preflight.py --self-test
 	@python3 .claude/hooks/kind-kubeconfig-only.py --self-test
 	@python3 tests/render-diff.py --self-test
 	@python3 tests/lint-checks.py
@@ -217,6 +218,11 @@ lint-inheritance: ## The schema and the values-author guide state the inheritanc
 	@echo "==> Checking the inheritance rules..."
 	@python3 tests/check-inheritance.py --self-test ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) docs/values-authors/README.md
 	@python3 tests/check-inheritance.py ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) docs/values-authors/README.md
+
+null-sweep-preflight: ## Verify scratch helper/schema contracts and scenario-reached owners, without baselines or mutations
+	@echo "==> Checking null-sweep preflight contracts..."
+	@python3 tests/bad-values/null-sweep.py --preflight-only ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) \
+		$(foreach e,$(TEST_CASES),$(firstword $(subst :, ,$(e))))
 
 null-sweep: ## Null every values node of every scenario in turn, then give each map and list the wrong type: each must render or fail naming its path
 	@echo "==> Sweeping nulls and wrong types under --skip-schema-validation..."
