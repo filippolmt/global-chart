@@ -63,7 +63,7 @@ GATEWAY_API_VERSION := v1.6.3
 # SecurityPolicy CRD only, no Envoy Gateway controller: validate the opt-in
 # policy against its upstream schema without claiming authentication works.
 # renovate: datasource=github-releases depName=envoyproxy/gateway
-ENVOY_GATEWAY_VERSION := v1.9.2
+ENVOY_GATEWAY_VERSION := v1.9.3
 # The Gateway API kinds the chart renders: httproute.yaml and l4RouteKinds
 # (_render-helpers.tpl) are their source, mirrored here; change both.
 # kind-gateway-api waits for their CRDs, and e2e-dryrun asserts that some
