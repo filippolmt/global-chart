@@ -59,7 +59,7 @@ ESO_NAMESPACE := external-secrets
 # reads a third-party copy of it, and TCPRoute/UDPRoute reach v1 only in v1.6.0
 # (issue #194). Nothing routes traffic: there is no Gateway controller.
 # renovate: datasource=github-releases depName=kubernetes-sigs/gateway-api
-GATEWAY_API_VERSION := v1.6.3
+GATEWAY_API_VERSION := v1.7.0
 # SecurityPolicy CRD only, no Envoy Gateway controller: validate the opt-in
 # policy against its upstream schema without claiming authentication works.
 # renovate: datasource=github-releases depName=envoyproxy/gateway
