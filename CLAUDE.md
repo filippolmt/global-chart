@@ -192,6 +192,9 @@ Before delegation, committing or reporting CI status, follow `docs/agents/delive
 ### Issue tracker
 
 GitHub Issues on `filippolmt/global-chart`, via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+The repository is public: issues, PRs, commits, fixtures and examples use
+generic names (`example-project`, `app`) and describe a downstream deployment
+by its shape, never by its name.
 
 ### Triage labels
 
