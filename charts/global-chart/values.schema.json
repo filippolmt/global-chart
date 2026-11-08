@@ -1151,7 +1151,7 @@
               }
             },
             "additionalProperties": false,
-            "allOf": [{ "oneOf": [{ "required": ["onExitCodes"] }, { "required": ["onPodConditions"] }] }]
+            "oneOf": [{ "required": ["onExitCodes"] }, { "required": ["onPodConditions"] }]
           }
         }
       },
