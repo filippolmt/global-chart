@@ -13,6 +13,12 @@ cronJobs:
           onPodConditions:
             - type: DisruptionTarget
               status: "True"
+        # The main container takes the job's key (issue #285)
+        - action: FailJob
+          onExitCodes:
+            containerName: nightly
+            operator: In
+            values: [3, 42]
         - action: Count
           onExitCodes:
             operator: NotIn

@@ -59,6 +59,11 @@ surface (issue option 2) misses the typo that motivated the issue:
   required, `scheme` HTTP/HTTPS, `httpHeaders[]` with `name`/`value`),
   `tcpSocket` (`host`, `port`), `exec` (`command`), `grpc` (`port`, `service`).
   Kubernetes' rule "exactly one handler" stays with the API server.
+  *Amended by issue #285:* this ADR decides what the schema admits, not which
+  rules between fields the templates check. `CODING_STANDARDS.md` (*A rule
+  the API server enforces is checked against the API server*) decides that:
+  a rule the chart can tell at render fails there, naming the key. The probe
+  rule is the gap issue #288 tracks.
 - **Required fields and ports follow the shape.** A field the API server or ESO
   requires is `required` here too: `tcpSocket.port`, `grpc.port`,
   `httpHeaders[].name`/`value`, `matchExpressions[].key`/`operator`,

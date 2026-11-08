@@ -1,6 +1,6 @@
-# A null name on a cronjob's init container: the schema leaves a container
-# open, and validatePodFailurePolicy reads the name, so the null fails naming
-# its path instead of being skipped (issue #285).
+# A null name on a cronjob's init container: the schema requires a string
+# name, and under --skip-schema-validation validatePodFailurePolicy names the
+# null with its path instead of skipping it (issue #285).
 # Expected fail substring: "cronJobs.report.initContainers[0].name: null"
 cronJobs:
   report:
