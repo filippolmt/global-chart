@@ -12,3 +12,4 @@ cronJobs:
             values: [42]
           onPodConditions:
             - type: DisruptionTarget
+              status: "True"

@@ -12,5 +12,7 @@ workloads:
             - action: Ignore
               onPodConditions:
                 - type: DisruptionTarget
+                  status: "True"
               onPodCondition:
                 - type: DisruptionTarget
+                  status: "True"

@@ -10,5 +10,6 @@ cronJobs:
         - action: Ignore
           onPodConditions:
             - type: DisruptionTarget
+              status: "True"
       rule:
         - action: Ignore

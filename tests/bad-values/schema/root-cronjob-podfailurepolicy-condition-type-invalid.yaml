@@ -9,3 +9,4 @@ cronJobs:
         - action: Ignore
           onPodConditions:
             - type: Disruption Target
+              status: "True"

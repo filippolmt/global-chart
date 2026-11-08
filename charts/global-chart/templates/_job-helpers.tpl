@@ -465,8 +465,8 @@ a field a kind does not admit:
 - cronjob: all six.
 - hook: activeDeadlineSeconds and backoffLimit only. Not podFailurePolicy
   (issue #282): the default backoffLimit of 6 already absorbs a preemption,
-  and no hook has needed more; a hook with backoffLimit 0 on nodes that can be
-  preempted is the case that would add it. Not ttlSecondsAfterFinished:
+  and no hook has needed more; a hook with backoffLimit 0 on Spot nodes is the
+  case that would add it. Not ttlSecondsAfterFinished:
   a completed hook Job is kept as the record of what ran (the role table in _hook-helpers.tpl),
   and a TTL controller deleting it races before-hook-creation — deletePolicy
   hook-succeeded already covers cleanup. Not parallelism/completions: a hook is

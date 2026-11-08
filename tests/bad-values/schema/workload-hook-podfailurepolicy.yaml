@@ -1,5 +1,5 @@
-# podFailurePolicy is offered on cronjobs only: no hook has needed it, and the
-# default backoffLimit absorbs a preemption (issue #282).
+# podFailurePolicy is offered on cronjobs only (issue #282); why not on a hook:
+# the jobSpecVerbatimFields header in _job-helpers.tpl.
 workloads:
   app:
     image: nginx:1.25
@@ -12,3 +12,4 @@ workloads:
               - action: Ignore
                 onPodConditions:
                   - type: DisruptionTarget
+                    status: "True"

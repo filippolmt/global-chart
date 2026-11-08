@@ -142,6 +142,7 @@ workloads:
             - action: Ignore
               onPodConditions:
                 - type: DisruptionTarget
+                  status: "True"
         # The cronjob's own: never the workload's extraInitContainers
         initContainers:
           - name: wait-for-db

@@ -1,5 +1,4 @@
-# The API server rejects exit code 0 with the In operator: 0 is success, and a
-# failed pod never exits 0 (issue #282).
+# The API server rejects exit code 0 with the In operator (issue #282).
 cronJobs:
   report:
     schedule: "0 3 * * *"

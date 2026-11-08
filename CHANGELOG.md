@@ -14,8 +14,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   `DisruptionTarget` pod condition keeps a Spot preemption from spending
   `backoffLimit`. The job's own, like `backoffLimit`: never inherited from the
   workload. The schema closes its shape and leaves out `FailIndex`, which needs
-  `backoffLimitPerIndex`; a rule takes `onExitCodes` or `onPodConditions`, and
-  `In` does not take exit code 0. Not offered on hooks: no hook has needed it,
+  `backoffLimitPerIndex`; a rule takes `onExitCodes` or `onPodConditions`,
+  `In` does not take exit code 0, and a pod condition pattern names its
+  `status`, which the Kubernetes OpenAPI schema requires. Not offered on hooks: no hook has needed it,
   and the default `backoffLimit` of 6 absorbs a preemption; a hook with
   `backoffLimit: 0` on Spot nodes is the case that would add it.
 
@@ -30,8 +31,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Migration guide from 4.2.1
 
-- Nothing to change: the one new `fail` reads `podFailurePolicy`, which 4.2.1
-  rejected. A cronjob with `restartPolicy: OnFailure` that adopts
+- Nothing to change for existing values: the one new `fail` reads
+  `podFailurePolicy`, which 4.2.1 rejected. A cronjob with `restartPolicy: OnFailure` that adopts
   `podFailurePolicy` moves to `Never`: a failed container then starts a new
   pod, which spends `backoffLimit` the same way and keeps the failed pod's logs.
 

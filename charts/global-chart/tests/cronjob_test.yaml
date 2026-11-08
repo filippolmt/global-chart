@@ -2476,6 +2476,7 @@ tests:
                   - action: Ignore
                     onPodConditions:
                       - type: DisruptionTarget
+                        status: "True"
     asserts:
       - equal:
           path: spec.jobTemplate.spec.backoffLimit
@@ -2487,6 +2488,7 @@ tests:
               - action: Ignore
                 onPodConditions:
                   - type: DisruptionTarget
+                    status: "True"
       - equal:
           path: spec.jobTemplate.spec.template.spec.restartPolicy
           value: Never
@@ -2518,6 +2520,7 @@ tests:
                   - action: Ignore
                     onPodConditions:
                       - type: DisruptionTarget
+                        status: "True"
     asserts:
       - failedTemplate:
           errorPattern: "workloads.backend.cronJobs.backup.podFailurePolicy: requires restartPolicy Never"
