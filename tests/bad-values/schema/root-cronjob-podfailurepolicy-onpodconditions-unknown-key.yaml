@@ -1,0 +1,13 @@
+# covers: podFailurePolicy/properties/rules/items/properties/onPodConditions/items
+# An unknown key in an onPodConditions pattern (typo of status): the pattern
+# matches the default status True instead of the one meant.
+cronJobs:
+  report:
+    schedule: "0 3 * * *"
+    image: busybox:1.36
+    podFailurePolicy:
+      rules:
+        - action: Ignore
+          onPodConditions:
+            - type: DisruptionTarget
+              state: "False"

@@ -2457,3 +2457,67 @@ tests:
           value:
             - name: fetch
               image: busybox:1.36
+
+  # ====== podFailurePolicy (issue #282) ======
+  - it: should render a workload-scope cronjob's podFailurePolicy verbatim beside its retry budget
+    documentSelector:
+      path: kind
+      value: CronJob
+    set:
+      workloads:
+        backend:
+          image: myapp:v1
+          cronJobs:
+            backup:
+              schedule: "0 2 * * *"
+              backoffLimit: 2
+              podFailurePolicy:
+                rules:
+                  - action: Ignore
+                    onPodConditions:
+                      - type: DisruptionTarget
+    asserts:
+      - equal:
+          path: spec.jobTemplate.spec.backoffLimit
+          value: 2
+      - equal:
+          path: spec.jobTemplate.spec.podFailurePolicy
+          value:
+            rules:
+              - action: Ignore
+                onPodConditions:
+                  - type: DisruptionTarget
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.restartPolicy
+          value: Never
+
+  - it: should render no podFailurePolicy when the cronjob sets none
+    documentSelector:
+      path: kind
+      value: CronJob
+    set:
+      cronJobs:
+        backup:
+          schedule: "0 2 * * *"
+          image: busybox:1.36
+    asserts:
+      - notExists:
+          path: spec.jobTemplate.spec.podFailurePolicy
+
+  - it: should fail a podFailurePolicy beside restartPolicy OnFailure, naming the path
+    set:
+      workloads:
+        backend:
+          image: myapp:v1
+          cronJobs:
+            backup:
+              schedule: "0 2 * * *"
+              restartPolicy: OnFailure
+              podFailurePolicy:
+                rules:
+                  - action: Ignore
+                    onPodConditions:
+                      - type: DisruptionTarget
+    asserts:
+      - failedTemplate:
+          errorPattern: "workloads.backend.cronJobs.backup.podFailurePolicy: requires restartPolicy Never"

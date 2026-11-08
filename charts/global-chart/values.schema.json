@@ -1097,8 +1097,59 @@
           "description": "Forbid (the default) skips a run while the previous one is active; Allow runs them side by side; Replace stops the previous one.",
           "type": "string",
           "enum": ["Allow", "Forbid", "Replace"]
-        }
+        },
+        "podFailurePolicy": { "description": "The Job's podFailurePolicy, rendered verbatim when set: decides by exit code or pod condition whether a failed pod counts towards backoffLimit. Requires restartPolicy Never, the default: OnFailure fails the render. The job's own: never inherited from the workload. A pod failure an Ignore rule matches does not count towards backoffLimit and is retried with no limit, so pair Ignore with activeDeadlineSeconds. Not offered on hooks (issue #282).", "$ref": "#/$defs/podFailurePolicy" }
       }
+    },
+    "podFailurePolicy": {
+      "type": "object",
+      "required": ["rules"],
+      "properties": {
+        "rules": {
+          "description": "Evaluated in order; the first rule that matches a failed pod decides. A failure no rule matches counts towards backoffLimit.",
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 20,
+          "items": {
+            "type": "object",
+            "required": ["action"],
+            "properties": {
+              "action": { "description": "FailJob fails the Job at once; Ignore retries the pod without counting it towards backoffLimit; Count counts it, the default handling. FailIndex is left out: it needs backoffLimitPerIndex, which the chart does not render.", "type": "string", "enum": ["Count", "FailJob", "Ignore"] },
+              "onExitCodes": {
+                "description": "Matches a failed pod by the exit codes of its containers. A rule sets this or onPodConditions, not both.",
+                "type": "object",
+                "required": ["operator", "values"],
+                "properties": {
+                  "containerName": { "description": "The container, or init container, whose exit code is checked; every container when unset. The job's container is named after the job's key.", "type": "string" },
+                  "operator": { "description": "In matches a pod whose exit code is in values; NotIn one whose exit code is not.", "type": "string", "enum": ["In", "NotIn"] },
+                  "values": { "description": "Exit codes, distinct and in ascending order: the API server rejects any other order. 0 is not accepted with In.", "type": "array", "minItems": 1, "maxItems": 255, "uniqueItems": true, "items": { "type": "integer", "minimum": 0, "maximum": 255 } }
+                },
+                "additionalProperties": false,
+                "if": { "properties": { "operator": { "const": "In" } }, "required": ["operator"] },
+                "then": { "properties": { "values": { "items": { "minimum": 1 } } } }
+              },
+              "onPodConditions": {
+                "description": "Matches a failed pod by its conditions: DisruptionTarget marks a pod stopped by a preemption, an eviction or a node shutdown. A rule sets this or onExitCodes, not both.",
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 20,
+                "items": {
+                  "type": "object",
+                  "required": ["type"],
+                  "properties": {
+                    "type": { "description": "The pod condition type, such as DisruptionTarget.", "type": "string", "minLength": 1 },
+                    "status": { "description": "The condition status that matches; True when unset.", "type": "string", "enum": ["True", "False", "Unknown"] }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            },
+            "additionalProperties": false,
+            "oneOf": [{ "required": ["onExitCodes"] }, { "required": ["onPodConditions"] }]
+          }
+        }
+      },
+      "additionalProperties": false
     },
     "hookJobSpec": {
       "type": "object",

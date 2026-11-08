@@ -5,6 +5,33 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ---
 
+## [Unreleased]
+
+### Added
+
+- A cronjob, root or workload scope, takes `podFailurePolicy`, rendered
+  verbatim into its Job spec when set (issue #282). An `Ignore` rule on the
+  `DisruptionTarget` pod condition keeps a Spot preemption from spending
+  `backoffLimit`. The job's own, like `backoffLimit`: never inherited from the
+  workload. The schema closes its shape and leaves out `FailIndex`, which needs
+  `backoffLimitPerIndex`; a rule takes `onExitCodes` or `onPodConditions`, and
+  `In` does not take exit code 0. Not offered on hooks: no hook has needed it,
+  and the default `backoffLimit` absorbs a preemption; a hook with
+  `backoffLimit: 0` on Spot nodes is the case that would add it.
+- **Breaking: `podFailurePolicy` beside `restartPolicy: OnFailure` fails the
+  render** (issue #282), naming its values path: the API server accepts a
+  `podFailurePolicy` only with `Never`, the default. The schema rejected
+  `podFailurePolicy` until this release, so no existing values file reaches
+  the `fail`. **Migration**: none; a cronjob that adds `podFailurePolicy`
+  sets `restartPolicy: Never` or drops `restartPolicy`.
+
+### Migration guide from 4.2.1
+
+- Nothing to change: the one new `fail` reads `podFailurePolicy`, which 4.2.1
+  rejected. A cronjob with `restartPolicy: OnFailure` that adopts
+  `podFailurePolicy` moves to `Never`: a failed container then starts a new
+  pod, which spends `backoffLimit` the same way and keeps the failed pod's logs.
+
 ## [4.2.1] — 2026-10-26
 
 ### Changed

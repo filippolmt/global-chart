@@ -1,0 +1,14 @@
+# A podFailurePolicy rule sets onExitCodes or onPodConditions, never both: the
+# API server rejects the pair (issue #282).
+cronJobs:
+  report:
+    schedule: "0 3 * * *"
+    image: busybox:1.36
+    podFailurePolicy:
+      rules:
+        - action: Ignore
+          onExitCodes:
+            operator: In
+            values: [42]
+          onPodConditions:
+            - type: DisruptionTarget

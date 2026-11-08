@@ -1,0 +1,16 @@
+# covers: podFailurePolicy/properties/rules/items
+# An unknown key in a podFailurePolicy rule (typo of onPodConditions): the
+# rule is meant to match preempted pods, and the typo is dropped with a warning.
+workloads:
+  app:
+    image: nginx:1.25
+    cronJobs:
+      report:
+        schedule: "0 3 * * *"
+        podFailurePolicy:
+          rules:
+            - action: Ignore
+              onPodConditions:
+                - type: DisruptionTarget
+              onPodCondition:
+                - type: DisruptionTarget

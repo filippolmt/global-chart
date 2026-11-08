@@ -1,0 +1,14 @@
+# covers: podFailurePolicy
+# An unknown key in podFailurePolicy (typo of rules): a client-side apply drops
+# it with a warning, and every preemption counts towards backoffLimit again.
+cronJobs:
+  report:
+    schedule: "0 3 * * *"
+    image: busybox:1.36
+    podFailurePolicy:
+      rules:
+        - action: Ignore
+          onPodConditions:
+            - type: DisruptionTarget
+      rule:
+        - action: Ignore

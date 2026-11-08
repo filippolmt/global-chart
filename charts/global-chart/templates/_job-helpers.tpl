@@ -447,18 +447,24 @@ errCtx is the job's jobValuesPath: a null the job sets fails naming its key.
 {{/*
 The Job spec fields a job sets verbatim, for both kinds and both scopes (issue
 #113). Each renders only when the job sets it — hasKey, so 0 is kept — and
-nothing falls back to the workload or global: a retry budget or a deadline is
-the job's own. Every field is an integer, printed through
+nothing falls back to the workload or global: a retry budget, a deadline or a
+failure policy is the job's own. Every field but podFailurePolicy is an
+integer, printed through
 global-chart.printScalar (_render-helpers.tpl), the one home of the rule for
 numbers from values: a
 number read from a values file is a float64, and the default format prints it
 as 1e+07 from a million up, which the API server rejects.
+podFailurePolicy is a map, rendered with toYaml when set (a null or {} renders
+nothing). The API server rejects it beside restartPolicy OnFailure, so that
+pair fails here naming the path (issue #282).
 The table below is the template-side home of which kind admits which field, so
 the two scopes of a kind can no longer drift apart. The schema mirrors it —
 cronJobSpec and hookJobSpec declare the same lists, and they are what rejects
 a field a kind does not admit:
-- cronjob: all five.
-- hook: activeDeadlineSeconds and backoffLimit only. Not ttlSecondsAfterFinished:
+- cronjob: all six.
+- hook: activeDeadlineSeconds and backoffLimit only. Not podFailurePolicy: no
+  hook has needed it yet (issue #282); a hook on Spot nodes that fails on a
+  preemption is the case that would add it. Not ttlSecondsAfterFinished:
   a completed hook Job is kept as the record of what ran (the role table in _hook-helpers.tpl),
   and a TTL controller deleting it races before-hook-creation — deletePolicy
   hook-succeeded already covers cleanup. Not parallelism/completions: a hook is
@@ -470,13 +476,20 @@ Usage: {{- with (include "global-chart.jobSpecVerbatimFields" (dict "job" $job "
 */}}
 {{- define "global-chart.jobSpecVerbatimFields" -}}
 {{- $fields := dict
-    "cronjob" (list "backoffLimit" "ttlSecondsAfterFinished" "activeDeadlineSeconds" "parallelism" "completions")
+    "cronjob" (list "backoffLimit" "ttlSecondsAfterFinished" "activeDeadlineSeconds" "parallelism" "completions" "podFailurePolicy")
     "hook" (list "activeDeadlineSeconds" "backoffLimit") -}}
 {{- $job := .job -}}
 {{- $errCtx := required "jobSpecVerbatimFields: errCtx is required (build it with jobValuesPath)" .errCtx -}}
 {{- $lines := list -}}
 {{- range (required (printf "jobSpecVerbatimFields: unknown kind %q" (toString .kind)) (get $fields (toString .kind))) -}}
-  {{- if hasKey $job . -}}
+  {{- if eq . "podFailurePolicy" -}}
+    {{- with $job.podFailurePolicy -}}
+      {{- if eq (toString $job.restartPolicy) "OnFailure" -}}
+        {{- fail (printf "%s.podFailurePolicy: requires restartPolicy Never; the job sets OnFailure, which the API server rejects beside a podFailurePolicy" $errCtx) -}}
+      {{- end -}}
+      {{- $lines = append $lines (printf "podFailurePolicy:\n%s" (toYaml . | indent 2)) -}}
+    {{- end -}}
+  {{- else if hasKey $job . -}}
     {{- $lines = append $lines (printf "%s: %s" . (include "global-chart.printScalar" (dict "value" (index $job .) "errCtx" (printf "%s.%s" $errCtx .)))) -}}
   {{- end -}}
 {{- end -}}

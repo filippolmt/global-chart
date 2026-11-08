@@ -1,0 +1,14 @@
+# podFailurePolicy is offered on cronjobs only: no hook has needed it, and the
+# default backoffLimit absorbs a preemption (issue #282).
+workloads:
+  app:
+    image: nginx:1.25
+    hooks:
+      pre-upgrade:
+        migrate:
+          command: ["true"]
+          podFailurePolicy:
+            rules:
+              - action: Ignore
+                onPodConditions:
+                  - type: DisruptionTarget
