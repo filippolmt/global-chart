@@ -2452,7 +2452,7 @@ cronJobs:
     suspend: false
 ```
 
-#### Deployment graceful shutdown (issue erredi #6)
+#### Deployment graceful shutdown
 
 - **Container `lifecycle`** (preStop / postStart) on deployments.
 - **Pod `terminationGracePeriodSeconds`** on deployments.

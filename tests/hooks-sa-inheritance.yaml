@@ -124,7 +124,7 @@ workloads:
             [fs_storage.gcp_odoo_stage_attachment]
             protocol = gcs
             directory_path = odoo_stage_attachment
-            options = {"token": "cloud", "project": "dbm-international", "cache_timeout": 0}
+            options = {"token": "cloud", "project": "example-project", "cache_timeout": 0}
     serviceAccount:
       create: false
       name: "odoo-stage-workload-identity"
