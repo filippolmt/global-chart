@@ -169,7 +169,7 @@ scenarios: ## Print the values file of every TEST_CASES scenario, one per line, 
 all: check null-sweep generate-templates kubeconform kube-linter ## make check, the null sweep, then generate, validate and lint the manifests
 	@echo "==> make all: every check passed"
 
-check: null-sweep-preflight lint-chart lint-templates lint-docs lint-shell lint-glossary lint-inheritance lint-checks unit-test validate-bad-values scenario-coverage schema-descriptions schema-bounds lint-release ## The development loop: every fast check, its prerequisites listed here (no null sweep, no manifest validation: make all and CI run them)
+check: null-sweep-preflight lint-chart lint-templates lint-docs lint-shell lint-glossary lint-inheritance lint-checks unit-test validate-bad-values scenario-coverage schema-descriptions schema-bounds lint-release kubeconform ## The development loop: every fast check, its prerequisites listed here (no null sweep, no kube-linter: make all and CI run them)
 
 lint-chart: ## Lint chart with all test values files
 	@echo "==> Linting chart with all test cases..."

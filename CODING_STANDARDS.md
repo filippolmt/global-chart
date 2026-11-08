@@ -144,6 +144,15 @@ in the issue and agreed decisions, the reviewer identifies the test or other
 concrete evidence that proves it, or reports it as unverified. A passing suite
 alone is not evidence that a particular behaviour is covered.
 
+**A closed passthrough surface mirrors two sources.** When the schema closes
+a Kubernetes shape (ADR 0017), its bounds follow the API server's validation
+(`pkg/apis/<group>/validation` in kubernetes/kubernetes) and the `required`
+list of the published OpenAPI schema, which kubeconform reads. The two differ
+where the API server defaults a field the OpenAPI schema requires
+(`onPodConditions[].status`, issue #282); there the stricter holds, and the
+description says why. A bound tighter than both is a choice its description
+states.
+
 **One home per enumeration.** A list of things that more than one template
 reads (kinds, fields, ports, hooks, active targets) lives in one helper, and
 every reader ranges over it: `l4RouteKinds`, `prereqCopyHooks`,
