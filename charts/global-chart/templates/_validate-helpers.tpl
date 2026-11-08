@@ -265,9 +265,9 @@ workloads:
     updateStrategy: {rollingUpdate: map}
     volumeClaimTemplates: [{labels: map}]
     hooks: {"*": {"*": &job {<<: *podSpec, env: list}}}
-    cronJobs: {"*": *job}
+    cronJobs: {"*": &cronJob {<<: *job, podFailurePolicy: map}}
 hooks: {"*": {"*": *job}}
-cronJobs: {"*": *job}
+cronJobs: {"*": *cronJob}
 externalSecrets:
   "*":
     annotations: map

@@ -355,6 +355,12 @@ workloads: {}
   #       # backoffLimit: 3                  # k8s default 6
   #       # ttlSecondsAfterFinished: 600     # GC finished Jobs (avoids etcd bloat)
   #       # activeDeadlineSeconds: 900       # kill runaway Jobs
+  #       # podFailurePolicy:                # needs restartPolicy Never (the default)
+  #       #   rules:                         # a Spot preemption does not spend backoffLimit
+  #       #     - action: Ignore
+  #       #       onPodConditions:
+  #       #         - type: DisruptionTarget
+  #       #           status: "True"
   #       # parallelism: 1
   #       # completions: 1
   #       # Opt-out of workload ConfigMap/Secret env injection (defaults: true):
@@ -540,6 +546,12 @@ cronJobs: {}
   #   # backoffLimit: 3                   # k8s default 6
   #   # ttlSecondsAfterFinished: 600      # GC finished Jobs (avoids etcd bloat)
   #   # activeDeadlineSeconds: 900        # kill runaway Jobs
+  #   # podFailurePolicy:                 # needs restartPolicy Never (the default)
+  #   #   rules:                          # a Spot preemption does not spend backoffLimit
+  #   #     - action: Ignore
+  #   #       onPodConditions:
+  #   #         - type: DisruptionTarget
+  #   #           status: "True"
   #   # parallelism: 1
   #   # completions: 1
   #

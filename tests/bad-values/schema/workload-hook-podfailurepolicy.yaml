@@ -1,0 +1,15 @@
+# podFailurePolicy is offered on cronjobs only (issue #282); why not on a hook:
+# the jobSpecVerbatimFields header in _job-helpers.tpl.
+workloads:
+  app:
+    image: nginx:1.25
+    hooks:
+      pre-upgrade:
+        migrate:
+          command: ["true"]
+          podFailurePolicy:
+            rules:
+              - action: Ignore
+                onPodConditions:
+                  - type: DisruptionTarget
+                    status: "True"

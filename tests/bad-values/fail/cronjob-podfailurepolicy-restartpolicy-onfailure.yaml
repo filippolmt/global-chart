@@ -1,0 +1,14 @@
+# podFailurePolicy beside restartPolicy OnFailure: the schema accepts both
+# fields, the API server rejects the pair at install (issue #282).
+# Expected fail substring: "cronJobs.report.podFailurePolicy: requires restartPolicy Never"
+cronJobs:
+  report:
+    schedule: "0 3 * * *"
+    image: busybox:1.36
+    restartPolicy: OnFailure
+    podFailurePolicy:
+      rules:
+        - action: Ignore
+          onPodConditions:
+            - type: DisruptionTarget
+              status: "True"

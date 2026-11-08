@@ -1,0 +1,14 @@
+# covers: podFailurePolicy/properties/rules/items/properties/onExitCodes
+# An unknown key in onExitCodes (typo of containerName): the rule checks every
+# container instead of the one named.
+cronJobs:
+  report:
+    schedule: "0 3 * * *"
+    image: busybox:1.36
+    podFailurePolicy:
+      rules:
+        - action: FailJob
+          onExitCodes:
+            operator: In
+            values: [42]
+            container: report

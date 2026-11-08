@@ -130,6 +130,19 @@ workloads:
         args: ["--full"]
         successfulJobsHistoryLimit: 3
         failedJobsHistoryLimit: 1
+        # The cronjob's own, never inherited (issue #282): exit 42 is a bug
+        # retries cannot fix; a preempted pod is retried without spending backoffLimit
+        podFailurePolicy:
+          rules:
+            - action: FailJob
+              onExitCodes:
+                containerName: db-backup
+                operator: In
+                values: [42]
+            - action: Ignore
+              onPodConditions:
+                - type: DisruptionTarget
+                  status: "True"
         # The cronjob's own: never the workload's extraInitContainers
         initContainers:
           - name: wait-for-db

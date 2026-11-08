@@ -1,0 +1,12 @@
+# A pod condition type is a qualified name: the API server rejects a space,
+# and the rule would never match (issue #282).
+cronJobs:
+  report:
+    schedule: "0 3 * * *"
+    image: busybox:1.36
+    podFailurePolicy:
+      rules:
+        - action: Ignore
+          onPodConditions:
+            - type: Disruption Target
+              status: "True"

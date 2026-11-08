@@ -1,0 +1,15 @@
+# covers: podFailurePolicy/properties/rules/items/properties/onPodConditions/items
+# An unknown key in an onPodConditions pattern: a pattern matches a condition
+# by type and status only, so a reason here would be dropped with a warning and
+# the rule would match every DisruptionTarget, whatever its reason.
+cronJobs:
+  report:
+    schedule: "0 3 * * *"
+    image: busybox:1.36
+    podFailurePolicy:
+      rules:
+        - action: Ignore
+          onPodConditions:
+            - type: DisruptionTarget
+              status: "True"
+              reason: TerminationByKubelet

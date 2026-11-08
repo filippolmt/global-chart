@@ -1,0 +1,11 @@
+# The API server rejects exit code 0 with the In operator (issue #282).
+cronJobs:
+  report:
+    schedule: "0 3 * * *"
+    image: busybox:1.36
+    podFailurePolicy:
+      rules:
+        - action: FailJob
+          onExitCodes:
+            operator: In
+            values: [0, 42]
