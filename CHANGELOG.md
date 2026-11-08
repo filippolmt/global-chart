@@ -26,12 +26,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   render** (issue #282), naming its values path: the API server accepts a
   `podFailurePolicy` only with `Never`, the default. The schema rejected
   `podFailurePolicy` until this release, so no existing values file reaches
-  the `fail`. **Migration**: none; a cronjob that adds `podFailurePolicy`
-  sets `restartPolicy: Never` or drops `restartPolicy`.
+  the `fail`. Two `onExitCodes` rules the API server checks and the schema
+  cannot fail the render too, naming the rule's path (issue #285): `values`
+  out of ascending order, and a `containerName` that names no container of
+  the Job's pod. The message lists the pod's containers: the job's key, then
+  the job's own `initContainers`. **Migration**: none; a cronjob that adds
+  `podFailurePolicy` sets `restartPolicy: Never` or drops `restartPolicy`,
+  lists its exit codes from lowest to highest, and names its main container
+  by the job's key.
 
 ### Migration guide from 4.2.1
 
-- Nothing to change for existing values: the one new `fail` reads
+- Nothing to change for existing values: the new `fail`s read
   `podFailurePolicy`, which 4.2.1 rejected. A cronjob with `restartPolicy: OnFailure` that adopts
   `podFailurePolicy` moves to `Never`: a failed container then starts a new
   pod, which spends `backoffLimit` the same way and keeps the failed pod's logs.

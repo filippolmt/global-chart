@@ -1,0 +1,13 @@
+# podFailurePolicy exit codes out of order: the schema cannot compare items,
+# the API server rejects the list at install (issue #285).
+# Expected fail substring: "cronJobs.report.podFailurePolicy.rules[0].onExitCodes.values: [3, 1] is not in ascending order"
+cronJobs:
+  report:
+    schedule: "0 3 * * *"
+    image: busybox:1.36
+    podFailurePolicy:
+      rules:
+        - action: FailJob
+          onExitCodes:
+            operator: In
+            values: [3, 1]

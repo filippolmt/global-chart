@@ -1120,9 +1120,9 @@
                 "type": "object",
                 "required": ["operator", "values"],
                 "properties": {
-                  "containerName": { "description": "The container, or init container, whose exit code is checked; every container when unset. The job's container is named after the job's key.", "type": "string" },
+                  "containerName": { "description": "The container, or init container, whose exit code is checked; every container when unset. The job's container is named after the job's key; the init containers are the job's own initContainers. Any other name fails the render.", "type": "string" },
                   "operator": { "description": "In matches a pod whose exit code is in values; NotIn one whose exit code is not.", "type": "string", "enum": ["In", "NotIn"] },
-                  "values": { "description": "Exit codes, distinct and in ascending order: the API server rejects any other order. 0 is not accepted with In.", "type": "array", "minItems": 1, "maxItems": 255, "uniqueItems": true, "items": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 } }
+                  "values": { "description": "Exit codes, distinct and in ascending order: any other order fails the render, as the API server rejects it. 0 is not accepted with In.", "type": "array", "minItems": 1, "maxItems": 255, "uniqueItems": true, "items": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 } }
                 },
                 "additionalProperties": false,
                 "if": { "properties": { "operator": { "const": "In" } }, "required": ["operator"] },
@@ -1151,7 +1151,7 @@
               }
             },
             "additionalProperties": false,
-            "oneOf": [{ "required": ["onExitCodes"] }, { "required": ["onPodConditions"] }]
+            "allOf": [{ "oneOf": [{ "required": ["onExitCodes"] }, { "required": ["onPodConditions"] }] }]
           }
         }
       },

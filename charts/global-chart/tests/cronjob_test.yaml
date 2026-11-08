@@ -2524,3 +2524,84 @@ tests:
     asserts:
       - failedTemplate:
           errorPattern: "workloads.backend.cronJobs.backup.podFailurePolicy: requires restartPolicy Never"
+
+  # ====== podFailurePolicy onExitCodes, as the API server checks it (issue #285) ======
+  - it: should fail podFailurePolicy exit codes out of ascending order, naming the path
+    set:
+      cronJobs:
+        backup:
+          schedule: "0 2 * * *"
+          image: busybox:1.36
+          podFailurePolicy:
+            rules:
+              - action: Ignore
+                onPodConditions:
+                  - type: DisruptionTarget
+                    status: "True"
+              - action: FailJob
+                onExitCodes:
+                  operator: NotIn
+                  values: [0, 5, 2]
+    asserts:
+      - failedTemplate:
+          errorPattern: "cronJobs\\.backup\\.podFailurePolicy\\.rules\\[1\\]\\.onExitCodes\\.values: \\[0, 5, 2\\] is not in ascending order, which the API server rejects"
+
+  - it: should fail a containerName naming no container of the job's pod, listing the pod's containers
+    set:
+      workloads:
+        backend:
+          image: myapp:v1
+          # the workload's init containers never reach a job's pod
+          extraInitContainers:
+            - name: migrate
+              image: busybox:1.36
+          cronJobs:
+            backup:
+              schedule: "0 2 * * *"
+              initContainers:
+                - name: wait-db
+                  image: busybox:1.36
+                - name: fetch
+                  image: busybox:1.36
+              podFailurePolicy:
+                rules:
+                  - action: FailJob
+                    onExitCodes:
+                      containerName: migrate
+                      operator: In
+                      values: [42]
+    asserts:
+      - failedTemplate:
+          errorPattern: "workloads\\.backend\\.cronJobs\\.backup\\.podFailurePolicy\\.rules\\[0\\]\\.onExitCodes\\.containerName: 'migrate' names no container of the job's pod, which the API server rejects\\. The pod's containers: 'backup' \\(the job's key\\), 'wait-db', 'fetch' \\(initContainers\\)\\."
+
+  - it: should render a containerName naming the job's key or one of its initContainers, with ascending exit codes
+    documentSelector:
+      path: kind
+      value: CronJob
+    set:
+      cronJobs:
+        backup:
+          schedule: "0 2 * * *"
+          image: busybox:1.36
+          initContainers:
+            - name: wait-db
+              image: busybox:1.36
+          podFailurePolicy:
+            rules:
+              - action: FailJob
+                onExitCodes:
+                  containerName: backup
+                  operator: In
+                  values: [1, 2, 42]
+              - action: Count
+                onExitCodes:
+                  containerName: wait-db
+                  operator: NotIn
+                  values: [-1, 0]
+    asserts:
+      - equal:
+          path: spec.jobTemplate.spec.podFailurePolicy.rules[0].onExitCodes.values
+          value: [1, 2, 42]
+      - equal:
+          path: spec.jobTemplate.spec.podFailurePolicy.rules[1].onExitCodes.containerName
+          value: wait-db
