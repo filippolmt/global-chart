@@ -16,8 +16,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   workload. The schema closes its shape and leaves out `FailIndex`, which needs
   `backoffLimitPerIndex`; a rule takes `onExitCodes` or `onPodConditions`, and
   `In` does not take exit code 0. Not offered on hooks: no hook has needed it,
-  and the default `backoffLimit` absorbs a preemption; a hook with
+  and the default `backoffLimit` of 6 absorbs a preemption; a hook with
   `backoffLimit: 0` on Spot nodes is the case that would add it.
+
+### Changed
+
 - **Breaking: `podFailurePolicy` beside `restartPolicy: OnFailure` fails the
   render** (issue #282), naming its values path: the API server accepts a
   `podFailurePolicy` only with `Never`, the default. The schema rejected
