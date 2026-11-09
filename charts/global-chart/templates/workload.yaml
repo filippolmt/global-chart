@@ -202,12 +202,12 @@ spec:
             {{- end }}
           {{- range $probe := list "livenessProbe" "readinessProbe" "startupProbe" }}
           {{- /* a null key is unset (issue #288): a probe of nulls is no probe, and no null reaches the manifest */}}
-          {{- $set := dict }}
+          {{- $given := dict }}
           {{- $raw := get $deploy $probe }}
           {{- range $k, $v := (kindIs "map" $raw | ternary $raw dict) }}
-          {{- if not (kindIs "invalid" $v) }}{{ $_ := set $set $k $v }}{{ end }}
+          {{- if eq (include "global-chart.isSet" (list $raw $k)) "true" }}{{ $_ := set $given $k $v }}{{ end }}
           {{- end }}
-          {{- with $set }}
+          {{- with $given }}
           {{- include "global-chart.validateProbeHandler" (dict "probe" . "errCtx" (printf "%s.%s" $errCtx $probe)) }}
           {{ $probe }}:
             {{- toYaml . | nindent 12 }}

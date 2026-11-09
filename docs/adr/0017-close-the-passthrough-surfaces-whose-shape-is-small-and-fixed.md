@@ -58,7 +58,8 @@ surface (issue option 2) misses the typo that motivated the issue:
   `terminationGracePeriodSeconds`. Bodies: `httpGet` (`host`, `path`, `port`
   required, `scheme` HTTP/HTTPS, `httpHeaders[]` with `name`/`value`),
   `tcpSocket` (`host`, `port`), `exec` (`command`), `grpc` (`port`, `service`).
-  Kubernetes' rule "exactly one handler" stays with the API server.
+  Kubernetes' rule "exactly one handler" stayed with the API server until
+  issue #288, amended below.
   *Amended by issue #285:* this ADR decides what the schema admits, not which
   rules between fields the templates check. `CODING_STANDARDS.md` (*A rule
   the API server enforces is checked against the API server*) decides that:

@@ -1111,8 +1111,11 @@ httpGet, tcpSocket or grpc — as the API server requires (issue #288). The
 schema closes the probe (ADR 0017) but leaves this rule between fields to the
 templates (CODING_STANDARDS.md, *A rule the API server enforces is checked
 against the API server*). A handler counts when isSet: a null one is unset, as
-for the API server. The caller drops a probe's null keys and skips a probe
-left empty: {} and {httpGet: null} are no probe, as with the key removed. A
+for the API server. The caller drops a probe's null keys, timings included
+(a null number is unset here, not a printScalar fail: the probe renders
+through toYaml, and a null key reached the manifest as unset before), and
+skips a probe left empty: {} and {httpGet: null} are no probe, as with the
+key removed. A
 probe inside extraContainers stays open and with the API server (ADR 0017).
 The handler list mirrors the handler properties of $defs/probe: a handler
 the schema adds joins it.
@@ -1121,16 +1124,16 @@ Usage: {{- include "global-chart.validateProbeHandler" (dict "probe" . "errCtx" 
 */}}
 {{- define "global-chart.validateProbeHandler" -}}
 {{- $handlers := list "exec" "httpGet" "tcpSocket" "grpc" -}}
-{{- $set := list -}}
+{{- $found := list -}}
 {{- range $handlers -}}
   {{- if eq (include "global-chart.isSet" (list $.probe .)) "true" -}}
-    {{- $set = append $set . -}}
+    {{- $found = append $found . -}}
   {{- end -}}
 {{- end -}}
-{{- if not $set -}}
+{{- if not $found -}}
   {{- fail (printf "%s: no handler. Set exactly one of %s." .errCtx (join ", " $handlers)) -}}
-{{- else if gt (len $set) 1 -}}
-  {{- fail (printf "%s: sets %s and %s, and a probe takes exactly one handler. Keep one." .errCtx (initial $set | join ", ") (last $set)) -}}
+{{- else if gt (len $found) 1 -}}
+  {{- fail (printf "%s: sets %s and %s, and a probe takes exactly one handler. Keep one." .errCtx (initial $found | join ", ") (last $found)) -}}
 {{- end -}}
 {{- end }}
 

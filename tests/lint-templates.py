@@ -42,8 +42,9 @@ a rule below cannot recognise: a check that sees nothing is not a pass.
   one partition written twice, the guard being what --skip-schema-validation
   leaves: a field added to one and not the other is the bug.
 - probe-handlers: validateProbeHandler's `$handlers` lists the handlers of a
-  probe, and `$defs/probe` declares them as its object-typed properties (the
-  rest are integers). A handler the schema adds and the list misses would fail
+  probe, and `$defs/probe` declares them as its properties that are not
+  integers (the timings are). null-sweep reads the list through
+  probe_handler_list too, so the two read one parser. A handler the schema adds and the list misses would fail
   a valid probe with "no handler" (issue #288).
 - workload-kind: a quoted kind of a workload ("Deployment", "StatefulSet",
   "DaemonSet") appears only in its homes: the workloadKind and isStatefulSet
@@ -185,15 +186,26 @@ def kind_fields(chart, schema):
     return problems
 
 
+def probe_handler_list(text):
+    """The handlers validateProbeHandler lists in text, or None without one."""
+    m = PROBE_HANDLERS.search(text)
+    return re.findall(r'"(\w+)"', m.group(1)) if m else None
+
+
+def probe_handler_list_self_test():
+    helper = '{{- define "global-chart.validateProbeHandler" -}}\n{{- $handlers := list "exec" "grpc" -}}'
+    assert probe_handler_list(helper) == ["exec", "grpc"]
+    assert probe_handler_list('{{- $handlers := list "exec" -}}') is None, "a list outside the helper is not its"
+
+
 def probe_handlers(chart, schema):
     """The probe-handlers rule."""
-    m = PROBE_HANDLERS.search((chart / "templates" / "_validate-helpers.tpl").read_text())
-    if not m:
+    listed = probe_handler_list((chart / "templates" / "_validate-helpers.tpl").read_text())
+    if listed is None:
         return ["templates/_validate-helpers.tpl: probe-handlers: no `$handlers := list …` in validateProbeHandler to compare with the schema"]
-    listed = re.findall(r'"(\w+)"', m.group(1))
-    declared = [k for k, v in schema["$defs"]["probe"]["properties"].items() if v.get("type") == "object"]
+    declared = [k for k, v in schema["$defs"]["probe"]["properties"].items() if v.get("type") != "integer"]
     if sorted(listed) != sorted(declared):
-        return [f"templates/_validate-helpers.tpl: probe-handlers: $handlers {listed}, $defs/probe object properties {declared}"]
+        return [f"templates/_validate-helpers.tpl: probe-handlers: $handlers {listed}, $defs/probe non-integer properties {declared}"]
     return []
 
 
@@ -309,6 +321,7 @@ def every_kind(chart):
 
 
 def main(chart):
+    probe_handler_list_self_test()
     chart = pathlib.Path(chart)
     templates = chart / "templates"
     schema = json.loads((chart / "values.schema.json").read_text())

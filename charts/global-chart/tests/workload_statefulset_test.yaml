@@ -226,3 +226,13 @@ tests:
     asserts:
       - failedTemplate:
           errorMessage: "workloads.db.readinessProbe: sets exec and tcpSocket, and a probe takes exactly one handler. Keep one."
+
+  - it: should fail a StatefulSet probe that sets no handler (issue #288)
+    set:
+      workloads:
+        db:
+          livenessProbe:
+            periodSeconds: 10
+    asserts:
+      - failedTemplate:
+          errorMessage: "workloads.db.livenessProbe: no handler. Set exactly one of exec, httpGet, tcpSocket, grpc."
