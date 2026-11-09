@@ -1,0 +1,9 @@
+# A probe whose one handler is null: the schema requires a map, and under
+# --skip-schema-validation validateProbe counts the null as unset, as the API
+# server does, so the probe has no handler (issue #288).
+# Expected fail substring: "workloads.app.livenessProbe: no handler."
+workloads:
+  app:
+    image: nginx:1.25
+    livenessProbe:
+      httpGet: null

@@ -44,6 +44,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   none for a release that installs; a values file the schema now rejects
   never applied.
 
+- **Breaking: a workload probe with no handler, or more than one, fails the
+  render** (issue #288), naming the probe's values path. A
+  `livenessProbe`, `readinessProbe` or `startupProbe` of the main container
+  takes exactly one of `exec`, `httpGet`, `tcpSocket`, `grpc`, as the API
+  server requires; a null handler counts as unset. An empty probe (`{}`) is
+  still no probe. A probe inside `extraContainers` stays with the API server
+  (ADR 0017). **Migration**: none for a release that installs; such a probe
+  never applied.
+
 ### Migration guide from 4.2.1
 
 - Nothing to change for existing values: the new `fail`s read
@@ -53,6 +62,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 - A container with no `name`, or a `name` that is not a DNS-1123 label of at
   most 63 characters, is now rejected by the schema; the API server already
   refused it, so no release that installs changes.
+- A workload probe with no handler, or more than one, now fails the render naming its
+  path; the API server already refused it, so no release that installs
+  changes. Keep exactly one of `exec`, `httpGet`, `tcpSocket`, `grpc`.
 
 ## [4.2.1] — 2026-10-26
 

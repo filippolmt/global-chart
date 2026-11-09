@@ -235,7 +235,7 @@
     },
     "probe": {
       "type": "object",
-      "description": "Kubernetes probe configuration (httpGet, tcpSocket, exec, grpc). Closed in full, handler bodies included: a small, fixed shape (ADR 0017). The rule \"exactly one handler\" stays with the API server.",
+      "description": "Kubernetes probe configuration (httpGet, tcpSocket, exec, grpc). Closed in full, handler bodies included: a small, fixed shape (ADR 0017). The rule \"exactly one handler\" is a template fail (issue #288).",
       "properties": {
         "exec": {
           "description": "Run a command in the container: healthy when it exits 0.",

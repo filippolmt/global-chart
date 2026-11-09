@@ -1,0 +1,10 @@
+# A probe with two handlers: the schema closes the probe but leaves "exactly
+# one handler" to the templates, and the API server rejects it (issue #288).
+# Must be rejected by global-chart.validateProbe.
+# Expected fail substring: "workloads.app.livenessProbe: sets exec and httpGet, and a probe takes exactly one handler"
+workloads:
+  app:
+    image: nginx:1.25
+    livenessProbe:
+      exec: { command: ["/bin/check"] }
+      httpGet: { path: /healthz, port: 8080 }

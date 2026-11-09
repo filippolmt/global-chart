@@ -252,6 +252,7 @@ workloads:
     extraContainers: [{volumeMounts: list}]
     extraInitContainers: [{volumeMounts: list}]
     keda: {annotations: map, triggers: [{authenticationRef: map}]}
+    livenessProbe: map
     mountedConfigFiles: {files: [map], bundles: [{files: [map]}]}
     networkPolicy: map
     pdb: map
@@ -259,9 +260,11 @@ workloads:
     podAnnotations: map
     podLabels: map
     podRecreation: map
+    readinessProbe: map
     reloader: map
     secret: map
     service: {annotations: map, extraPorts: [map]}
+    startupProbe: map
     updateStrategy: {rollingUpdate: map}
     volumeClaimTemplates: [{labels: map}]
     hooks: {"*": {"*": &job {<<: *podSpec, env: list}}}
@@ -1099,6 +1102,34 @@ Usage: {{- include "global-chart.validateNetworkPolicyPorts" (dict "np" $np "err
       {{- end -}}
     {{- end -}}
   {{- end -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+Validate that a probe of the main container sets exactly one handler — exec,
+httpGet, tcpSocket or grpc — as the API server requires (issue #288). The
+schema closes the probe (ADR 0017) but leaves this rule between fields to the
+templates (CODING_STANDARDS.md, *A rule the API server enforces is checked
+against the API server*). A handler counts when isSet: a null one is unset, as
+for the API server. An empty probe is no probe, and the caller skips it. A
+probe inside extraContainers stays open and with the API server (ADR 0017).
+The handler list mirrors the handler properties of $defs/probe: a handler
+the schema adds joins it.
+Called from workload.yaml where the probe renders. Emits nothing on success.
+Usage: {{- include "global-chart.validateProbe" (dict "probe" . "errCtx" (printf "%s.livenessProbe" $errCtx)) }}
+*/}}
+{{- define "global-chart.validateProbe" -}}
+{{- $handlers := list "exec" "httpGet" "tcpSocket" "grpc" -}}
+{{- $set := list -}}
+{{- range $handlers -}}
+  {{- if eq (include "global-chart.isSet" (list $.probe .)) "true" -}}
+    {{- $set = append $set . -}}
+  {{- end -}}
+{{- end -}}
+{{- if not $set -}}
+  {{- fail (printf "%s: no handler. Set exactly one of %s." .errCtx (join ", " $handlers)) -}}
+{{- else if gt (len $set) 1 -}}
+  {{- fail (printf "%s: sets %s and %s, and a probe takes exactly one handler. Keep one." .errCtx (initial $set | join ", ") (last $set)) -}}
 {{- end -}}
 {{- end }}
 

@@ -200,17 +200,12 @@ spec:
               containerPort: {{ include "global-chart.printScalar" .containerPort }}
               protocol: {{ .protocol }}
             {{- end }}
-          {{- if $deploy.livenessProbe }}
-          livenessProbe:
-            {{- toYaml $deploy.livenessProbe | nindent 12 }}
+          {{- range $probe := list "livenessProbe" "readinessProbe" "startupProbe" }}
+          {{- with get $deploy $probe }}
+          {{- include "global-chart.validateProbe" (dict "probe" . "errCtx" (printf "%s.%s" $errCtx $probe)) }}
+          {{ $probe }}:
+            {{- toYaml . | nindent 12 }}
           {{- end }}
-          {{- if $deploy.readinessProbe }}
-          readinessProbe:
-            {{- toYaml $deploy.readinessProbe | nindent 12 }}
-          {{- end }}
-          {{- if $deploy.startupProbe }}
-          startupProbe:
-            {{- toYaml $deploy.startupProbe | nindent 12 }}
           {{- end }}
           {{- with $deploy.lifecycle }}
           lifecycle:
