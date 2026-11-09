@@ -127,9 +127,9 @@ and a pass as one `    OK:` line. Input it cannot read (a format that moved, a
 tool that is missing or unauthenticated) is a FAIL naming what it expected,
 never a traceback: a crash reads as a bug in the check, not as the finding.
 A check proves it can fail: a probe or a fixture makes it go red once, and a
-mutation of a template goes through `make mutate`, which refuses a FROM that
-matches nothing and restores the file (issue #288 read a mutation's red as the
-code's). A known
+mutation of a template goes through `make mutate`, which wants the check green
+before the mutation and red after it, a FROM that occurs exactly once, and
+restores the file (issue #288 read a mutation's red as the code's). A known
 limit carries `shortcut: <the limit>, <when to upgrade>`. `make lint-shell`
 holds the shell side: a value piped onward goes through `printf '%s\n'`.
 
@@ -221,10 +221,11 @@ every render (issue #235).
   defaults takes its default (`enabled`, `create`, the `inherit*` toggles, a
   job's inherited fields, the enums with a default), a map entry
   (`httpRoutes.x`, like `workloads.x`) renders nothing, and a map whose keys
-  are all null is the empty map (`{httpGet: null}` is no probe, issue #288).
-  "Set" has one home, `isSet`; `hasKey` alone hands the null on. Numbers are
-  the exception: a null number fails naming its key, through `printScalar`
-  (issue #191);
+  are all null renders, and is validated, as the map left out
+  (`{httpGet: null}` is no probe, issue #288; the passthrough maps that do
+  not yet hold to this rule are issue #294). "Set" has one home, `isSet`;
+  `hasKey` alone hands the null on. Numbers are the exception: a null number
+  fails naming its key, through `printScalar` (issue #191);
 - a null **list item** fails, anywhere, passthrough lists included:
   `rejectNullInLists`, run over all of `.Values` by `validateNullItems`;
 - a null in a **required field** of an item the chart reads fails:

@@ -32,7 +32,7 @@ make bound-sweep            # every bound value the schema accepts on a scenario
 make e2e-argocd             # the same cluster, synced by Argo CD (hook lifecycle under Argo)
 make render VALUES=tests/test01/values.01.yaml TEMPLATE=workload.yaml  # TEMPLATE left out: the whole chart; SKIP_SCHEMA=1: --skip-schema-validation; BASE=main: diff against that ref, errors included
 make render-diff BASE=main  # every scenario renders the same manifests as BASE: the proof a rename or refactor changes none; QUOTES=ignore when it only quotes
-make mutate FILE=<path> FROM='<text>' TO='<text>' CHECK=<target>  # the proof a check goes red: refuses a FROM matching nothing, restores FILE
+make mutate FILE=<path> FROM='<text>' TO='<text>' CHECK=<target>  # the proof a check goes red: CHECK green on FILE, red on FROM→TO; FROM must occur exactly once; FILE restored
 make -s scenarios           # the TEST_CASES values files, one per line, for running a check script by hand
 ```
 

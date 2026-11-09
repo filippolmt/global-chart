@@ -212,6 +212,7 @@ lint-checks: ## Every make all target has a CI step; every check script fails wi
 	@python3 tests/bad-values/check-null-preflight.py --self-test
 	@python3 .claude/hooks/kind-kubeconfig-only.py --self-test
 	@python3 tests/render-diff.py --self-test
+	@python3 tests/mutate.py --self-test
 	@python3 tests/lint-checks.py
 
 lint-inheritance: ## The schema and the values-author guide state the inheritance the jobPodSpec header lists
@@ -788,14 +789,14 @@ install-test01: ## Install test01 (has kubectl pre-step; or use: make install SC
 # Mutate (prove a check goes red)
 # ============================================================================
 
-mutate: ## Prove a check goes red: FROM replaced by TO once in FILE, make CHECK run, FILE restored (usage: make mutate FILE=<path> FROM='<text>' TO='<text>' CHECK=<target>)
+mutate: ## Prove a check goes red: make CHECK green on FILE, red with FROM replaced by TO once, FILE restored (usage: make mutate FILE=<path> FROM='<text>' TO='<text>' CHECK=<target>)
 	@if [ -z "$(FILE)" ] || [ -z "$(CHECK)" ]; then \
 		echo "Usage: make mutate FILE=<path> FROM='<text>' TO='<text>' CHECK=<target>"; \
-		echo "Passes only when FROM occurs once in FILE and make CHECK fails on the mutated file."; \
+		echo "Passes only when FROM occurs exactly once in FILE, and make CHECK passes on FILE and fails on the mutation."; \
 		echo "FROM and TO are read unexpanded: a \$$ in them is literal. They may not hold a single quote."; \
 		exit 1; \
 	fi
-	@python3 tests/mutate.py '$(value FILE)' '$(value FROM)' '$(value TO)' $(MAKE) --no-print-directory $(CHECK)
+	@python3 tests/mutate.py '$(value FILE)' '$(value FROM)' '$(value TO)' env -u MAKEFLAGS -u MAKEOVERRIDES -u MFLAGS $(MAKE) --no-print-directory $(CHECK)
 
 # ============================================================================
 # Render (single template debugging)
