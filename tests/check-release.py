@@ -22,6 +22,13 @@ a change that adds one fail and drops another passes, as does a new fail beside
 an unrelated Breaking entry; tie each new message to an entry if a Breaking
 change ships unmarked that way.
 
+A change is logged (CLAUDE.md, *Releases*): when the diff from the merge-base
+with <base> (working tree included) touches charts/ or tests/, the
+[Unreleased] section differs from the merge-base's. A dependency bump touches
+only the Makefile or a workflow, and a release PR renames [Unreleased], so
+neither needs an exemption. On a push to main the merge-base is HEAD itself and
+the diff is empty.
+
 Every `## [` heading is `## [x.y.z] — yyyy-mm-dd`, or `## [Unreleased]` on
 top; one in any other form fails, rather than drop out of the release order.
 
@@ -37,7 +44,7 @@ in SEMVER and RELEASE, ordered below its release, the day one is wanted. 1.3.0
 removed keys in a minor, before the policy, so the rule binds the bump only,
 never the history.
 
-Usage: check-release.py <CHANGELOG.md> <Chart.yaml>
+Usage: check-release.py <CHANGELOG.md> <Chart.yaml> [<base ref>]
        check-release.py --bump <x.y.z> <CHANGELOG.md> <Chart.yaml>
        check-release.py --self-test
 """
@@ -145,6 +152,38 @@ def breaking_problems(changelog, fails_at_release, fails_now):
     return out
 
 
+LOGGED = ("charts/", "tests/")
+
+
+def unreleased(changelog):
+    """The [Unreleased] section's body, "" when the top section is a release."""
+    secs = sections(changelog)
+    return secs[0][1] if secs[0][0] == "Unreleased" else ""
+
+
+def unlogged_problems(changed, before, now):
+    """changed: the paths the diff touches; before/now: the CHANGELOG at the merge-base and now."""
+    touched = [p for p in changed if p.startswith(LOGGED)]
+    if not touched or unreleased(before) != unreleased(now):
+        return []
+    return [f"CHANGELOG.md: the change touches {', '.join(touched[:3])}{' …' if len(touched) > 3 else ''}, "
+            "and [Unreleased] is the same as at the merge-base: add its entry (CLAUDE.md, *Releases*)"]
+
+
+def unlogged_change(changelog_file, base):
+    """unlogged_problems against the merge-base of base and HEAD, read through git."""
+    root = changelog_file.resolve().parent
+
+    def git(*args):
+        out = subprocess.run(["git", "-C", str(root), *args], capture_output=True, text=True)
+        if out.returncode:
+            raise Failure(f"git {' '.join(args)}: {out.stderr.strip()} (fetch {base}; in CI, checkout with fetch-depth: 0)")
+        return out.stdout
+    mb = git("merge-base", base, "HEAD").strip()
+    changed = git("diff", "--name-only", mb).splitlines()
+    return unlogged_problems(changed, git("show", f"{mb}:{changelog_file.name}"), changelog_file.read_text())
+
+
 def release_templates(chart_file, version):
     """The template texts at the release tag of version, read through git."""
     name = CHART_NAME.search(chart_file.read_text())
@@ -242,6 +281,13 @@ def self_test():
         raise AssertionError("read the templates at a tag that does not exist")
     except Failure as e:
         assert "global-chart-0.0.0" in str(e) and "fetch the tags" in str(e), e
+    entry = f"{unreleased}\n\n### Added\n\n- y\n\n{r120}\n"
+    assert unlogged_problems(["tests/x.py"], log(unreleased, r120), log(unreleased, r120)), "an unlogged test change"
+    assert unlogged_problems(["charts/a"], entry, entry), "an unlogged chart change"
+    assert unlogged_problems(["tests/x.py"], log(unreleased, r120), entry) == []
+    assert unlogged_problems(["Makefile", ".github/w.yml"], entry, entry) == [], "a dependency bump"
+    assert unlogged_problems(["charts/a"], log(unreleased, r120), log("## [1.3.0] — 2026-01-03", r120)) == [], \
+        "a release PR"
     print("    OK: self-test")
 
 
@@ -259,20 +305,23 @@ def main(argv):
             os.replace(path.with_name(path.name + ".release-tmp"), path)
         print(f"    OK: [Unreleased] is [{version}], Chart.yaml version {version}")
         return
-    if len(argv) != 2:
+    if len(argv) not in (2, 3):
         sys.exit(__doc__.rsplit("Usage: ", 1)[1])
-    chart_file = pathlib.Path(argv[1])
+    chart_file, base = pathlib.Path(argv[1]), argv[2] if len(argv) == 3 else None
     chart, changelog = chart_file.read_text(), pathlib.Path(argv[0]).read_text()
     for header, check in (("Chart.yaml and CHANGELOG.md name different releases", lambda: problems(changelog, chart)),
                           ("a Breaking change is not marked in [Unreleased]",
-                           lambda: unmarked_breaking(changelog, chart_file))):
+                           lambda: unmarked_breaking(changelog, chart_file)),
+                          ("a change is not logged in [Unreleased]",
+                           lambda: unlogged_change(pathlib.Path(argv[0]), base) if base else [])):
         found = check()
         if found:
             print(f"    FAIL: {header}:")
             for p in found:
                 print(f"          - {p}")
             sys.exit(1)
-    print(f"    OK: Chart.yaml and CHANGELOG.md agree on {chart_version(chart).group(1)}, every new fail is Breaking")
+    print(f"    OK: Chart.yaml and CHANGELOG.md agree on {chart_version(chart).group(1)}, every new fail is Breaking"
+          + (f", the change since {base} is logged" if base else ""))
 
 
 if __name__ == "__main__":

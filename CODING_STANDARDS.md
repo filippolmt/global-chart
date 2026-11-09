@@ -126,8 +126,9 @@ A check reports every problem as a `    FAIL: <where>: <what>` line and exits 1,
 and a pass as one `    OK:` line. Input it cannot read (a format that moved, a
 tool that is missing or unauthenticated) is a FAIL naming what it expected,
 never a traceback: a crash reads as a bug in the check, not as the finding.
-A check proves it can fail: a probe or a fixture makes it go red once, and a
-mutation of a template goes through `make mutate`, which wants the check green
+A check proves it can fail: a probe or a fixture makes it go red once, a
+check over a fixture directory goes red once per fixture (issue #292: one
+mutation proved one fixture of six), and a mutation of a template goes through `make mutate`, which wants the check green
 before the mutation and red after it, a FROM that occurs exactly once, and
 restores the file (issue #288 read a mutation's red as the code's). A known
 limit carries `shortcut: <the limit>, <when to upgrade>`. `make lint-shell`
