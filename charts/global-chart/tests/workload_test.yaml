@@ -608,6 +608,58 @@ tests:
           path: spec.template.spec.containers[0].startupProbe.exec.command[0]
           value: /bin/check
 
+  # ====== probe handlers (issue #288) ======
+  - it: should fail a probe that sets two handlers, naming them
+    set:
+      workloads:
+        main:
+          image: nginx:1.25
+          livenessProbe:
+            exec:
+              command: ["/bin/check"]
+            httpGet:
+              port: 8080
+    asserts:
+      - failedTemplate:
+          errorMessage: "workloads.main.livenessProbe: sets exec and httpGet, and a probe takes exactly one handler. Keep one."
+
+  - it: should list three handlers in the order Kubernetes declares them
+    set:
+      workloads:
+        main:
+          image: nginx:1.25
+          readinessProbe:
+            grpc:
+              port: 9090
+            tcpSocket:
+              port: 8080
+            exec:
+              command: ["/bin/check"]
+    asserts:
+      - failedTemplate:
+          errorMessage: "workloads.main.readinessProbe: sets exec, tcpSocket and grpc, and a probe takes exactly one handler. Keep one."
+
+  - it: should fail a probe that sets timings but no handler
+    set:
+      workloads:
+        main:
+          image: nginx:1.25
+          startupProbe:
+            periodSeconds: 10
+    asserts:
+      - failedTemplate:
+          errorMessage: "workloads.main.startupProbe: no handler. Set exactly one of exec, httpGet, tcpSocket, grpc."
+
+  - it: should render no probe for an empty probe map
+    set:
+      workloads:
+        main:
+          image: nginx:1.25
+          livenessProbe: {}
+    asserts:
+      - notExists:
+          path: spec.template.spec.containers[0].livenessProbe
+
   # ====== lifecycle + terminationGracePeriodSeconds ======
   - it: should render lifecycle preStop hook when configured
     set:

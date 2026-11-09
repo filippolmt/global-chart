@@ -204,10 +204,10 @@ at apply (issue #285). `null-sweep-preflight` holds the `required` fields of
 `nullItemFields` to this; a field a template reads inline is the reviewer's.
 
 **A mirror of the schema is held to it by a check.** A helper or script that
-restates what `values.schema.json` declares — `$kindOnly`, `valuesShape` —
-ships with a check that fails when the two diverge (`lint-templates`'
-kind-fields rule, `make null-sweep-preflight`'s schema check, also run by
-`make null-sweep`). A mirror built from what
+restates what `values.schema.json` declares — `$kindOnly`, `valuesShape`,
+the probe `$handlers` — ships with a check that fails when the two diverge
+(`lint-templates`' kind-fields and probe-handlers rules, `make
+null-sweep-preflight`'s schema check, also run by `make null-sweep`). A mirror built from what
 the scenarios happen to set misses the forms none of them uses: `valuesShape`
 read an `imagePullSecrets` item as a map only, and the string form failed
 every render (issue #235).

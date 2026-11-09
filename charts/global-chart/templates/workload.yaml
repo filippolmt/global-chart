@@ -200,17 +200,18 @@ spec:
               containerPort: {{ include "global-chart.printScalar" .containerPort }}
               protocol: {{ .protocol }}
             {{- end }}
-          {{- if $deploy.livenessProbe }}
-          livenessProbe:
-            {{- toYaml $deploy.livenessProbe | nindent 12 }}
+          {{- range $probe := list "livenessProbe" "readinessProbe" "startupProbe" }}
+          {{- /* a null key is unset (issue #288): a probe of nulls is no probe, and no null reaches the manifest */}}
+          {{- $given := dict }}
+          {{- $raw := get $deploy $probe }}
+          {{- range $k, $v := (kindIs "map" $raw | ternary $raw dict) }}
+          {{- if eq (include "global-chart.isSet" (list $raw $k)) "true" }}{{ $_ := set $given $k $v }}{{ end }}
           {{- end }}
-          {{- if $deploy.readinessProbe }}
-          readinessProbe:
-            {{- toYaml $deploy.readinessProbe | nindent 12 }}
+          {{- with $given }}
+          {{- include "global-chart.validateProbeHandler" (dict "probe" . "errCtx" (printf "%s.%s" $errCtx $probe)) }}
+          {{ $probe }}:
+            {{- toYaml . | nindent 12 }}
           {{- end }}
-          {{- if $deploy.startupProbe }}
-          startupProbe:
-            {{- toYaml $deploy.startupProbe | nindent 12 }}
           {{- end }}
           {{- with $deploy.lifecycle }}
           lifecycle:

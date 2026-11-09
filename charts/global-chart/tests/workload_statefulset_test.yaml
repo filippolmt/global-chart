@@ -215,3 +215,24 @@ tests:
     asserts:
       - failedTemplate:
           errorMessage: "workloads.db.externalSecrets[0]: the volume 'es-app-conf' generated for 'app-conf' is already declared by workloads.db.volumeClaimTemplates[0]. Mount a key once, and do not name your own volumes after it."
+
+  - it: should fail a StatefulSet probe that sets two handlers (issue #288)
+    set:
+      workloads:
+        db:
+          readinessProbe:
+            tcpSocket: { port: 5432 }
+            exec: { command: ["pg_isready"] }
+    asserts:
+      - failedTemplate:
+          errorMessage: "workloads.db.readinessProbe: sets exec and tcpSocket, and a probe takes exactly one handler. Keep one."
+
+  - it: should fail a StatefulSet probe that sets no handler (issue #288)
+    set:
+      workloads:
+        db:
+          livenessProbe:
+            periodSeconds: 10
+    asserts:
+      - failedTemplate:
+          errorMessage: "workloads.db.livenessProbe: no handler. Set exactly one of exec, httpGet, tcpSocket, grpc."

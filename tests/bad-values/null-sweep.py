@@ -112,6 +112,24 @@ TIMESTAMP = re.compile(r'^\s*timestamp: "\d{14}"\n', re.M)
 # The keys the templates read through isSet: a null on one must render as the
 # key absent. Read from the templates, so the list cannot drift from them.
 IS_SET = re.compile(r'isSet" \(list \S+ "(\w+)"\)')
+# validateProbeHandler reads its handlers through isSet off a literal list
+# (issue #288), parsed by lint-templates' probe_handler_list: one parser of it.
+# shortcut: this one helper by name, generalise when a second ranges isSet
+# over a list.
+_lint = importlib.util.spec_from_file_location("lint_templates", pathlib.Path(__file__).parent.parent / "lint-templates.py")
+lint_templates = importlib.util.module_from_spec(_lint)
+_lint.loader.exec_module(lint_templates)
+
+
+def is_set_keys(text):
+    """The keys a template reads through isSet."""
+    return set(IS_SET.findall(text)) | set(lint_templates.probe_handler_list(text) or ())
+
+
+def is_set_keys_self_test():
+    assert is_set_keys('isSet" (list $deploy "enabled")') == {"enabled"}
+    helper = '{{- define "global-chart.validateProbeHandler" -}}\n{{- $handlers := list "exec" "httpGet" -}}'
+    assert is_set_keys(helper) == {"exec", "httpGet"}
 NULLISH = re.compile(r"<nil>|^\s*-\s+null\s*$|^\s*-?\s*name:\s*(\"\")?\s*$", re.M)
 
 
@@ -252,6 +270,7 @@ def verdict(out, base, path, unset=None):
 def main(argv):
     stable_render_self_test()
     drop_nulls_self_test()
+    is_set_keys_self_test()
     flags = argv[argv.index("--") + 1:] if "--" in argv else []
     argv = argv[:argv.index("--")] if "--" in argv else argv
     standalone = "--preflight-only" in argv
@@ -278,7 +297,7 @@ def main(argv):
         # "name" is left out: isSet reads it for one default (an ExternalSecret's
         # target), and the key names every other required field of the chart
         is_set = {k for t in (chart / "templates").rglob("*") if t.is_file()
-                  for k in IS_SET.findall(t.read_text())} - {"name"}
+                  for k in is_set_keys(t.read_text())} - {"name"}
         defaults = set(paths(to_json(chart / "values.yaml", scratch)))
         wrongs = []
         for f, values in scenarios:

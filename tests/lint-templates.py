@@ -41,6 +41,11 @@ a rule below cannot recognise: a check that sees nothing is not a pass.
   `$defs/deployment` rejects the same ones with `false` (ADR 0020). The two are
   one partition written twice, the guard being what --skip-schema-validation
   leaves: a field added to one and not the other is the bug.
+- probe-handlers: validateProbeHandler's `$handlers` lists the handlers of a
+  probe, and `$defs/probe` declares them as its properties that are not
+  integers (the timings are). null-sweep reads the list through
+  probe_handler_list too, so the two read one parser. A handler the schema adds and the list misses would fail
+  a valid probe with "no handler" (issue #288).
 - workload-kind: a quoted kind of a workload ("Deployment", "StatefulSet",
   "DaemonSet") appears only in its homes: the workloadKind and isStatefulSet
   defines and the `$kindOnly` map. Anywhere else it is a kind written by hand,
@@ -102,6 +107,7 @@ FAIL_ANY = re.compile(r"\bfail\s+(?!\(\s*printf\s+\"|\")(\S+)")
 EXCEPTIONS = ("Name collision: ", "The fullname ", "Both .Values.ingress")
 KIND_ONLY = re.compile(r'\$kindOnly\s*:=\s*dict\s+(.*?)\}\}', re.S)
 KIND_LIST = re.compile(r'"(\w+)"\s*\(list\s+([^)]*)\)')
+PROBE_HANDLERS = re.compile(r'define "global-chart\.validateProbeHandler".*?\$handlers\s*:=\s*list\s+([^}]*?)\s*-?\}\}', re.S)
 WORKLOAD_KIND = re.compile(r'"(Deployment|StatefulSet|DaemonSet)"')
 KIND_HOMES = {"global-chart.workloadKind", "global-chart.isStatefulSet"}
 DEFINE_NAME = re.compile(r'\{\{-?\s*define\s+"([^"]+)"')
@@ -178,6 +184,29 @@ def kind_fields(chart, schema):
         if guard.get(k, set()) != schema_side.get(k, set()):
             problems.append(f"templates/workload.yaml: kind-fields: {k}-only fields differ: $kindOnly {sorted(guard.get(k, set()))}, schema {sorted(schema_side.get(k, set()))}")
     return problems
+
+
+def probe_handler_list(text):
+    """The handlers validateProbeHandler lists in text, or None without one."""
+    m = PROBE_HANDLERS.search(text)
+    return re.findall(r'"(\w+)"', m.group(1)) if m else None
+
+
+def probe_handler_list_self_test():
+    helper = '{{- define "global-chart.validateProbeHandler" -}}\n{{- $handlers := list "exec" "grpc" -}}'
+    assert probe_handler_list(helper) == ["exec", "grpc"]
+    assert probe_handler_list('{{- $handlers := list "exec" -}}') is None, "a list outside the helper is not its"
+
+
+def probe_handlers(chart, schema):
+    """The probe-handlers rule."""
+    listed = probe_handler_list((chart / "templates" / "_validate-helpers.tpl").read_text())
+    if listed is None:
+        return ["templates/_validate-helpers.tpl: probe-handlers: no `$handlers := list …` in validateProbeHandler to compare with the schema"]
+    declared = [k for k, v in schema["$defs"]["probe"]["properties"].items() if v.get("type") != "integer"]
+    if sorted(listed) != sorted(declared):
+        return [f"templates/_validate-helpers.tpl: probe-handlers: $handlers {listed}, $defs/probe non-integer properties {declared}"]
+    return []
 
 
 def define_at(starts, pos, default):
@@ -292,6 +321,7 @@ def every_kind(chart):
 
 
 def main(chart):
+    probe_handler_list_self_test()
     chart = pathlib.Path(chart)
     templates = chart / "templates"
     schema = json.loads((chart / "values.schema.json").read_text())
@@ -347,6 +377,7 @@ def main(chart):
                                 "tests/bad-values/skip-schema/ fixture")
     problems += every_kind(chart)
     problems += kind_fields(chart, schema)
+    problems += probe_handlers(chart, schema)
     problems += workload_kind(chart)
     problems += render_order(chart)
     problems += read_only_by(chart)
