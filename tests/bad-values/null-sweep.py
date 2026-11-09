@@ -114,8 +114,8 @@ TIMESTAMP = re.compile(r'^\s*timestamp: "\d{14}"\n', re.M)
 IS_SET = re.compile(r'isSet" \(list \S+ "(\w+)"\)')
 # validateProbeHandler reads its handlers through isSet off a literal list
 # (issue #288), parsed by lint-templates' probe_handler_list: one parser of it.
-# shortcut: this one helper by name, generalise when a second ranges isSet
-# over a list.
+# shortcut: this one helper by name, and only literal isSet keys besides;
+# issue #294 replaces both with a removal case for every null map value.
 _lint = importlib.util.spec_from_file_location("lint_templates", pathlib.Path(__file__).parent.parent / "lint-templates.py")
 lint_templates = importlib.util.module_from_spec(_lint)
 _lint.loader.exec_module(lint_templates)
