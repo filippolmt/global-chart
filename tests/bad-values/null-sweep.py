@@ -16,9 +16,9 @@ unless a null on a key the templates read through isSet renders otherwise than
 the same key removed — a null is unset, so the two must match (a key the
 chart's values.yaml defaults is left out: Helm deletes the default on a null,
 and restores it on a removal; a key under a list item is not, since Helm
-replaces a list whole and the example lists of values.yaml default nothing) — or unless its output carries more null-looking
-lines — `<nil>`, a `- null` list
-item, an empty `name:` — than the scenario's own render: a null that reached
+replaces a list whole and the example lists of values.yaml default nothing) —
+or unless its output carries more null-looking lines — `<nil>`, a `- null`
+list item, an empty `name:` — than the scenario's own render: a null that reached
 the manifest. A `key: null` is not one: a null map value is unset, for the
 chart as for the API server. A render that fails passes only when Helm reports a
 template `fail` or `required` (`execution error at (…): <message>`) whose
