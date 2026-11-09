@@ -53,6 +53,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   probe. A probe inside `extraContainers` stays with the API server (ADR
   0017). **Migration**: none for a release that installs; such a probe never
   applied.
+- **Breaking: a StatefulSet's `rollingUpdate: {}` beside `type: OnDelete`
+  fails the render under `--skip-schema-validation`** (issue #296), naming
+  `workloads.<name>.updateStrategy.rollingUpdate`. The backstop guard tested
+  `rollingUpdate` for truthiness, so an empty map passed it and was dropped
+  from the manifest in silence; the schema and the API server reject it. A
+  null stays unset. **Migration**: drop `rollingUpdate`, or set
+  `type: RollingUpdate`.
 - `make validate-bad-values` checks what a values file renders under
   `--skip-schema-validation`, not only that a `fail` fires (issue #292). A file
   in `tests/bad-values/skip-schema-render/` is rejected by the schema at each
@@ -80,6 +87,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   naming its path; the API server already refused it, so no release that
   installs changes. Keep exactly one of `exec`, `httpGet`, `tcpSocket`,
   `grpc`.
+- A StatefulSet with `type: OnDelete` and `rollingUpdate: {}`, rendered with
+  `--skip-schema-validation`, now fails the render; it installed because the
+  chart dropped the empty map. Remove `rollingUpdate`. Without
+  `--skip-schema-validation` the schema already rejected it.
 
 ## [4.2.1] — 2026-10-26
 

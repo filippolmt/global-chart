@@ -74,8 +74,9 @@ spec:
   {{- $updateType := eq (include "global-chart.isSet" (list $updateStrategy "type")) "true" }}
   {{- with $updateStrategy }}
   {{- /* Backstop guard: the schema rejects it first. The API server accepts
-         rollingUpdate only with type RollingUpdate. */}}
-  {{- if and (eq (toString .type) "OnDelete") .rollingUpdate }}
+         rollingUpdate only with type RollingUpdate, an empty {} included:
+         isSet, not truthiness (issue #296). A null stays unset. */}}
+  {{- if and (eq (toString .type) "OnDelete") (eq (include "global-chart.isSet" (list . "rollingUpdate")) "true") }}
   {{- fail (printf "%s.updateStrategy.rollingUpdate: only allowed with type RollingUpdate, and the type is OnDelete. Drop rollingUpdate, or set type: RollingUpdate." $errCtx) }}
   {{- end }}
   {{- if or $updateType .rollingUpdate }}
