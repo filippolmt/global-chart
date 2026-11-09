@@ -60,6 +60,8 @@ def declarations_test():
             {"allOf": [{"type": "object"}, {"properties": {"x": {"type": "string"}}}]},
             {"type": "array", "items": {"type": "boolean"}}]},
         "both": {"oneOf": [{"type": "boolean"}], "anyOf": [{"type": "string"}, {}]},
+        "sibling": {"type": "object", "properties": {"x": {"type": "array"}},
+                    "oneOf": [{"required": ["x"]}, {"required": ["y"]}]},
         "ref": {"$ref": "#/$defs/base", "type": "array", "items": {"type": "boolean"},
                 "properties": {"sibling": {"type": "integer"}}}},
         "$defs": {"base": {"type": "object", "properties": {"x": {"type": "string"}}}}}
@@ -70,6 +72,7 @@ def declarations_test():
         ("nullable",): ({"number"}, False), ("group",): ({"map", "list"}, False),
         ("group", "x"): ({"string"}, False), ("group", "[]"): ({"boolean"}, False),
         ("both",): ({"string"}, True), ("ref",): ({"map"}, False),
+        ("sibling",): ({"map"}, False), ("sibling", "x"): ({"list"}, False),
         ("ref", "x"): ({"string"}, False), ("ref", "sibling"): None, ("ref", "[]"): None,
     }
     for path, want in expected.items():

@@ -139,6 +139,12 @@ workloads:
                 containerName: db-backup
                 operator: In
                 values: [42]
+            # An init container is a container of the Job's pod too (issue #285)
+            - action: FailJob
+              onExitCodes:
+                containerName: wait-for-db
+                operator: In
+                values: [1, 2]
             - action: Ignore
               onPodConditions:
                 - type: DisruptionTarget

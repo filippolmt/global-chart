@@ -58,7 +58,7 @@ spec:
         {{- . | nindent 8 }}
     {{- end }}
     spec:
-      {{- with (include "global-chart.jobSpecVerbatimFields" (dict "job" $job "kind" "cronjob" "errCtx" $errCtx)) }}
+      {{- with (include "global-chart.jobSpecVerbatimFields" (dict "job" $job "kind" "cronjob" "errCtx" $errCtx "containerName" $name)) }}
       {{- . | nindent 6 }}
       {{- end }}
       template:
@@ -135,7 +135,7 @@ spec:
         {{- . | nindent 8 }}
     {{- end }}
     spec:
-      {{- with (include "global-chart.jobSpecVerbatimFields" (dict "job" $job "kind" "cronjob" "errCtx" $errCtx)) }}
+      {{- with (include "global-chart.jobSpecVerbatimFields" (dict "job" $job "kind" "cronjob" "errCtx" $errCtx "containerName" $name)) }}
       {{- . | nindent 6 }}
       {{- end }}
       template:

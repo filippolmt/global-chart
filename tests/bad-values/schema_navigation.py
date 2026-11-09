@@ -26,7 +26,8 @@ strings with '*' and list suffixes.
 
 These are not general JSON Schema evaluators: no pointer decoding, external
 references, cycle protection, conditionals, or new schema forms. Conservative
-anyOf replaces oneOf when both exist; const/enum do not imply types; a property
+anyOf replaces oneOf when both exist, and the siblings of either are read into
+every branch; const/enum do not imply types; a property
 named '*' or '[]' reads as the wildcard of that name. Keep these
 limitations until a separate behavior change updates the callers' contracts.
 """
@@ -42,6 +43,9 @@ _SCHEMA_TYPES = {"object": "map", "array": "list", "string": "string", "boolean"
                  "integer": "number", "number": "number"}
 
 
+_ANNOTATIONS = {"description", "$comment", "title", "default", "examples"}
+
+
 def _alternatives(schema, node):
     while "$ref" in node:
         node = resolve_pointer(schema, node["$ref"].lstrip("#"))
@@ -49,6 +53,11 @@ def _alternatives(schema, node):
     for key in ("oneOf", "anyOf"):
         if key in node:
             alternatives = [a for n in node[key] for a in _alternatives(schema, n)]
+    # The siblings of a oneOf/anyOf apply to every branch (issue #285): each
+    # branch is read together with them, so their type and properties survive
+    siblings = {k: v for k, v in node.items() if k not in {"oneOf", "anyOf"} | _ANNOTATIONS}
+    if siblings and ("oneOf" in node or "anyOf" in node):
+        alternatives = [{"allOf": [siblings, a]} for a in alternatives]
     return alternatives
 
 

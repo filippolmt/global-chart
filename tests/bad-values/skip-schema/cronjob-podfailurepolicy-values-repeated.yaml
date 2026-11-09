@@ -1,0 +1,14 @@
+# A repeated podFailurePolicy exit code: uniqueItems rejects it, and under
+# --skip-schema-validation the strict ascending check is what names it, as
+# the API server rejects the list at install (issue #285).
+# Expected fail substring: "cronJobs.report.podFailurePolicy.rules[0].onExitCodes.values: [1, 1] is not in ascending order"
+cronJobs:
+  report:
+    schedule: "0 3 * * *"
+    image: busybox:1.36
+    podFailurePolicy:
+      rules:
+        - action: FailJob
+          onExitCodes:
+            operator: In
+            values: [1, 1]

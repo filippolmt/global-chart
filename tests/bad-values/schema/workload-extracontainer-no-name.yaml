@@ -1,0 +1,7 @@
+# An extraContainers entry with no name: the API server requires one, and the
+# schema now does too (issue #285).
+workloads:
+  api:
+    image: nginx:1.27
+    extraContainers:
+      - image: busybox:1.36

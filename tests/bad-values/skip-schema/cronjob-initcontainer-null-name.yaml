@@ -1,0 +1,18 @@
+# A null name on a cronjob's init container: the schema requires a string
+# name, and under --skip-schema-validation validatePodFailurePolicy names the
+# null with its path instead of skipping it (issue #285).
+# Expected fail substring: "cronJobs.report.initContainers[0].name: null"
+cronJobs:
+  report:
+    schedule: "0 3 * * *"
+    image: busybox:1.36
+    initContainers:
+      - name: null
+        image: busybox:1.36
+    podFailurePolicy:
+      rules:
+        - action: FailJob
+          onExitCodes:
+            containerName: report
+            operator: In
+            values: [42]

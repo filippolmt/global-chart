@@ -156,7 +156,7 @@ securityContext:
 {{- with (include "global-chart.renderDnsConfig" $dnsConfig) }}
 {{ . }}
 {{- end }}
-{{- /* InitContainers: the job's own, never the workload's extraInitContainers */ -}}
+{{- /* InitContainers: the job's own, never the workload's extraInitContainers. validatePodFailurePolicy lists the pod's containers too: a container added here joins it there */ -}}
 {{- if $job.initContainers }}
 initContainers:
   {{- toYaml $job.initContainers | nindent 2 }}
@@ -457,7 +457,9 @@ job's own.
 - podFailurePolicy (issue #282): a map, rendered with toYaml under `with`, so
   a null is unset like any null map. The API server accepts it only beside
   restartPolicy Never, so OnFailure fails here naming the path; restartPolicy
-  is never inherited, so the job's own value is the whole check.
+  is never inherited, so the job's own value is the whole check. The two
+  onExitCodes rules the schema cannot express fail here too (issue #285):
+  validatePodFailurePolicy below.
 The table below is the template-side home of which kind admits which field, so
 the two scopes of a kind can no longer drift apart. The schema mirrors it —
 cronJobSpec and hookJobSpec declare the same lists, and they are what rejects
@@ -472,7 +474,8 @@ a field a kind does not admit:
   hook-succeeded already covers cleanup. Not parallelism/completions: a hook is
   one run.
 Params: job (the job map) · kind ("hook" | "cronjob") · errCtx (the job's
-jobValuesPath: a null fails naming its key).
+jobValuesPath: a null fails naming its key) · containerName (cronjob only:
+the main container's name, the job's key, for validatePodFailurePolicy).
 Returns the fields as YAML at indent 0, one "field: value" line per integer
 and a block for podFailurePolicy, or "" when none is set.
 Usage: {{- with (include "global-chart.jobSpecVerbatimFields" (dict "job" $job "kind" "hook" "errCtx" $errCtx)) }}
@@ -490,6 +493,7 @@ Usage: {{- with (include "global-chart.jobSpecVerbatimFields" (dict "job" $job "
       {{- if eq (toString $job.restartPolicy) "OnFailure" -}}
         {{- fail (printf "%s.podFailurePolicy: requires restartPolicy Never, not OnFailure" $errCtx) -}}
       {{- end -}}
+      {{- include "global-chart.validatePodFailurePolicy" (dict "job" $job "containerName" (required "jobSpecVerbatimFields: containerName is required for a cronjob" $.containerName) "errCtx" $errCtx) -}}
       {{- $lines = append $lines (printf "podFailurePolicy:\n%s" (toYaml . | indent 2)) -}}
     {{- end -}}
   {{- else if hasKey $job . -}}
@@ -498,3 +502,60 @@ Usage: {{- with (include "global-chart.jobSpecVerbatimFields" (dict "job" $job "
 {{- end -}}
 {{- join "\n" $lines -}}
 {{- end -}}
+
+{{/*
+Validate a cronjob's podFailurePolicy onExitCodes as the API server does
+(issue #285). The schema cannot express either rule, and the API server
+refused both only at apply:
+- values in strictly ascending order. uniqueItems already rejects a repeat,
+  so this is its fallback under --skip-schema-validation;
+- containerName naming a container of the Job's pod: the main container,
+  named after the job's key, or one of the job's own initContainers. The same
+  set jobPodSpec renders: a container it adds to the pod joins it here. The
+  message lists them: a values author cannot know the main container takes
+  the job's key.
+A null exit code, a null initContainers name and a null initContainers item
+fail naming their path (rejectNullItems). A rule, an onExitCodes or a list
+that is not of its type is skipped, and so is a string exit code: the schema
+rejects them.
+Called from jobSpecVerbatimFields. Emits nothing on success.
+Usage: {{- include "global-chart.validatePodFailurePolicy" (dict "job" $job "containerName" $name "errCtx" $errCtx) }}
+*/}}
+{{- define "global-chart.validatePodFailurePolicy" -}}
+{{- $path := printf "%s.podFailurePolicy" .errCtx -}}
+{{- $initList := (kindIs "slice" .job.initContainers | ternary .job.initContainers list) -}}
+{{- include "global-chart.rejectNullItems" (dict "list" $initList "errCtx" (printf "%s.initContainers" .errCtx) "required" (list "name")) -}}
+{{- $inits := list -}}
+{{- range $initList -}}
+  {{- if include "global-chart.isNamedEntry" . -}}
+    {{- $inits = append $inits .name -}}
+  {{- end -}}
+{{- end -}}
+{{- $names := prepend $inits .containerName -}}
+{{- $known := printf "'%s' (the job's key)" .containerName -}}
+{{- if $inits -}}
+  {{- $known = printf "%s, '%s' (initContainers)" $known (join "', '" $inits) -}}
+{{- end -}}
+{{- $rules := .job.podFailurePolicy.rules -}}
+{{- range $r, $rule := (kindIs "slice" $rules | ternary $rules list) -}}
+  {{- $codes := (kindIs "map" $rule | ternary $rule dict).onExitCodes -}}
+  {{- if kindIs "map" $codes -}}
+    {{- $at := printf "%s.rules[%d].onExitCodes" $path $r -}}
+    {{- $values := (kindIs "slice" $codes.values | ternary $codes.values list) -}}
+    {{- include "global-chart.rejectNullItems" (dict "list" $values "errCtx" (printf "%s.values" $at)) -}}
+    {{- range $i, $v := $values -}}
+      {{- $prev := index $values (max 0 (sub $i 1)) -}}
+      {{- if and $i (not (kindIs "string" $prev)) (not (kindIs "string" $v)) (le (float64 $v) (float64 $prev)) -}}
+        {{- $printed := list -}}
+        {{- range $values -}}
+          {{- $printed = append $printed (include "global-chart.printScalar" .) -}}
+        {{- end -}}
+        {{- fail (printf "%s.values: [%s] is not in ascending order, which the API server rejects. List the exit codes from lowest to highest." $at (join ", " $printed)) -}}
+      {{- end -}}
+    {{- end -}}
+    {{- if and (kindIs "string" $codes.containerName) (not (has $codes.containerName $names)) -}}
+      {{- fail (printf "%s.containerName: '%s' names no container of the job's pod, which the API server rejects. The pod's containers: %s." $at $codes.containerName $known) -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+{{- end }}

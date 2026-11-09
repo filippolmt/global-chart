@@ -85,6 +85,8 @@ CANDIDATES = {
     "/$defs/ianaSvcName/allOf/1": None,  # "has a letter": a narrowing, nothing to push
     "/$defs/volumeClaimTemplate/properties/size": ["1", "0.5", "1.5Gi", "999999Ei"],
     "/$defs/volumeClaimTemplate/properties/name": ["a" * 63],
+    "/$defs/container/properties/name": ["a" * 63],
+    "/$defs/podFailurePolicy/properties/rules/items/properties/onExitCodes/properties/containerName": ["a" * 63],
     "/$defs/hookJobSpec/properties/weight": None,  # an annotation Helm reads, not the API server
     "/$defs/serviceAccount/properties/name/anyOf/1": [SUBDOMAIN_253],
     "/$defs/optionalObjectName/anyOf/2": [SUBDOMAIN_253],
