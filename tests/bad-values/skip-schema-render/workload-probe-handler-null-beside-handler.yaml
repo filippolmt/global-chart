@@ -1,0 +1,10 @@
+# A probe with one handler and another handler null (issue #288): the schema
+# requires a map, and under --skip-schema-validation the null is unset, so the
+# probe renders exec alone, with no httpGet: null in the manifest.
+workloads:
+  app:
+    image: nginx:1.25
+    livenessProbe:
+      exec:
+        command: [cat, /tmp/healthy]
+      httpGet: null

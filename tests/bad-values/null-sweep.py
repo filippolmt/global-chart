@@ -57,7 +57,17 @@ and Secret kind identify them), like the pod recreation timestamp. Username,
 keys and other Secret data remain comparable. check-basic-auth.py separately
 verifies the random password and its htpasswd hash against the standard format.
 
-Usage: null-sweep.py [--preflight-only] <chart dir> <values file>... [-- <helm flags>...]
+--render-as-unset (issue #292) checks hand-written files instead of sweeping
+scenarios: tests/bad-values/skip-schema-render/, shapes the schema rejects, so
+no scenario carries them and no sweep reaches them (a probe with exec set and
+httpGet null). Each file must carry a null map value, none on a map key
+values.yaml defaults (Helm deletes the default on a null and restores it on a
+removal; a key under a list item is exempt, since Helm replaces a list whole).
+helm lint must reject each null by its own pointer (`at '/a/b': got null`),
+so a file the schema rejects for another reason does not pass. Each file must
+then render exactly as the same file with every null map value removed.
+
+Usage: null-sweep.py [--preflight-only | --render-as-unset] <chart dir> <values file>... [-- <helm flags>...]
 """
 import concurrent.futures
 import importlib.util
@@ -267,17 +277,101 @@ def verdict(out, base, path, unset=None):
     return err.replace("Use --debug flag to render out invalid YAML", "").strip()[:240]
 
 
+def values_to_json_chart(tmp):
+    """A scratch chart printing its values as JSON, for to_json."""
+    scratch = pathlib.Path(tmp) / "values-to-json"
+    (scratch / "templates").mkdir(parents=True)
+    (scratch / "Chart.yaml").write_text("apiVersion: v2\nname: values-to-json\nversion: 0.0.0\n")
+    (scratch / "templates" / "values.json").write_text("{{ .Values | toJson }}\n")
+    return scratch
+
+
+def null_keys(node, prefix=()):
+    """The path of every null map value under node."""
+    if isinstance(node, dict):
+        for key, value in node.items():
+            if value is None:
+                yield prefix + (key,)
+            yield from null_keys(value, prefix + (key,))
+    elif isinstance(node, list):
+        for i, item in enumerate(node):
+            yield from null_keys(item, prefix + (i,))
+
+
+def null_keys_self_test():
+    assert list(null_keys({"a": None, "b": [{"c": None}, None], "d": {"e": 1}})) == [("a",), ("b", 0, "c")]
+    assert pointer(("a", 0, "c")) == "/a/0/c"
+    assert first_difference("x\ny: 1\n", "x\n") == ": renders y: 1"
+    assert first_difference("x\n", "x\ny: 1\n") == ": lacks y: 1"
+
+
+def pointer(path):
+    """A values path as a JSON pointer, as the schema errors of helm lint print it."""
+    return "/" + "/".join(map(str, path))
+
+
+def first_difference(out, ref):
+    """The first line one render has and the other lacks, for a finding's message."""
+    a, b = out.splitlines(), ref.splitlines()
+    sa, sb = set(a), set(b)
+    lines = [f"renders {l.strip()}" for l in a if l not in sb] + [f"lacks {l.strip()}" for l in b if l not in sa]
+    return f": {lines[0]}" if lines else ""
+
+
+def render_as_unset(chart, files, flags):
+    """Each file renders as itself with its null map values removed."""
+    findings = []
+    with tempfile.TemporaryDirectory() as tmp:
+        scratch = values_to_json_chart(tmp)
+        defaults = set(paths(to_json(chart / "values.yaml", scratch)))
+        for f in files:
+            values = to_json(f, scratch)
+            nulls = list(null_keys(values))
+            if not nulls:
+                findings.append(f"{f}: carries no null map value; green here would be vacuous")
+                continue
+            # Helm replaces a list whole, so a default inside a list item never applies
+            if defaulted := [dotted(p) for p in nulls if p in defaults and not any(isinstance(k, int) for k in p)]:
+                findings.append(f"{f}: {', '.join(defaulted)} has a default in values.yaml, so its null is not its removal")
+                continue
+            lint = subprocess.run(["helm", "lint", "--strict", "-f", f, str(chart)], capture_output=True, text=True)
+            if unrejected := [dotted(p) for p in nulls if f"at '{pointer(p)}': got null" not in lint.stdout + lint.stderr]:
+                findings.append(f"{f}: the schema does not reject the null at {', '.join(unrejected)}"
+                                " (if every file fails here, check whether Helm reworded `at '<pointer>': got null`)")
+                continue
+            unset = values
+            for p in nulls:
+                unset = removed(unset, p)
+            out, ref = render(chart, flags, values, tmp), render(chart, flags, unset, tmp)
+            if out.returncode or ref.returncode:
+                findings.append(f"{f}: does not render: " + " ".join((out.stderr or ref.stderr).split())[:240])
+            elif (a := stable_render(out.stdout)) != (b := stable_render(ref.stdout)):
+                findings.append(f"{f}: renders otherwise than with {', '.join(map(dotted, nulls))} removed"
+                                + first_difference(a, b))
+    if findings:
+        print("    FAIL: a skip-schema-render file is not rejected by the schema at its nulls, or does not render as their removal:")
+        for line in findings:
+            print(f"          - {line}")
+        sys.exit(1)
+    print(f"    OK: {len(files)} skip-schema-render files render as their nulls removed")
+
+
 def main(argv):
     stable_render_self_test()
     drop_nulls_self_test()
     is_set_keys_self_test()
+    null_keys_self_test()
     flags = argv[argv.index("--") + 1:] if "--" in argv else []
     argv = argv[:argv.index("--")] if "--" in argv else argv
     standalone = "--preflight-only" in argv
     argv = [arg for arg in argv if arg != "--preflight-only"]
+    as_unset = "--render-as-unset" in argv
+    argv = [arg for arg in argv if arg != "--render-as-unset"]
     if len(argv) < 2:
         sys.exit(__doc__.rsplit("Usage: ", 1)[1])
     chart, files = pathlib.Path(argv[0]), argv[1:]
+    if as_unset:
+        return render_as_unset(chart, files, flags)
     shape, scenarios, findings = preflight(chart, files)
     if findings:
         print("    FAIL: null-sweep preflight contracts:")
@@ -289,10 +383,7 @@ def main(argv):
         return
     findings = []
     with tempfile.TemporaryDirectory() as tmp:
-        scratch = pathlib.Path(tmp) / "values-to-json"
-        (scratch / "templates").mkdir(parents=True)
-        (scratch / "Chart.yaml").write_text("apiVersion: v2\nname: values-to-json\nversion: 0.0.0\n")
-        (scratch / "templates" / "values.json").write_text("{{ .Values | toJson }}\n")
+        scratch = values_to_json_chart(tmp)
         jobs, bases = [], {}
         # "name" is left out: isSet reads it for one default (an ExternalSecret's
         # target), and the key names every other required field of the chart

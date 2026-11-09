@@ -1,0 +1,16 @@
+# portName beside a null service on a backendRef: the schema requires service
+# to be a map, and under --skip-schema-validation the null is unset, so
+# resolveBackend takes the workload's Service and its port named http, with no
+# conflict (the HTTPRoute half of ingress-portname-service-null.yaml).
+workloads:
+  app:
+    image: nginx:1.25
+httpRoute:
+  enabled: true
+  parentRefs:
+    - name: shared-gateway
+  rules:
+    - backendRefs:
+        - workload: app
+          portName: http
+          service: null

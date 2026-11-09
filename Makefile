@@ -271,7 +271,7 @@ render-diff: ## Render every TEST_CASES scenario on BASE (default main) and on t
 	@echo "==> Diffing the rendered manifests against $(or $(BASE),main)..."
 	@python3 tests/render-diff.py $(if $(filter ignore,$(QUOTES)),--ignore-quotes) $(or $(BASE),main) $(HELM_API_VERSIONS)
 
-validate-bad-values: ## Verify bad-values are rejected: schema/ by values.schema.json, fail/ by the template fail each names, skip-schema/ by both (the fail under --skip-schema-validation)
+validate-bad-values: ## Verify bad-values are rejected: schema/ by values.schema.json, fail/ by the template fail each names, skip-schema/ by both (the fail under --skip-schema-validation), skip-schema-render/ by the schema while rendering as its nulls removed
 	@echo "==> Validating bad-values are correctly rejected..."
 	@set -e; for f in tests/bad-values/schema/*.yaml; do \
 		[ -e "$$f" ] || { echo "    FAIL: tests/bad-values/schema/ holds no fixture; green here would be vacuous"; exit 1; }; \
@@ -313,8 +313,15 @@ validate-bad-values: ## Verify bad-values are rejected: schema/ by values.schema
 			done; \
 		fi; \
 	done
+	@set -e; for f in tests/bad-values/skip-schema-render/*.yaml; do \
+		[ -e "$$f" ] || { echo "    FAIL: tests/bad-values/skip-schema-render/ holds no fixture; green here would be vacuous"; exit 1; }; \
+		helm lint $(STRICT) -f "$$f" ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) 2>&1 | grep -qF "$(SCHEMA_REJECTION)" || { \
+			echo "    FAIL: $$f is not rejected by values.schema.json; a file the schema accepts is a scenario"; exit 1; }; \
+	done
+	@python3 tests/bad-values/null-sweep.py --render-as-unset ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) \
+		tests/bad-values/skip-schema-render/*.yaml -- $(HELM_API_VERSIONS)
 	@python3 tests/bad-values/check-closure-coverage.py "$(SCHEMA_REJECTION)" $(STRICT)
-	@echo "    OK: $(words $(wildcard tests/bad-values/*/*.yaml)) fixtures rejected, each by the mechanism its directory names"
+	@echo "    OK: $(words $(wildcard tests/bad-values/*/*.yaml)) fixtures rejected, each by the mechanism its directory names (skip-schema-render/ by the schema only)"
 	@echo "==> All bad-values correctly rejected!"
 
 # Internal: generate templates to a given directory
