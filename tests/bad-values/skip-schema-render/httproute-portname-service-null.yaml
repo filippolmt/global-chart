@@ -1,0 +1,14 @@
+# The HTTPRoute half of ingress-portname-service-null.yaml: the same null
+# through resolveBackend from a backendRef.
+workloads:
+  app:
+    image: nginx:1.25
+httpRoute:
+  enabled: true
+  parentRefs:
+    - name: shared-gateway
+  rules:
+    - backendRefs:
+        - workload: app
+          portName: http
+          service: null

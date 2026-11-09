@@ -1,0 +1,9 @@
+# The StatefulSet-only fields null on a Deployment: the schema forbids each key,
+# and under --skip-schema-validation each null is unset (ADR 0020).
+workloads:
+  app:
+    image: nginx:1.25
+    updateStrategy: null
+    podManagementPolicy: null
+    volumeClaimTemplates: null
+    persistentVolumeClaimRetentionPolicy: null

@@ -1,0 +1,10 @@
+# rollingUpdate null beside OnDelete: the schema forbids the key, and under
+# --skip-schema-validation the null is unset, so the backstop guard of
+# skip-schema/workload-statefulset-ondelete-rollingupdate.yaml does not fire.
+workloads:
+  db:
+    kind: StatefulSet
+    image: nginx:1.25
+    updateStrategy:
+      type: OnDelete
+      rollingUpdate: null
