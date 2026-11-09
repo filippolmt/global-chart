@@ -137,7 +137,7 @@ TEST_CASES := \
 .DEFAULT_GOAL := help
 
 # All phony targets
-.PHONY: help scenarios all check lint-chart render-diff lint-templates lint-docs lint-shell lint-glossary lint-inheritance lint-checks lint-labels unit-test null-sweep null-sweep-preflight scenario-coverage schema-descriptions schema-bounds lint-release release validate-bad-values generate-templates \
+.PHONY: help scenarios all check lint-chart render-diff mutate lint-templates lint-docs lint-shell lint-glossary lint-inheritance lint-checks lint-labels unit-test null-sweep null-sweep-preflight scenario-coverage schema-descriptions schema-bounds lint-release release validate-bad-values generate-templates \
 	kubeconform kube-linter-manifests kube-linter generate-docs package \
 	install install-test01 render clean clean-all \
 	kind-install kind-cluster kind-keda kind-eso kind-gateway-api kind-envoy-gateway kind-argocd kind-delete e2e e2e-dryrun bound-sweep e2e-routes e2e-argocd check-helm-floor helm-floor-image
@@ -212,6 +212,7 @@ lint-checks: ## Every make all target has a CI step; every check script fails wi
 	@python3 tests/bad-values/check-null-preflight.py --self-test
 	@python3 .claude/hooks/kind-kubeconfig-only.py --self-test
 	@python3 tests/render-diff.py --self-test
+	@python3 tests/mutate.py --self-test
 	@python3 tests/lint-checks.py
 
 lint-inheritance: ## The schema and the values-author guide state the inheritance the jobPodSpec header lists
@@ -783,6 +784,19 @@ install-test01: ## Install test01 (has kubectl pre-step; or use: make install SC
 		-f tests/test01/values.01.yaml \
 		--namespace test01 \
 		--create-namespace
+
+# ============================================================================
+# Mutate (prove a check goes red)
+# ============================================================================
+
+mutate: ## Prove a check goes red: make CHECK green on FILE, red with FROM replaced by TO once, FILE restored (usage: make mutate FILE=<path> FROM='<text>' TO='<text>' CHECK=<target>)
+	@if [ -z "$(FILE)" ] || [ -z "$(CHECK)" ]; then \
+		echo "Usage: make mutate FILE=<path> FROM='<text>' TO='<text>' CHECK=<target>"; \
+		echo "Passes only when FROM occurs exactly once in FILE, and make CHECK passes on FILE and fails on the mutation."; \
+		echo "FROM and TO are read unexpanded: a \$$ in them is literal. They may not hold a single quote."; \
+		exit 1; \
+	fi
+	@python3 tests/mutate.py '$(value FILE)' '$(value FROM)' '$(value TO)' env -u MAKEFLAGS -u MAKEOVERRIDES -u MFLAGS $(MAKE) --no-print-directory $(CHECK)
 
 # ============================================================================
 # Render (single template debugging)

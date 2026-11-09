@@ -35,6 +35,7 @@ PROBES = {
     "tests/bad-values/null-sweep.py": [MISSING, MISSING],
     "tests/bad-values/bound-sweep.py": [MISSING, MISSING],
     "tests/render-diff.py": ["refs/nonexistent-lint-checks"],
+    "tests/mutate.py": [MISSING, "from", "to", "true"],
     "tests/tools/schema-describe.py": [MISSING, MISSING],
 }
 NO_INPUT = {"tests/lint-docs.py", "tests/lint-shell.py", "tests/lint-glossary.py", "tests/lint-labels.py",
