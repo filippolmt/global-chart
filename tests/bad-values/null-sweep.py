@@ -15,9 +15,10 @@ CRD API versions. A render that succeeds passes (a null the chart tolerates),
 unless a null on a key the templates read through isSet renders otherwise than
 the same key removed — a null is unset, so the two must match (a key the
 chart's values.yaml defaults is left out: Helm deletes the default on a null,
-and restores it on a removal) — or unless its output carries more null-looking
-lines — `<nil>`, a `- null` list
-item, an empty `name:` — than the scenario's own render: a null that reached
+and restores it on a removal; a key under a list item is not, since Helm
+replaces a list whole and the example lists of values.yaml default nothing) —
+or unless its output carries more null-looking lines — `<nil>`, a `- null`
+list item, an empty `name:` — than the scenario's own render: a null that reached
 the manifest. A `key: null` is not one: a null map value is unset, for the
 chart as for the API server. A render that fails passes only when Helm reports a
 template `fail` or `required` (`execution error at (…): <message>`) whose
@@ -149,6 +150,16 @@ def paths(node, prefix=()):
     for key, value in items:
         yield prefix + (key,)
         yield from paths(value, prefix + (key,))
+
+
+def defaulted(path, defaults):
+    """values.yaml defaults the key at path: Helm merges maps, and replaces a list whole."""
+    return path in defaults and not any(isinstance(k, int) for k in path)
+
+
+def defaulted_self_test():
+    assert defaulted(("ingress", "enabled"), {("ingress", "enabled")})
+    assert not defaulted(("ingress", "hosts", 0, "service"), {("ingress", "hosts", 0, "service")})
 
 
 def removed(values, path):
@@ -330,9 +341,8 @@ def render_as_unset(chart, files, flags):
             if not nulls:
                 findings.append(f"{f}: carries no null map value; green here would be vacuous")
                 continue
-            # Helm replaces a list whole, so a default inside a list item never applies
-            if defaulted := [dotted(p) for p in nulls if p in defaults and not any(isinstance(k, int) for k in p)]:
-                findings.append(f"{f}: {', '.join(defaulted)} has a default in values.yaml, so its null is not its removal")
+            if with_default := [dotted(p) for p in nulls if defaulted(p, defaults)]:
+                findings.append(f"{f}: {', '.join(with_default)} has a default in values.yaml, so its null is not its removal")
                 continue
             lint = subprocess.run(["helm", "lint", "--strict", "-f", f, str(chart)], capture_output=True, text=True)
             if unrejected := [dotted(p) for p in nulls if f"at '{pointer(p)}': got null" not in lint.stdout + lint.stderr]:
@@ -360,6 +370,7 @@ def main(argv):
     stable_render_self_test()
     drop_nulls_self_test()
     is_set_keys_self_test()
+    defaulted_self_test()
     null_keys_self_test()
     flags = argv[argv.index("--") + 1:] if "--" in argv else []
     argv = argv[:argv.index("--")] if "--" in argv else argv
@@ -394,7 +405,7 @@ def main(argv):
         for f, values in scenarios:
             bases[f] = render(chart, flags, values, tmp).stdout
             jobs += [Case(f, p, None, nulled(values, p),
-                          removed(values, p) if p[-1] in is_set and p not in defaults else None)
+                          removed(values, p) if p[-1] in is_set and not defaulted(p, defaults) else None)
                      for p in paths(values)]
             wrongs += [Case(f, p, wrong, set_at(values, p, wrong))
                        for p in paths(values) for wrong in wrong_types(value_at(values, p))]

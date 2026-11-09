@@ -21,7 +21,7 @@ make lint-labels            # the triage labels of docs/agents/triage-labels.md 
 make scenario-coverage      # every map or list node of the schema set by a scenario, every type a node accepts used by one
 make schema-descriptions    # every schema property carries a description
 make schema-bounds          # every schema integer has a maximum within 2^53-1, every digit string a digit count
-make lint-release           # Chart.yaml's version is the CHANGELOG's last release, or the one its top section names
+make lint-release           # Chart.yaml's version is the CHANGELOG's last release, or the one its top section names; a change to charts/ or tests/ since RELEASE_BASE (origin/main) has its entry
 make release VERSION=4.1.0  # the release PR's edit: [Unreleased] renamed, Chart.yaml bumped, README regenerated
 make null-sweep-preflight   # schema/valuesShape, nullItemFields and scenario pod-spec-owner contracts; no mutation renders
 make null-sweep             # preflight, then null every values node and give each map/list the wrong type: render or fail naming its path
@@ -37,10 +37,11 @@ make -s scenarios           # the TEST_CASES values files, one per line, for run
 ```
 
 Releases: chart-releaser publishes on every push to `main` whose `Chart.yaml`
-`version` is not yet released (`skip_existing`). A feature PR leaves the version
-as is and adds its CHANGELOG entry under `## [Unreleased]`; a Breaking entry
+`version` is not yet released (`skip_existing`). Every PR but a dependency bump
+or a release leaves the version as is and adds its CHANGELOG entry under
+`## [Unreleased]`, a test-only change included; a Breaking entry
 (a new template `fail` is one) also adds its bullet to the *Migration guide
-from <previous release>* there, and `make lint-release` checks both.
+from <previous release>* there, and `make lint-release` checks all three.
 A change that alters what an earlier `[Unreleased]` entry states edits that
 entry: the release ships one statement per behaviour. The bump is its own
 release PR, made by `make release VERSION=x.y.z` (`tests/check-release.py`

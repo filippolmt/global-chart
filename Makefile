@@ -245,10 +245,10 @@ schema-bounds: ## Every schema integer has a maximum within 2^53-1, every digit-
 	@python3 tests/check-schema-bounds.py --self-test
 	@python3 tests/check-schema-bounds.py ./$(CHART_DIR)/$(GLOBAL_CHART_NAME)/values.schema.json
 
-lint-release: ## Chart.yaml's version is the CHANGELOG's last release, or the release its top section names; a new template fail has its Breaking entry
+lint-release: ## Chart.yaml's version is the CHANGELOG's last release, or the release its top section names; a new template fail has its Breaking entry; a change to charts/ or tests/ since RELEASE_BASE (default origin/main) has its entry
 	@echo "==> Checking Chart.yaml against the CHANGELOG..."
 	@python3 tests/check-release.py --self-test
-	@python3 tests/check-release.py CHANGELOG.md ./$(CHART_DIR)/$(GLOBAL_CHART_NAME)/Chart.yaml
+	@python3 tests/check-release.py CHANGELOG.md ./$(CHART_DIR)/$(GLOBAL_CHART_NAME)/Chart.yaml $(or $(RELEASE_BASE),origin/main)
 
 release: ## The release PR's edit: VERSION=x.y.z renames [Unreleased], bumps Chart.yaml, regenerates the README; refuses a non-major over a Removed section
 	@[ -n "$(VERSION)" ] || { echo "    FAIL: VERSION: not set; make release VERSION=x.y.z"; exit 1; }
