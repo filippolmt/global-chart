@@ -93,15 +93,13 @@ Usage: {{ ternary $deploy.enabled true (eq (include "global-chart.isSet" (list $
 Drop every null map value from a map or list, at any depth, in place (issue
 #294): a null map value is unset, so a passthrough surface renders as with the
 key removed. Written to the API server, `key: null` is not absent: a string
-becomes "", a quantity "0". A map whose keys are all null is left out too, at
-any depth, as CODING_STANDARDS states: `lifecycle: {preStop: {exec: null}}`
-renders no lifecycle, not a preStop with no handler. A map written `{}` stays:
-an explicit empty map is a value. List items are left alone, a null one
-included: validateNullItems fails it. A key of a list item names what the item
-is (a volume's emptyDir, a container's resources), so a map right under an
-item stays, as `{}`, when its nulls are dropped: `emptyDir: {medium: null}` is
-`emptyDir: {}`, as it reached the API server before. Mutates its argument,
-hence the name: pass a deepCopy.
+becomes "", a quantity "0". A map the drop empties stays, as `{}`: that is what
+removing its keys leaves, and what the API server made of it before, and in
+Kubernetes `{}` is not absent (`labelSelector: {}` selects every pod, an absent
+one none). Only the surface itself, all of its keys null, counts as left out
+(passthroughYaml, isSetPassthrough). List items are left alone, a null one
+included: validateNullItems fails it. Mutates its argument, hence the name:
+pass a deepCopy.
 Usage: {{- $clean := deepCopy $x }}{{- include "global-chart.dropNullsInPlace" $clean }}
 */}}
 {{- define "global-chart.dropNullsInPlace" -}}
@@ -109,21 +107,10 @@ Usage: {{- $clean := deepCopy $x }}{{- include "global-chart.dropNullsInPlace" $
   {{- $m := . -}}
   {{- range $k, $v := $m -}}
     {{- if kindIs "invalid" $v -}}{{- $_ := unset $m $k -}}
-    {{- else if and (kindIs "map" $v) $v -}}
-      {{- include "global-chart.dropNullsInPlace" $v -}}
-      {{- if not $v -}}{{- $_ := unset $m $k -}}{{- end -}}
     {{- else -}}{{- include "global-chart.dropNullsInPlace" $v -}}{{- end -}}
   {{- end -}}
 {{- else if kindIs "slice" . -}}
-  {{- range . -}}
-    {{- if kindIs "map" . -}}
-      {{- $item := . -}}
-      {{- range $k, $v := $item -}}
-        {{- if kindIs "invalid" $v -}}{{- $_ := unset $item $k -}}
-        {{- else -}}{{- include "global-chart.dropNullsInPlace" $v -}}{{- end -}}
-      {{- end -}}
-    {{- else -}}{{- include "global-chart.dropNullsInPlace" . -}}{{- end -}}
-  {{- end -}}
+  {{- range . -}}{{- include "global-chart.dropNullsInPlace" . -}}{{- end -}}
 {{- end -}}
 {{- end }}
 
@@ -323,9 +310,9 @@ Usage: {{ include "global-chart.renderVolume" (dict "volume" $v "errCtx" (printf
 {{- $vol := .volume -}}
 {{- $path := required "renderVolume: errCtx is required (the values path of the volume)" .errCtx -}}
 {{- $name := required (printf "%s: a volume needs a 'name'" $path) $vol.name -}}
-{{- /* cleaned as a list item: a source of nulls only stays, as {} (dropNullsInPlace) */ -}}
+{{- /* a source of nulls only stays, as {} (dropNullsInPlace): emptyDir: {medium: null} is emptyDir: {} */ -}}
 {{- $clean := deepCopy $vol -}}
-{{- include "global-chart.dropNullsInPlace" (list $clean) -}}
+{{- include "global-chart.dropNullsInPlace" $clean -}}
 {{- $source := omit $clean "name" -}}
 {{- if not $source -}}
 {{- fail (printf "%s: names no volume source besides its name; set one, such as emptyDir: {} or configMap: {name: ...}" $path) -}}

@@ -194,7 +194,7 @@ Go error naming a template line, and a map given as a list can render in
 silence (`envFromConfigMaps: {x: 3}` became a configMapRef named "3").
 valuesShape below is the single home of which nodes are read and as what. A
 node is in it if and only if its wrong type ends on a raw error or a silent
-wrong render: a passthrough node the chart hands to toYaml unread
+wrong render: a passthrough node the chart hands to passthroughYaml unread
 (tolerations, resources, a container list) stays out, as its wrong type
 renders and the API server rejects it. Each node reads exactly the types the
 schema accepts there, null aside, or a valid value fails (an imagePullSecrets
@@ -1071,7 +1071,7 @@ endPort needs a numeric port, and may not be below it. The schema cannot
 compare two fields, so it accepts both, and the API server refused them only
 at apply. Ingress and egress rules alike; the rest of a rule renders verbatim.
 A rule or a port that is not a map is skipped: the schema rejects it, and
-toYaml renders it as written. A string port is a name to the API server, a
+passthroughYaml renders it as written. A string port is a name to the API server, a
 quoted number too; a string endPort is left to the API server, which refuses
 it as a type.
 Called from networkpolicy.yaml. Emits nothing on success.
@@ -1107,12 +1107,14 @@ httpGet, tcpSocket or grpc — as the API server requires (issue #288). The
 schema closes the probe (ADR 0017) but leaves this rule between fields to the
 templates (CODING_STANDARDS.md, *A rule the API server enforces is checked
 against the API server*). A handler counts when isSet: a null one is unset, as
-for the API server. The caller drops a probe's null keys, timings included
-(a null number is unset here, not a printScalar fail: the probe renders
-through toYaml, and a null key reached the manifest as unset before), and
-skips a probe left empty: {} and {httpGet: null} are no probe, as with the
-key removed. A
-probe inside extraContainers stays open and with the API server (ADR 0017).
+for the API server. The caller validates the probe as it renders it, through
+passthroughYaml: without its null map values at any depth, timings included
+(a null number is unset here, not a printScalar fail: the probe is rendered
+whole, not printed field by field), and skips a probe left empty: {}, a probe
+of nulls only and {httpGet: null} are no probe, as with the key removed. A
+handler whose own keys are all null stays, as {} (dropNullsInPlace), and
+counts: the API server then names its missing field. A probe inside
+extraContainers stays open and with the API server (ADR 0017).
 The handler list mirrors the handler properties of $defs/probe: a handler
 the schema adds joins it.
 Called from workload.yaml where the probe renders. Emits nothing on success.

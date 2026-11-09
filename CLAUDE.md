@@ -103,8 +103,8 @@ is the source of truth, this table is only the routing.
 | `_image-helpers.tpl` | `imageString`, `imagePullPolicy`; mirrored by the image `pattern`s and `$defs/imageMap` in the schema (ADR 0018) |
 | `_job-helpers.tpl` | The one pod spec of every hook and cronjob, both scopes: image resolution, CronJob and Job spec fields, `jobValuesPath` |
 | `_serviceaccount-helpers.tpl` | Every ServiceAccount rendered or bound (`resolveServiceAccount`, the job resolver) and the SA side of the hook copies (ADR 0010, 0011) |
-| `_hook-helpers.tpl` | The `helm.sh/hook*` annotations from the role table, the phase cut `hookReadsPrereqCopy`, the hook-copy consumer scans |
-| `_render-helpers.tpl` | `workloadKind` / `isStatefulSet`, `replicaFloor`, `podVolumeNames`, `printScalar`, `isSet`, null checks (`rejectNull`, `rejectNullItems`, `isNamedEntry`), render blocks, ports, `resolveBackend`, `podSpecOwners`, route lists |
+| `_hook-helpers.tpl` | The `helm.sh/hook*` annotations from the role table, the phase cut `hookReadsPrereqCopy`, the hook-copy consumer scans, `hookEntries` (the one walk over hooks) |
+| `_render-helpers.tpl` | `workloadKind` / `isStatefulSet`, `replicaFloor`, `podVolumeNames`, `printScalar`, `isSet`, null checks (`rejectNull`, `rejectNullItems`, `isNamedEntry`), a passthrough surface without its nulls (`passthroughYaml`, `dropNullsInPlace`, `isSetPassthrough`), render blocks, ports, `resolveBackend`, `podSpecOwners`, route lists |
 | `_keda-helpers.tpl` | KEDA names, trigger and `authenticationRef` resolution |
 | `_basicauth-helpers.tpl` | Envoy Basic Auth on an HTTPRoute: the `{SHA}` htpasswd hash; random credentials kept by Argo CD (ADR 0024) |
 | `_validate-helpers.tpl` | Values paths, the `fail` shape, `validateRemovedKeys` (every key removed in 4.0.0, ADR 0023), `validateValueTypes` / `valuesShape` (the kind of every map and list a template reads), cross-resource validators, `validateStatefulSets`, `validatePdbEvictions`, `validateNullItems` / `rejectNullInLists`, `hpaActiveTargets`, `requireCrd` / `requireGatewayApiCrd` |

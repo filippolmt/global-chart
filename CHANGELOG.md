@@ -92,31 +92,36 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   `nodeSelector` or annotation value became `""`, a `resources` quantity `"0"`.
   The schema rejects such a null where it declares the field; on an open
   surface (an `affinity`, a `lifecycle`, a volume source) it accepts it, and
-  the release installed it. A map whose keys are all null renders as the map
-  left out, at any depth: nothing (`lifecycle: {preStop: {exec: null}}`
-  renders no lifecycle), or, on a hook or cronjob, the workload's value it
-  inherits (`nodeSelector`, `affinity`, `tolerations`, `hostAliases`, the
-  security contexts, a cronjob's `dnsConfig`) and `defaults.resources`. A map
-  right under a list item stays, as `{}`: its key names what the item is, so
-  `emptyDir: {medium: null}` is `emptyDir: {}`. A map written `{}` is
-  unchanged. A probe is validated without its nulls too: a handler of nulls
-  only is no handler. A null job `resources` or `dnsConfig` inherits, where it
-  used to stop the fallback, and a null `automountServiceAccountToken` on a
-  job inherits the workload's, where it rendered an empty field. An HPA
-  `behavior` left with no policy renders nothing, not `behavior: null`; an
-  ExternalSecret's null `remote.property` is left out, not rendered `""`. A
-  hook of nulls only renders no hook, and its type no longer joins the
-  `helm.sh/hook` of the hook prerequisite copies. A null own annotation or
-  label leaves `global.commonAnnotations` / `commonLabels` and the chart's
-  `checksum/*` pod annotations in place (a null `checksum/config` used to
-  erase it, and a config change no longer rolled the pods).
-  `checksum/mounted-config-files` hashes the values without their nulls. A
-  values file with no null renders the same manifests; one with a null rolls
-  its pods once on upgrade, as the null leaves the pod template. A null in a
-  ConfigMap or Secret data value is unchanged: it fails, and inside a
-  structured data value it is the file's content. `null-sweep.py` escapes a
-  JSON pointer as helm lint prints it (`checksum~1config`), so a
-  `skip-schema-render/` null under a key with a `/` is found.
+  the release installed it. A values file with no null renders the same
+  manifests; one with a null rolls its pods once on upgrade, as the null
+  leaves the pod template.
+- A surface whose keys are all null renders as the surface left out (issue
+  #294). On a hook or cronjob it inherits the workload's value, as an absent
+  one does: `nodeSelector`, `affinity`, `podSecurityContext`,
+  `securityContext`, a cronjob's `dnsConfig`, and `defaults.resources` for
+  `resources`; it used to stop the fallback. A map nested in a surface that
+  its nulls empty stays, as `{}`, as the API server made of it before: in
+  Kubernetes `{}` is not absent (`labelSelector: {}` selects every pod).
+- A null job `resources` or `dnsConfig` inherits, where it stopped the
+  fallback; a null `automountServiceAccountToken` on a job inherits the
+  workload's, where it rendered an empty field (issue #294).
+- A null own annotation or label leaves `global.commonAnnotations` /
+  `commonLabels` and the chart's `checksum/*` pod annotations in place (issue
+  #294): a null `checksum/config` erased the checksum, and a config change no
+  longer rolled the pods. `checksum/mounted-config-files` hashes the values
+  without their nulls.
+- A hook of nulls only renders no hook, and its type no longer joins the
+  `helm.sh/hook` of the hook prerequisite copies; a workload whose hooks are
+  all of nulls renders no copies (issue #294).
+- An HPA `behavior` left with no policy renders nothing, not `behavior: null`;
+  an ExternalSecret's null `remote.property` is left out, not rendered `""`
+  (issue #294).
+- A null in a ConfigMap or Secret data value is unchanged: it fails, and
+  inside a structured data value it is the file's content (issue #294).
+- `null-sweep.py` escapes a JSON pointer as helm lint prints it
+  (`checksum~1config`), so a `skip-schema-render/` null under a key with a `/`
+  is found; its removal reference leaves a map of nulls out on a surface a job
+  inherits, as the templates do.
 
 ### Migration guide from 4.2.1
 

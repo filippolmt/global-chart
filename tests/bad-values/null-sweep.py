@@ -123,6 +123,9 @@ TIMESTAMP = re.compile(r'^\s*timestamp: "\d{14}"\n', re.M)
 # The keys the templates read through isSet: a null on one must render as the
 # key absent. Read from the templates, so the list cannot drift from them.
 IS_SET = re.compile(r'isSet" \(list \S+ "(\w+)"\)')
+# The surfaces a job inherits, read through isSetPassthrough: a map of nulls
+# there is the map left out (removed). Read from the templates, like IS_SET.
+SURFACES = re.compile(r'isSetPassthrough" \(list \S+ "(\w+)"\)')
 # validateProbeHandler reads its handlers through isSet off a literal list
 # (issue #288), parsed by lint-templates' probe_handler_list: one parser of it.
 # shortcut: this one helper by name, and only literal isSet keys besides;
@@ -133,12 +136,18 @@ _lint.loader.exec_module(lint_templates)
 
 
 def is_set_keys(text):
-    """The keys a template reads through isSet."""
-    return set(IS_SET.findall(text)) | set(lint_templates.probe_handler_list(text) or ())
+    """The keys a template reads through isSet or isSetPassthrough."""
+    return set(IS_SET.findall(text)) | set(SURFACES.findall(text)) | set(lint_templates.probe_handler_list(text) or ())
+
+
+def surface_keys(chart):
+    """The keys the templates read through isSetPassthrough."""
+    return {k for t in (chart / "templates").rglob("*") if t.is_file() for k in SURFACES.findall(t.read_text())}
 
 
 def is_set_keys_self_test():
     assert is_set_keys('isSet" (list $deploy "enabled")') == {"enabled"}
+    assert is_set_keys('isSetPassthrough" (list $job "affinity")') == {"affinity"}
     helper = '{{- define "global-chart.validateProbeHandler" -}}\n{{- $handlers := list "exec" "httpGet" -}}'
     assert is_set_keys(helper) == {"exec", "httpGet"}
 NULLISH = re.compile(r"<nil>|^\s*-\s+null\s*$|^\s*-?\s*name:\s*(\"\")?\s*$", re.M)
@@ -162,32 +171,30 @@ def defaulted_self_test():
     assert not defaulted(("ingress", "hosts", 0, "service"), {("ingress", "hosts", 0, "service")})
 
 
-def removed(values, path):
-    """values without the key at path, and without each map that key's removal
-    leaves empty: a map whose keys are all null renders as the map left out
-    (CODING_STANDARDS, issue #294), so a cronjob's `nodeSelector: {zone: null}`
-    inherits as `nodeSelector` left out would. A list item stays, `{}` if need
-    be: it is an item, not a key; so does a map right under one, whose key names
-    what the item is (a volume's `emptyDir`), as dropNullsInPlace reads it."""
+def removed(values, path, surfaces=frozenset()):
+    """values without the key at path. A map the removal empties stays, as
+    `{}`, as the templates read it (dropNullsInPlace): in Kubernetes `{}` is not
+    absent. One exception, the surface a template reads through
+    isSetPassthrough (surfaces): there a map of nulls is the map left out, so a
+    cronjob's `nodeSelector: {zone: null}` inherits the workload's (issue #294).
+    shortcut: surfaces are matched by key, outside any list item; a generic
+    comparison (issue #294, the sweep switch) needs them by path."""
     copy = json.loads(json.dumps(values))
     chain = [copy]
     for key in path[:-1]:
         chain.append(chain[-1][key])
     del chain[-1][path[-1]]
-    for depth in range(len(path) - 1, 0, -1):
-        node, parent = chain[depth], chain[depth - 1]
-        if node or not isinstance(parent, dict) or (depth > 1 and isinstance(chain[depth - 2], list)):
-            break
-        del parent[path[depth - 1]]
+    if (len(path) > 1 and not chain[-1] and path[-2] in surfaces
+            and isinstance(chain[-2], dict) and not any(isinstance(k, int) for k in path)):
+        del chain[-2][path[-2]]
     return copy
 
 
 def removed_self_test():
     assert removed({"a": {"b": None, "c": 1}}, ("a", "b")) == {"a": {"c": 1}}
-    assert removed({"x": 1, "a": {"b": {"c": None}}}, ("a", "b", "c")) == {"x": 1}
-    assert removed({"l": [{"k": None}]}, ("l", 0, "k")) == {"l": [{}]}
-    assert removed({"l": [{"m": {"k": None}}]}, ("l", 0, "m", "k")) == {"l": [{"m": {}}]}
-    assert removed({"l": [{"m": {"n": {"k": None}}}]}, ("l", 0, "m", "n", "k")) == {"l": [{"m": {}}]}
+    assert removed({"a": {"b": {"c": None}}}, ("a", "b", "c")) == {"a": {"b": {}}}
+    assert removed({"j": {"nodeSelector": {"z": None}}}, ("j", "nodeSelector", "z"), {"nodeSelector"}) == {"j": {}}
+    assert removed({"l": [{"resources": {"k": None}}]}, ("l", 0, "resources", "k"), {"resources"}) == {"l": [{"resources": {}}]}
 
 
 def set_at(values, path, value):
@@ -356,6 +363,7 @@ def render_as_unset(chart, files, flags):
     with tempfile.TemporaryDirectory() as tmp:
         scratch = values_to_json_chart(tmp)
         defaults = set(paths(to_json(chart / "values.yaml", scratch)))
+        surfaces = surface_keys(chart)
         for f in files:
             values = to_json(f, scratch)
             nulls = list(null_keys(values))
@@ -372,7 +380,7 @@ def render_as_unset(chart, files, flags):
                 continue
             unset = values
             for p in nulls:
-                unset = removed(unset, p)
+                unset = removed(unset, p, surfaces)
             out, ref = render(chart, flags, values, tmp), render(chart, flags, unset, tmp)
             if out.returncode or ref.returncode:
                 findings.append(f"{f}: does not render: " + " ".join((out.stderr or ref.stderr).split())[:240])
@@ -425,11 +433,12 @@ def main(argv):
         is_set = {k for t in (chart / "templates").rglob("*") if t.is_file()
                   for k in is_set_keys(t.read_text())} - {"name"}
         defaults = set(paths(to_json(chart / "values.yaml", scratch)))
+        surfaces = surface_keys(chart)
         wrongs = []
         for f, values in scenarios:
             bases[f] = render(chart, flags, values, tmp).stdout
             jobs += [Case(f, p, None, nulled(values, p),
-                          removed(values, p) if p[-1] in is_set and not defaulted(p, defaults) else None)
+                          removed(values, p, surfaces) if p[-1] in is_set and not defaulted(p, defaults) else None)
                      for p in paths(values)]
             wrongs += [Case(f, p, wrong, set_at(values, p, wrong))
                        for p in paths(values) for wrong in wrong_types(value_at(values, p))]

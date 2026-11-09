@@ -211,13 +211,12 @@ spec:
             {{- end }}
           {{- range $probe := list "livenessProbe" "readinessProbe" "startupProbe" }}
           {{- /* a null map value is unset (issues #288, #294): the probe is validated and
-                 rendered without its nulls, so a probe of nulls is no probe and a handler of
-                 nulls is no handler */}}
+                 rendered without its nulls, so a probe of nulls is no probe */}}
           {{- $raw := get $deploy $probe }}
           {{- with include "global-chart.passthroughYaml" (kindIs "map" $raw | ternary $raw dict) | fromYaml }}
           {{- include "global-chart.validateProbeHandler" (dict "probe" . "errCtx" (printf "%s.%s" $errCtx $probe)) }}
           {{ $probe }}:
-            {{- include "global-chart.passthroughYaml" . | nindent 12 }}
+            {{- toYaml . | nindent 12 }}
           {{- end }}
           {{- end }}
           {{- with include "global-chart.passthroughYaml" $deploy.lifecycle }}

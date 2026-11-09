@@ -1988,18 +1988,37 @@ tests:
           path: spec.template.spec.containers[0].envFrom[0].secretRef.name
           value: "1e3"
 
-  # ====== a map of nulls only is the map left out, at any depth (issue #294) ======
-  - it: should render no lifecycle when its only handler holds nulls only
+  # ====== a surface of nulls only is the surface left out; a nested map stays {} (issue #294) ======
+  - it: should render no lifecycle when its keys are all null
     set:
       workloads:
         main:
           image: nginx:1.25
           lifecycle:
-            preStop:
-              exec: null
+            preStop: null
     asserts:
       - notExists:
           path: spec.template.spec.containers[0].lifecycle
+
+  # labelSelector: {} selects every pod, an absent one none: dropping the
+  # emptied map would turn the anti-affinity off in silence
+  - it: should keep a nested map emptied of its nulls as {}
+    set:
+      workloads:
+        main:
+          image: nginx:1.25
+          affinity:
+            podAntiAffinity:
+              preferredDuringSchedulingIgnoredDuringExecution:
+                - weight: 100
+                  podAffinityTerm:
+                    topologyKey: kubernetes.io/hostname
+                    labelSelector:
+                      matchLabels: null
+    asserts:
+      - equal:
+          path: spec.template.spec.affinity.podAntiAffinity.preferredDuringSchedulingIgnoredDuringExecution[0].podAffinityTerm.labelSelector
+          value: {}
 
   # ====== a volume needs a source (issue #300) ======
   - it: should fail a volume with nothing but its name, naming it
