@@ -44,7 +44,7 @@ metadata:
   {{- end }}
 spec:
   parentRefs:
-    {{- include "global-chart.passthroughYaml" $rt.parentRefs | nindent 4 }}
+    {{- include "global-chart.toYamlWithoutNulls" $rt.parentRefs | nindent 4 }}
   {{- with $rt.hostnames }}
   hostnames:
     {{- range . }}

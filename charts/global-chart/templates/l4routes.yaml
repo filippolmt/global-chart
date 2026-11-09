@@ -49,7 +49,7 @@ metadata:
   {{- end }}
 spec:
   parentRefs:
-    {{- include "global-chart.passthroughYaml" $route.parentRefs | nindent 4 }}
+    {{- include "global-chart.toYamlWithoutNulls" $route.parentRefs | nindent 4 }}
   rules:
     {{- range $ruleIdx, $rule := $route.rules }}
     {{- $rule = default (dict) $rule }}

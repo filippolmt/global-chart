@@ -62,7 +62,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   `type: RollingUpdate`.
 - **Breaking: a volume with no source besides its `name` fails the render**
   (issue #300), naming `<owner>.volumes[<i>]`, on a workload, a hook or a
-  cronjob, a null source included. A volume with nothing but its name
+  cronjob: a volume source is a map, so a null source, or a scalar such as
+  `readOnly: true` beside the name, is none. A volume with nothing but its name
   rendered invalid YAML; one whose only source is null (`configMap: null`)
   reached the API server, which makes such a volume an `emptyDir` in silence.
   A source of nulls only is not this case: it stays, as `{}`. **Migration**:
@@ -94,7 +95,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   surface (an `affinity`, a `lifecycle`, a volume source) it accepts it, and
   the release installed it. A values file with no null renders the same
   manifests; one with a null rolls its pods once on upgrade, as the null
-  leaves the pod template.
+  leaves the pod template. A ConfigMap or Secret data value is outside the
+  rule: a null there still fails, and inside a structured data value it is
+  the file's content.
 - A surface whose keys are all null renders as the surface left out (issue
   #294). On a hook or cronjob it inherits the workload's value, as an absent
   one does: `nodeSelector`, `affinity`, `podSecurityContext`,
@@ -113,11 +116,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 - A hook of nulls only renders no hook, and its type no longer joins the
   `helm.sh/hook` of the hook prerequisite copies; a workload whose hooks are
   all of nulls renders no copies (issue #294).
-- An HPA `behavior` left with no policy renders nothing, not `behavior: null`;
-  an ExternalSecret's null `remote.property` is left out, not rendered `""`
-  (issue #294).
-- A null in a ConfigMap or Secret data value is unchanged: it fails, and
-  inside a structured data value it is the file's content (issue #294).
+- An HPA `behavior` whose `scaleUp` and `scaleDown` are both left out or of
+  nulls only renders no `behavior`, which the controller reads with the same
+  defaults; an ExternalSecret's null `remote.property` is left out, not
+  rendered `""` (issue #294).
 - `null-sweep.py` escapes a JSON pointer as helm lint prints it
   (`checksum~1config`), so a `skip-schema-render/` null under a key with a `/`
   is found; its removal reference leaves a map of nulls out on a surface a job

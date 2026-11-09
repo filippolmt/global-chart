@@ -120,15 +120,14 @@ spec:
              a checksum. podAnnotations wins either way, which is what the duplicate
              keys already did — Helm took the last one — minus the manifest a strict
              validator rejects. */ -}}
-      {{- /* hashed without its null map values (issue #294): a null hashes as the key removed.
-             Not passthroughYaml: an absent or empty value keeps hashing its toYaml
-             ("null", "{}"), so no workload rolls on upgrade for nothing. */ -}}
-      {{- $hashedMountedConfigFiles := $deploy.mountedConfigFiles }}
-      {{- if $hashedMountedConfigFiles }}{{ $hashedMountedConfigFiles = deepCopy $hashedMountedConfigFiles }}{{ include "global-chart.dropNullsInPlace" $hashedMountedConfigFiles }}{{ end }}
+      {{- /* mountedConfigFiles is hashed without its null map values (issue #294), so a
+             null hashes as the key removed. toYamlWithoutNulls, not passthroughYaml: an
+             absent or empty value keeps hashing its toYaml ("null", "{}"), so no
+             workload rolls on upgrade for nothing. */ -}}
       {{- $checksums := dict
             "checksum/config" (toYaml $deploy.configMap | sha256sum)
             "checksum/secret" (toYaml $deploy.secret | sha256sum)
-            "checksum/mounted-config-files" (toYaml $hashedMountedConfigFiles | sha256sum) }}
+            "checksum/mounted-config-files" (include "global-chart.toYamlWithoutNulls" $deploy.mountedConfigFiles | sha256sum) }}
       {{- /* checksum/external-secrets (issue #174): the rendered spec of every
              externalSecrets entry the workload references, in list order — so a
              change to target.template, remote.key or the list itself rolls the pods.

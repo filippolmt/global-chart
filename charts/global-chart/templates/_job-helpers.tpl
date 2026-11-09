@@ -17,7 +17,10 @@ the lines to the code of jobPodSpec: a change to what it inherits edits them.
   cronjobs only: dnsConfig
   never: command args mountedConfigFiles volumes volumeMounts resources extraInitContainers
 An explicit value overrides; an empty `{}`, `[]` or `""` (priorityClassName)
-stops the inheritance. Four exceptions to that shape:
+stops the inheritance. A null is unset and inherits, and so does a map whose
+keys are all null (nodeSelector, affinity, the security contexts, dnsConfig;
+isSetPassthrough, issue #294); resources, never inherited, falls back the same
+way to defaults.resources. Four exceptions to that shape:
 - envFromConfigMaps / envFromSecrets are additive: the job's own (`[]`
   included) come after the workload's and never replace them. The opt-outs
   are toggles, default true: inheritWorkloadConfigMap /

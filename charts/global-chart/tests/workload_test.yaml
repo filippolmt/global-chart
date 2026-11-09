@@ -2030,7 +2030,7 @@ tests:
             - name: config
     asserts:
       - failedTemplate:
-          errorMessage: "workloads.main.volumes[0]: names no volume source besides its name; set one, such as emptyDir: {} or configMap: {name: ...}"
+          errorMessage: "workloads.main.volumes[0]: names no volume source; set one, such as emptyDir: {} or configMap: {name: ...}"
 
   - it: should keep a volume whose source is written {}
     set:

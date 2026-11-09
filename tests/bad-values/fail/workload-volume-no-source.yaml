@@ -2,7 +2,7 @@
 # sources open (ADR 0017), and the API server would make it an emptyDir in
 # silence, so a volume whose configMap key was dropped would mount an empty
 # directory. renderVolume fails naming the volume.
-# Expected fail substring: "workloads.web.volumes[0]: names no volume source besides its name"
+# Expected fail substring: "workloads.web.volumes[0]: names no volume source;"
 workloads:
   web:
     image: nginx:1.25

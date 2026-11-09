@@ -115,19 +115,37 @@ Usage: {{- $clean := deepCopy $x }}{{- include "global-chart.dropNullsInPlace" $
 {{- end }}
 
 {{/*
+toYaml of a value without its null map values (dropNullsInPlace, on a copy),
+whatever is left: an explicit [] or {} renders as written, a null as null. For
+a key the template always writes (an ExternalSecret's dataFrom, a route's
+parentRefs) and for a hash that must not move when there is no null
+(checksum/mounted-config-files). The single home of the copy-and-drop.
+Usage: {{- include "global-chart.toYamlWithoutNulls" $rt.parentRefs | nindent 4 }}
+*/}}
+{{- define "global-chart.toYamlWithoutNulls" -}}
+{{- if kindIs "invalid" . -}}
+{{- toYaml . -}}
+{{- else -}}
+{{- $v := deepCopy . -}}
+{{- include "global-chart.dropNullsInPlace" $v -}}
+{{- toYaml $v -}}
+{{- end -}}
+{{- end }}
+
+{{/*
 The YAML of a passthrough surface without its null map values
-(dropNullsInPlace, on a copy), or nothing when nothing is left: a surface whose
-keys are all null renders as the surface left out. The caller wraps it in
-{{- with }} in place of `with` + toYaml. A caller that needs the cleaned map
-itself, to merge it, reads it back with fromYaml: its numbers come back as
-float64, so it renders them with toYaml, never printScalar's bare form.
+(toYamlWithoutNulls), or nothing when nothing is left: a surface whose keys
+are all null renders as the surface left out, and so do {} and [], as `with`
+read them before. The caller wraps it in {{- with }} in place of `with` +
+toYaml. A caller that needs the cleaned map itself, to merge it, reads it back
+with fromYaml: its numbers come back as float64, so it renders them with
+toYaml, never printScalar's bare form.
 Usage: {{- with include "global-chart.passthroughYaml" $deploy.affinity }}
 */}}
 {{- define "global-chart.passthroughYaml" -}}
 {{- with . -}}
-{{- $v := deepCopy . -}}
-{{- include "global-chart.dropNullsInPlace" $v -}}
-{{- with $v -}}{{- toYaml . -}}{{- end -}}
+{{- $yaml := include "global-chart.toYamlWithoutNulls" . -}}
+{{- if not (has $yaml (list "{}" "[]")) -}}{{- $yaml -}}{{- end -}}
 {{- end -}}
 {{- end }}
 
@@ -314,8 +332,11 @@ Usage: {{ include "global-chart.renderVolume" (dict "volume" $v "errCtx" (printf
 {{- $clean := deepCopy $vol -}}
 {{- include "global-chart.dropNullsInPlace" $clean -}}
 {{- $source := omit $clean "name" -}}
-{{- if not $source -}}
-{{- fail (printf "%s: names no volume source besides its name; set one, such as emptyDir: {} or configMap: {name: ...}" $path) -}}
+{{- /* a volume source is a map; type, removed in 4.0.0, is validateRemovedKeys' to name */ -}}
+{{- $hasSource := hasKey $source "type" -}}
+{{- range $source -}}{{- if kindIs "map" . -}}{{- $hasSource = true -}}{{- end -}}{{- end -}}
+{{- if not $hasSource -}}
+{{- fail (printf "%s: names no volume source; set one, such as emptyDir: {} or configMap: {name: ...}" $path) -}}
 {{- end -}}
 - name: {{ $name | quote }}
 {{- toYaml $source | nindent 2 }}
@@ -981,7 +1002,7 @@ data:
 {{- end }}
 {{- if $hasDataFrom }}
 dataFrom:
-  {{- include "global-chart.passthroughYaml" $secret.dataFrom | nindent 2 }}
+  {{- include "global-chart.toYamlWithoutNulls" $secret.dataFrom | nindent 2 }}
 {{- end }}
 {{- else }}
 {{- $remote := required (printf "externalSecrets.%s.remote: mandatory" $key) $secret.remote }}
