@@ -53,6 +53,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   probe. A probe inside `extraContainers` stays with the API server (ADR
   0017). **Migration**: none for a release that installs; such a probe never
   applied.
+- `make validate-bad-values` checks what a values file renders under
+  `--skip-schema-validation`, not only that a `fail` fires (issue #292). A file
+  in `tests/bad-values/skip-schema-render/` is rejected by the schema at each
+  of its nulls, and must render exactly as the same file with its null map
+  values removed (`null-sweep.py --render-as-unset`): the shapes no scenario
+  carries, so `make null-sweep` never nulls them, such as a probe with `exec`
+  set and `httpGet: null`.
 - `make lint-release` fails a change to `charts/` or `tests/` that leaves
   `[Unreleased]` as it is at the merge-base with `RELEASE_BASE` (default
   `origin/main`): a test-only change is logged too (#292 retro). `make
