@@ -1,0 +1,10 @@
+# An empty rollingUpdate with type OnDelete, under --skip-schema-validation:
+# {} is a value, not unset, and the API server rejects it (issue #296).
+# Expected fail substring: "workloads.db.updateStrategy.rollingUpdate: only allowed with type RollingUpdate, and the type is OnDelete."
+workloads:
+  db:
+    kind: StatefulSet
+    image: nginx:1.25
+    updateStrategy:
+      type: OnDelete
+      rollingUpdate: {}
