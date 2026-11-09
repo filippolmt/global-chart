@@ -72,12 +72,16 @@ spec:
   {{- end }}
   {{- $updateStrategy := default (dict) $deploy.updateStrategy }}
   {{- $updateType := eq (include "global-chart.isSet" (list $updateStrategy "type")) "true" }}
+  {{- $rollingUpdateSet := eq (include "global-chart.isSet" (list $updateStrategy "rollingUpdate")) "true" }}
   {{- with $updateStrategy }}
   {{- /* Backstop guard: the schema rejects it first. The API server accepts
-         rollingUpdate only with type RollingUpdate. */}}
-  {{- if and (eq (toString .type) "OnDelete") .rollingUpdate }}
+         rollingUpdate only with type RollingUpdate, an empty {} included:
+         isSet, not truthiness (issue #296). A null stays unset. */}}
+  {{- if and (eq (toString .type) "OnDelete") $rollingUpdateSet }}
   {{- fail (printf "%s.updateStrategy.rollingUpdate: only allowed with type RollingUpdate, and the type is OnDelete. Drop rollingUpdate, or set type: RollingUpdate." $errCtx) }}
   {{- end }}
+  {{- /* Rendering stays on truthiness: beside RollingUpdate, an empty {} is
+         the API default, so it renders nothing. */}}
   {{- if or $updateType .rollingUpdate }}
   updateStrategy:
     {{- if $updateType }}
