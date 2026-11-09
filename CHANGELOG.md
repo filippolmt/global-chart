@@ -60,6 +60,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   from the manifest in silence; the schema and the API server reject it. A
   null stays unset. **Migration**: drop `rollingUpdate`, or set
   `type: RollingUpdate`.
+
 - `make validate-bad-values` checks what a values file renders under
   `--skip-schema-validation`, not only that a `fail` fires (issue #292). A file
   in `tests/bad-values/skip-schema-render/` is rejected by the schema at each
@@ -89,7 +90,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   `grpc`.
 - A StatefulSet with `type: OnDelete` and `rollingUpdate: {}`, rendered with
   `--skip-schema-validation`, now fails the render; it installed because the
-  chart dropped the empty map. Remove `rollingUpdate`. Without
+  chart dropped the empty map. Drop `rollingUpdate`, or set
+  `type: RollingUpdate`. Without
   `--skip-schema-validation` the schema already rejected it.
 
 ## [4.2.1] — 2026-10-26
