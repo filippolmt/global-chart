@@ -553,7 +553,7 @@ Called from validate.yaml.
 
       {{- range $hookType, $jobs := $deploy.hooks -}}
         {{- range $jobName, $command := $jobs -}}
-          {{- if $command -}}
+          {{- if include "global-chart.passthroughYaml" $command -}}
             {{- /* Canonical 4-part single-trunc name via shared helper — keeps validator byte-identical to hook.yaml (prior depFullname-based double-trunc only diverged for K8s-invalid trailing-dash names) */ -}}
             {{- $hookFullname := include "global-chart.deploymentHookName" (dict "root" $root "deploymentName" $name "hookType" $hookType "jobName" $jobName) -}}
             {{- $errCtx := include "global-chart.jobValuesPath" (dict "kind" "hook" "deploymentName" $name "hookType" $hookType "jobName" $jobName) -}}
@@ -606,7 +606,7 @@ Called from validate.yaml.
 {{- /* 3. Root-level Hook names (trunc 63) */ -}}
 {{- range $hookType, $jobs := .Values.hooks -}}
   {{- range $name, $command := $jobs -}}
-    {{- if $command -}}
+    {{- if include "global-chart.passthroughYaml" $command -}}
       {{- $hookFullname := include "global-chart.hookfullname" (merge (dict "hookname" $hookType "jobname" $name) $root) -}}
       {{- $errCtx := include "global-chart.jobValuesPath" (dict "kind" "hook" "hookType" $hookType "jobName" $name) -}}
       {{- include "global-chart.registerName" (dict "names" $hookNames "kind" "Job" "name" $hookFullname "owner" $errCtx) -}}

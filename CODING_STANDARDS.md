@@ -229,8 +229,10 @@ every render (issue #235).
   job's inherited fields, the enums with a default), a map entry
   (`httpRoutes.x`, like `workloads.x`) renders nothing, and a map whose keys
   are all null renders, and is validated, as the map left out
-  (`{httpGet: null}` is no probe, issue #288; the passthrough maps that do
-  not yet hold to this rule are issue #294). "Set" has one home, `isSet`;
+  (`{httpGet: null}` is no probe, issue #288). A passthrough surface goes to
+  the manifest through `passthroughYaml`, never a bare `toYaml`: `key: null`
+  is not absent to the API server, which writes `""` or `"0"` (issue #294).
+  "Set" has one home, `isSet`;
   `hasKey` alone hands the null on. Numbers are the exception: a null number
   the chart renders through `printScalar` fails naming its key (issue #191),
   even as the only key of its map: beside `type: RollingUpdate`,

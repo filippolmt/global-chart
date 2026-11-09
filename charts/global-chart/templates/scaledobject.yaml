@@ -54,13 +54,13 @@ spec:
   {{- if hasKey $keda "initialCooldownPeriod" }}
   initialCooldownPeriod: {{ include "global-chart.printScalar" (dict "value" $keda.initialCooldownPeriod "errCtx" (printf "%s.keda.initialCooldownPeriod" $errCtx)) }}
   {{- end }}
-  {{- with $keda.fallback }}
+  {{- with include "global-chart.passthroughYaml" $keda.fallback }}
   fallback:
-    {{- toYaml . | nindent 4 }}
+    {{- . | nindent 4 }}
   {{- end }}
-  {{- with $keda.advanced }}
+  {{- with include "global-chart.passthroughYaml" $keda.advanced }}
   advanced:
-    {{- toYaml . | nindent 4 }}
+    {{- . | nindent 4 }}
   {{- end }}
   triggers:
     {{- include "global-chart.kedaTriggers" (dict "root" $root "triggers" $keda.triggers "errCtx" (printf "%s.keda.triggers" $errCtx)) | nindent 4 }}

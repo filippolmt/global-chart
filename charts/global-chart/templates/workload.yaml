@@ -66,9 +66,9 @@ spec:
   {{- if eq $floor.owner "workload" }}
   replicas: {{ include "global-chart.printScalar" (dict "value" $floor.count "errCtx" $floor.path) }}
   {{- end }}
-  {{- with $deploy.strategy }}
+  {{- with include "global-chart.passthroughYaml" $deploy.strategy }}
   strategy:
-    {{- toYaml . | nindent 4 }}
+    {{- . | nindent 4 }}
   {{- end }}
   {{- $updateStrategy := default (dict) $deploy.updateStrategy }}
   {{- $updateType := eq (include "global-chart.isSet" (list $updateStrategy "type")) "true" }}
@@ -120,10 +120,13 @@ spec:
              a checksum. podAnnotations wins either way, which is what the duplicate
              keys already did — Helm took the last one — minus the manifest a strict
              validator rejects. */ -}}
+      {{- /* hashed without its null map values (issue #294): a null hashes as the key removed */ -}}
+      {{- $mountedConfigFiles := $deploy.mountedConfigFiles }}
+      {{- if $mountedConfigFiles }}{{ $mountedConfigFiles = deepCopy $mountedConfigFiles }}{{ include "global-chart.dropNulls" $mountedConfigFiles }}{{ end }}
       {{- $checksums := dict
             "checksum/config" (toYaml $deploy.configMap | sha256sum)
             "checksum/secret" (toYaml $deploy.secret | sha256sum)
-            "checksum/mounted-config-files" (toYaml $deploy.mountedConfigFiles | sha256sum) }}
+            "checksum/mounted-config-files" (toYaml $mountedConfigFiles | sha256sum) }}
       {{- /* checksum/external-secrets (issue #174): the rendered spec of every
              externalSecrets entry the workload references, in list order — so a
              change to target.template, remote.key or the list itself rolls the pods.
@@ -138,7 +141,7 @@ spec:
       {{- if $podRecreation.enabled }}
       {{- $_ := set $checksums "timestamp" (now | date "20060102150405") }}
       {{- end }}
-      {{- with (include "global-chart.renderAnnotations" (dict "root" $root "own" (mergeOverwrite $checksums (deepCopy (default (dict) $deploy.podAnnotations))))) }}
+      {{- with (include "global-chart.renderAnnotations" (dict "root" $root "own" (mergeOverwrite $checksums (include "global-chart.passthroughYaml" $deploy.podAnnotations | fromYaml)))) }}
       annotations:
         {{- . | nindent 8 }}
       {{- end }}
@@ -156,9 +159,9 @@ spec:
       {{- with (include "global-chart.renderImagePullSecrets" $imagePullSecrets) }}
 {{- . | nindent 6 }}
       {{- end }}
-      {{- if $deploy.hostAliases }}
+      {{- with include "global-chart.passthroughYaml" $deploy.hostAliases }}
       hostAliases:
-        {{- toYaml $deploy.hostAliases | nindent 8 }}
+        {{- . | nindent 8 }}
       {{- end }}
       {{- with (include "global-chart.renderDnsConfig" $dnsConfig) }}
 {{- . | nindent 6 }}
@@ -170,13 +173,13 @@ spec:
       {{- if hasKey $deploy "terminationGracePeriodSeconds" }}
       terminationGracePeriodSeconds: {{ include "global-chart.printScalar" (dict "value" $deploy.terminationGracePeriodSeconds "errCtx" (printf "%s.terminationGracePeriodSeconds" $errCtx)) }}
       {{- end }}
-      {{- if $deploy.podSecurityContext }}
+      {{- with include "global-chart.passthroughYaml" $deploy.podSecurityContext }}
       securityContext:
-        {{- toYaml $deploy.podSecurityContext | nindent 8 }}
+        {{- . | nindent 8 }}
       {{- end }}
-      {{- with $deploy.extraInitContainers }}
+      {{- with include "global-chart.passthroughYaml" $deploy.extraInitContainers }}
       initContainers:
-        {{- toYaml . | nindent 8 }}
+        {{- . | nindent 8 }}
       {{- end }}
       containers:
         - name: {{ $depFullname | quote }}
@@ -194,9 +197,9 @@ spec:
           args:
             {{- toYaml $deploy.args | nindent 12 }}
           {{- end }}
-          {{- with $deploy.securityContext }}
+          {{- with include "global-chart.passthroughYaml" $deploy.securityContext }}
           securityContext:
-            {{- toYaml . | nindent 12 }}
+            {{- . | nindent 12 }}
           {{- end }}
           ports:
             {{- range (include "global-chart.containerPorts" (dict "service" $svc "errCtx" (printf "%s.service" $errCtx)) | fromJsonArray) }}
@@ -214,16 +217,16 @@ spec:
           {{- with $given }}
           {{- include "global-chart.validateProbeHandler" (dict "probe" . "errCtx" (printf "%s.%s" $errCtx $probe)) }}
           {{ $probe }}:
-            {{- toYaml . | nindent 12 }}
+            {{- include "global-chart.passthroughYaml" . | nindent 12 }}
           {{- end }}
           {{- end }}
-          {{- with $deploy.lifecycle }}
+          {{- with include "global-chart.passthroughYaml" $deploy.lifecycle }}
           lifecycle:
-            {{- toYaml . | nindent 12 }}
+            {{- . | nindent 12 }}
           {{- end }}
-          {{- with $deploy.resources }}
+          {{- with include "global-chart.passthroughYaml" $deploy.resources }}
           resources:
-            {{- toYaml . | nindent 12 }}
+            {{- . | nindent 12 }}
           {{- end }}
           {{- /* externalSecrets ($es, resolved at the top): a mountPath makes the
                  entry a volume; any other entry is a secret source, in the secret group */ -}}
@@ -252,16 +255,16 @@ spec:
                 name: {{ . | quote }}
             {{- end }}
           {{- end }}
-          {{- if $deploy.additionalEnvs }}
+          {{- with include "global-chart.passthroughYaml" $deploy.additionalEnvs }}
           env:
-            {{- toYaml $deploy.additionalEnvs | nindent 12 }}
+            {{- . | nindent 12 }}
           {{- end }}
-          {{- with (include "global-chart.containerVolumeMounts" (dict "errCtx" $errCtx "volumeMounts" $deploy.volumeMounts "mountedConfigFiles" $deploy.mountedConfigFiles "externalSecrets" $esMounted) | fromJsonArray) }}
+          {{- with include "global-chart.passthroughYaml" (include "global-chart.containerVolumeMounts" (dict "errCtx" $errCtx "volumeMounts" $deploy.volumeMounts "mountedConfigFiles" $deploy.mountedConfigFiles "externalSecrets" $esMounted) | fromJsonArray) }}
           volumeMounts:
-            {{- toYaml . | nindent 12 }}
+            {{- . | nindent 12 }}
           {{- end }}
-      {{- with $deploy.extraContainers }}
-        {{- toYaml . | nindent 8 }}
+      {{- with include "global-chart.passthroughYaml" $deploy.extraContainers }}
+        {{- . | nindent 8 }}
       {{- end }}
       {{- $mountedConfigFiles := $deploy.mountedConfigFiles }}
       {{- $userVolumes := default (list) $deploy.volumes }}
@@ -299,24 +302,24 @@ spec:
         {{- include "global-chart.renderExternalSecretVolumes" . | nindent 8 }}
         {{- end }}
       {{- end }}
-      {{- with $deploy.nodeSelector }}
+      {{- with include "global-chart.passthroughYaml" $deploy.nodeSelector }}
       nodeSelector:
-        {{- toYaml . | nindent 8 }}
+        {{- . | nindent 8 }}
       {{- end }}
-      {{- with $deploy.affinity }}
+      {{- with include "global-chart.passthroughYaml" $deploy.affinity }}
       affinity:
-        {{- toYaml . | nindent 8 }}
+        {{- . | nindent 8 }}
       {{- end }}
-      {{- with $deploy.tolerations }}
+      {{- with include "global-chart.passthroughYaml" $deploy.tolerations }}
       tolerations:
-        {{- toYaml . | nindent 8 }}
+        {{- . | nindent 8 }}
       {{- end }}
       {{- with $deploy.priorityClassName }}
       priorityClassName: {{ . | quote }}
       {{- end }}
-      {{- with $deploy.topologySpreadConstraints }}
+      {{- with include "global-chart.passthroughYaml" $deploy.topologySpreadConstraints }}
       topologySpreadConstraints:
-        {{- toYaml . | nindent 8 }}
+        {{- . | nindent 8 }}
       {{- end }}
   {{- /* The claims' metadata carries the selector labels and the entry's own,
          never helm.sh/chart or the common labels and annotations:
@@ -330,10 +333,10 @@ spec:
         name: {{ .name | quote }}
         labels:
           {{- /* The selector labels win, as in deploymentLabels: they tie the claim to its workload */}}
-          {{- toYaml (mergeOverwrite (deepCopy (default (dict) .labels)) (include "global-chart.deploymentSelectorLabels" $labelCtx | fromYaml)) | nindent 10 }}
-        {{- with .annotations }}
+          {{- toYaml (mergeOverwrite (include "global-chart.passthroughYaml" .labels | fromYaml) (include "global-chart.deploymentSelectorLabels" $labelCtx | fromYaml)) | nindent 10 }}
+        {{- with include "global-chart.passthroughYaml" .annotations }}
         annotations:
-          {{- toYaml . | nindent 10 }}
+          {{- . | nindent 10 }}
         {{- end }}
       spec:
         accessModes:

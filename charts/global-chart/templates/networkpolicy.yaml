@@ -37,13 +37,13 @@ spec:
   {{- else }}
   {{- fail (printf "%s.networkPolicy: at least one of policyTypes, ingress, or egress must be set when networkPolicy.enabled is true." $errCtx) }}
   {{- end }}
-  {{- with $np.ingress }}
+  {{- with include "global-chart.passthroughYaml" $np.ingress }}
   ingress:
-    {{- toYaml . | nindent 4 }}
+    {{- . | nindent 4 }}
   {{- end }}
-  {{- with $np.egress }}
+  {{- with include "global-chart.passthroughYaml" $np.egress }}
   egress:
-    {{- toYaml . | nindent 4 }}
+    {{- . | nindent 4 }}
   {{- end }}
 {{- end }}
 {{- end }}

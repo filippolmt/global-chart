@@ -75,7 +75,7 @@ _Avoid_: owned target, adopted Secret, ownership conflict
 
 **Passthrough surface**:
 A values node that the chart hands to a manifest as is, whose shape belongs to Kubernetes or to an operator and not to the chart. It is not fully opaque: the chart can read some of its fields for its own rules, and those fields are the chart's. It declares them and answers for them like any other value. The rest is not the chart's: only the owner of the shape knows what to expect there, and the shape changes at its owner's pace, not the chart's.
-_Avoid_: free field, raw section, blob, pass-through (with the hyphen)
+_Avoid_: free field, raw section, blob, pass-through (with the hyphen), passthrough map
 
 **Backstop guard**:
 A chart check that rejects a value the schema already rejects, and that therefore never fires under normal conditions. It is not dead code: when the installer skips schema validation (the way out foreseen for when Kubernetes adds a field before the chart knows it), it is the only protection left, and its message is the only one the user sees. A backstop guard is worth as much as its test: if no test makes it fire, nobody knows whether it still works. A guard that could never fire even without the schema, because the condition is excluded elsewhere in the chart, is dead code instead.

@@ -23,9 +23,9 @@ metadata:
   {{- end }}
 spec:
   {{- range $field := $sources }}
-  {{- with index $auth $field }}
+  {{- with include "global-chart.passthroughYaml" (index $auth $field) }}
   {{ $field }}:
-    {{- toYaml . | nindent 4 }}
+    {{- . | nindent 4 }}
   {{- end }}
   {{- end }}
 {{- end }}

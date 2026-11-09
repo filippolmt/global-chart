@@ -90,6 +90,41 @@ Usage: {{ ternary $deploy.enabled true (eq (include "global-chart.isSet" (list $
 {{- end }}
 
 {{/*
+Drop every null map value from a map or list, at any depth, in place (issue
+#294): a null map value is unset, so a passthrough surface renders as with the
+key removed. Written to the API server, `key: null` is not absent: a string
+becomes "", a quantity "0". A map emptied by the drop stays, as `{}`: that is
+what removing its keys leaves. List items are left alone, a null one included:
+validateNullItems fails it. Mutates its argument: pass a deepCopy.
+Usage: {{- $clean := deepCopy $x }}{{- include "global-chart.dropNulls" $clean }}
+*/}}
+{{- define "global-chart.dropNulls" -}}
+{{- if kindIs "map" . -}}
+  {{- $m := . -}}
+  {{- range $k, $v := $m -}}
+    {{- if kindIs "invalid" $v -}}{{- $_ := unset $m $k -}}
+    {{- else -}}{{- include "global-chart.dropNulls" $v -}}{{- end -}}
+  {{- end -}}
+{{- else if kindIs "slice" . -}}
+  {{- range . -}}{{- include "global-chart.dropNulls" . -}}{{- end -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+The YAML of a passthrough surface without its null map values (dropNulls), or
+nothing when nothing is left: a map whose keys are all null renders as the map
+left out. The caller wraps it in {{- with }} in place of `with` + toYaml.
+Usage: {{- with include "global-chart.passthroughYaml" $deploy.affinity }}
+*/}}
+{{- define "global-chart.passthroughYaml" -}}
+{{- with . -}}
+{{- $v := deepCopy . -}}
+{{- include "global-chart.dropNulls" $v -}}
+{{- with $v -}}{{- toYaml . -}}{{- end -}}
+{{- end -}}
+{{- end }}
+
+{{/*
 Fail on a null read from values, naming its path: the single home of the
 message, read by printScalar's dict form, servicePrimaryPort and
 resolveBackend, rejectNullServicePorts and hook.yaml's weight. A null is a value nobody wrote: printed, it becomes "<nil>" or
@@ -248,7 +283,9 @@ Usage: {{ include "global-chart.renderVolume" (dict "volume" $v "errCtx" (printf
 {{- $vol := .volume -}}
 {{- $path := required "renderVolume: errCtx is required (the values path of the volume)" .errCtx -}}
 - name: {{ required (printf "%s: a volume needs a 'name'" $path) $vol.name | quote }}
-{{- toYaml (omit $vol "name") | nindent 2 }}
+{{- with include "global-chart.passthroughYaml" (omit $vol "name") }}
+{{- . | nindent 2 }}
+{{- end }}
 {{- end }}
 
 {{/*
@@ -352,15 +389,10 @@ When hasResources is true and resources is empty ({}), no resources block is ren
 When hasResources is false (key absent), defaults.resources is used as fallback.
 */}}
 {{- define "global-chart.renderResources" -}}
-{{- if .resources -}}
+{{- $res := ternary .resources (default (dict) .defaults).resources (default false .hasResources) -}}
+{{- with include "global-chart.passthroughYaml" $res -}}
 resources:
-  {{- toYaml .resources | nindent 2 }}
-{{- else if not (default false .hasResources) }}
-{{- $defaultRes := default (dict) (default (dict) .defaults).resources -}}
-{{- with $defaultRes -}}
-resources:
-  {{- toYaml . | nindent 2 }}
-{{- end }}
+  {{- . | nindent 2 }}
 {{- end }}
 {{- end }}
 
@@ -384,8 +416,8 @@ and the chart owns them either way. helm.sh/hook-output-log-policy is not droppe
 chart never emits it, so there is nothing to collide with.
 */}}
 {{- define "global-chart.renderAnnotations" -}}
-{{- $common := default (dict) (default (dict) .root.Values.global).commonAnnotations -}}
-{{- $merged := mergeOverwrite (deepCopy $common) (default (dict) .own) -}}
+{{- $common := (include "global-chart.passthroughYaml" (default (dict) .root.Values.global).commonAnnotations | fromYaml) -}}
+{{- $merged := mergeOverwrite $common (include "global-chart.passthroughYaml" .own | fromYaml) -}}
 {{- with omit $merged "helm.sh/hook" "helm.sh/hook-weight" "helm.sh/hook-delete-policy" -}}
 {{- toYaml . -}}
 {{- end -}}
@@ -514,8 +546,8 @@ Usage: {{ include "global-chart.renderRoleRules" $role.rules }}
 */}}
 {{- define "global-chart.renderRoleRules" -}}
 rules:
-{{- with . }}
-{{ toYaml . | indent 2 }}
+{{- with include "global-chart.passthroughYaml" . }}
+{{ . | indent 2 }}
 {{- else }}
   []
 {{- end }}
@@ -706,7 +738,7 @@ conversionStrategy: {{ ternary $remote.conversionStrategy "Default" (eq (include
 decodingStrategy: {{ ternary $remote.decodingStrategy "None" (eq (include "global-chart.isSet" (list $remote "decodingStrategy")) "true") | quote }}
 key: {{ required (printf "%s.key: mandatory" (required "renderExternalSecretRemoteRef: errCtx is required (the values path of the remote)" .errCtx)) $remote.key | quote }}
 metadataPolicy: {{ ternary $remote.metadataPolicy "None" (eq (include "global-chart.isSet" (list $remote "metadataPolicy")) "true") | quote }}
-{{- if hasKey $remote "property" }}
+{{- if eq (include "global-chart.isSet" (list $remote "property")) "true" }}
 property: {{ $remote.property | quote }}
 {{- end }}
 {{- if hasKey $remote "version" }}
@@ -912,7 +944,7 @@ data:
 {{- end }}
 {{- if $hasDataFrom }}
 dataFrom:
-  {{- toYaml $secret.dataFrom | nindent 2 }}
+  {{- include "global-chart.passthroughYaml" $secret.dataFrom | nindent 2 }}
 {{- end }}
 {{- else }}
 {{- $remote := required (printf "externalSecrets.%s.remote: mandatory" $key) $secret.remote }}
@@ -939,9 +971,9 @@ target:
   {{- if hasKey $target "immutable" }}
   immutable: {{ $target.immutable }}
   {{- end }}
-  {{- with $target.template }}
+  {{- with include "global-chart.passthroughYaml" $target.template }}
   template:
-    {{- toYaml . | nindent 4 }}
+    {{- . | nindent 4 }}
   {{- end }}
 {{- end }}
 

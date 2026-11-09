@@ -85,5 +85,6 @@ Usage: {{ include "global-chart.kedaTriggers" (dict "root" . "triggers" $keda.tr
   {{- end -}}
   {{- $resolved = append $resolved $copy -}}
 {{- end -}}
+{{- include "global-chart.dropNulls" $resolved -}}
 {{- toYaml $resolved -}}
 {{- end -}}

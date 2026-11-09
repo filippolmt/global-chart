@@ -75,6 +75,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   well: the example lists of `values.yaml` had kept it from every key under
   `ingress.hosts[]`.
 
+### Fixed
+
+- A null map value on a passthrough surface renders as the key removed
+  (issue #294), as CODING_STANDARDS states for every map value. The schema
+  rejects such a null; under `--skip-schema-validation` it reached the
+  manifest as `key: null`, which the API server does not read as absent: a
+  `nodeSelector` or annotation value became `""`, a `resources` quantity `"0"`.
+  A map whose keys are all null renders nothing, a hook of nulls only renders
+  no hook, and a null own annotation or label leaves `global.commonAnnotations`
+  / `commonLabels` and the chart's `checksum/*` pod annotations in place (a
+  null `checksum/config` used to erase it, and a config change no longer
+  rolled the pods). `checksum/mounted-config-files` hashes the values without
+  their nulls. A values file with no null renders the same manifests; one
+  with a null rolls its pods once on upgrade, as the null leaves the pod
+  template. A null in a ConfigMap or Secret data value is unchanged: it fails,
+  and inside a structured data value it is the file's content.
+  `null-sweep.py` escapes a JSON pointer as helm lint prints it
+  (`checksum~1config`), so a `skip-schema-render/` null under a key with a `/`
+  is found.
+
 ### Migration guide from 4.2.1
 
 - Nothing to change for existing values: the new `fail`s read

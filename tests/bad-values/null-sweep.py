@@ -312,13 +312,15 @@ def null_keys(node, prefix=()):
 def null_keys_self_test():
     assert list(null_keys({"a": None, "b": [{"c": None}, None], "d": {"e": 1}})) == [("a",), ("b", 0, "c")]
     assert pointer(("a", 0, "c")) == "/a/0/c"
+    assert pointer(("a", "checksum/config", "x~y")) == "/a/checksum~1config/x~0y"
     assert first_difference("x\ny: 1\n", "x\n") == ": renders y: 1"
     assert first_difference("x\n", "x\ny: 1\n") == ": lacks y: 1"
 
 
 def pointer(path):
-    """A values path as a JSON pointer, as the schema errors of helm lint print it."""
-    return "/" + "/".join(map(str, path))
+    """A values path as a JSON pointer, as the schema errors of helm lint print it:
+    RFC 6901 escapes, so checksum/config is checksum~1config."""
+    return "/" + "/".join(str(k).replace("~", "~0").replace("/", "~1") for k in path)
 
 
 def first_difference(out, ref):

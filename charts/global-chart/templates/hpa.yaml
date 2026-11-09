@@ -49,13 +49,13 @@ spec:
     {{- end }}
   {{- with $hpa.behavior }}
   behavior:
-    {{- with .scaleUp }}
+    {{- with include "global-chart.passthroughYaml" .scaleUp }}
     scaleUp:
-      {{- toYaml . | nindent 6 }}
+      {{- . | nindent 6 }}
     {{- end }}
-    {{- with .scaleDown }}
+    {{- with include "global-chart.passthroughYaml" .scaleDown }}
     scaleDown:
-      {{- toYaml . | nindent 6 }}
+      {{- . | nindent 6 }}
     {{- end }}
   {{- end }}
 {{- end }}

@@ -58,9 +58,9 @@ accepts and `kubeconform -strict` rejects. `mergeOverwrite`, not `merge`, for th
 empty-string reason given there.
 */}}
 {{- define "global-chart.mergeLabels" -}}
-{{- $common := default (dict) (default (dict) .root.Values.global).commonLabels -}}
-{{- $merged := mergeOverwrite (deepCopy $common) (fromYaml .owned) -}}
-{{- toYaml (mergeOverwrite $merged (default (dict) .own)) -}}
+{{- $common := (include "global-chart.passthroughYaml" (default (dict) .root.Values.global).commonLabels | fromYaml) -}}
+{{- $merged := mergeOverwrite $common (fromYaml .owned) -}}
+{{- toYaml (mergeOverwrite $merged (include "global-chart.passthroughYaml" .own | fromYaml)) -}}
 {{- end }}
 
 {{/*
@@ -124,7 +124,7 @@ workload's selector, which the API server rejects (issue #244). The rest of "own
 keeps winning over the chart's labels, as mergeLabels states.
 */}}
 {{- define "global-chart.deploymentLabels" -}}
-{{- $own := mergeOverwrite (deepCopy (default (dict) .own)) (include "global-chart.deploymentSelectorLabels" . | fromYaml) -}}
+{{- $own := mergeOverwrite (include "global-chart.passthroughYaml" .own | fromYaml) (include "global-chart.deploymentSelectorLabels" . | fromYaml) -}}
 {{- include "global-chart.mergeLabels" (dict "root" .root "own" $own "owned" (include "global-chart.deploymentOwnedLabels" .)) -}}
 {{- end }}
 
