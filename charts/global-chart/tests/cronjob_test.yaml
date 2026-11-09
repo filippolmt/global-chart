@@ -2544,7 +2544,7 @@ tests:
                   values: [0, 5, 2]
     asserts:
       - failedTemplate:
-          errorPattern: "cronJobs\\.backup\\.podFailurePolicy\\.rules\\[1\\]\\.onExitCodes\\.values: \\[0, 5, 2\\] is not in ascending order, which the API server rejects"
+          errorPattern: "cronJobs\\.backup\\.podFailurePolicy\\.rules\\[1\\]\\.onExitCodes\\.values: \\[0, 5, 2\\] is not in ascending order, which the API server rejects\\. List the exit codes from lowest to highest\\.$"
 
   - it: should fail a containerName naming no container of the job's pod, listing the pod's containers
     set:
@@ -2572,7 +2572,7 @@ tests:
                       values: [42]
     asserts:
       - failedTemplate:
-          errorPattern: "workloads\\.backend\\.cronJobs\\.backup\\.podFailurePolicy\\.rules\\[0\\]\\.onExitCodes\\.containerName: 'migrate' names no container of the job's pod, which the API server rejects\\. The pod's containers: 'backup' \\(the job's key\\), 'wait-db', 'fetch' \\(initContainers\\)\\."
+          errorPattern: "workloads\\.backend\\.cronJobs\\.backup\\.podFailurePolicy\\.rules\\[0\\]\\.onExitCodes\\.containerName: 'migrate' names no container of the job's pod, which the API server rejects\\. The pod's containers: 'backup' \\(the job's key\\), 'wait-db', 'fetch' \\(initContainers\\)\\.$"
 
   - it: should render a containerName naming the job's key or one of its initContainers, with ascending exit codes
     documentSelector:

@@ -430,7 +430,6 @@ workload:
   volumeClaimTemplates: [name, size]
   service.extraPorts: [name, port, targetPort]
   mountedConfigFiles.files: [name]
-  mountedConfigFiles.bundles: [name]
   mountedConfigFiles.bundles[].files: [name]
 {{- end }}
 

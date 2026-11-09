@@ -473,6 +473,10 @@ kind-cluster: kind-install ## Create the e2e kind cluster (isolated kubeconfig, 
 			sleep 2; \
 		done; \
 	fi
+	@# kind writes the kubeconfig only on create: a new worktree has none, and an older
+	@# one keeps the credentials of a cluster since recreated (x509 unknown authority).
+	@$(KIND) export kubeconfig --name "$(KIND_CLUSTER)" --kubeconfig "$(KIND_KUBECONFIG)" >/dev/null 2>&1 || { \
+		echo "FAIL: kind could not export the kubeconfig of $(KIND_CLUSTER); run make kind-delete and retry"; exit 1; }
 	@# When make runs inside a container the kubeconfig's 127.0.0.1 endpoint is the
 	@# Docker *host*, not us: fall back to the control-plane container's own address.
 	@if ! KUBECONFIG=$(KIND_KUBECONFIG) kubectl get nodes >/dev/null 2>&1; then \

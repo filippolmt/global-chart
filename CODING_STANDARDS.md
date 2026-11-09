@@ -195,6 +195,14 @@ a map or list node no scenario sets, and a type a node accepts that none uses. A
 map or list a template reads goes in `valuesShape` (`_validate-helpers.tpl`),
 and the sweep's type pass fails a raw error on one it misses (issue #235).
 
+**A field a template reads is declared in the schema**, open surfaces
+included, and `required` when the API server requires it (ADR 0017). A
+template that reads a field off an item the schema leaves open (a container's
+`name`, read by `validatePodFailurePolicy`) adds the field to the schema in
+the same change: undeclared, it passes the schema in any type and fails only
+at apply (issue #285). `null-sweep-preflight` holds the `required` fields of
+`nullItemFields` to this; a field a template reads inline is the reviewer's.
+
 **A mirror of the schema is held to it by a check.** A helper or script that
 restates what `values.schema.json` declares — `$kindOnly`, `valuesShape` —
 ships with a check that fails when the two diverge (`lint-templates`'
@@ -229,6 +237,11 @@ A helm-unittest suite renders only the templates its `templates:` lists, so a
 `validate/validate.yaml`: the case passes or fails on something else. A check
 moved from a template into a validator takes its cases to `validate_test.yaml`
 (issue #221 moved them twice).
+
+**An agreed `fail` message is asserted whole.** When an issue or its
+decisions fix a message's wording, one `failedTemplate` case matches the full
+text through its end (`...highest\\.$`): a prefix match lets the wording drift unseen
+(issue #285 added a clause no test saw).
 
 **A rule the API server enforces is checked against the API server.** A CEL
 rule of a CRD (Gateway API's `RequestRedirect` without `backendRefs`) is

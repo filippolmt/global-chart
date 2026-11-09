@@ -262,13 +262,13 @@ def callers_test():
         "a": {"type": "object", "properties": {"x": {"type": "array", "items": {"type": "string"}}}},
         "b": {"type": ["string", "integer"]}, "c": {"type": "integer", "minimum": 1, "maximum": 2}}}
     assert sweep.shape_findings({"absent": "string", "missingType": "string", "n": "string", "nil": "string"}, schema) == [
-        "valuesShape: absent: the schema declares no such node",
-        "valuesShape: missingType: the schema accepts any type there through a branch with no type; give the branch one, or teach schema_navigation.py what it means",
+        "valuesShape: absent: the schema declares no such node; if it does, the fix is in schema_navigation.py, never a schema rewritten for it",
+        "valuesShape: missingType: the schema accepts any type there through a branch with no type; if the schema is right, teach schema_navigation.py what it means, else give the branch a type",
         "valuesShape: n: reads string, the schema accepts number",
         "valuesShape: nil: reads string, the schema accepts any type"]
     assert sweep.shape_findings({"absent": {"nested": "string"}, "missingType": ["map"]}, schema) == [
-        "valuesShape: absent: the schema declares no such node",
-        "valuesShape: missingType: the schema accepts any type there through a branch with no type; give the branch one, or teach schema_navigation.py what it means"]
+        "valuesShape: absent: the schema declares no such node; if it does, the fix is in schema_navigation.py, never a schema rewritten for it",
+        "valuesShape: missingType: the schema accepts any type there through a branch with no type; if the schema is right, teach schema_navigation.py what it means, else give the branch a type"]
     assert sweep.shape_findings({"a": {"x": ["string"]}, "b": "number|string", "c": "number"}, schema) == []
     paths = navigation.declared_paths(schema)
     assert coverage.gaps(schema, paths, {"": {"map"}, "b": {"number"}}) == {
