@@ -1111,14 +1111,15 @@ httpGet, tcpSocket or grpc — as the API server requires (issue #288). The
 schema closes the probe (ADR 0017) but leaves this rule between fields to the
 templates (CODING_STANDARDS.md, *A rule the API server enforces is checked
 against the API server*). A handler counts when isSet: a null one is unset, as
-for the API server. An empty probe is no probe, and the caller skips it. A
+for the API server. The caller drops a probe's null keys and skips a probe
+left empty: {} and {httpGet: null} are no probe, as with the key removed. A
 probe inside extraContainers stays open and with the API server (ADR 0017).
 The handler list mirrors the handler properties of $defs/probe: a handler
 the schema adds joins it.
 Called from workload.yaml where the probe renders. Emits nothing on success.
-Usage: {{- include "global-chart.validateProbe" (dict "probe" . "errCtx" (printf "%s.livenessProbe" $errCtx)) }}
+Usage: {{- include "global-chart.validateProbeHandler" (dict "probe" . "errCtx" (printf "%s.livenessProbe" $errCtx)) }}
 */}}
-{{- define "global-chart.validateProbe" -}}
+{{- define "global-chart.validateProbeHandler" -}}
 {{- $handlers := list "exec" "httpGet" "tcpSocket" "grpc" -}}
 {{- $set := list -}}
 {{- range $handlers -}}

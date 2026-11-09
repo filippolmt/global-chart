@@ -1,9 +1,11 @@
-# A probe whose one handler is null: the schema requires a map, and under
-# --skip-schema-validation validateProbe counts the null as unset, as the API
-# server does, so the probe has no handler (issue #288).
+# A probe whose one handler is null beside a timing: the schema requires a
+# map, and under --skip-schema-validation a null key is unset, so the probe
+# has no handler and validateProbeHandler names it (issue #288). A probe of
+# nulls alone, like {}, is no probe and renders nothing.
 # Expected fail substring: "workloads.app.livenessProbe: no handler."
 workloads:
   app:
     image: nginx:1.25
     livenessProbe:
+      periodSeconds: 10
       httpGet: null

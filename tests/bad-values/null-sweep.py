@@ -112,6 +112,10 @@ TIMESTAMP = re.compile(r'^\s*timestamp: "\d{14}"\n', re.M)
 # The keys the templates read through isSet: a null on one must render as the
 # key absent. Read from the templates, so the list cannot drift from them.
 IS_SET = re.compile(r'isSet" \(list \S+ "(\w+)"\)')
+# validateProbeHandler reads its handlers through isSet off a literal list
+# (issue #288). shortcut: this one list by name, generalise when a second
+# helper ranges isSet over a list.
+IS_SET_LIST = re.compile(r'\$handlers\s*:=\s*list\s+((?:"\w+"\s*)+)')
 NULLISH = re.compile(r"<nil>|^\s*-\s+null\s*$|^\s*-?\s*name:\s*(\"\")?\s*$", re.M)
 
 
@@ -278,7 +282,8 @@ def main(argv):
         # "name" is left out: isSet reads it for one default (an ExternalSecret's
         # target), and the key names every other required field of the chart
         is_set = {k for t in (chart / "templates").rglob("*") if t.is_file()
-                  for k in IS_SET.findall(t.read_text())} - {"name"}
+                  for k in IS_SET.findall(t.read_text())
+                  + [h for m in IS_SET_LIST.findall(t.read_text()) for h in re.findall(r'"(\w+)"', m)]} - {"name"}
         defaults = set(paths(to_json(chart / "values.yaml", scratch)))
         wrongs = []
         for f, values in scenarios:

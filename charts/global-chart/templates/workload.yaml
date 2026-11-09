@@ -201,8 +201,14 @@ spec:
               protocol: {{ .protocol }}
             {{- end }}
           {{- range $probe := list "livenessProbe" "readinessProbe" "startupProbe" }}
-          {{- with get $deploy $probe }}
-          {{- include "global-chart.validateProbe" (dict "probe" . "errCtx" (printf "%s.%s" $errCtx $probe)) }}
+          {{- /* a null key is unset (issue #288): a probe of nulls is no probe, and no null reaches the manifest */}}
+          {{- $set := dict }}
+          {{- $raw := get $deploy $probe }}
+          {{- range $k, $v := (kindIs "map" $raw | ternary $raw dict) }}
+          {{- if not (kindIs "invalid" $v) }}{{ $_ := set $set $k $v }}{{ end }}
+          {{- end }}
+          {{- with $set }}
+          {{- include "global-chart.validateProbeHandler" (dict "probe" . "errCtx" (printf "%s.%s" $errCtx $probe)) }}
           {{ $probe }}:
             {{- toYaml . | nindent 12 }}
           {{- end }}

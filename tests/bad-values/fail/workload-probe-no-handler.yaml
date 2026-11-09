@@ -1,6 +1,6 @@
 # A probe with timings and no handler: it renders, and the API server rejects
 # it (issue #288). An empty probe ({}) is no probe and renders nothing.
-# Must be rejected by global-chart.validateProbe.
+# Must be rejected by global-chart.validateProbeHandler.
 # Expected fail substring: "workloads.app.readinessProbe: no handler. Set exactly one of exec, httpGet, tcpSocket, grpc."
 workloads:
   app:

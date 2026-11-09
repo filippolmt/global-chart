@@ -48,8 +48,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   render** (issue #288), naming the probe's values path. A
   `livenessProbe`, `readinessProbe` or `startupProbe` of the main container
   takes exactly one of `exec`, `httpGet`, `tcpSocket`, `grpc`, as the API
-  server requires; a null handler counts as unset. An empty probe (`{}`) is
-  still no probe. A probe inside `extraContainers` stays with the API server
+  server requires; a null key counts as unset. An empty probe (`{}`), or one
+  of nulls only, is still no probe. A probe inside `extraContainers` stays with the API server
   (ADR 0017). **Migration**: none for a release that installs; such a probe
   never applied.
 

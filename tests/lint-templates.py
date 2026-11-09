@@ -41,6 +41,10 @@ a rule below cannot recognise: a check that sees nothing is not a pass.
   `$defs/deployment` rejects the same ones with `false` (ADR 0020). The two are
   one partition written twice, the guard being what --skip-schema-validation
   leaves: a field added to one and not the other is the bug.
+- probe-handlers: validateProbeHandler's `$handlers` lists the handlers of a
+  probe, and `$defs/probe` declares them as its object-typed properties (the
+  rest are integers). A handler the schema adds and the list misses would fail
+  a valid probe with "no handler" (issue #288).
 - workload-kind: a quoted kind of a workload ("Deployment", "StatefulSet",
   "DaemonSet") appears only in its homes: the workloadKind and isStatefulSet
   defines and the `$kindOnly` map. Anywhere else it is a kind written by hand,
@@ -102,6 +106,7 @@ FAIL_ANY = re.compile(r"\bfail\s+(?!\(\s*printf\s+\"|\")(\S+)")
 EXCEPTIONS = ("Name collision: ", "The fullname ", "Both .Values.ingress")
 KIND_ONLY = re.compile(r'\$kindOnly\s*:=\s*dict\s+(.*?)\}\}', re.S)
 KIND_LIST = re.compile(r'"(\w+)"\s*\(list\s+([^)]*)\)')
+PROBE_HANDLERS = re.compile(r'define "global-chart\.validateProbeHandler".*?\$handlers\s*:=\s*list\s+([^}]*?)\s*-?\}\}', re.S)
 WORKLOAD_KIND = re.compile(r'"(Deployment|StatefulSet|DaemonSet)"')
 KIND_HOMES = {"global-chart.workloadKind", "global-chart.isStatefulSet"}
 DEFINE_NAME = re.compile(r'\{\{-?\s*define\s+"([^"]+)"')
@@ -178,6 +183,18 @@ def kind_fields(chart, schema):
         if guard.get(k, set()) != schema_side.get(k, set()):
             problems.append(f"templates/workload.yaml: kind-fields: {k}-only fields differ: $kindOnly {sorted(guard.get(k, set()))}, schema {sorted(schema_side.get(k, set()))}")
     return problems
+
+
+def probe_handlers(chart, schema):
+    """The probe-handlers rule."""
+    m = PROBE_HANDLERS.search((chart / "templates" / "_validate-helpers.tpl").read_text())
+    if not m:
+        return ["templates/_validate-helpers.tpl: probe-handlers: no `$handlers := list …` in validateProbeHandler to compare with the schema"]
+    listed = re.findall(r'"(\w+)"', m.group(1))
+    declared = [k for k, v in schema["$defs"]["probe"]["properties"].items() if v.get("type") == "object"]
+    if sorted(listed) != sorted(declared):
+        return [f"templates/_validate-helpers.tpl: probe-handlers: $handlers {listed}, $defs/probe object properties {declared}"]
+    return []
 
 
 def define_at(starts, pos, default):
@@ -347,6 +364,7 @@ def main(chart):
                                 "tests/bad-values/skip-schema/ fixture")
     problems += every_kind(chart)
     problems += kind_fields(chart, schema)
+    problems += probe_handlers(chart, schema)
     problems += workload_kind(chart)
     problems += render_order(chart)
     problems += read_only_by(chart)

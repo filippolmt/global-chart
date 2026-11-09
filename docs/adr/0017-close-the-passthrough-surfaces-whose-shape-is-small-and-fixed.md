@@ -63,7 +63,7 @@ surface (issue option 2) misses the typo that motivated the issue:
   rules between fields the templates check. `CODING_STANDARDS.md` (*A rule
   the API server enforces is checked against the API server*) decides that:
   a rule the chart can tell at render fails there, naming the key.
-  *Amended by issue #288:* the probe rule is one of those: `validateProbe`
+  *Amended by issue #288:* the probe rule is one of those: `validateProbeHandler`
   fails a workload probe with no handler or more than one. A probe inside
   `extraContainers` stays with the API server.
 - **Required fields and ports follow the shape.** A field the API server or ESO
