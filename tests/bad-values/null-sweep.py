@@ -163,12 +163,29 @@ def defaulted_self_test():
 
 
 def removed(values, path):
+    """values without the key at path, and without each map that key's removal
+    leaves empty: a map whose keys are all null renders as the map left out
+    (CODING_STANDARDS, issue #294), so a cronjob's `nodeSelector: {zone: null}`
+    inherits as `nodeSelector` left out would. A list item stays, `{}` if need
+    be: it is an item, not a key."""
     copy = json.loads(json.dumps(values))
-    node = copy
+    chain = [copy]
     for key in path[:-1]:
-        node = node[key]
-    del node[path[-1]]
+        chain.append(chain[-1][key])
+    del chain[-1][path[-1]]
+    for depth in range(len(path) - 1, 0, -1):
+        node, parent = chain[depth], chain[depth - 1]
+        if node or not isinstance(parent, dict):
+            break
+        del parent[path[depth - 1]]
     return copy
+
+
+def removed_self_test():
+    assert removed({"a": {"b": None, "c": 1}}, ("a", "b")) == {"a": {"c": 1}}
+    assert removed({"x": 1, "a": {"b": {"c": None}}}, ("a", "b", "c")) == {"x": 1}
+    assert removed({"l": [{"k": None}]}, ("l", 0, "k")) == {"l": [{}]}
+    assert removed({"l": [{"m": {"k": None}}]}, ("l", 0, "m", "k")) == {"l": [{}]}
 
 
 def set_at(values, path, value):
@@ -384,6 +401,7 @@ def main(argv):
         sys.exit(__doc__.rsplit("Usage: ", 1)[1])
     chart, files = pathlib.Path(argv[0]), argv[1:]
     if as_unset:
+        removed_self_test()
         return render_as_unset(chart, files, flags)
     shape, scenarios, findings = preflight(chart, files)
     if findings:
@@ -394,6 +412,8 @@ def main(argv):
     if standalone:
         print(f"    OK: preflight metadata/schema contracts and reached owners across {len(scenarios)} scenarios (no baselines or mutations checked)")
         return
+    # after the preflight gate, which runs before anything that mutates values
+    removed_self_test()
     findings = []
     with tempfile.TemporaryDirectory() as tmp:
         scratch = values_to_json_chart(tmp)

@@ -120,9 +120,11 @@ spec:
              a checksum. podAnnotations wins either way, which is what the duplicate
              keys already did — Helm took the last one — minus the manifest a strict
              validator rejects. */ -}}
-      {{- /* hashed without its null map values (issue #294): a null hashes as the key removed */ -}}
+      {{- /* hashed without its null map values (issue #294): a null hashes as the key removed.
+             Not passthroughYaml: an absent or empty value keeps hashing its toYaml
+             ("null", "{}"), so no workload rolls on upgrade for nothing. */ -}}
       {{- $mountedConfigFiles := $deploy.mountedConfigFiles }}
-      {{- if $mountedConfigFiles }}{{ $mountedConfigFiles = deepCopy $mountedConfigFiles }}{{ include "global-chart.dropNulls" $mountedConfigFiles }}{{ end }}
+      {{- if $mountedConfigFiles }}{{ $mountedConfigFiles = deepCopy $mountedConfigFiles }}{{ include "global-chart.dropNullsInPlace" $mountedConfigFiles }}{{ end }}
       {{- $checksums := dict
             "checksum/config" (toYaml $deploy.configMap | sha256sum)
             "checksum/secret" (toYaml $deploy.secret | sha256sum)

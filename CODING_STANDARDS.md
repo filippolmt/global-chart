@@ -232,6 +232,9 @@ every render (issue #235).
   (`{httpGet: null}` is no probe, issue #288). A passthrough surface goes to
   the manifest through `passthroughYaml`, never a bare `toYaml`: `key: null`
   is not absent to the API server, which writes `""` or `"0"` (issue #294).
+  A map of nulls only is left out at any depth, and an inherited one is
+  tested with `isSetPassthrough`, so it inherits; a map written `{}` stays a
+  value and stops the fallback.
   "Set" has one home, `isSet`;
   `hasKey` alone hands the null on. Numbers are the exception: a null number
   the chart renders through `printScalar` fails naming its key (issue #191),

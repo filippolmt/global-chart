@@ -3,7 +3,8 @@
        by this one body, so the two forms cannot drift.
 
        parentRefs and matches are verbatim Gateway API structures rendered
-       straight through toYaml, so the chart never re-implements — and drifts
+       straight through passthroughYaml (toYaml without the null map values,
+       issue #294), so the chart never re-implements — and drifts
        from — the upstream schema. Field-level validation lives in
        values.schema.json; field defaults (e.g. path type/value) are owned by
        the Gateway API CRD, not duplicated here. Only backendRefs is rendered

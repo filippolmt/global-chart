@@ -53,7 +53,7 @@ its helper rejects a null at the source with the path (rejectNullServicePorts,
 resolveBackend, rejectNullDataValue), so a null reaching the bare form is a
 chart bug, and says so. A value read from values that such a helper has
 already checked prints bare too: the Service ports, extraPorts included. The dict form is unambiguous: a scalar is never a map.
-Maps and slices are not scalars: callers render them with toYaml.
+Maps and slices are not scalars: callers render them with passthroughYaml.
 Usage: {{ include "global-chart.printScalar" (dict "value" $deploy.revisionHistoryLimit "errCtx" (printf "%s.revisionHistoryLimit" $errCtx)) }}
        {{ include "global-chart.printScalar" $primary.port }}
 */}}
@@ -93,35 +93,70 @@ Usage: {{ ternary $deploy.enabled true (eq (include "global-chart.isSet" (list $
 Drop every null map value from a map or list, at any depth, in place (issue
 #294): a null map value is unset, so a passthrough surface renders as with the
 key removed. Written to the API server, `key: null` is not absent: a string
-becomes "", a quantity "0". A map emptied by the drop stays, as `{}`: that is
-what removing its keys leaves. List items are left alone, a null one included:
-validateNullItems fails it. Mutates its argument: pass a deepCopy.
-Usage: {{- $clean := deepCopy $x }}{{- include "global-chart.dropNulls" $clean }}
+becomes "", a quantity "0". A map whose keys are all null is left out too, at
+any depth, as CODING_STANDARDS states: `lifecycle: {preStop: {exec: null}}`
+renders no lifecycle, not a preStop with no handler. A map written `{}` stays:
+an explicit empty map is a value. List items are left alone, a null one
+included: validateNullItems fails it. Mutates its argument, hence the name:
+pass a deepCopy.
+Usage: {{- $clean := deepCopy $x }}{{- include "global-chart.dropNullsInPlace" $clean }}
 */}}
-{{- define "global-chart.dropNulls" -}}
+{{- define "global-chart.dropNullsInPlace" -}}
 {{- if kindIs "map" . -}}
   {{- $m := . -}}
   {{- range $k, $v := $m -}}
     {{- if kindIs "invalid" $v -}}{{- $_ := unset $m $k -}}
-    {{- else -}}{{- include "global-chart.dropNulls" $v -}}{{- end -}}
+    {{- else if and (kindIs "map" $v) $v -}}
+      {{- include "global-chart.dropNullsInPlace" $v -}}
+      {{- if not $v -}}{{- $_ := unset $m $k -}}{{- end -}}
+    {{- else -}}{{- include "global-chart.dropNullsInPlace" $v -}}{{- end -}}
   {{- end -}}
 {{- else if kindIs "slice" . -}}
-  {{- range . -}}{{- include "global-chart.dropNulls" . -}}{{- end -}}
+  {{- range . -}}{{- include "global-chart.dropNullsInPlace" . -}}{{- end -}}
 {{- end -}}
 {{- end }}
 
 {{/*
-The YAML of a passthrough surface without its null map values (dropNulls), or
-nothing when nothing is left: a map whose keys are all null renders as the map
-left out. The caller wraps it in {{- with }} in place of `with` + toYaml.
+The YAML of a passthrough surface without its null map values
+(dropNullsInPlace, on a copy), or nothing when nothing is left: a surface whose
+keys are all null renders as the surface left out. The caller wraps it in
+{{- with }} in place of `with` + toYaml. A caller that needs the cleaned map
+itself, to merge it, reads it back with fromYaml: its numbers come back as
+float64, so it renders them with toYaml, never printScalar's bare form.
 Usage: {{- with include "global-chart.passthroughYaml" $deploy.affinity }}
 */}}
 {{- define "global-chart.passthroughYaml" -}}
 {{- with . -}}
 {{- $v := deepCopy . -}}
-{{- include "global-chart.dropNulls" $v -}}
+{{- include "global-chart.dropNullsInPlace" $v -}}
 {{- with $v -}}{{- toYaml . -}}{{- end -}}
 {{- end -}}
+{{- end }}
+
+{{/*
+isSet for an inherited passthrough surface (issue #294): a map whose keys are
+all null is unset too, as the map left out, so the job inherits the
+workload's (nodeSelector, affinity, the security contexts, dnsConfig,
+resources' defaults). An explicit {} or [] stays set and stops the fallback.
+Not isSet itself: a map the chart reads key by key keeps its own rule, such as
+rollingUpdate: {partition: null}, which fails naming partition (issue #191).
+Usage: {{ ternary $job.affinity $deploy.affinity (eq (include "global-chart.isSetPassthrough" (list $job "affinity")) "true") }}
+*/}}
+{{- define "global-chart.isSetPassthrough" -}}
+{{- if eq (include "global-chart.isSet" .) "true" -}}
+{{- $v := index (index . 0) (index . 1) -}}
+{{- if or (not (kindIs "map" $v)) (empty $v) (include "global-chart.passthroughYaml" $v) -}}true{{- end -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+Whether a hooks.<type>.<name> entry is a hook: a map with a key that is not
+null (issue #294). A null entry, {} and a map of nulls only are no hook, as
+the entry left out. The single test of every template that ranges over hooks.
+Usage: {{- if eq (include "global-chart.isHook" $command) "true" }}
+*/}}
+{{- define "global-chart.isHook" -}}
+{{- if include "global-chart.passthroughYaml" . -}}true{{- end -}}
 {{- end }}
 
 {{/*
@@ -277,15 +312,26 @@ the entry, <owner>.volumes[<i>], which leads every fail message (issue #190).
 The keys removed in 4.0.0 (issue #230) are validateRemovedKeys' to reject:
 this helper renders them as written and the error is the validator's,
 whatever order Helm renders the templates in (CODING_STANDARDS.md).
+A volume with nothing but its name, or whose source holds nulls only, fails
+naming its path (issue #300): the API server would make it an emptyDir in
+silence, so a volume whose configMap key was dropped would mount an empty
+directory. The schema cannot say it: the volume sources are open (ADR 0017).
 Usage: {{ include "global-chart.renderVolume" (dict "volume" $v "errCtx" (printf "%s.volumes[%d]" $errCtx $i)) }}
 */}}
 {{- define "global-chart.renderVolume" -}}
 {{- $vol := .volume -}}
 {{- $path := required "renderVolume: errCtx is required (the values path of the volume)" .errCtx -}}
-- name: {{ required (printf "%s: a volume needs a 'name'" $path) $vol.name | quote }}
-{{- with include "global-chart.passthroughYaml" (omit $vol "name") }}
-{{- . | nindent 2 }}
-{{- end }}
+{{- $name := required (printf "%s: a volume needs a 'name'" $path) $vol.name -}}
+{{- $source := include "global-chart.passthroughYaml" (omit $vol "name") -}}
+{{- if not $source -}}
+{{- /* the key whose nulls left it no source, named as a null's path is */ -}}
+{{- with omit $vol "name" | keys | sortAlpha -}}
+{{- fail (printf "%s.%s: holds nulls only, which leaves the volume no source besides its name; set one, such as emptyDir: {} or configMap: {name: ...}" $path (first .)) -}}
+{{- end -}}
+{{- fail (printf "%s: names no volume source besides its name; set one, such as emptyDir: {} or configMap: {name: ...}" $path) -}}
+{{- end -}}
+- name: {{ $name | quote }}
+{{- $source | nindent 2 }}
 {{- end }}
 
 {{/*
@@ -384,9 +430,10 @@ dnsConfig:
 
 {{/*
 Render resources block with defaults fallback.
-Usage: {{ include "global-chart.renderResources" (dict "resources" $job.resources "hasResources" (hasKey $job "resources") "defaults" $root.Values.defaults) }}
+Usage: {{ include "global-chart.renderResources" (dict "resources" $job.resources "hasResources" (eq (include "global-chart.isSetPassthrough" (list $job "resources")) "true") "defaults" $root.Values.defaults) }}
 When hasResources is true and resources is empty ({}), no resources block is rendered (explicit override to clear defaults).
-When hasResources is false (key absent), defaults.resources is used as fallback.
+When hasResources is false (key absent, null, or a map of nulls only: isSetPassthrough), defaults.resources is used as fallback.
+Either one is rendered without its null map values (passthroughYaml).
 */}}
 {{- define "global-chart.renderResources" -}}
 {{- $res := ternary .resources (default (dict) .defaults).resources (default false .hasResources) -}}
@@ -414,6 +461,9 @@ The three helm.sh/hook* keys the chart emits itself are dropped from the merged 
 copy in would put the key in the manifest twice — the very defect this helper removes —
 and the chart owns them either way. helm.sh/hook-output-log-policy is not dropped: the
 chart never emits it, so there is nothing to collide with.
+Both maps are merged without their null values (passthroughYaml, issue #294): a
+null own annotation is unset and leaves the common one, or the chart's checksum
+merged into podAnnotations, in place, as the key removed.
 */}}
 {{- define "global-chart.renderAnnotations" -}}
 {{- $common := (include "global-chart.passthroughYaml" (default (dict) .root.Values.global).commonAnnotations | fromYaml) -}}
@@ -1048,7 +1098,7 @@ inherited before the own. The single home of which mounts land on the
 container: workload.yaml and jobPodSpec render this list, and
 validateMountPaths checks it for a repeated mountPath (issue #182), so a new
 mount source cannot reach the manifest unchecked.
-Callers do `include ... | fromJsonArray` and toYaml the result.
+Callers do `include ... | fromJsonArray` and render the result with passthroughYaml.
 Params:
   errCtx             - values path of the container's owner (a job's from jobValuesPath)
   volumeMounts       - the container's own volumeMounts, rendered verbatim

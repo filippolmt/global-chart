@@ -60,6 +60,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   from the manifest in silence; the schema and the API server reject it. A
   null stays unset. **Migration**: drop `rollingUpdate`, or set
   `type: RollingUpdate`.
+- **Breaking: a volume with no source besides its `name` fails the render**
+  (issue #300), naming `<owner>.volumes[<i>]`, on a workload, a hook or a
+  cronjob; so does one whose source holds nulls only, a map of nulls being the
+  map left out (issue #294), naming that source (`volumes[<i>].secret`). It used to render invalid YAML; with the null map
+  values dropped it would have reached the API server, which makes such a
+  volume an `emptyDir` in silence. **Migration**: none for a release that
+  installs; set the source, `emptyDir: {}` for an empty directory.
 
 - `make validate-bad-values` checks what a values file renders under
   `--skip-schema-validation`, not only that a `fail` fires (issue #292). A file
@@ -82,7 +89,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   rejects such a null; under `--skip-schema-validation` it reached the
   manifest as `key: null`, which the API server does not read as absent: a
   `nodeSelector` or annotation value became `""`, a `resources` quantity `"0"`.
-  A map whose keys are all null renders nothing, a hook of nulls only renders
+  A map whose keys are all null renders as the map left out: nothing, or, on a
+  hook or cronjob, the workload's value it inherits (`nodeSelector`,
+  `affinity`, `tolerations`, `hostAliases`, the security contexts, a cronjob's
+  `dnsConfig`) and `defaults.resources`, at any depth: `lifecycle: {preStop:
+  {exec: null}}` renders no lifecycle. A map written `{}` is unchanged. A null job `resources` or `dnsConfig`
+  inherits too, where it used to stop the fallback, and a null
+  `automountServiceAccountToken` on a job inherits the workload's, where it
+  rendered an empty field. An HPA `behavior` left with no policy renders
+  nothing, not `behavior: null`; an ExternalSecret's null `remote.property` is
+  left out, not rendered `""`. A hook of nulls only renders
   no hook, and a null own annotation or label leaves `global.commonAnnotations`
   / `commonLabels` and the chart's `checksum/*` pod annotations in place (a
   null `checksum/config` used to erase it, and a config change no longer
@@ -113,6 +129,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   chart dropped the empty map. Drop `rollingUpdate`, or set
   `type: RollingUpdate`. Without
   `--skip-schema-validation` the schema already rejected it.
+- A volume with nothing but its `name` now fails the render naming its path;
+  it rendered invalid YAML before, so no release that installs changes. Write
+  `emptyDir: {}` for an empty directory.
 
 ## [4.2.1] — 2026-10-26
 

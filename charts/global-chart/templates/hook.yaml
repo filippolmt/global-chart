@@ -47,7 +47,7 @@ automountServiceAccountToken: {{ $sa.automount }}
 {{- if .Values.hooks }}
 {{- range $hookType, $jobs := .Values.hooks }}
 {{- range $name, $command := $jobs }}
-{{- if include "global-chart.passthroughYaml" $command }}
+{{- if eq (include "global-chart.isHook" $command) "true" }}
 {{- $hookFullname := include "global-chart.hookfullname" (merge (dict "hookname" $hookType "jobname" $name) $root) }}
 {{- $errCtx := include "global-chart.jobValuesPath" (dict "kind" "hook" "hookType" $hookType "jobName" $name) }}
 {{- /* A null weight would count as 0 (int nil), not the default 10 */ -}}
@@ -172,7 +172,7 @@ data:
 {{- $hooks := dict -}}
 {{- range $hookType, $jobs := $deploy.hooks -}}
 {{- range $name, $command := $jobs -}}
-{{- if include "global-chart.passthroughYaml" $command -}}
+{{- if eq (include "global-chart.isHook" $command) "true" -}}
 {{- $fn := include "global-chart.deploymentHookName" (dict "root" $root "deploymentName" $deployName "hookType" $hookType "jobName" $name) -}}
 {{- $errCtx := include "global-chart.jobValuesPath" (dict "kind" "hook" "deploymentName" $deployName "hookType" $hookType "jobName" $name) -}}
 {{- $_ := set $hooks (printf "%s/%s" $hookType $name) (dict "fullname" $fn "errCtx" $errCtx "sa" (include "global-chart.jobServiceAccount" (dict "root" $root "job" $command "deploy" $deploy "deployName" $deployName "jobFullname" $fn "errCtx" $errCtx) | fromJson)) -}}
@@ -183,7 +183,7 @@ data:
 {{- /* Per hook type and command: SA + Job */ -}}
 {{- range $hookType, $jobs := $deploy.hooks }}
 {{- range $name, $command := $jobs }}
-{{- if include "global-chart.passthroughYaml" $command }}
+{{- if eq (include "global-chart.isHook" $command) "true" }}
 
 {{- /* Hook fullname, values path and ServiceAccount, all resolved once above */ -}}
 {{- $hook := index $hooks (printf "%s/%s" $hookType $name) }}

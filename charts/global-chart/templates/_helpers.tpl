@@ -55,7 +55,9 @@ matching its own workload's selector.
 Like renderAnnotations, this exists so the sources are never concatenated: two
 blocks that name the same label put the key in the manifest twice, which Helm
 accepts and `kubeconform -strict` rejects. `mergeOverwrite`, not `merge`, for the
-empty-string reason given there.
+empty-string reason given there. Each map is merged without its null values
+(passthroughYaml, issue #294): a null own label is unset and leaves the common
+one in place, as the key removed.
 */}}
 {{- define "global-chart.mergeLabels" -}}
 {{- $common := (include "global-chart.passthroughYaml" (default (dict) .root.Values.global).commonLabels | fromYaml) -}}

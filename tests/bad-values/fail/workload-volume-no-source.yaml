@@ -1,0 +1,10 @@
+# A volume with nothing but its name (issue #300): the schema keeps the volume
+# sources open (ADR 0017), and the API server would make it an emptyDir in
+# silence, so a volume whose configMap key was dropped would mount an empty
+# directory. renderVolume fails naming the volume.
+# Expected fail substring: "workloads.web.volumes[0]: names no volume source besides its name"
+workloads:
+  web:
+    image: nginx:1.25
+    volumes:
+      - name: config

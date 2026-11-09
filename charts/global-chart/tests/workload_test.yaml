@@ -1987,3 +1987,43 @@ tests:
       - equal:
           path: spec.template.spec.containers[0].envFrom[0].secretRef.name
           value: "1e3"
+
+  # ====== a map of nulls only is the map left out, at any depth (issue #294) ======
+  - it: should render no lifecycle when its only handler holds nulls only
+    set:
+      workloads:
+        main:
+          image: nginx:1.25
+          lifecycle:
+            preStop:
+              exec: null
+    asserts:
+      - notExists:
+          path: spec.template.spec.containers[0].lifecycle
+
+  # ====== a volume needs a source (issue #300) ======
+  - it: should fail a volume with nothing but its name, naming it
+    set:
+      workloads:
+        main:
+          image: nginx:1.25
+          volumes:
+            - name: config
+    asserts:
+      - failedTemplate:
+          errorMessage: "workloads.main.volumes[0]: names no volume source besides its name; set one, such as emptyDir: {} or configMap: {name: ...}"
+
+  - it: should keep a volume whose source is written {}
+    set:
+      workloads:
+        main:
+          image: nginx:1.25
+          volumes:
+            - name: scratch
+              emptyDir: {}
+    asserts:
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: scratch
+            emptyDir: {}

@@ -42,7 +42,7 @@ Usage: {{ include "global-chart.minHookWeight" (dict "hooks" $deploy.hooks) }}
 {{- $min := 10 -}}
 {{- range $hookType, $jobs := (default (dict) .hooks) -}}
 {{- range $name, $command := (default (dict) $jobs) -}}
-{{- if include "global-chart.passthroughYaml" $command -}}
+{{- if eq (include "global-chart.isHook" $command) "true" -}}
 {{- $w := int (include "global-chart.effectiveHookWeight" $command) -}}
 {{- if lt $w $min -}}{{- $min = $w -}}{{- end -}}
 {{- end -}}
@@ -153,7 +153,7 @@ Usage: {{- $hooks := dict }}{{- include "global-chart.prereqCopyHooks" (dict "ro
   {{- range $hookType, $jobs := (default (dict) $scope.hooks) -}}
     {{- if eq (include "global-chart.hookReadsPrereqCopy" $hookType) "true" -}}
       {{- range $jobName, $command := (default (dict) $jobs) -}}
-        {{- if include "global-chart.passthroughYaml" $command -}}
+        {{- if eq (include "global-chart.isHook" $command) "true" -}}
           {{- $hook := dict "hookType" $hookType "jobName" $jobName "command" $command -}}
           {{- if $scope.deploy -}}
             {{- $_ := set $hook "deploy" $scope.deploy -}}
