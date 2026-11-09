@@ -195,9 +195,14 @@ both invalid fields, expecting the new first error; `make render
 VALUES=<fixture> BASE=main SKIP_SCHEMA=1` shows the base firing the other, so
 the fixture would go red on the old order. A helm-unittest case cannot hold the
 order, since the schema rejects first (`lint-templates`' schema-alternative
-rule, issue #265). `make null-sweep` covers the scenarios; `make scenario-coverage` fails
-a map or list node no scenario sets, and a type a node accepts that none uses. A
-map or list a template reads goes in `valuesShape` (`_validate-helpers.tpl`),
+rule, issue #265). The guard tests the presence the API server tests: `isSet`
+for a field it rejects once non-nil, `{}` included (`rollingUpdate` beside
+`OnDelete`, issue #296), truthiness for a list it rejects only non-empty
+(`backendRefs` beside a `RequestRedirect`, as Gateway API's CEL rule reads
+it). No check holds a guard to this: it is the reviewer's. `make null-sweep`
+covers the scenarios; `make scenario-coverage` fails a map or list node no
+scenario sets, and a type a node accepts that none uses. A map or list a
+template reads goes in `valuesShape` (`_validate-helpers.tpl`),
 and the sweep's type pass fails a raw error on one it misses (issue #235).
 
 **A field a template reads is declared in the schema**, open surfaces
@@ -227,7 +232,11 @@ every render (issue #235).
   (`{httpGet: null}` is no probe, issue #288; the passthrough maps that do
   not yet hold to this rule are issue #294). "Set" has one home, `isSet`;
   `hasKey` alone hands the null on. Numbers are the exception: a null number
-  fails naming its key, through `printScalar` (issue #191);
+  the chart renders through `printScalar` fails naming its key (issue #191),
+  even as the only key of its map: beside `type: RollingUpdate`,
+  `rollingUpdate: {partition: null}` fails naming `partition` rather than
+  counting as `rollingUpdate` left out. A number in a map rendered with
+  `toYaml` (a probe's timings, issue #288) is a map value like any other;
 - a null **list item** fails, anywhere, passthrough lists included:
   `rejectNullInLists`, run over all of `.Values` by `validateNullItems`;
 - a null in a **required field** of an item the chart reads fails:
