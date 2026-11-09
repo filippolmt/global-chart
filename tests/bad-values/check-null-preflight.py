@@ -88,6 +88,10 @@ def fixture():
         # Owner scope applies to jobs as well as workloads.
         state.shape["hooks"] = {"*": {"*": {"volumes": ["map"], "env": ["map"]}}}
         state.schema = schema_for(state.shape)
+        # nullItemFields' required env name is declared, as null_field_findings requires
+        for spec in (state.schema["properties"]["workloads"]["additionalProperties"],
+                     state.schema["properties"]["hooks"]["additionalProperties"]["additionalProperties"]):
+            spec["properties"]["env"]["items"]["properties"] = {"name": {"type": "string"}}
         (chart / "values.schema.json").write_text(json.dumps(state.schema))
         with patch.object(pre.subprocess, "run", side_effect=helm):
             yield state
@@ -130,6 +134,11 @@ def shapes_test():
     assert pre.null_item_findings({}, shape) == []  # The reconciliation is deliberately one-way.
     assert pre.null_item_findings({"root": ["strings"]}, shape)
     assert pre.null_item_findings({"unknown": ["extra"]}, shape)
+    declared = {"type": "object", "properties": {"rbacs": {"type": "object", "properties": {"roles": {
+        "type": "array", "items": {"type": "object", "properties": {"name": {"type": "string"}}}}}}}}
+    assert pre.null_field_findings({"root": {"rbacs.roles": ["name"]}}, declared) == []
+    assert pre.null_field_findings({"root": {"rbacs.roles": ["name", "kind"]}}, declared) == [
+        "nullItemFields root: rbacs.roles[].kind: required, and the schema declares no such field at rbacs.roles[]; declare it"]
     assert pre.shape_at(shape, ("nested", 0, "entries", 1)) == "map|string"
     assert pre.shape_findings({"a": "map|string"}, {"type": "object", "properties": {
         "a": {"oneOf": [{"type": "object"}, {"type": "string"}, {"type": "null"}]}}}) == []

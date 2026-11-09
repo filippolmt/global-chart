@@ -33,10 +33,11 @@ def shape_findings(shape, schema, schema_path=(), path=""):
     want = {"map"} if isinstance(shape, dict) else {"list"} if isinstance(shape, list) else set(shape.split("|"))
     declared = navigation.declaration(schema, schema_path)
     if declared is None:
-        return [f"valuesShape: {path}: the schema declares no such node"]
+        return [f"valuesShape: {path}: the schema declares no such node; if it does, the fix is in "
+                "schema_navigation.py, never a schema rewritten for it"]
     if declared.untyped:
         return [f"valuesShape: {path}: the schema accepts any type there through a branch with no type; "
-                "give the branch one, or teach schema_navigation.py what it means"]
+                "if the schema is right, teach schema_navigation.py what it means, else give the branch a type"]
     got = declared.types
     out = [] if got == want else [f"valuesShape: {path}: reads {'|'.join(sorted(want))}, "
                                   f"the schema accepts {'|'.join(sorted(got)) or 'any type'}"]
@@ -67,6 +68,23 @@ def null_item_findings(fields, shape):
                     where = ".".join(base) + "." if base else ""
                     findings.append(f"nullItemFields: {scope}: {dotted_path}: not a list of maps in valuesShape at "
                                     f"{where}{dotted_path}")
+    return findings
+
+
+def null_field_findings(fields, schema):
+    """Every required field nullItemFields names is declared in the schema (ADR 0017: a field a
+    template reads is the chart's own, open surfaces included; issue #285 read an undeclared one)."""
+    bases = {"root": [()], "owner": [("workloads", "*"), ("hooks", "*", "*")], "workload": [("workloads", "*")]}
+    findings = []
+    for scope, paths in fields.items():
+        for dotted_path, required in paths.items():
+            keys = tuple(k for part in dotted_path.split(".")
+                         for k in ((part[:-2], "[]") if part.endswith("[]") else (part,)))
+            for base in bases.get(scope, []):
+                for field in required or []:
+                    if navigation.declaration(schema, base + keys + ("[]", field)) is None:
+                        findings.append(f"nullItemFields {scope}: {dotted_path}[].{field}: required, and the schema "
+                                        f"declares no such field at {'.'.join(base + keys)}[]; declare it")
     return findings
 
 
@@ -167,6 +185,8 @@ def preflight(chart, files):
                     findings.extend(shape_findings(shape, schema))
                 if fields is not None:
                     findings.extend(null_item_findings(fields, shape))
+            if fields is not None and schema is not None:
+                findings.extend(null_field_findings(fields, schema))
         for file in files:
             try:
                 pathlib.Path(file).read_text()
