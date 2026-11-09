@@ -97,8 +97,11 @@ becomes "", a quantity "0". A map whose keys are all null is left out too, at
 any depth, as CODING_STANDARDS states: `lifecycle: {preStop: {exec: null}}`
 renders no lifecycle, not a preStop with no handler. A map written `{}` stays:
 an explicit empty map is a value. List items are left alone, a null one
-included: validateNullItems fails it. Mutates its argument, hence the name:
-pass a deepCopy.
+included: validateNullItems fails it. A key of a list item names what the item
+is (a volume's emptyDir, a container's resources), so a map right under an
+item stays, as `{}`, when its nulls are dropped: `emptyDir: {medium: null}` is
+`emptyDir: {}`, as it reached the API server before. Mutates its argument,
+hence the name: pass a deepCopy.
 Usage: {{- $clean := deepCopy $x }}{{- include "global-chart.dropNullsInPlace" $clean }}
 */}}
 {{- define "global-chart.dropNullsInPlace" -}}
@@ -112,7 +115,15 @@ Usage: {{- $clean := deepCopy $x }}{{- include "global-chart.dropNullsInPlace" $
     {{- else -}}{{- include "global-chart.dropNullsInPlace" $v -}}{{- end -}}
   {{- end -}}
 {{- else if kindIs "slice" . -}}
-  {{- range . -}}{{- include "global-chart.dropNullsInPlace" . -}}{{- end -}}
+  {{- range . -}}
+    {{- if kindIs "map" . -}}
+      {{- $item := . -}}
+      {{- range $k, $v := $item -}}
+        {{- if kindIs "invalid" $v -}}{{- $_ := unset $item $k -}}
+        {{- else -}}{{- include "global-chart.dropNullsInPlace" $v -}}{{- end -}}
+      {{- end -}}
+    {{- else -}}{{- include "global-chart.dropNullsInPlace" . -}}{{- end -}}
+  {{- end -}}
 {{- end -}}
 {{- end }}
 
@@ -147,16 +158,6 @@ Usage: {{ ternary $job.affinity $deploy.affinity (eq (include "global-chart.isSe
 {{- $v := index (index . 0) (index . 1) -}}
 {{- if or (not (kindIs "map" $v)) (empty $v) (include "global-chart.passthroughYaml" $v) -}}true{{- end -}}
 {{- end -}}
-{{- end }}
-
-{{/*
-Whether a hooks.<type>.<name> entry is a hook: a map with a key that is not
-null (issue #294). A null entry, {} and a map of nulls only are no hook, as
-the entry left out. The single test of every template that ranges over hooks.
-Usage: {{- if eq (include "global-chart.isHook" $command) "true" }}
-*/}}
-{{- define "global-chart.isHook" -}}
-{{- if include "global-chart.passthroughYaml" . -}}true{{- end -}}
 {{- end }}
 
 {{/*
@@ -312,8 +313,8 @@ the entry, <owner>.volumes[<i>], which leads every fail message (issue #190).
 The keys removed in 4.0.0 (issue #230) are validateRemovedKeys' to reject:
 this helper renders them as written and the error is the validator's,
 whatever order Helm renders the templates in (CODING_STANDARDS.md).
-A volume with nothing but its name, or whose source holds nulls only, fails
-naming its path (issue #300): the API server would make it an emptyDir in
+A volume with nothing but its name, a null source included, fails naming its
+path (issue #300): the API server would make it an emptyDir in
 silence, so a volume whose configMap key was dropped would mount an empty
 directory. The schema cannot say it: the volume sources are open (ADR 0017).
 Usage: {{ include "global-chart.renderVolume" (dict "volume" $v "errCtx" (printf "%s.volumes[%d]" $errCtx $i)) }}
@@ -322,16 +323,15 @@ Usage: {{ include "global-chart.renderVolume" (dict "volume" $v "errCtx" (printf
 {{- $vol := .volume -}}
 {{- $path := required "renderVolume: errCtx is required (the values path of the volume)" .errCtx -}}
 {{- $name := required (printf "%s: a volume needs a 'name'" $path) $vol.name -}}
-{{- $source := include "global-chart.passthroughYaml" (omit $vol "name") -}}
+{{- /* cleaned as a list item: a source of nulls only stays, as {} (dropNullsInPlace) */ -}}
+{{- $clean := deepCopy $vol -}}
+{{- include "global-chart.dropNullsInPlace" (list $clean) -}}
+{{- $source := omit $clean "name" -}}
 {{- if not $source -}}
-{{- /* the key whose nulls left it no source, named as a null's path is */ -}}
-{{- with omit $vol "name" | keys | sortAlpha -}}
-{{- fail (printf "%s.%s: holds nulls only, which leaves the volume no source besides its name; set one, such as emptyDir: {} or configMap: {name: ...}" $path (first .)) -}}
-{{- end -}}
 {{- fail (printf "%s: names no volume source besides its name; set one, such as emptyDir: {} or configMap: {name: ...}" $path) -}}
 {{- end -}}
 - name: {{ $name | quote }}
-{{- $source | nindent 2 }}
+{{- toYaml $source | nindent 2 }}
 {{- end }}
 
 {{/*

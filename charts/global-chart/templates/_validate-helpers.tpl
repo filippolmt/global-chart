@@ -551,17 +551,15 @@ Called from validate.yaml.
         {{- include "global-chart.registerName" (dict "names" $secretNames "kind" "Secret" "name" $hookSecretName "owner" (printf "%s.secret (hook prerequisite copy)" (include "global-chart.deploymentValuesPath" $name))) -}}
       {{- end -}}
 
-      {{- range $hookType, $jobs := $deploy.hooks -}}
-        {{- range $jobName, $command := $jobs -}}
-          {{- if eq (include "global-chart.isHook" $command) "true" -}}
+      {{- range (include "global-chart.hookEntries" $deploy.hooks | fromJsonArray) -}}
+            {{- $hookType := .hookType -}}{{- $jobName := .name -}}
+            {{- $command := index $deploy.hooks $hookType $jobName -}}
             {{- /* Canonical 4-part single-trunc name via shared helper — keeps validator byte-identical to hook.yaml (prior depFullname-based double-trunc only diverged for K8s-invalid trailing-dash names) */ -}}
             {{- $hookFullname := include "global-chart.deploymentHookName" (dict "root" $root "deploymentName" $name "hookType" $hookType "jobName" $jobName) -}}
             {{- $errCtx := include "global-chart.jobValuesPath" (dict "kind" "hook" "deploymentName" $name "hookType" $hookType "jobName" $jobName) -}}
             {{- include "global-chart.registerName" (dict "names" $hookNames "kind" "Job" "name" $hookFullname "owner" $errCtx) -}}
             {{- $hookSA := include "global-chart.jobServiceAccount" (dict "root" $root "job" $command "deploy" $deploy "deployName" $name "jobFullname" $hookFullname "errCtx" $errCtx) | fromJson -}}
             {{- include "global-chart.registerSAName" (dict "names" $saNames "sa" $hookSA "owner" $errCtx) -}}
-          {{- end -}}
-        {{- end -}}
       {{- end -}}
     {{- end -}}
 
@@ -604,16 +602,14 @@ Called from validate.yaml.
 {{- end -}}
 
 {{- /* 3. Root-level Hook names (trunc 63) */ -}}
-{{- range $hookType, $jobs := .Values.hooks -}}
-  {{- range $name, $command := $jobs -}}
-    {{- if eq (include "global-chart.isHook" $command) "true" -}}
+{{- range (include "global-chart.hookEntries" .Values.hooks | fromJsonArray) -}}
+      {{- $hookType := .hookType -}}{{- $name := .name -}}
+      {{- $command := index $.Values.hooks $hookType $name -}}
       {{- $hookFullname := include "global-chart.hookfullname" (merge (dict "hookname" $hookType "jobname" $name) $root) -}}
       {{- $errCtx := include "global-chart.jobValuesPath" (dict "kind" "hook" "hookType" $hookType "jobName" $name) -}}
       {{- include "global-chart.registerName" (dict "names" $hookNames "kind" "Job" "name" $hookFullname "owner" $errCtx) -}}
       {{- $sa := include "global-chart.jobServiceAccount" (dict "root" $root "job" $command "jobFullname" $hookFullname "errCtx" $errCtx) | fromJson -}}
       {{- include "global-chart.registerSAName" (dict "names" $saNames "sa" $sa "owner" $errCtx) -}}
-    {{- end -}}
-  {{- end -}}
 {{- end -}}
 
 {{- /* 4. ExternalSecrets and their hook-prerequisite copies (ADR 0007). The copy

@@ -1,0 +1,11 @@
+# A handler of nulls only beside a real one (issue #294): the schema rejects
+# the null, and under --skip-schema-validation the map of nulls is left out,
+# so the probe keeps its one handler. It used to fail as two handlers.
+workloads:
+  app:
+    image: nginx:1.25
+    livenessProbe:
+      httpGet:
+        path: null
+      exec:
+        command: ["/bin/check"]

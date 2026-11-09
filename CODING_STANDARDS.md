@@ -234,7 +234,10 @@ every render (issue #235).
   is not absent to the API server, which writes `""` or `"0"` (issue #294).
   A map of nulls only is left out at any depth, and an inherited one is
   tested with `isSetPassthrough`, so it inherits; a map written `{}` stays a
-  value and stops the fallback.
+  value and stops the fallback. A map right under a list item stays, as `{}`:
+  its key names what the item is (`emptyDir: {medium: null}` is
+  `emptyDir: {}`). A value is validated as it renders: the probe's handler
+  check reads the probe without its nulls.
   "Set" has one home, `isSet`;
   `hasKey` alone hands the null on. Numbers are the exception: a null number
   the chart renders through `printScalar` fails naming its key (issue #191),

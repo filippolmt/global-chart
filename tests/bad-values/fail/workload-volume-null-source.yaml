@@ -1,0 +1,14 @@
+# A volume whose only source is null (issue #300): the schema keeps the volume
+# sources open (ADR 0017), and the API server reads the null as no source and
+# makes the volume an emptyDir in silence, so a configMap mount would be an
+# empty directory. renderVolume fails naming the volume.
+# Expected fail substring: "workloads.web.volumes[0]: names no volume source besides its name"
+workloads:
+  web:
+    image: nginx:1.25
+    volumes:
+      - name: config
+        configMap: null
+    volumeMounts:
+      - name: config
+        mountPath: /config

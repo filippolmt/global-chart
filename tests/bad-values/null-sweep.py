@@ -167,7 +167,8 @@ def removed(values, path):
     leaves empty: a map whose keys are all null renders as the map left out
     (CODING_STANDARDS, issue #294), so a cronjob's `nodeSelector: {zone: null}`
     inherits as `nodeSelector` left out would. A list item stays, `{}` if need
-    be: it is an item, not a key."""
+    be: it is an item, not a key; so does a map right under one, whose key names
+    what the item is (a volume's `emptyDir`), as dropNullsInPlace reads it."""
     copy = json.loads(json.dumps(values))
     chain = [copy]
     for key in path[:-1]:
@@ -175,7 +176,7 @@ def removed(values, path):
     del chain[-1][path[-1]]
     for depth in range(len(path) - 1, 0, -1):
         node, parent = chain[depth], chain[depth - 1]
-        if node or not isinstance(parent, dict):
+        if node or not isinstance(parent, dict) or (depth > 1 and isinstance(chain[depth - 2], list)):
             break
         del parent[path[depth - 1]]
     return copy
@@ -185,7 +186,8 @@ def removed_self_test():
     assert removed({"a": {"b": None, "c": 1}}, ("a", "b")) == {"a": {"c": 1}}
     assert removed({"x": 1, "a": {"b": {"c": None}}}, ("a", "b", "c")) == {"x": 1}
     assert removed({"l": [{"k": None}]}, ("l", 0, "k")) == {"l": [{}]}
-    assert removed({"l": [{"m": {"k": None}}]}, ("l", 0, "m", "k")) == {"l": [{}]}
+    assert removed({"l": [{"m": {"k": None}}]}, ("l", 0, "m", "k")) == {"l": [{"m": {}}]}
+    assert removed({"l": [{"m": {"n": {"k": None}}}]}, ("l", 0, "m", "n", "k")) == {"l": [{"m": {}}]}
 
 
 def set_at(values, path, value):

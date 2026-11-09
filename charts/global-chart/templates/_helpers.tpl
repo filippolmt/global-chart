@@ -126,7 +126,8 @@ workload's selector, which the API server rejects (issue #244). The rest of "own
 keeps winning over the chart's labels, as mergeLabels states.
 */}}
 {{- define "global-chart.deploymentLabels" -}}
-{{- $own := mergeOverwrite (include "global-chart.passthroughYaml" .own | fromYaml) (include "global-chart.deploymentSelectorLabels" . | fromYaml) -}}
+{{- /* own keeps its nulls here: mergeLabels drops them, and the selector labels win either way */ -}}
+{{- $own := mergeOverwrite (deepCopy (default (dict) .own)) (include "global-chart.deploymentSelectorLabels" . | fromYaml) -}}
 {{- include "global-chart.mergeLabels" (dict "root" .root "own" $own "owned" (include "global-chart.deploymentOwnedLabels" .)) -}}
 {{- end }}
 

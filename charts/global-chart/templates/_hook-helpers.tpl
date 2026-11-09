@@ -33,6 +33,36 @@ Usage: {{ include "global-chart.effectiveHookWeight" $command }}
 {{- end -}}
 
 {{/*
+Whether a hooks.<type>.<name> entry is a hook: a map with a key that is not
+null (issue #294). A null entry, {} and a map of nulls only are no hook, as
+the entry left out. hookEntries applies it, for every template that ranges over hooks.
+Usage: {{- if eq (include "global-chart.isHook" $command) "true" }}
+*/}}
+{{- define "global-chart.isHook" -}}
+{{- if include "global-chart.passthroughYaml" . -}}true{{- end -}}
+{{- end }}
+
+{{/*
+The hooks of one hooks map, root or a workload's, that render: a JSON list of
+{hookType, name}, in the order range gives them (type, then name), of the
+entries isHook accepts (issue #294). The single walk of every template over
+hooks: a caller reads the entry itself with index $hooks .hookType .name, so
+its values keep their own types.
+Usage: {{- range (include "global-chart.hookEntries" $deploy.hooks | fromJsonArray) }}
+*/}}
+{{- define "global-chart.hookEntries" -}}
+{{- $out := list -}}
+{{- range $hookType, $jobs := (default (dict) .) -}}
+{{- range $name, $command := (default (dict) $jobs) -}}
+{{- if eq (include "global-chart.isHook" $command) "true" -}}
+{{- $out = append $out (dict "hookType" $hookType "name" $name) -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- toJson $out -}}
+{{- end -}}
+
+{{/*
 Minimum effective hook weight across a hooks map.
 Param: hooks - map hookType -> jobName -> command (a workload's .hooks, or a
         synthetic subset of it when only some hooks count)
@@ -40,13 +70,11 @@ Usage: {{ include "global-chart.minHookWeight" (dict "hooks" $deploy.hooks) }}
 */}}
 {{- define "global-chart.minHookWeight" -}}
 {{- $min := 10 -}}
-{{- range $hookType, $jobs := (default (dict) .hooks) -}}
-{{- range $name, $command := (default (dict) $jobs) -}}
-{{- if eq (include "global-chart.isHook" $command) "true" -}}
+{{- $hooks := .hooks -}}
+{{- range (include "global-chart.hookEntries" $hooks | fromJsonArray) -}}
+{{- $command := index $hooks .hookType .name -}}
 {{- $w := int (include "global-chart.effectiveHookWeight" $command) -}}
 {{- if lt $w $min -}}{{- $min = $w -}}{{- end -}}
-{{- end -}}
-{{- end -}}
 {{- end -}}
 {{- $min -}}
 {{- end -}}
@@ -150,21 +178,19 @@ Usage: {{- $hooks := dict }}{{- include "global-chart.prereqCopyHooks" (dict "ro
   {{- end -}}
 {{- end -}}
 {{- range $scope := $scopes -}}
-  {{- range $hookType, $jobs := (default (dict) $scope.hooks) -}}
+  {{- range (include "global-chart.hookEntries" $scope.hooks | fromJsonArray) -}}
+    {{- $hookType := .hookType -}}{{- $jobName := .name -}}
     {{- if eq (include "global-chart.hookReadsPrereqCopy" $hookType) "true" -}}
-      {{- range $jobName, $command := (default (dict) $jobs) -}}
-        {{- if eq (include "global-chart.isHook" $command) "true" -}}
-          {{- $hook := dict "hookType" $hookType "jobName" $jobName "command" $command -}}
-          {{- if $scope.deploy -}}
-            {{- $_ := set $hook "deploy" $scope.deploy -}}
-            {{- $_ := set $hook "deployName" $scope.deployName -}}
-            {{- $_ := set $hook "fullname" (include "global-chart.deploymentHookName" (dict "root" $root "deploymentName" $scope.deployName "hookType" $hookType "jobName" $jobName)) -}}
-          {{- else -}}
-            {{- $_ := set $hook "fullname" (include "global-chart.hookfullname" (merge (dict "hookname" $hookType "jobname" $jobName) $root)) -}}
-          {{- end -}}
-          {{- $_ := set $out (include "global-chart.jobValuesPath" (dict "kind" "hook" "deploymentName" (default "" $scope.deployName) "hookType" $hookType "jobName" $jobName)) $hook -}}
-        {{- end -}}
+      {{- $command := index $scope.hooks $hookType $jobName -}}
+      {{- $hook := dict "hookType" $hookType "jobName" $jobName "command" $command -}}
+      {{- if $scope.deploy -}}
+        {{- $_ := set $hook "deploy" $scope.deploy -}}
+        {{- $_ := set $hook "deployName" $scope.deployName -}}
+        {{- $_ := set $hook "fullname" (include "global-chart.deploymentHookName" (dict "root" $root "deploymentName" $scope.deployName "hookType" $hookType "jobName" $jobName)) -}}
+      {{- else -}}
+        {{- $_ := set $hook "fullname" (include "global-chart.hookfullname" (merge (dict "hookname" $hookType "jobname" $jobName) $root)) -}}
       {{- end -}}
+      {{- $_ := set $out (include "global-chart.jobValuesPath" (dict "kind" "hook" "deploymentName" (default "" $scope.deployName) "hookType" $hookType "jobName" $jobName)) $hook -}}
     {{- end -}}
   {{- end -}}
 {{- end -}}

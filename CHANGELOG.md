@@ -62,11 +62,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   `type: RollingUpdate`.
 - **Breaking: a volume with no source besides its `name` fails the render**
   (issue #300), naming `<owner>.volumes[<i>]`, on a workload, a hook or a
-  cronjob; so does one whose source holds nulls only, a map of nulls being the
-  map left out (issue #294), naming that source (`volumes[<i>].secret`). It used to render invalid YAML; with the null map
-  values dropped it would have reached the API server, which makes such a
-  volume an `emptyDir` in silence. **Migration**: none for a release that
-  installs; set the source, `emptyDir: {}` for an empty directory.
+  cronjob, a null source included. A volume with nothing but its name
+  rendered invalid YAML; one whose only source is null (`configMap: null`)
+  reached the API server, which makes such a volume an `emptyDir` in silence.
+  A source of nulls only is not this case: it stays, as `{}`. **Migration**:
+  a volume whose only source is null now fails; write the source, `emptyDir:
+  {}` for an empty directory. A volume with nothing but its name never
+  installed.
 
 - `make validate-bad-values` checks what a values file renders under
   `--skip-schema-validation`, not only that a `fail` fires (issue #292). A file
@@ -85,31 +87,36 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 ### Fixed
 
 - A null map value on a passthrough surface renders as the key removed
-  (issue #294), as CODING_STANDARDS states for every map value. The schema
-  rejects such a null; under `--skip-schema-validation` it reached the
+  (issue #294), as CODING_STANDARDS states for every map value. It reached the
   manifest as `key: null`, which the API server does not read as absent: a
   `nodeSelector` or annotation value became `""`, a `resources` quantity `"0"`.
-  A map whose keys are all null renders as the map left out: nothing, or, on a
-  hook or cronjob, the workload's value it inherits (`nodeSelector`,
-  `affinity`, `tolerations`, `hostAliases`, the security contexts, a cronjob's
-  `dnsConfig`) and `defaults.resources`, at any depth: `lifecycle: {preStop:
-  {exec: null}}` renders no lifecycle. A map written `{}` is unchanged. A null job `resources` or `dnsConfig`
-  inherits too, where it used to stop the fallback, and a null
-  `automountServiceAccountToken` on a job inherits the workload's, where it
-  rendered an empty field. An HPA `behavior` left with no policy renders
-  nothing, not `behavior: null`; an ExternalSecret's null `remote.property` is
-  left out, not rendered `""`. A hook of nulls only renders
-  no hook, and a null own annotation or label leaves `global.commonAnnotations`
-  / `commonLabels` and the chart's `checksum/*` pod annotations in place (a
-  null `checksum/config` used to erase it, and a config change no longer
-  rolled the pods). `checksum/mounted-config-files` hashes the values without
-  their nulls. A values file with no null renders the same manifests; one
-  with a null rolls its pods once on upgrade, as the null leaves the pod
-  template. A null in a ConfigMap or Secret data value is unchanged: it fails,
-  and inside a structured data value it is the file's content.
-  `null-sweep.py` escapes a JSON pointer as helm lint prints it
-  (`checksum~1config`), so a `skip-schema-render/` null under a key with a `/`
-  is found.
+  The schema rejects such a null where it declares the field; on an open
+  surface (an `affinity`, a `lifecycle`, a volume source) it accepts it, and
+  the release installed it. A map whose keys are all null renders as the map
+  left out, at any depth: nothing (`lifecycle: {preStop: {exec: null}}`
+  renders no lifecycle), or, on a hook or cronjob, the workload's value it
+  inherits (`nodeSelector`, `affinity`, `tolerations`, `hostAliases`, the
+  security contexts, a cronjob's `dnsConfig`) and `defaults.resources`. A map
+  right under a list item stays, as `{}`: its key names what the item is, so
+  `emptyDir: {medium: null}` is `emptyDir: {}`. A map written `{}` is
+  unchanged. A probe is validated without its nulls too: a handler of nulls
+  only is no handler. A null job `resources` or `dnsConfig` inherits, where it
+  used to stop the fallback, and a null `automountServiceAccountToken` on a
+  job inherits the workload's, where it rendered an empty field. An HPA
+  `behavior` left with no policy renders nothing, not `behavior: null`; an
+  ExternalSecret's null `remote.property` is left out, not rendered `""`. A
+  hook of nulls only renders no hook, and its type no longer joins the
+  `helm.sh/hook` of the hook prerequisite copies. A null own annotation or
+  label leaves `global.commonAnnotations` / `commonLabels` and the chart's
+  `checksum/*` pod annotations in place (a null `checksum/config` used to
+  erase it, and a config change no longer rolled the pods).
+  `checksum/mounted-config-files` hashes the values without their nulls. A
+  values file with no null renders the same manifests; one with a null rolls
+  its pods once on upgrade, as the null leaves the pod template. A null in a
+  ConfigMap or Secret data value is unchanged: it fails, and inside a
+  structured data value it is the file's content. `null-sweep.py` escapes a
+  JSON pointer as helm lint prints it (`checksum~1config`), so a
+  `skip-schema-render/` null under a key with a `/` is found.
 
 ### Migration guide from 4.2.1
 
@@ -129,9 +136,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   chart dropped the empty map. Drop `rollingUpdate`, or set
   `type: RollingUpdate`. Without
   `--skip-schema-validation` the schema already rejected it.
-- A volume with nothing but its `name` now fails the render naming its path;
-  it rendered invalid YAML before, so no release that installs changes. Write
-  `emptyDir: {}` for an empty directory.
+- A volume with no source besides its `name` now fails the render naming its
+  path. With nothing but its name it rendered invalid YAML, so no release that
+  installs changes; with a null source (`configMap: null`) it installed as an
+  empty directory. Write the source, `emptyDir: {}` for an empty directory.
 
 ## [4.2.1] — 2026-10-26
 

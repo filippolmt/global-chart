@@ -2027,3 +2027,19 @@ tests:
           content:
             name: scratch
             emptyDir: {}
+
+  - it: should keep a volume source of nulls only as {}, its kind
+    set:
+      workloads:
+        main:
+          image: nginx:1.25
+          volumes:
+            - name: scratch
+              emptyDir:
+                medium: null
+    asserts:
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: scratch
+            emptyDir: {}

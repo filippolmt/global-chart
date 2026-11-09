@@ -123,12 +123,12 @@ spec:
       {{- /* hashed without its null map values (issue #294): a null hashes as the key removed.
              Not passthroughYaml: an absent or empty value keeps hashing its toYaml
              ("null", "{}"), so no workload rolls on upgrade for nothing. */ -}}
-      {{- $mountedConfigFiles := $deploy.mountedConfigFiles }}
-      {{- if $mountedConfigFiles }}{{ $mountedConfigFiles = deepCopy $mountedConfigFiles }}{{ include "global-chart.dropNullsInPlace" $mountedConfigFiles }}{{ end }}
+      {{- $hashedMountedConfigFiles := $deploy.mountedConfigFiles }}
+      {{- if $hashedMountedConfigFiles }}{{ $hashedMountedConfigFiles = deepCopy $hashedMountedConfigFiles }}{{ include "global-chart.dropNullsInPlace" $hashedMountedConfigFiles }}{{ end }}
       {{- $checksums := dict
             "checksum/config" (toYaml $deploy.configMap | sha256sum)
             "checksum/secret" (toYaml $deploy.secret | sha256sum)
-            "checksum/mounted-config-files" (toYaml $mountedConfigFiles | sha256sum) }}
+            "checksum/mounted-config-files" (toYaml $hashedMountedConfigFiles | sha256sum) }}
       {{- /* checksum/external-secrets (issue #174): the rendered spec of every
              externalSecrets entry the workload references, in list order — so a
              change to target.template, remote.key or the list itself rolls the pods.
@@ -210,13 +210,11 @@ spec:
               protocol: {{ .protocol }}
             {{- end }}
           {{- range $probe := list "livenessProbe" "readinessProbe" "startupProbe" }}
-          {{- /* a null key is unset (issue #288): a probe of nulls is no probe, and no null reaches the manifest */}}
-          {{- $given := dict }}
+          {{- /* a null map value is unset (issues #288, #294): the probe is validated and
+                 rendered without its nulls, so a probe of nulls is no probe and a handler of
+                 nulls is no handler */}}
           {{- $raw := get $deploy $probe }}
-          {{- range $k, $v := (kindIs "map" $raw | ternary $raw dict) }}
-          {{- if eq (include "global-chart.isSet" (list $raw $k)) "true" }}{{ $_ := set $given $k $v }}{{ end }}
-          {{- end }}
-          {{- with $given }}
+          {{- with include "global-chart.passthroughYaml" (kindIs "map" $raw | ternary $raw dict) | fromYaml }}
           {{- include "global-chart.validateProbeHandler" (dict "probe" . "errCtx" (printf "%s.%s" $errCtx $probe)) }}
           {{ $probe }}:
             {{- include "global-chart.passthroughYaml" . | nindent 12 }}
