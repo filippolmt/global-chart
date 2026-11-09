@@ -1,0 +1,33 @@
+# Null map values on passthrough surfaces (issue #294): the schema rejects each,
+# and under --skip-schema-validation each is unset, so the workload renders as
+# with the key removed. Written to the API server, `key: null` is not absent:
+# a nodeSelector or annotation value becomes "", a quantity "0". A null own
+# annotation leaves the common one and the chart's checksum in place: a
+# null checksum/config used to erase it, and a config change no longer rolled
+# the pods.
+global:
+  commonAnnotations:
+    team: platform
+workloads:
+  app:
+    image: nginx:1.25
+    configMap:
+      LOG_LEVEL: info
+    podAnnotations:
+      checksum/config: null
+      team: null
+    nodeSelector:
+      disktype: ssd
+      zone: null
+    tolerations:
+      - key: dedicated
+        operator: Exists
+        value: null
+    resources:
+      requests:
+        cpu: 10m
+        memory: null
+    additionalEnvs:
+      - name: MODE
+        value: prod
+        valueFrom: null

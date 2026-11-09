@@ -1,0 +1,13 @@
+# A cronjob volume with no source, only a scalar beside its name (issue #300):
+# the schema keeps the volume sources open (ADR 0017), and the API server
+# would make it an emptyDir in silence. renderVolume, shared by every pod spec,
+# fails naming the volume.
+# Expected fail substring: "cronJobs.backup.volumes[0]: names no volume source;"
+cronJobs:
+  backup:
+    image: busybox:1.36
+    schedule: "0 2 * * *"
+    command: ["/bin/true"]
+    volumes:
+      - name: data
+        readOnly: true

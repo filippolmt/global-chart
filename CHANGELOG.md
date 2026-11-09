@@ -60,6 +60,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   from the manifest in silence; the schema and the API server reject it. A
   null stays unset. **Migration**: drop `rollingUpdate`, or set
   `type: RollingUpdate`.
+- **Breaking: a volume with no source besides its `name` fails the render**
+  (issue #300), naming `<owner>.volumes[<i>]`, on a workload, a hook or a
+  cronjob: a volume source is a map, so a null source, or a scalar such as
+  `readOnly: true` beside the name, is none. A volume with nothing but its name
+  rendered invalid YAML; one whose only source is null (`configMap: null`)
+  reached the API server, which makes such a volume an `emptyDir` in silence.
+  A source of nulls only is not this case: it stays, as `{}`. **Migration**:
+  a volume whose only source is null now fails; write the source, `emptyDir:
+  {}` for an empty directory. A volume with nothing but its name never
+  installed.
 
 - `make validate-bad-values` checks what a values file renders under
   `--skip-schema-validation`, not only that a `fail` fires (issue #292). A file
@@ -74,6 +84,46 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   null-sweep` compares a null with its removal on a key under a list item as
   well: the example lists of `values.yaml` had kept it from every key under
   `ingress.hosts[]`.
+
+### Fixed
+
+- A null map value on a passthrough surface renders as the key removed
+  (issue #294), as CODING_STANDARDS states for every map value. It reached the
+  manifest as `key: null`, which the API server does not read as absent: a
+  `nodeSelector` or annotation value became `""`, a `resources` quantity `"0"`.
+  The schema rejects such a null where it declares the field; on an open
+  surface (an `affinity`, a `lifecycle`, a volume source) it accepts it, and
+  the release installed it. A values file with no null renders the same
+  manifests; one with a null rolls its pods once on upgrade, as the null
+  leaves the pod template. A ConfigMap or Secret data value is outside the
+  rule: a null there still fails, and inside a structured data value it is
+  the file's content.
+- A surface whose keys are all null renders as the surface left out (issue
+  #294). On a hook or cronjob it inherits the workload's value, as an absent
+  one does: `nodeSelector`, `affinity`, `podSecurityContext`,
+  `securityContext`, a cronjob's `dnsConfig`, and `defaults.resources` for
+  `resources`; it used to stop the fallback. A map nested in a surface that
+  its nulls empty stays, as `{}`, as the API server made of it before: in
+  Kubernetes `{}` is not absent (`labelSelector: {}` selects every pod).
+- A null job `resources` or `dnsConfig` inherits, where it stopped the
+  fallback; a null `automountServiceAccountToken` on a job inherits the
+  workload's, where it rendered an empty field (issue #294).
+- A null own annotation or label leaves `global.commonAnnotations` /
+  `commonLabels` and the chart's `checksum/*` pod annotations in place (issue
+  #294): a null `checksum/config` erased the checksum, and a config change no
+  longer rolled the pods. `checksum/mounted-config-files` hashes the values
+  without their nulls.
+- A hook of nulls only renders no hook, and its type no longer joins the
+  `helm.sh/hook` of the hook prerequisite copies; a workload whose hooks are
+  all of nulls renders no copies (issue #294).
+- An HPA `behavior` whose `scaleUp` and `scaleDown` are both left out or of
+  nulls only renders no `behavior`, which the controller reads with the same
+  defaults; an ExternalSecret's null `remote.property` is left out, not
+  rendered `""` (issue #294).
+- `null-sweep.py` escapes a JSON pointer as helm lint prints it
+  (`checksum~1config`), so a `skip-schema-render/` null under a key with a `/`
+  is found; its removal reference leaves a map of nulls out on a surface a job
+  inherits, as the templates do.
 
 ### Migration guide from 4.2.1
 
@@ -93,6 +143,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   chart dropped the empty map. Drop `rollingUpdate`, or set
   `type: RollingUpdate`. Without
   `--skip-schema-validation` the schema already rejected it.
+- A volume with no source besides its `name` now fails the render naming its
+  path. With nothing but its name it rendered invalid YAML, so no release that
+  installs changes; with a null source (`configMap: null`) it installed as an
+  empty directory. Write the source, `emptyDir: {}` for an empty directory.
 
 ## [4.2.1] — 2026-10-26
 

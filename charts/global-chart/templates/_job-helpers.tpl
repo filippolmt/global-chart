@@ -17,7 +17,10 @@ the lines to the code of jobPodSpec: a change to what it inherits edits them.
   cronjobs only: dnsConfig
   never: command args mountedConfigFiles volumes volumeMounts resources extraInitContainers
 An explicit value overrides; an empty `{}`, `[]` or `""` (priorityClassName)
-stops the inheritance. Four exceptions to that shape:
+stops the inheritance. A null is unset and inherits, and so does a map whose
+keys are all null (nodeSelector, affinity, the security contexts, dnsConfig;
+isSetPassthrough, issue #294); resources, never inherited, falls back the same
+way to defaults.resources. Four exceptions to that shape:
 - envFromConfigMaps / envFromSecrets are additive: the job's own (`[]`
   included) come after the workload's and never replace them. The opt-outs
   are toggles, default true: inheritWorkloadConfigMap /
@@ -131,21 +134,21 @@ docs/adr/0014-job-pod-automount-follows-the-inheritance-chain.md).
 {{ . }}
 {{- end }}
 {{- /* HostAliases: explicit > inherited from workload */ -}}
-{{- $hostAliases := ternary $job.hostAliases $deploy.hostAliases (eq (include "global-chart.isSet" (list $job "hostAliases")) "true") -}}
-{{- with $hostAliases }}
+{{- $hostAliases := ternary $job.hostAliases $deploy.hostAliases (eq (include "global-chart.isSetPassthrough" (list $job "hostAliases")) "true") -}}
+{{- with include "global-chart.passthroughYaml" $hostAliases }}
 hostAliases:
-  {{- toYaml . | nindent 2 }}
+  {{- . | nindent 2 }}
 {{- end }}
 {{- /* PodSecurityContext: explicit > inherited from workload */ -}}
-{{- $podSecCtx := ternary $job.podSecurityContext $deploy.podSecurityContext (eq (include "global-chart.isSet" (list $job "podSecurityContext")) "true") -}}
-{{- with $podSecCtx }}
+{{- $podSecCtx := ternary $job.podSecurityContext $deploy.podSecurityContext (eq (include "global-chart.isSetPassthrough" (list $job "podSecurityContext")) "true") -}}
+{{- with include "global-chart.passthroughYaml" $podSecCtx }}
 securityContext:
-  {{- toYaml . | nindent 2 }}
+  {{- . | nindent 2 }}
 {{- end }}
 {{- /* DnsConfig: cronjobs fall back to deploy.dnsConfig, hooks are job-only */ -}}
 {{- $dnsConfig := dict -}}
 {{- if $isCronJob -}}
-  {{- if hasKey $job "dnsConfig" -}}
+  {{- if eq (include "global-chart.isSetPassthrough" (list $job "dnsConfig")) "true" -}}
     {{- $dnsConfig = default (dict) $job.dnsConfig -}}
   {{- else -}}
     {{- $dnsConfig = default (dict) $deploy.dnsConfig -}}
@@ -157,9 +160,9 @@ securityContext:
 {{ . }}
 {{- end }}
 {{- /* InitContainers: the job's own, never the workload's extraInitContainers. validatePodFailurePolicy lists the pod's containers too: a container added here joins it there */ -}}
-{{- if $job.initContainers }}
+{{- with include "global-chart.passthroughYaml" $job.initContainers }}
 initContainers:
-  {{- toYaml $job.initContainers | nindent 2 }}
+  {{- . | nindent 2 }}
 {{- end }}
 containers:
 - name: {{ $containerName | quote }}
@@ -177,10 +180,10 @@ containers:
     {{- toYaml $job.args | nindent 4 }}
   {{- end }}
   {{- /* Container securityContext: explicit > inherited from workload */ -}}
-  {{- $secCtx := ternary $job.securityContext $deploy.securityContext (eq (include "global-chart.isSet" (list $job "securityContext")) "true") -}}
-  {{- with $secCtx }}
+  {{- $secCtx := ternary $job.securityContext $deploy.securityContext (eq (include "global-chart.isSetPassthrough" (list $job "securityContext")) "true") -}}
+  {{- with include "global-chart.passthroughYaml" $secCtx }}
   securityContext:
-    {{- toYaml . | nindent 4 }}
+    {{- . | nindent 4 }}
   {{- end }}
   {{- /* EnvFrom, by proximity: workload's configMap/secret, workload's envFromConfigMaps/envFromSecrets and inherited externalSecrets, then the job's own */ -}}
   {{- /* Opt-out flags, default true, set false to break inheritance:
@@ -266,16 +269,16 @@ containers:
   {{- if $job.env -}}
     {{- $envVars = concat $envVars $job.env -}}
   {{- end -}}
-  {{- if $envVars }}
+  {{- with include "global-chart.passthroughYaml" $envVars }}
   env:
-    {{- toYaml $envVars | nindent 4 }}
+    {{- . | nindent 4 }}
   {{- end }}
-  {{- with (include "global-chart.renderResources" (dict "resources" $job.resources "hasResources" (hasKey $job "resources") "defaults" $root.Values.defaults)) }}
+  {{- with (include "global-chart.renderResources" (dict "resources" $job.resources "hasResources" (eq (include "global-chart.isSetPassthrough" (list $job "resources")) "true") "defaults" $root.Values.defaults)) }}
   {{- . | nindent 2 }}
   {{- end }}
-  {{- with (include "global-chart.containerVolumeMounts" (dict "errCtx" $errCtx "volumeMounts" $job.volumeMounts "inherited" $esInherited.mounted "inheritedCtx" $inheritedCtx "externalSecrets" $esOwn.mounted) | fromJsonArray) }}
+  {{- with include "global-chart.passthroughYaml" (include "global-chart.containerVolumeMounts" (dict "errCtx" $errCtx "volumeMounts" $job.volumeMounts "inherited" $esInherited.mounted "inheritedCtx" $inheritedCtx "externalSecrets" $esOwn.mounted) | fromJsonArray) }}
   volumeMounts:
-    {{- toYaml . | nindent 4 }}
+    {{- . | nindent 4 }}
   {{- end }}
 {{- if or $job.volumes $esMounted }}
 volumes:
@@ -290,28 +293,28 @@ volumes:
 serviceAccountName: {{ . | quote }}
 {{- end }}
 {{- /* Pod-level token automount: explicit > inherited from workload > omit (ADR 0014) */ -}}
-{{- if hasKey $job "automountServiceAccountToken" }}
+{{- if eq (include "global-chart.isSet" (list $job "automountServiceAccountToken")) "true" }}
 automountServiceAccountToken: {{ $job.automountServiceAccountToken }}
-{{- else if hasKey $deploy "automountServiceAccountToken" }}
+{{- else if eq (include "global-chart.isSet" (list $deploy "automountServiceAccountToken")) "true" }}
 automountServiceAccountToken: {{ $deploy.automountServiceAccountToken }}
 {{- end }}
 {{- /* NodeSelector: explicit > inherited from workload */ -}}
-{{- $nodeSelector := ternary $job.nodeSelector $deploy.nodeSelector (eq (include "global-chart.isSet" (list $job "nodeSelector")) "true") -}}
-{{- with $nodeSelector }}
+{{- $nodeSelector := ternary $job.nodeSelector $deploy.nodeSelector (eq (include "global-chart.isSetPassthrough" (list $job "nodeSelector")) "true") -}}
+{{- with include "global-chart.passthroughYaml" $nodeSelector }}
 nodeSelector:
-  {{- toYaml . | nindent 2 }}
+  {{- . | nindent 2 }}
 {{- end }}
 {{- /* Affinity: explicit > inherited from workload */ -}}
-{{- $affinity := ternary $job.affinity $deploy.affinity (eq (include "global-chart.isSet" (list $job "affinity")) "true") -}}
-{{- with $affinity }}
+{{- $affinity := ternary $job.affinity $deploy.affinity (eq (include "global-chart.isSetPassthrough" (list $job "affinity")) "true") -}}
+{{- with include "global-chart.passthroughYaml" $affinity }}
 affinity:
-  {{- toYaml . | nindent 2 }}
+  {{- . | nindent 2 }}
 {{- end }}
 {{- /* Tolerations: explicit > inherited from workload */ -}}
-{{- $tolerations := ternary $job.tolerations $deploy.tolerations (eq (include "global-chart.isSet" (list $job "tolerations")) "true") -}}
-{{- with $tolerations }}
+{{- $tolerations := ternary $job.tolerations $deploy.tolerations (eq (include "global-chart.isSetPassthrough" (list $job "tolerations")) "true") -}}
+{{- with include "global-chart.passthroughYaml" $tolerations }}
 tolerations:
-  {{- toYaml . | nindent 2 }}
+  {{- . | nindent 2 }}
 {{- end }}
 {{- /* PriorityClassName: explicit > inherited from workload; "" stops it */ -}}
 {{- $priorityClassName := ternary $job.priorityClassName $deploy.priorityClassName (eq (include "global-chart.isSet" (list $job "priorityClassName")) "true") -}}
@@ -454,8 +457,9 @@ job's own.
   rule for numbers from values: a number read from a values file is a
   float64, and the default format prints it as 1e+07 from a million up, which
   the API server rejects.
-- podFailurePolicy (issue #282): a map, rendered with toYaml under `with`, so
-  a null is unset like any null map. The API server accepts it only beside
+- podFailurePolicy (issue #282): a map, rendered with passthroughYaml under
+  `with`, so a null is unset like any null map value, and a map of nulls only
+  is no podFailurePolicy. The API server accepts it only beside
   restartPolicy Never, so OnFailure fails here naming the path; restartPolicy
   is never inherited, so the job's own value is the whole check. The two
   onExitCodes rules the schema cannot express fail here too (issue #285):
@@ -489,12 +493,12 @@ Usage: {{- with (include "global-chart.jobSpecVerbatimFields" (dict "job" $job "
 {{- $lines := list -}}
 {{- range (required (printf "jobSpecVerbatimFields: unknown kind %q" (toString .kind)) (get $fields (toString .kind))) -}}
   {{- if eq . "podFailurePolicy" -}}
-    {{- with $job.podFailurePolicy -}}
+    {{- with include "global-chart.passthroughYaml" $job.podFailurePolicy -}}
       {{- if eq (toString $job.restartPolicy) "OnFailure" -}}
         {{- fail (printf "%s.podFailurePolicy: requires restartPolicy Never, not OnFailure" $errCtx) -}}
       {{- end -}}
       {{- include "global-chart.validatePodFailurePolicy" (dict "job" $job "containerName" (required "jobSpecVerbatimFields: containerName is required for a cronjob" $.containerName) "errCtx" $errCtx) -}}
-      {{- $lines = append $lines (printf "podFailurePolicy:\n%s" (toYaml . | indent 2)) -}}
+      {{- $lines = append $lines (printf "podFailurePolicy:\n%s" (. | indent 2)) -}}
     {{- end -}}
   {{- else if hasKey $job . -}}
     {{- $lines = append $lines (printf "%s: %s" . (include "global-chart.printScalar" (dict "value" (index $job .) "errCtx" (printf "%s.%s" $errCtx .)))) -}}

@@ -45,9 +45,10 @@ automountServiceAccountToken: {{ $sa.automount }}
 
 {{/* ====== PART 1: Root-level hooks ====== */}}
 {{- if .Values.hooks }}
-{{- range $hookType, $jobs := .Values.hooks }}
-{{- range $name, $command := $jobs }}
-{{- if $command }}
+{{- range (include "global-chart.hookEntries" .Values.hooks | fromJsonArray) }}
+{{- $hookType := .hookType }}
+{{- $name := .name }}
+{{- $command := index $.Values.hooks $hookType $name }}
 {{- $hookFullname := include "global-chart.hookfullname" (merge (dict "hookname" $hookType "jobname" $name) $root) }}
 {{- $errCtx := include "global-chart.jobValuesPath" (dict "kind" "hook" "hookType" $hookType "jobName" $name) }}
 {{- /* A null weight would count as 0 (int nil), not the default 10 */ -}}
@@ -106,20 +107,21 @@ spec:
       {{- include "global-chart.jobPodSpec" $ctx | trimPrefix "\n" | nindent 6 }}
 {{- end }}
 {{- end }}
-{{- end }}
-{{- end }}
 
 {{/* ====== PART 2: workload-scope hooks (inherit from the workload) ====== */}}
 {{- range $deployName, $deploy := .Values.workloads }}
 {{- if $deploy }}
-{{- if and (eq (include "global-chart.deploymentEnabled" $deploy) "true") $deploy.hooks }}
+{{- $hookEntries := include "global-chart.hookEntries" $deploy.hooks | fromJsonArray }}
+{{- if and (eq (include "global-chart.deploymentEnabled" $deploy) "true") $hookEntries }}
 
 {{- /* Compute the workload's values ONCE per workload (before hookType/command loops) */ -}}
 {{- $deployFullname := include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $deployName) -}}
 {{- $hasDeployConfigMap := and $deploy.configMap (gt (len $deploy.configMap) 0) -}}
 {{- $hasDeploySecret := and $deploy.secret (gt (len $deploy.secret) 0) -}}
-{{- /* Aggregate ALL hook types for prerequisite resources (sorted for deterministic output) */ -}}
-{{- $allHookTypes := keys $deploy.hooks | sortAlpha | join "," -}}
+{{- /* Aggregate the types of the hooks that render, for the prerequisite resources (sorted for deterministic output): a type of nulls only has no hook (issue #294) */ -}}
+{{- $hookTypes := list -}}
+{{- range $hookEntries }}{{ $hookTypes = append $hookTypes .hookType }}{{ end -}}
+{{- $allHookTypes := $hookTypes | uniq | sortAlpha | join "," -}}
 
 {{- /* Minimum effective Job weight across all hooks of this deployment: the
        prereq copies must sort ahead of the earliest Job */ -}}
@@ -170,20 +172,20 @@ data:
 {{- /* Each hook's name, values path and ServiceAccount, resolved once, before
        the render loop below reads them */ -}}
 {{- $hooks := dict -}}
-{{- range $hookType, $jobs := $deploy.hooks -}}
-{{- range $name, $command := $jobs -}}
-{{- if $command -}}
+{{- range $hookEntries -}}
+{{- $hookType := .hookType -}}
+{{- $name := .name -}}
+{{- $command := index $deploy.hooks $hookType $name -}}
 {{- $fn := include "global-chart.deploymentHookName" (dict "root" $root "deploymentName" $deployName "hookType" $hookType "jobName" $name) -}}
 {{- $errCtx := include "global-chart.jobValuesPath" (dict "kind" "hook" "deploymentName" $deployName "hookType" $hookType "jobName" $name) -}}
 {{- $_ := set $hooks (printf "%s/%s" $hookType $name) (dict "fullname" $fn "errCtx" $errCtx "sa" (include "global-chart.jobServiceAccount" (dict "root" $root "job" $command "deploy" $deploy "deployName" $deployName "jobFullname" $fn "errCtx" $errCtx) | fromJson)) -}}
 {{- end -}}
-{{- end -}}
-{{- end -}}
 
 {{- /* Per hook type and command: SA + Job */ -}}
-{{- range $hookType, $jobs := $deploy.hooks }}
-{{- range $name, $command := $jobs }}
-{{- if $command }}
+{{- range $hookEntries }}
+{{- $hookType := .hookType }}
+{{- $name := .name }}
+{{- $command := index $deploy.hooks $hookType $name }}
 
 {{- /* Hook fullname, values path and ServiceAccount, all resolved once above */ -}}
 {{- $hook := index $hooks (printf "%s/%s" $hookType $name) }}
@@ -248,8 +250,6 @@ spec:
       {{- $ctx := dict "root" $root "job" $command "deploy" $deploy "saName" $saName "containerName" $name "configMapRef" $configMapRef "secretRef" $secretRef "kind" "hook" "hookType" $hookType "deployName" $deployName "errCtx" $errCtx }}
       {{- include "global-chart.jobPodSpec" $ctx | trimPrefix "\n" | nindent 6 }}
 {{ end }}
-{{- end }}
-{{- end }}
 {{- end }}
 {{- end }}
 {{- end }}

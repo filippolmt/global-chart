@@ -65,7 +65,8 @@ Usage: {{ include "global-chart.requireKedaCrd" (dict "root" . "errCtx" "workloa
 {{/*
 Build the ScaledObject trigger list with every authenticationRef resolved.
 Returns the triggers as YAML, ready to nindent under `triggers:`. A null
-trigger, or a null authenticationRef name, fails naming its path (issue #198).
+trigger, or a null authenticationRef name, fails naming its path (issue #198);
+a null map value inside a trigger is unset and left out (issue #294).
 Usage: {{ include "global-chart.kedaTriggers" (dict "root" . "triggers" $keda.triggers "errCtx" "workloads.api.keda.triggers") }}
 */}}
 {{- define "global-chart.kedaTriggers" -}}
@@ -85,5 +86,6 @@ Usage: {{ include "global-chart.kedaTriggers" (dict "root" . "triggers" $keda.tr
   {{- end -}}
   {{- $resolved = append $resolved $copy -}}
 {{- end -}}
+{{- include "global-chart.dropNullsInPlace" $resolved -}}
 {{- toYaml $resolved -}}
 {{- end -}}

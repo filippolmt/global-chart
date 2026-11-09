@@ -1,0 +1,21 @@
+# A workload hook type set to null beside a real one (issue #294): the schema
+# rejects the null, and under --skip-schema-validation it is the key left out,
+# so the hook prerequisite copies carry helm.sh/hook: pre-upgrade only. The
+# null type used to join it, and a workload whose hook types were all null
+# still rendered the copies.
+workloads:
+  api:
+    image: nginx:1.25
+    configMap:
+      LOG_LEVEL: info
+    hooks:
+      pre-install: null
+      pre-upgrade:
+        migrate:
+          command: ["/bin/migrate"]
+  worker:
+    image: nginx:1.25
+    configMap:
+      LOG_LEVEL: info
+    hooks:
+      post-install: null

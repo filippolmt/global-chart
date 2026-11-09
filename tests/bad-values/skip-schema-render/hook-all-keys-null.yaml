@@ -1,0 +1,7 @@
+# A hook whose keys are all null (issue #294): the schema rejects the null, and
+# under --skip-schema-validation the hook renders as the map left out: no Job,
+# no ServiceAccount, the same as `seed: {}`.
+hooks:
+  post-install:
+    seed:
+      command: null

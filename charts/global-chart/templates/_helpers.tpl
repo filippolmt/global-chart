@@ -55,12 +55,14 @@ matching its own workload's selector.
 Like renderAnnotations, this exists so the sources are never concatenated: two
 blocks that name the same label put the key in the manifest twice, which Helm
 accepts and `kubeconform -strict` rejects. `mergeOverwrite`, not `merge`, for the
-empty-string reason given there.
+empty-string reason given there. Each map is merged without its null values
+(passthroughYaml, issue #294): a null own label is unset and leaves the common
+one in place, as the key removed.
 */}}
 {{- define "global-chart.mergeLabels" -}}
-{{- $common := default (dict) (default (dict) .root.Values.global).commonLabels -}}
-{{- $merged := mergeOverwrite (deepCopy $common) (fromYaml .owned) -}}
-{{- toYaml (mergeOverwrite $merged (default (dict) .own)) -}}
+{{- $common := (include "global-chart.passthroughYaml" (default (dict) .root.Values.global).commonLabels | fromYaml) -}}
+{{- $merged := mergeOverwrite $common (fromYaml .owned) -}}
+{{- toYaml (mergeOverwrite $merged (include "global-chart.passthroughYaml" .own | fromYaml)) -}}
 {{- end }}
 
 {{/*
@@ -124,6 +126,7 @@ workload's selector, which the API server rejects (issue #244). The rest of "own
 keeps winning over the chart's labels, as mergeLabels states.
 */}}
 {{- define "global-chart.deploymentLabels" -}}
+{{- /* own keeps its nulls here: mergeLabels drops them, and the selector labels win either way */ -}}
 {{- $own := mergeOverwrite (deepCopy (default (dict) .own)) (include "global-chart.deploymentSelectorLabels" . | fromYaml) -}}
 {{- include "global-chart.mergeLabels" (dict "root" .root "own" $own "owned" (include "global-chart.deploymentOwnedLabels" .)) -}}
 {{- end }}

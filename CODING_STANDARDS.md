@@ -229,14 +229,23 @@ every render (issue #235).
   job's inherited fields, the enums with a default), a map entry
   (`httpRoutes.x`, like `workloads.x`) renders nothing, and a map whose keys
   are all null renders, and is validated, as the map left out
-  (`{httpGet: null}` is no probe, issue #288; the passthrough maps that do
-  not yet hold to this rule are issue #294). "Set" has one home, `isSet`;
+  (`{httpGet: null}` is no probe, issue #288). A passthrough surface goes to
+  the manifest through `passthroughYaml`, never a bare `toYaml`: `key: null`
+  is not absent to the API server, which writes `""` or `"0"` (issue #294).
+  The surface itself, all of its keys null, is the surface left out; an
+  inherited one is tested with `isSetPassthrough`, so it inherits, and a
+  surface written `{}` stays a value and stops the fallback. A map nested in a
+  surface that its nulls empty stays, as `{}`: in Kubernetes `{}` is not
+  absent (`labelSelector: {}` selects every pod, an absent one none), and `{}`
+  is what the API server made of it before. A value is validated as it
+  renders: the probe's handler check reads the probe without its nulls.
+  "Set" has one home, `isSet`;
   `hasKey` alone hands the null on. Numbers are the exception: a null number
   the chart renders through `printScalar` fails naming its key (issue #191),
   even as the only key of its map: beside `type: RollingUpdate`,
   `rollingUpdate: {partition: null}` fails naming `partition` rather than
-  counting as `rollingUpdate` left out. A number in a map rendered with
-  `toYaml` (a probe's timings, issue #288) is a map value like any other;
+  counting as `rollingUpdate` left out. A number in a map rendered whole
+  (a probe's timings, issue #288) is a map value like any other;
 - a null **list item** fails, anywhere, passthrough lists included:
   `rejectNullInLists`, run over all of `.Values` by `validateNullItems`;
 - a null in a **required field** of an item the chart reads fails:

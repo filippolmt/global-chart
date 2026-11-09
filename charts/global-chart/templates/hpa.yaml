@@ -47,15 +47,19 @@ spec:
           type: Utilization
           averageUtilization: {{ include "global-chart.printScalar" $target }}
     {{- end }}
-  {{- with $hpa.behavior }}
+  {{- /* behavior renders only with scaleUp or scaleDown left in it: an empty one would be behavior: null */}}
+  {{- $behavior := default (dict) $hpa.behavior }}
+  {{- $scaleUp := include "global-chart.passthroughYaml" $behavior.scaleUp }}
+  {{- $scaleDown := include "global-chart.passthroughYaml" $behavior.scaleDown }}
+  {{- if or $scaleUp $scaleDown }}
   behavior:
-    {{- with .scaleUp }}
+    {{- with $scaleUp }}
     scaleUp:
-      {{- toYaml . | nindent 6 }}
+      {{- . | nindent 6 }}
     {{- end }}
-    {{- with .scaleDown }}
+    {{- with $scaleDown }}
     scaleDown:
-      {{- toYaml . | nindent 6 }}
+      {{- . | nindent 6 }}
     {{- end }}
   {{- end }}
 {{- end }}

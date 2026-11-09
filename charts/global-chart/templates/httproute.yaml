@@ -3,7 +3,8 @@
        by this one body, so the two forms cannot drift.
 
        parentRefs and matches are verbatim Gateway API structures rendered
-       straight through toYaml, so the chart never re-implements — and drifts
+       straight through passthroughYaml (toYaml without the null map values,
+       issue #294), so the chart never re-implements — and drifts
        from — the upstream schema. Field-level validation lives in
        values.schema.json; field defaults (e.g. path type/value) are owned by
        the Gateway API CRD, not duplicated here. Only backendRefs is rendered
@@ -43,7 +44,7 @@ metadata:
   {{- end }}
 spec:
   parentRefs:
-    {{- toYaml $rt.parentRefs | nindent 4 }}
+    {{- include "global-chart.toYamlWithoutNulls" $rt.parentRefs | nindent 4 }}
   {{- with $rt.hostnames }}
   hostnames:
     {{- range . }}
@@ -63,13 +64,13 @@ spec:
       {{- if eq (default (dict) .).type "RequestRedirect" }}{{- $redirects = true }}{{- end }}
     {{- end }}
     -
-      {{- with $rule.matches }}
+      {{- with include "global-chart.passthroughYaml" $rule.matches }}
       matches:
-        {{- toYaml . | nindent 8 }}
+        {{- . | nindent 8 }}
       {{- end }}
-      {{- with $rule.filters }}
+      {{- with include "global-chart.passthroughYaml" $rule.filters }}
       filters:
-        {{- toYaml . | nindent 8 }}
+        {{- . | nindent 8 }}
       {{- end }}
       {{- if and $redirects $rule.backendRefs }}
         {{- fail (printf "%s.backendRefs: set on a rule with a RequestRedirect filter, which the API server rejects: a redirect answers the request itself. Drop backendRefs from the rule." $ruleCtx) }}
@@ -87,15 +88,15 @@ spec:
           {{- if hasKey $br "weight" }}
           weight: {{ include "global-chart.printScalar" (dict "value" $br.weight "errCtx" (printf "%s.weight" $brCtx)) }}
           {{- end }}
-          {{- with $br.filters }}
+          {{- with include "global-chart.passthroughYaml" $br.filters }}
           filters:
-            {{- toYaml . | nindent 12 }}
+            {{- . | nindent 12 }}
           {{- end }}
         {{- end }}
       {{- end }}
-      {{- with $rule.timeouts }}
+      {{- with include "global-chart.passthroughYaml" $rule.timeouts }}
       timeouts:
-        {{- toYaml . | nindent 8 }}
+        {{- . | nindent 8 }}
       {{- end }}
     {{- end }}
 {{- end }}

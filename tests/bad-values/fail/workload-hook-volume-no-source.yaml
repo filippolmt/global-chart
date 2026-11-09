@@ -1,0 +1,13 @@
+# A workload hook volume with nothing but its name (issue #300): renderVolume,
+# shared by every pod spec, fails naming the volume rather than letting the
+# API server make it an emptyDir.
+# Expected fail substring: "workloads.app.hooks.pre-install.migrate.volumes[0]: names no volume source;"
+workloads:
+  app:
+    image: nginx:1.25
+    hooks:
+      pre-install:
+        migrate:
+          command: ["/bin/migrate"]
+          volumes:
+            - name: data

@@ -279,3 +279,42 @@ tests:
             apiVersion: apps/v1
             kind: StatefulSet
             name: rel-global-chart-db
+
+  # ====== behavior: a null map value is unset (issue #294) ======
+  - it: should render behavior without its null map values
+    set:
+      workloads:
+        main:
+          image: nginx:1.25
+          autoscaling:
+            enabled: true
+            minReplicas: 1
+            maxReplicas: 5
+            targetCPUUtilizationPercentage: 80
+            behavior:
+              scaleDown:
+                stabilizationWindowSeconds: 300
+                selectPolicy: null
+    asserts:
+      - equal:
+          path: spec.behavior
+          value:
+            scaleDown:
+              stabilizationWindowSeconds: 300
+
+  - it: should render no behavior when no policy is left in it
+    set:
+      workloads:
+        main:
+          image: nginx:1.25
+          autoscaling:
+            enabled: true
+            minReplicas: 1
+            maxReplicas: 5
+            targetCPUUtilizationPercentage: 80
+            behavior:
+              scaleUp:
+                policies: null
+    asserts:
+      - notExists:
+          path: spec.behavior

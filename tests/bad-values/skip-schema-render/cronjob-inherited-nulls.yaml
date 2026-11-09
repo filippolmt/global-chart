@@ -1,0 +1,24 @@
+# A cronjob's inherited fields set to null, or to a map of nulls only (issue
+# #294): the schema rejects each, and under --skip-schema-validation each is
+# unset, as the key left out, so the cronjob inherits the workload's value and
+# defaults.resources. They used to stop the fallback, and a null
+# automountServiceAccountToken rendered an empty field.
+workloads:
+  app:
+    image: nginx:1.25
+    nodeSelector:
+      disktype: ssd
+    automountServiceAccountToken: false
+    dnsConfig:
+      nameservers:
+        - 1.1.1.1
+    cronJobs:
+      nightly:
+        schedule: "0 3 * * *"
+        command: ["/bin/run"]
+        nodeSelector:
+          zone: null
+        resources:
+          limits: null
+        dnsConfig: null
+        automountServiceAccountToken: null

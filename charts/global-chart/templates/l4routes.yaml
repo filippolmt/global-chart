@@ -12,8 +12,8 @@
        requireCrd at v1, the only version rendered: a cluster on an older
        release, or with the HTTPRoute CRD alone, fails here.
 
-       parentRefs is a verbatim Gateway API structure, rendered through toYaml
-       as in httproute.yaml. backendRefs is rendered field by field, since
+       parentRefs is a verbatim Gateway API structure, rendered through
+       passthroughYaml as in httproute.yaml. backendRefs is rendered field by field, since
        that is where the chart transforms input (workload + portName ->
        Service name and port, via resolveBackend).
 
@@ -49,7 +49,7 @@ metadata:
   {{- end }}
 spec:
   parentRefs:
-    {{- toYaml $route.parentRefs | nindent 4 }}
+    {{- include "global-chart.toYamlWithoutNulls" $route.parentRefs | nindent 4 }}
   rules:
     {{- range $ruleIdx, $rule := $route.rules }}
     {{- $rule = default (dict) $rule }}

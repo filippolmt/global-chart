@@ -194,7 +194,7 @@ Go error naming a template line, and a map given as a list can render in
 silence (`envFromConfigMaps: {x: 3}` became a configMapRef named "3").
 valuesShape below is the single home of which nodes are read and as what. A
 node is in it if and only if its wrong type ends on a raw error or a silent
-wrong render: a passthrough node the chart hands to toYaml unread
+wrong render: a passthrough node the chart hands to passthroughYaml unread
 (tolerations, resources, a container list) stays out, as its wrong type
 renders and the API server rejects it. Each node reads exactly the types the
 schema accepts there, null aside, or a valid value fails (an imagePullSecrets
@@ -551,17 +551,15 @@ Called from validate.yaml.
         {{- include "global-chart.registerName" (dict "names" $secretNames "kind" "Secret" "name" $hookSecretName "owner" (printf "%s.secret (hook prerequisite copy)" (include "global-chart.deploymentValuesPath" $name))) -}}
       {{- end -}}
 
-      {{- range $hookType, $jobs := $deploy.hooks -}}
-        {{- range $jobName, $command := $jobs -}}
-          {{- if $command -}}
+      {{- range (include "global-chart.hookEntries" $deploy.hooks | fromJsonArray) -}}
+            {{- $hookType := .hookType -}}{{- $jobName := .name -}}
+            {{- $command := index $deploy.hooks $hookType $jobName -}}
             {{- /* Canonical 4-part single-trunc name via shared helper — keeps validator byte-identical to hook.yaml (prior depFullname-based double-trunc only diverged for K8s-invalid trailing-dash names) */ -}}
             {{- $hookFullname := include "global-chart.deploymentHookName" (dict "root" $root "deploymentName" $name "hookType" $hookType "jobName" $jobName) -}}
             {{- $errCtx := include "global-chart.jobValuesPath" (dict "kind" "hook" "deploymentName" $name "hookType" $hookType "jobName" $jobName) -}}
             {{- include "global-chart.registerName" (dict "names" $hookNames "kind" "Job" "name" $hookFullname "owner" $errCtx) -}}
             {{- $hookSA := include "global-chart.jobServiceAccount" (dict "root" $root "job" $command "deploy" $deploy "deployName" $name "jobFullname" $hookFullname "errCtx" $errCtx) | fromJson -}}
             {{- include "global-chart.registerSAName" (dict "names" $saNames "sa" $hookSA "owner" $errCtx) -}}
-          {{- end -}}
-        {{- end -}}
       {{- end -}}
     {{- end -}}
 
@@ -604,16 +602,14 @@ Called from validate.yaml.
 {{- end -}}
 
 {{- /* 3. Root-level Hook names (trunc 63) */ -}}
-{{- range $hookType, $jobs := .Values.hooks -}}
-  {{- range $name, $command := $jobs -}}
-    {{- if $command -}}
+{{- range (include "global-chart.hookEntries" .Values.hooks | fromJsonArray) -}}
+      {{- $hookType := .hookType -}}{{- $name := .name -}}
+      {{- $command := index $.Values.hooks $hookType $name -}}
       {{- $hookFullname := include "global-chart.hookfullname" (merge (dict "hookname" $hookType "jobname" $name) $root) -}}
       {{- $errCtx := include "global-chart.jobValuesPath" (dict "kind" "hook" "hookType" $hookType "jobName" $name) -}}
       {{- include "global-chart.registerName" (dict "names" $hookNames "kind" "Job" "name" $hookFullname "owner" $errCtx) -}}
       {{- $sa := include "global-chart.jobServiceAccount" (dict "root" $root "job" $command "jobFullname" $hookFullname "errCtx" $errCtx) | fromJson -}}
       {{- include "global-chart.registerSAName" (dict "names" $saNames "sa" $sa "owner" $errCtx) -}}
-    {{- end -}}
-  {{- end -}}
 {{- end -}}
 
 {{- /* 4. ExternalSecrets and their hook-prerequisite copies (ADR 0007). The copy
@@ -1075,7 +1071,7 @@ endPort needs a numeric port, and may not be below it. The schema cannot
 compare two fields, so it accepts both, and the API server refused them only
 at apply. Ingress and egress rules alike; the rest of a rule renders verbatim.
 A rule or a port that is not a map is skipped: the schema rejects it, and
-toYaml renders it as written. A string port is a name to the API server, a
+passthroughYaml renders it as written. A string port is a name to the API server, a
 quoted number too; a string endPort is left to the API server, which refuses
 it as a type.
 Called from networkpolicy.yaml. Emits nothing on success.
@@ -1111,12 +1107,14 @@ httpGet, tcpSocket or grpc — as the API server requires (issue #288). The
 schema closes the probe (ADR 0017) but leaves this rule between fields to the
 templates (CODING_STANDARDS.md, *A rule the API server enforces is checked
 against the API server*). A handler counts when isSet: a null one is unset, as
-for the API server. The caller drops a probe's null keys, timings included
-(a null number is unset here, not a printScalar fail: the probe renders
-through toYaml, and a null key reached the manifest as unset before), and
-skips a probe left empty: {} and {httpGet: null} are no probe, as with the
-key removed. A
-probe inside extraContainers stays open and with the API server (ADR 0017).
+for the API server. The caller validates the probe as it renders it, through
+passthroughYaml: without its null map values at any depth, timings included
+(a null number is unset here, not a printScalar fail: the probe is rendered
+whole, not printed field by field), and skips a probe left empty: {}, a probe
+of nulls only and {httpGet: null} are no probe, as with the key removed. A
+handler whose own keys are all null stays, as {} (dropNullsInPlace), and
+counts: the API server then names its missing field. A probe inside
+extraContainers stays open and with the API server (ADR 0017).
 The handler list mirrors the handler properties of $defs/probe: a handler
 the schema adds joins it.
 Called from workload.yaml where the probe renders. Emits nothing on success.
