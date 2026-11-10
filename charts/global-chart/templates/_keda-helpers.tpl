@@ -66,8 +66,9 @@ Usage: {{ include "global-chart.requireKedaCrd" (dict "root" . "errCtx" "workloa
 {{/*
 Build the ScaledObject trigger list with every authenticationRef resolved.
 Returns the triggers as YAML, ready to nindent under `triggers:`. A null
-trigger, or a null authenticationRef name, fails naming its path (issue #198);
-a null map value inside a trigger is unset and left out (issue #294).
+trigger, or a null authenticationRef name, fails naming its path (issue #198),
+and so does a missing one, as the schema's `required` (issue #304); a null map
+value inside a trigger is unset and left out (issue #294).
 Usage: {{ include "global-chart.kedaTriggers" (dict "root" . "triggers" $keda.triggers "errCtx" "workloads.api.keda.triggers") }}
 */}}
 {{- define "global-chart.kedaTriggers" -}}
@@ -77,12 +78,14 @@ Usage: {{ include "global-chart.kedaTriggers" (dict "root" . "triggers" $keda.tr
 {{- $resolved := list -}}
 {{- range $i, $trigger := .triggers -}}
   {{- $copy := deepCopy $trigger -}}
-  {{- with $copy.authenticationRef -}}
-    {{- if hasKey . "name" -}}
-      {{- include "global-chart.rejectNull" (dict "value" .name "errCtx" (printf "%s[%d].authenticationRef.name" $errCtx $i)) -}}
+  {{- if eq (include "global-chart.isSet" (list $copy "authenticationRef")) "true" -}}
+    {{- $ref := $copy.authenticationRef -}}
+    {{- $nameCtx := printf "%s[%d].authenticationRef.name" $errCtx $i -}}
+    {{- if not (hasKey $ref "name") -}}
+      {{- fail (printf "%s: mandatory, the TriggerAuthentication the trigger reads" $nameCtx) -}}
     {{- end -}}
-    {{- $ref := deepCopy . -}}
-    {{- $_ := set $ref "name" (include "global-chart.kedaAuthRefName" (dict "root" $root "name" .name "kind" .kind)) -}}
+    {{- include "global-chart.rejectNull" (dict "value" $ref.name "errCtx" $nameCtx) -}}
+    {{- $_ := set $ref "name" (include "global-chart.kedaAuthRefName" (dict "root" $root "name" $ref.name "kind" $ref.kind)) -}}
     {{- $_ := set $copy "authenticationRef" $ref -}}
   {{- end -}}
   {{- $resolved = append $resolved $copy -}}

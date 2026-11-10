@@ -939,9 +939,11 @@ Params:
 {{- include "global-chart.rejectNullItems" (dict "list" $secret.data "errCtx" (printf "externalSecrets.%s.data" $key)) -}}
 {{- include "global-chart.rejectNullItems" (dict "list" $secret.dataFrom "errCtx" (printf "externalSecrets.%s.dataFrom" $key)) -}}
 {{- $target := default (dict) $secret.target -}}
-{{- $hasData := hasKey $secret "data" -}}
-{{- $hasDataFrom := hasKey $secret "dataFrom" -}}
-{{- if and (or $hasData $hasDataFrom) (or (hasKey $secret "remote") (hasKey $secret "secretkey")) -}}
+{{- /* A null form key is unset, as the key left out (issue #304) */ -}}
+{{- $hasData := eq (include "global-chart.isSet" (list $secret "data")) "true" -}}
+{{- $hasDataFrom := eq (include "global-chart.isSet" (list $secret "dataFrom")) "true" -}}
+{{- $hasSingleKey := or (eq (include "global-chart.isSet" (list $secret "remote")) "true") (eq (include "global-chart.isSet" (list $secret "secretkey")) "true") -}}
+{{- if and (or $hasData $hasDataFrom) $hasSingleKey -}}
 {{- fail (printf "externalSecrets.%s: single-key form ('remote'/'secretkey') cannot be combined with 'data' or 'dataFrom'" $key) -}}
 {{- end -}}
 {{/* A dataFrom whose every entry carries its own sourceRef (generatorRef or
@@ -953,7 +955,7 @@ Params:
 {{- $selfContainedDataFrom = true -}}
 {{- range $item := $secret.dataFrom -}}
 {{- $sourceRef := default (dict) $item.sourceRef -}}
-{{- if not (or (hasKey $sourceRef "generatorRef") (hasKey $sourceRef "storeRef")) -}}
+{{- if not (or (eq (include "global-chart.isSet" (list $sourceRef "generatorRef")) "true") (eq (include "global-chart.isSet" (list $sourceRef "storeRef")) "true")) -}}
 {{- $selfContainedDataFrom = false -}}
 {{- end -}}
 {{- end -}}

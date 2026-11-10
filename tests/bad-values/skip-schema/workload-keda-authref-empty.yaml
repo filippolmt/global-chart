@@ -1,0 +1,13 @@
+# An empty KEDA authenticationRef, {} (issue #304): the schema requires its
+# name, and the template fails as on a missing one. It used to pass
+# through verbatim.
+# Expected fail substring: "workloads.web.keda.triggers[0].authenticationRef.name: mandatory"
+workloads:
+  web:
+    image: nginx:1.25
+    keda:
+      enabled: true
+      triggers:
+        - type: cron
+          metadata: { timezone: UTC, start: "0 0 * * *", end: "59 23 * * *", desiredReplicas: "3" }
+          authenticationRef: {}

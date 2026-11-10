@@ -1,0 +1,14 @@
+# A KEDA trigger's authenticationRef without a name (issue #304): the schema
+# requires it, and the template fails as on a null name. It used to render a
+# ref to nothing.
+# Expected fail substring: "workloads.web.keda.triggers[0].authenticationRef.name: mandatory"
+workloads:
+  web:
+    image: nginx:1.25
+    keda:
+      enabled: true
+      triggers:
+        - type: cron
+          metadata: { timezone: UTC, start: "0 0 * * *", end: "59 23 * * *", desiredReplicas: "3" }
+          authenticationRef:
+            kind: TriggerAuthentication

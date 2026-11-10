@@ -70,6 +70,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   a volume whose only source is null now fails; write the source, `emptyDir:
   {}` for an empty directory. A volume with nothing but its name never
   installed.
+- **Breaking: a null that rendered, where the same key left out fails the
+  render, now fails it too** (issue #304). A `kedaTriggerAuthentications`
+  credential source of nulls only (`podIdentity: {provider: null}`) is left
+  out, so the entry fails as declaring no credential source; it rendered a
+  TriggerAuthentication with none, and the schema accepts it. Under
+  `--skip-schema-validation`: an ExternalSecret's null `data` or `dataFrom` is
+  unset, so the single-key form's `remote` is then mandatory (it rendered
+  `data: null`); a null `generatorRef` or `storeRef` in a `dataFrom` entry's
+  `sourceRef` is no sourceRef, so the spec-level `secretstore` is mandatory
+  (it rendered `sourceRef: {}` with no store); a keda trigger's
+  `authenticationRef` without `name`, `{}` included, fails naming
+  `…authenticationRef.name`, as the schema's `required` does. A null
+  `remote` or `secretkey` beside `data` no longer fails as mixing the two
+  forms. **Migration**: give the credential source a value, or drop the
+  entry; under `--skip-schema-validation`, write the ExternalSecret's `data`,
+  `remote` or store, and the trigger's `authenticationRef.name`.
 
 - `make validate-bad-values` checks what a values file renders under
   `--skip-schema-validation`, not only that a `fail` fires (issue #292). A file
@@ -161,6 +177,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   path. With nothing but its name it rendered invalid YAML, so no release that
   installs changes; with a null source (`configMap: null`) it installed as an
   empty directory. Write the source, `emptyDir: {}` for an empty directory.
+- A `kedaTriggerAuthentications` entry whose credential source is of nulls
+  only (`podIdentity: {provider: null}`) now fails the render: it installed a
+  TriggerAuthentication with no credential source, which KEDA cannot use.
+  Give the source its fields, or drop the entry. Under
+  `--skip-schema-validation`, an ExternalSecret with a null `data` or
+  `dataFrom` and no `remote`, or a `dataFrom` whose only sourceRef is a null
+  `generatorRef` / `storeRef` and no `secretstore`, now fails naming the
+  missing key, and so does a keda trigger's `authenticationRef` with no
+  `name`; the schema already rejected all three.
 
 ## [4.2.1] — 2026-10-26
 
