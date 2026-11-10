@@ -1,0 +1,12 @@
+# The primary port's keys set to null (issues #191, #303): the schema rejects
+# each, and under --skip-schema-validation each is unset, as the key left out,
+# so servicePrimaryPort gives its defaults: port 80, name http, TCP, targetPort
+# following the name. They used to fail naming the key.
+workloads:
+  web:
+    image: nginx:1.25
+    service:
+      port: null
+      portName: null
+      protocol: null
+      targetPort: null

@@ -24,12 +24,14 @@ role, because a copy shared by every hook has no owner to take it from.
 
 {{/*
 The effective hook weight of one hook command: its own "weight" or the default.
-The ONLY place that default and its int coercion are spelled out.
+The ONLY place that default and its int coercion are spelled out. A null weight
+is unset, as the key left out (issue #303): read with hasKey, int would make
+it 0 and reorder the hook against its prerequisites in silence.
 Usage: {{ include "global-chart.effectiveHookWeight" $command }}
 */}}
 {{- define "global-chart.effectiveHookWeight" -}}
 {{- $command := default (dict) . -}}
-{{- int (ternary $command.weight 10 (hasKey $command "weight")) -}}
+{{- int (ternary $command.weight 10 (eq (include "global-chart.isSet" (list $command "weight")) "true")) -}}
 {{- end -}}
 
 {{/*

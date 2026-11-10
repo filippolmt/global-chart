@@ -120,11 +120,11 @@ docs/adr/0014-job-pod-automount-follows-the-inheritance-chain.md).
   {{- fail (printf "jobPodSpec: unknown kind %q for %s (expected \"hook\" or \"cronjob\")" (toString .kind) .containerName) -}}
 {{- end -}}
 {{- $isCronJob := eq .kind "cronjob" -}}
-{{- /* ImagePullSecrets: explicit > inherited from workload > global (hasKey distinguishes unset from empty) */ -}}
+{{- /* ImagePullSecrets: explicit > inherited from workload > global (isSet distinguishes unset from empty) */ -}}
 {{- $imagePullSecrets := list -}}
-{{- if hasKey $job "imagePullSecrets" -}}
+{{- if eq (include "global-chart.isSet" (list $job "imagePullSecrets")) "true" -}}
   {{- $imagePullSecrets = $job.imagePullSecrets -}}
-{{- else if hasKey $deploy "imagePullSecrets" -}}
+{{- else if eq (include "global-chart.isSet" (list $deploy "imagePullSecrets")) "true" -}}
   {{- $imagePullSecrets = $deploy.imagePullSecrets -}}
 {{- else -}}
   {{- $global := default (dict) $root.Values.global -}}
@@ -326,16 +326,16 @@ restartPolicy: {{ default "Never" (ternary $job.restartPolicy "" (eq (include "g
 
 {{/*
 The externalSecrets references of a cronjob/hook, split by level: the list the
-job inherits from its workload and the one it declares itself. hasKey decides,
+job inherits from its workload and the one it declares itself. isSet decides,
 like every other inheritable field: a job that sets externalSecrets — `[]`
-included — inherits none. Root-level jobs pass no deploy and inherit nothing.
+included — inherits none; a null is the key left out (issue #303). Root-level jobs pass no deploy and inherit nothing.
 Returns JSON {inherited: [...], own: [...]}; callers do `include ... | fromJson`.
 Usage: {{ include "global-chart.jobExternalSecretRefs" (dict "job" $job "deploy" $deploy) }}
 */}}
 {{- define "global-chart.jobExternalSecretRefs" -}}
 {{- $job := .job -}}
 {{- $deploy := default (dict) .deploy -}}
-{{- if hasKey $job "externalSecrets" -}}
+{{- if eq (include "global-chart.isSet" (list $job "externalSecrets")) "true" -}}
 {{- dict "inherited" (list) "own" (default (list) $job.externalSecrets) | toJson -}}
 {{- else -}}
 {{- dict "inherited" (default (list) $deploy.externalSecrets) "own" (list) | toJson -}}
@@ -386,7 +386,8 @@ Accepts a dict with:
             in the failure messages
 
 Resolution order:
-  1. explicit job.image
+  1. explicit job.image (isSet: the schema allows a null, and a null is the
+     key left out, issue #303)
   2. workloads[deployName].image (workload-scope: inherit parent; takes precedence
                               so a workload-scope job's fromWorkload is ignored,
                               matching prior behavior)
@@ -396,7 +397,7 @@ Resolution order:
 {{- $job := .job -}}
 {{- $errCtx := required "jobImageSource: errCtx is required (build it with jobValuesPath)" .errCtx -}}
 {{- $image := dict -}}
-{{- if hasKey $job "image" -}}
+{{- if eq (include "global-chart.isSet" (list $job "image")) "true" -}}
   {{- $image = dict "image" $job.image "from" "" -}}
 {{- else if .deployName -}}
   {{- $image = dict "image" (index .root.Values.workloads .deployName).image "from" (include "global-chart.deploymentValuesPath" .deployName) -}}
@@ -418,8 +419,10 @@ The CronJob spec fields between schedule/timeZone and jobTemplate, for both
 scopes: one home, so the root and workload-scope CronJobs cannot drift apart.
 These are CronJob spec fields, not Job spec fields — jobSpecVerbatimFields
 below owns the Job template's. Rendered in this order, each from the job when
-it sets the key (hasKey, so 0 and false are kept), else from its default, else
-not at all:
+it sets the key, else from its default, else not at all. A number is set when
+the key is there (hasKey, so 0 is kept and a null fails through printScalar);
+suspend and concurrencyPolicy are set through isSet, a null being the key left
+out (issue #303), false kept:
 - startingDeadlineSeconds — no default
 - suspend                 — no default
 - concurrencyPolicy       — "Forbid"
@@ -437,10 +440,16 @@ errCtx is the job's jobValuesPath: a null the job sets fails naming its key.
 {{- $job := .job -}}
 {{- $errCtx := required "cronJobSpecFields: errCtx is required (build it with jobValuesPath)" .errCtx -}}
 {{- $defaults := dict "concurrencyPolicy" "Forbid" "successfulJobsHistoryLimit" 2 "failedJobsHistoryLimit" 2 -}}
+{{- $own := dict
+      "startingDeadlineSeconds" (hasKey $job "startingDeadlineSeconds")
+      "suspend" (eq (include "global-chart.isSet" (list $job "suspend")) "true")
+      "concurrencyPolicy" (eq (include "global-chart.isSet" (list $job "concurrencyPolicy")) "true")
+      "successfulJobsHistoryLimit" (hasKey $job "successfulJobsHistoryLimit")
+      "failedJobsHistoryLimit" (hasKey $job "failedJobsHistoryLimit") -}}
 {{- $lines := list -}}
 {{- range (list "startingDeadlineSeconds" "suspend" "concurrencyPolicy" "successfulJobsHistoryLimit" "failedJobsHistoryLimit") -}}
-  {{- if or (hasKey $job .) (hasKey $defaults .) -}}
-    {{- $value := ternary (index $job .) (index $defaults .) (hasKey $job .) -}}
+  {{- if or (index $own .) (hasKey $defaults .) -}}
+    {{- $value := ternary (index $job .) (index $defaults .) (index $own .) -}}
     {{- $lines = append $lines (printf "%s: %s" . (include "global-chart.printScalar" (dict "value" $value "errCtx" (printf "%s.%s" $errCtx .)))) -}}
   {{- end -}}
 {{- end -}}

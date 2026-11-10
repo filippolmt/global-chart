@@ -1,0 +1,21 @@
+# A null hook weight, root and workload scope (issue #303): the schema rejects
+# it, and under --skip-schema-validation the null is unset, as the key left
+# out, so effectiveHookWeight gives the default 10 and the prerequisite copies
+# keep their offsets below it. It used to fail naming the key; read with
+# hasKey, it would have counted as 0 (int nil).
+hooks:
+  pre-install:
+    migrate:
+      image: busybox:1.36
+      command: ["true"]
+      weight: null
+workloads:
+  app:
+    image: nginx:1.25
+    configMap:
+      MODE: batch
+    hooks:
+      pre-upgrade:
+        seed:
+          command: ["true"]
+          weight: null

@@ -51,8 +51,6 @@ automountServiceAccountToken: {{ $sa.automount }}
 {{- $command := index $.Values.hooks $hookType $name }}
 {{- $hookFullname := include "global-chart.hookfullname" (merge (dict "hookname" $hookType "jobname" $name) $root) }}
 {{- $errCtx := include "global-chart.jobValuesPath" (dict "kind" "hook" "hookType" $hookType "jobName" $name) }}
-{{- /* A null weight would count as 0 (int nil), not the default 10 */ -}}
-{{- if hasKey $command "weight" }}{{- include "global-chart.rejectNull" (dict "value" $command.weight "errCtx" (printf "%s.weight" $errCtx)) }}{{- end }}
 
 {{- /* ServiceAccount: explicit > create own (see jobServiceAccount helper; no
        workload to inherit from at root level) */ -}}
@@ -191,7 +189,6 @@ data:
 {{- $hook := index $hooks (printf "%s/%s" $hookType $name) }}
 {{- $hookFullname := $hook.fullname }}
 {{- $errCtx := $hook.errCtx }}
-{{- if hasKey $command "weight" }}{{- include "global-chart.rejectNull" (dict "value" $command.weight "errCtx" (printf "%s.weight" $errCtx)) }}{{- end }}
 
 {{- /* ServiceAccount: explicit in hook > inherited from workload > create new for hook (see jobServiceAccount helper) */ -}}
 {{- $sa := $hook.sa -}}

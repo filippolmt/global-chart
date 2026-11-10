@@ -124,6 +124,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   (`checksum~1config`), so a `skip-schema-render/` null under a key with a `/`
   is found; its removal reference leaves a map of nulls out on a surface a job
   inherits, as the templates do.
+- A null that failed the render, or was handed on, now renders as the key
+  removed (issue #303): a job's `image` (the schema allows `image: null`), a
+  hook's `weight` (10), a cronjob's `concurrencyPolicy` (`Forbid`) and
+  `suspend`, the primary Service port's `port` (80), `portName`, `protocol`
+  and `targetPort`, an `extraPorts` entry's `appProtocol`, `protocol` and
+  `nodePort`, a backend's `portName` and `service.port` (80), a
+  `kedaTriggerAuthentications` entry an `authenticationRef` names (the ref
+  then renders verbatim), and an ExternalSecret's `target.immutable`. A null
+  `imagePullSecrets` on a workload or a job, `externalSecrets` on a cronjob
+  or hook, or `serviceAccount` on an `rbacs.roles` entry now falls back as
+  the key left out, where it stopped the fallback or created a ServiceAccount.
+  The schema rejects all of these but `image`. No values file that rendered
+  stops rendering; an `extraPorts` entry's `name`, `port` and `targetPort`
+  still fail on a null.
 
 ### Migration guide from 4.2.1
 
