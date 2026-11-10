@@ -25,7 +25,10 @@ template `fail` or `required` (`execution error at (…): <message>`) whose
 message names the nulled node — its key, or `<list>[<i>]` for a list item — or
 the node holding it (a null filters list leaves its rule without backendRefs,
 and the rule is what the message names), and carries no raw template error: a fail about another key is the null reaching a
-check it was never meant for. Anything else is a finding: the template path and
+check it was never meant for. On a key read through isSet, the same error as
+the key removed passes too: the null is unset, and the check it reaches is
+the one its default reaches (a null extraPorts protocol is TCP, and a UDP
+route to that port fails as without the key, issue #303). Anything else is a finding: the template path and
 the error are printed.
 
 When it arrived the sweep found 166 such nulls (issue #198), all fixed; a
@@ -305,6 +308,8 @@ def verdict(out, base, path, unset=None):
             return f"renders a null: {new[0] if new else '(a null-looking line)'}"
         return None
     err = " ".join(out.stderr.split())
+    if unset is not None and unset.returncode != 0 and " ".join(unset.stderr.split()) == err:
+        return None
     m = FAIL.search(err)
     if m and not RAW.search(err[m.end():]):
         message = err[m.end():]
@@ -312,6 +317,16 @@ def verdict(out, base, path, unset=None):
             return None
         return f"fails without naming {needle(path)}: " + err[m.end():][:200]
     return err.replace("Use --debug flag to render out invalid YAML", "").strip()[:240]
+
+
+# verdict is bound here: check-null-preflight.py patches it while running main
+def verdict_self_test(verdict=verdict):
+    def run(code, err):
+        return subprocess.CompletedProcess([], code, "", err)
+    failed = run(1, "Error: execution error at (t:1:1): route.portName: resolves to a TCP port")
+    assert verdict(failed, "", ("svc", "protocol"), run(1, failed.stderr)) is None
+    assert verdict(failed, "", ("svc", "protocol"), run(0, "")).startswith("fails without naming protocol")
+    assert verdict(failed, "", ("svc", "protocol")).startswith("fails without naming protocol")
 
 
 def values_to_json_chart(tmp):
@@ -401,6 +416,7 @@ def main(argv):
     is_set_keys_self_test()
     defaulted_self_test()
     null_keys_self_test()
+    verdict_self_test()
     flags = argv[argv.index("--") + 1:] if "--" in argv else []
     argv = argv[:argv.index("--")] if "--" in argv else argv
     standalone = "--preflight-only" in argv

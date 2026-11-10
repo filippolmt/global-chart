@@ -241,11 +241,15 @@ every render (issue #235).
   renders: the probe's handler check reads the probe without its nulls.
   "Set" has one home, `isSet`;
   `hasKey` alone hands the null on. Numbers are the exception: a null number
-  the chart renders through `printScalar` fails naming its key (issue #191),
-  even as the only key of its map: beside `type: RollingUpdate`,
-  `rollingUpdate: {partition: null}` fails naming `partition` rather than
-  counting as `rollingUpdate` left out. A number in a map rendered whole
-  (a probe's timings, issue #288) is a map value like any other;
+  the chart renders as written through `printScalar` fails naming its key
+  (issue #191), even as the only key of its map: beside
+  `type: RollingUpdate`, `rollingUpdate: {partition: null}` fails naming
+  `partition` rather than counting as `rollingUpdate` left out. A number the
+  chart reads through `isSet`, to give it a default (a Service or backend
+  `port`, 80; a hook's `weight`, 10) or to leave it out (an extraPorts
+  `nodePort`), is not one: its null is unset like any map value (issue #303).
+  A number in a map rendered whole (a probe's timings, issue #288) is a map
+  value like any other;
 - a null **list item** fails, anywhere, passthrough lists included:
   `rejectNullInLists`, run over all of `.Values` by `validateNullItems`;
 - a null in a **required field** of an item the chart reads fails:

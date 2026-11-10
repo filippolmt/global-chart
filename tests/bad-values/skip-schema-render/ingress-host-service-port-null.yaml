@@ -1,0 +1,17 @@
+# A null port on an ingress host's explicit service (issues #191, #303): the
+# schema rejects it, and under --skip-schema-validation the null is unset, as
+# the key left out, so resolveBackend gives the foreign Service port 80. It
+# used to fail naming the key.
+workloads:
+  web:
+    image: nginx:1.25
+ingress:
+  enabled: true
+  hosts:
+    - host: app.example.com
+      service:
+        name: external
+        port: null
+      paths:
+        - path: /
+          pathType: Prefix

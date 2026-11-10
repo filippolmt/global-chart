@@ -730,6 +730,39 @@ tests:
           value: Always
         documentIndex: 0
 
+  # The schema allows image: null; a null is unset, as the key left out (issue #303)
+  - it: should inherit the workload image when a workload-scope hook sets image null
+    set:
+      workloads:
+        backend:
+          image: myapp:v2
+          hooks:
+            post-upgrade:
+              migrate:
+                command: ["./migrate.sh"]
+                image: null
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: "myapp:v2"
+        documentIndex: 0
+  - it: should resolve fromWorkload when a root-level hook sets image null
+    set:
+      workloads:
+        backend:
+          image: myapp:v2
+      hooks:
+        post-upgrade:
+          migrate:
+            fromWorkload: backend
+            command: ["./migrate.sh"]
+            image: null
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: "myapp:v2"
+        documentIndex: 1
+
   - it: should inherit a workload tag carrying a digest as written (issue #187)
     set:
       workloads:

@@ -1,0 +1,16 @@
+# The optional keys of a service.extraPorts entry set to null (issue #303):
+# the schema rejects each, and under --skip-schema-validation each is unset,
+# as the key left out: no appProtocol, protocol TCP, and no nodePort, so a
+# ClusterIP Service passes validateServicePorts. They used to fail naming the
+# key. name, port and targetPort stay required (nullItemFields).
+workloads:
+  app:
+    image: nginx:1.25
+    service:
+      extraPorts:
+        - name: metrics
+          port: 9090
+          targetPort: 9090
+          appProtocol: null
+          protocol: null
+          nodePort: null

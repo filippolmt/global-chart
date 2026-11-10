@@ -3,7 +3,6 @@
 {{- if $deploy }}
 {{- if eq (include "global-chart.deploymentEnabled" $deploy) "true" }}
 {{- $svc := default (dict) $deploy.service }}
-{{- $errCtx := include "global-chart.deploymentValuesPath" $name }}
 {{- $labelCtx := dict "root" $root "deploymentName" $name }}
 {{- /* A StatefulSet's governing Service is rendered even with service.enabled
        false: spec.serviceName must name a Service that exists, or the pods' DNS
@@ -12,7 +11,7 @@
        before they are ready. It takes only the common annotations: service.annotations
        aims at the normal Service (external-dns, a cloud load balancer), and on a
        headless one external-dns would publish the pod IPs under the same name. */ -}}
-{{- $primary := include "global-chart.servicePrimaryPort" (dict "service" $svc "errCtx" (printf "%s.service" $errCtx)) | fromJson }}
+{{- $primary := include "global-chart.servicePrimaryPort" (dict "service" $svc) | fromJson }}
 {{- $services := list }}
 {{- if eq (include "global-chart.serviceEnabled" $svc) "true" }}
 {{- $services = append $services (dict "name" (include "global-chart.deploymentFullname" $labelCtx) "headless" false) }}

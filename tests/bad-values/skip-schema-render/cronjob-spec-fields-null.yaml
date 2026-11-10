@@ -1,0 +1,12 @@
+# A cronjob's concurrencyPolicy and suspend set to null (issue #303): the
+# schema rejects each, and under --skip-schema-validation each is unset, as
+# the key left out: concurrencyPolicy Forbid, no suspend. They used to fail
+# naming the key. The numbers of cronJobSpecFields still fail on a null
+# (printScalar, issue #191).
+cronJobs:
+  nightly:
+    image: busybox:1.36
+    schedule: "0 3 * * *"
+    command: ["true"]
+    concurrencyPolicy: null
+    suspend: null

@@ -1,0 +1,15 @@
+# A null portName on a workload backendRef (issue #303): the schema rejects
+# it, and under --skip-schema-validation the null is unset, as the key left
+# out, so resolveBackend picks the workload's primary port. It used to fail
+# naming the key.
+workloads:
+  app:
+    image: nginx:1.25
+httpRoute:
+  enabled: true
+  parentRefs:
+    - name: shared-gateway
+  rules:
+    - backendRefs:
+        - workload: app
+          portName: null

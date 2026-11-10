@@ -1154,7 +1154,7 @@ Called from validate.yaml. Emits nothing on success.
     {{- if eq (include "global-chart.serviceEnabled" $svc) "true" -}}
       {{- $declared := dict -}}
       {{- $errCtx := include "global-chart.deploymentValuesPath" $name -}}
-      {{- $svcCtx := dict "service" $svc "errCtx" (printf "%s.service" $errCtx) -}}
+      {{- $svcCtx := dict "service" $svc -}}
       {{- range (include "global-chart.containerPorts" $svcCtx | fromJsonArray) -}}
         {{- $_ := set $declared .name true -}}
       {{- end -}}
@@ -1198,7 +1198,7 @@ Called from validate.yaml. Emits nothing on success.
       {{- $type := include "global-chart.serviceType" $svc -}}
       {{- $portNames := dict -}}
       {{- $portNumbers := dict -}}
-      {{- range (include "global-chart.servicePorts" (dict "service" $svc "errCtx" (printf "%s.service" $errCtx)) | fromJsonArray) -}}
+      {{- range (include "global-chart.servicePorts" (dict "service" $svc) | fromJsonArray) -}}
         {{- $number := printf "%s/%s" (include "global-chart.printScalar" .port) .protocol -}}
         {{- if lt (int .index) 0 -}}
           {{- $_ := set $portNames .name "service.portName" -}}
@@ -1207,7 +1207,7 @@ Called from validate.yaml. Emits nothing on success.
         {{- end -}}
         {{- $owner := printf "extraPorts[%d]" (int .index) -}}
         {{- $entry := index $svc.extraPorts (int .index) -}}
-        {{- if and (hasKey $entry "nodePort") (not (has $type (list "NodePort" "LoadBalancer"))) -}}
+        {{- if and (eq (include "global-chart.isSet" (list $entry "nodePort")) "true") (not (has $type (list "NodePort" "LoadBalancer"))) -}}
           {{- fail (printf "%s.service.%s.nodePort: set on a %s Service, which the API server rejects: only a NodePort or LoadBalancer Service takes a nodePort. Drop nodePort, or set service.type." $errCtx $owner $type) -}}
         {{- end -}}
         {{- if hasKey $portNames .name -}}

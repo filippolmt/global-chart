@@ -65,13 +65,14 @@ Usage: {{ include "global-chart.deploymentServiceAccount" (dict "root" . "deploy
 
 {{/*
 ServiceAccount of an rbacs.roles entry; {} when the entry declares none.
-Presence is hasKey, never truthiness: `serviceAccount: {}` declares an SA with
-every default, as it does for a workload (issue #124). <role>-sa is the name
+Presence is isSet, never truthiness: `serviceAccount: {}` declares an SA with
+every default, as it does for a workload (issue #124), and a null is the key
+left out (issue #303). <role>-sa is the name
 whether the SA is created or bound.
 Usage: {{ include "global-chart.rbacServiceAccount" $role | fromJson }}
 */}}
 {{- define "global-chart.rbacServiceAccount" -}}
-{{- if hasKey . "serviceAccount" -}}
+{{- if eq (include "global-chart.isSet" (list . "serviceAccount")) "true" -}}
 {{- $defaultName := include "global-chart.rbacDefaultServiceAccountName" .name -}}
 {{- include "global-chart.resolveServiceAccount" (dict "sa" .serviceAccount "defaultName" $defaultName "nameIfBound" $defaultName) -}}
 {{- else -}}

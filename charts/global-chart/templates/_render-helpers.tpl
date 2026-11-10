@@ -49,10 +49,12 @@ Contract, by kind of value:
 Two forms. A value read straight from values is passed with its path,
 (dict "value" $v "errCtx" "<values path>"), and a null fails through
 rejectNull naming it (issue #191). A value the chart computed is passed bare:
-its helper rejects a null at the source with the path (rejectNullServicePorts,
-resolveBackend, rejectNullDataValue), so a null reaching the bare form is a
-chart bug, and says so. A value read from values that such a helper has
-already checked prints bare too: the Service ports, extraPorts included. The dict form is unambiguous: a scalar is never a map.
+its helper never hands a null on — servicePrimaryPort and resolveBackend read
+it as the key left out (issue #303), rejectNullDataValue fails naming it — so
+a null reaching the bare form is a chart bug, and says so. A value read from
+values that a validator has already checked prints bare too: an extraPorts
+port and targetPort, required fields of the item (nullItemFields). The dict
+form is unambiguous: a scalar is never a map.
 Maps and slices are not scalars: callers render them with passthroughYaml.
 Usage: {{ include "global-chart.printScalar" (dict "value" $deploy.revisionHistoryLimit "errCtx" (printf "%s.revisionHistoryLimit" $errCtx)) }}
        {{ include "global-chart.printScalar" $primary.port }}
@@ -167,10 +169,10 @@ Usage: {{ ternary $job.affinity $deploy.affinity (eq (include "global-chart.isSe
 
 {{/*
 Fail on a null read from values, naming its path: the single home of the
-message, read by printScalar's dict form, servicePrimaryPort and
-resolveBackend, rejectNullServicePorts and hook.yaml's weight. A null is a value nobody wrote: printed, it becomes "<nil>" or
-0. rejectNullDataValue keeps its own wording for the ConfigMap/Secret maps,
-which hold strings only. Renders nothing when the value is set.
+message, read by printScalar's dict form and rejectNullItems among others. A
+null is a value nobody wrote: printed, it becomes "<nil>" or 0.
+rejectNullDataValue keeps its own wording for the ConfigMap/Secret maps, which
+hold strings only. Renders nothing when the value is set.
 Usage: {{- include "global-chart.rejectNull" (dict "value" $v "errCtx" "workloads.web.revisionHistoryLimit") -}}
 */}}
 {{- define "global-chart.rejectNull" -}}
@@ -695,9 +697,10 @@ port's name (servicePrimaryPort, "http" by default) or an extraPorts[].name —
 and resolves to its number, since a Gateway API backendRef carries numbers only.
 It is the single home of picking a workload's port, so ingress, httpRoute and
 the L4 routes all get it. Rejected alongside a service carrying a name or a
-port (a foreign Service carries its own port) and on a name the Service lacks. The port picked, primary
-included, must carry the consumer's protocol: Kubernetes accepts a TCP route to
-a UDP port, and the traffic never arrives. A service backend is not checked:
+port (a foreign Service carries its own port) and on a name the Service lacks.
+A null portName or service.port is unset, as the key left out (issue #303).
+The port picked, primary included, must carry the consumer's protocol:
+Kubernetes accepts a TCP route to a UDP port, and the traffic never arrives. A service backend is not checked:
 the chart does not know a foreign Service's ports.
 
 Output: JSON string of the form {"name":"<svc>","port":<int>}
@@ -710,12 +713,12 @@ Numbers come back float64: see the file header.
 {{- $protocol := required "resolveBackend: protocol is required (the protocol the consumer forwards)" .protocol -}}
 {{- $svcName := "" -}}
 {{- $svcPort := 80 -}}
-{{- if hasKey $ref "portName" -}}
-  {{- include "global-chart.rejectNull" (dict "value" $ref.portName "errCtx" (printf "%s.portName" $path)) -}}
+{{- $hasPortName := eq (include "global-chart.isSet" (list $ref "portName")) "true" -}}
+{{- if $hasPortName -}}
   {{- /* service: {name: ""} is the absent service of priority 1 below (the
          ingress default host carries it), so it does not conflict; a name or
          a port does: either one says which port to reach, and so does portName */ -}}
-  {{- if and $ref.service (or $ref.service.name (hasKey $ref.service "port")) -}}
+  {{- if and $ref.service (or $ref.service.name (eq (include "global-chart.isSet" (list $ref.service "port")) "true")) -}}
     {{- fail (printf "%s.portName: set together with service. portName picks a port of a workload's Service; a service backend carries its own port. Drop one of them." $path) -}}
   {{- end -}}
 {{- end -}}
@@ -728,10 +731,7 @@ Numbers come back float64: see the file header.
        Service's. */ -}}
 {{- if and (hasKey $ref "service") $ref.service $ref.service.name -}}
   {{- $svcName = $ref.service.name -}}
-  {{- if hasKey $ref.service "port" -}}
-    {{- include "global-chart.rejectNull" (dict "value" $ref.service.port "errCtx" (printf "%s.service.port" $path)) -}}
-  {{- end -}}
-  {{- $svcPort = ternary $ref.service.port 80 (hasKey $ref.service "port") -}}
+  {{- $svcPort = ternary $ref.service.port 80 (eq (include "global-chart.isSet" (list $ref.service "port")) "true") -}}
 {{- /* Priority 2: workload reference */ -}}
 {{- else if $ref.workload -}}
   {{- $depName := $ref.workload -}}
@@ -750,13 +750,12 @@ Numbers come back float64: see the file header.
     {{- fail (printf "%s.workload: references workload '%s', which has service.enabled: false. Enable the service or remove the reference." $path $depName) -}}
   {{- end -}}
   {{- $svcName = include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $depName) -}}
-  {{- $depSvcCtx := printf "%s.service" (include "global-chart.deploymentValuesPath" $depName) -}}
-  {{- $svcPorts := include "global-chart.servicePorts" (dict "service" $depSvc "errCtx" $depSvcCtx) | fromJsonArray -}}
+  {{- $svcPorts := include "global-chart.servicePorts" (dict "service" $depSvc) | fromJsonArray -}}
   {{- $ports := dict -}}
   {{- range $svcPorts -}}
     {{- $_ := set $ports .name . -}}
   {{- end -}}
-  {{- $portName := ternary $ref.portName (first $svcPorts).name (hasKey $ref "portName") -}}
+  {{- $portName := ternary $ref.portName (first $svcPorts).name $hasPortName -}}
   {{- if not (hasKey $ports $portName) -}}
     {{- fail (printf "%s.portName: '%s' names no port of the Service of workload '%s' (ports: %s). Use the name of service.portName or of a service.extraPorts entry." $path $portName $depName (keys $ports | sortAlpha | join ", ")) -}}
   {{- end -}}
@@ -764,7 +763,7 @@ Numbers come back float64: see the file header.
   {{- if ne $picked.protocol $protocol -}}
     {{- /* The path is the key that picked the port: portName when set, the
            backend itself when it fell back on the primary port */ -}}
-    {{- $protoCtx := ternary (printf "%s.portName" $path) $path (hasKey $ref "portName") -}}
+    {{- $protoCtx := ternary (printf "%s.portName" $path) $path $hasPortName -}}
     {{- fail (printf "%s: resolves to the %s port '%s' of workload '%s', but this backend forwards %s. Kubernetes accepts the route and the traffic never arrives. Pick a %s port with portName." $protoCtx $picked.protocol $portName $depName $protocol $protocol) -}}
   {{- end -}}
   {{- $svcPort = $picked.port -}}
@@ -821,7 +820,7 @@ reaches a pod port whether or not the container declares it, so re-declaring an
 already-declared port would buy nothing and risk a duplicate name, which the API
 server rejects. The protocol is part of the key because the same number under
 two protocols is a distinct port — TCP and UDP on 53 is the ordinary DNS shape.
-Usage: {{ include "global-chart.containerPorts" (dict "service" $svc "errCtx" (printf "%s.service" $errCtx)) | fromJsonArray }}
+Usage: {{ include "global-chart.containerPorts" (dict "service" $svc) | fromJsonArray }}
 Numbers come back float64: see the file header.
 */}}
 {{- define "global-chart.containerPorts" -}}
@@ -860,25 +859,22 @@ The default targetPort follows the port's name, not the literal "http": with a
 custom portName and no targetPort, "http" would name a port nothing declares.
 
 Only the primary port is here. extraPorts entries have name/port/targetPort all
-required by the schema; their one default, the protocol, lives in
-extraPortProtocol.
-Every consumer of a workload's ports reaches this helper before it prints
-one, so it runs rejectNullServicePorts first: the one call that covers them all.
-Usage: {{ $primary := include "global-chart.servicePrimaryPort" (dict "service" $svc "errCtx" (printf "%s.service" $errCtx)) | fromJson }}
-Input: the workload's service map, already defaulted to (dict) by the caller,
-and errCtx, its values path.
+required by the schema, and by validateNullItems on a null (nullItemFields);
+their one default, the protocol, lives in extraPortProtocol.
+A null key is unset, as the key left out: it takes its default (issue #303).
+Usage: {{ $primary := include "global-chart.servicePrimaryPort" (dict "service" $svc) | fromJson }}
+Input: the workload's service map, already defaulted to (dict) by the caller.
 Output: JSON of the form {"port":80,"name":"http","protocol":"TCP","targetPort":"http"}
 Numbers come back float64: see the file header.
 */}}
 {{- define "global-chart.servicePrimaryPort" -}}
 {{- $svc := .service -}}
-{{- include "global-chart.rejectNullServicePorts" (dict "service" $svc "errCtx" (required "servicePrimaryPort: errCtx is required (the values path of the service)" .errCtx)) -}}
-{{- $name := ternary $svc.portName "http" (hasKey $svc "portName") -}}
+{{- $name := ternary $svc.portName "http" (eq (include "global-chart.isSet" (list $svc "portName")) "true") -}}
 {{- dict
-      "port" (ternary $svc.port 80 (hasKey $svc "port"))
+      "port" (ternary $svc.port 80 (eq (include "global-chart.isSet" (list $svc "port")) "true"))
       "name" $name
-      "protocol" (ternary $svc.protocol "TCP" (hasKey $svc "protocol") | upper)
-      "targetPort" (ternary $svc.targetPort $name (hasKey $svc "targetPort"))
+      "protocol" (ternary $svc.protocol "TCP" (eq (include "global-chart.isSet" (list $svc "protocol")) "true") | upper)
+      "targetPort" (ternary $svc.targetPort $name (eq (include "global-chart.isSet" (list $svc "targetPort")) "true"))
     | toJson -}}
 {{- end }}
 
@@ -888,7 +884,7 @@ the primary port first (from servicePrimaryPort), then each extraPorts entry
 with its protocol from extraPortProtocol. The single home of that enumeration
 on the Service side, read by validateServicePorts and resolveBackend; the pod
 side, which deduplicates, is containerPorts.
-Usage: {{ $ports := include "global-chart.servicePorts" (dict "service" $svc "errCtx" (printf "%s.service" $errCtx)) | fromJsonArray }}
+Usage: {{ $ports := include "global-chart.servicePorts" (dict "service" $svc) | fromJsonArray }}
 Input: as servicePrimaryPort.
 Output: JSON list of {"name","port","protocol","index"}; index is the
 extraPorts position, -1 for the primary port. Numbers come back float64: see
@@ -904,30 +900,6 @@ the file header.
   {{- end -}}
 {{- end -}}
 {{- $ports | toJson -}}
-{{- end }}
-
-{{/*
-Fail on a null in a workload's Service ports, naming its key (issue #191): a
-port, targetPort, portName or protocol of the primary port, and any key of an
-extraPorts entry. The single home of that check. servicePrimaryPort runs it,
-because every consumer of the ports (service.yaml, containerPorts, the
-validators, resolveBackend, the connection test) reaches servicePrimaryPort
-before it prints one; so they print the ports bare, already checked.
-Usage: {{- include "global-chart.rejectNullServicePorts" (dict "service" $svc "errCtx" "workloads.web.service") -}}
-*/}}
-{{- define "global-chart.rejectNullServicePorts" -}}
-{{- $svc := .service -}}
-{{- $errCtx := .errCtx -}}
-{{- range $key := list "port" "targetPort" "portName" "protocol" -}}
-  {{- if hasKey $svc $key -}}
-    {{- include "global-chart.rejectNull" (dict "value" (index $svc $key) "errCtx" (printf "%s.%s" $errCtx $key)) -}}
-  {{- end -}}
-{{- end -}}
-{{- range $i, $port := (default (list) $svc.extraPorts) -}}
-  {{- range $key, $value := $port -}}
-    {{- include "global-chart.rejectNull" (dict "value" $value "errCtx" (printf "%s.extraPorts[%d].%s" $errCtx $i $key)) -}}
-  {{- end -}}
-{{- end -}}
 {{- end }}
 
 {{/*
@@ -1026,7 +998,7 @@ target:
   creationPolicy: {{ default (include "global-chart.externalSecretCreationPolicy" $secret) .creationPolicy | quote }}
   deletionPolicy: {{ ternary $target.deletionPolicy "Retain" (eq (include "global-chart.isSet" (list $target "deletionPolicy")) "true") | quote }}
   name: {{ default (include "global-chart.externalSecretTargetName" .) .targetName | quote }}
-  {{- if hasKey $target "immutable" }}
+  {{- if eq (include "global-chart.isSet" (list $target "immutable")) "true" }}
   immutable: {{ $target.immutable }}
   {{- end }}
   {{- with include "global-chart.passthroughYaml" $target.template }}

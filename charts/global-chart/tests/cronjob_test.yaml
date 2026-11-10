@@ -297,6 +297,40 @@ tests:
           path: spec.jobTemplate.spec.template.spec.nodeSelector.tier
           value: backend
 
+  # The schema allows image: null; a null is unset, as the key left out (issue #303)
+  - it: should inherit the workload image when a workload cronjob sets image null
+    set:
+      workloads:
+        backend:
+          image: myapp/backend:v1.0
+          cronJobs:
+            db-backup:
+              schedule: "0 2 * * *"
+              command: ["./backup.sh"]
+              image: null
+    asserts:
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.containers[0].image
+          value: "myapp/backend:v1.0"
+  - it: should resolve fromWorkload when a root cronjob sets image null
+    documentSelector:
+      path: kind
+      value: CronJob
+    set:
+      workloads:
+        api:
+          image: myapp/api:v2.0
+      cronJobs:
+        cleanup:
+          schedule: "0 4 * * *"
+          fromWorkload: api
+          command: ["./cleanup.sh"]
+          image: null
+    asserts:
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.containers[0].image
+          value: "myapp/api:v2.0"
+
   # ====== Workload-scope CronJob SA inheritance ======
   - it: should inherit serviceAccount from parent workload
     release:
