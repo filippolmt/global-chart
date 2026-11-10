@@ -199,7 +199,7 @@ containers:
   {{- $deployEnvFromSecrets := ternary $deploy.envFromSecrets list $inheritEnvFromSecrets -}}
   {{- $hasDeployConfigMap := and $inheritCM $deploy.configMap (gt (len $deploy.configMap) 0) -}}
   {{- $hasDeploySecret := and $inheritSec $deploy.secret (gt (len $deploy.secret) 0) -}}
-  {{- /* externalSecrets: inherited when the job does not set its own (hasKey), and
+  {{- /* externalSecrets: inherited when the job does not set its own (isSet), and
          split by form — an entry with a mountPath is a volume, any other one an
          envFrom source. Each group keeps its level: proximity, see GLOSSARY.md */ -}}
   {{- $esRefs := include "global-chart.jobExternalSecretRefs" (dict "job" $job "deploy" $deploy) | fromJson -}}
@@ -328,7 +328,8 @@ restartPolicy: {{ default "Never" (ternary $job.restartPolicy "" (eq (include "g
 The externalSecrets references of a cronjob/hook, split by level: the list the
 job inherits from its workload and the one it declares itself. isSet decides,
 like every other inheritable field: a job that sets externalSecrets — `[]`
-included — inherits none; a null is the key left out (issue #303). Root-level jobs pass no deploy and inherit nothing.
+included — inherits none; a null is the key left out (issue #303). Root-level
+jobs pass no deploy and inherit nothing.
 Returns JSON {inherited: [...], own: [...]}; callers do `include ... | fromJson`.
 Usage: {{ include "global-chart.jobExternalSecretRefs" (dict "job" $job "deploy" $deploy) }}
 */}}

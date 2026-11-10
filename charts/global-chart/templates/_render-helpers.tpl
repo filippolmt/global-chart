@@ -53,7 +53,8 @@ its helper never hands a null on — servicePrimaryPort and resolveBackend read
 it as the key left out (issue #303), rejectNullDataValue fails naming it — so
 a null reaching the bare form is a chart bug, and says so. A value read from
 values that a validator has already checked prints bare too: an extraPorts
-port and targetPort, required fields of the item (nullItemFields). The dict form is unambiguous: a scalar is never a map.
+port and targetPort, required fields of the item (nullItemFields). The dict
+form is unambiguous: a scalar is never a map.
 Maps and slices are not scalars: callers render them with passthroughYaml.
 Usage: {{ include "global-chart.printScalar" (dict "value" $deploy.revisionHistoryLimit "errCtx" (printf "%s.revisionHistoryLimit" $errCtx)) }}
        {{ include "global-chart.printScalar" $primary.port }}
@@ -169,8 +170,9 @@ Usage: {{ ternary $job.affinity $deploy.affinity (eq (include "global-chart.isSe
 {{/*
 Fail on a null read from values, naming its path: the single home of the
 message, read by printScalar's dict form and rejectNullItems among others. A
-null is a value nobody wrote: printed, it becomes "<nil>" or 0. rejectNullDataValue keeps its own wording for the ConfigMap/Secret maps,
-which hold strings only. Renders nothing when the value is set.
+null is a value nobody wrote: printed, it becomes "<nil>" or 0.
+rejectNullDataValue keeps its own wording for the ConfigMap/Secret maps, which
+hold strings only. Renders nothing when the value is set.
 Usage: {{- include "global-chart.rejectNull" (dict "value" $v "errCtx" "workloads.web.revisionHistoryLimit") -}}
 */}}
 {{- define "global-chart.rejectNull" -}}
@@ -695,10 +697,10 @@ port's name (servicePrimaryPort, "http" by default) or an extraPorts[].name —
 and resolves to its number, since a Gateway API backendRef carries numbers only.
 It is the single home of picking a workload's port, so ingress, httpRoute and
 the L4 routes all get it. Rejected alongside a service carrying a name or a
-port (a foreign Service carries its own port) and on a name the Service lacks. A null
-portName or service.port is unset, as the key left out (issue #303). The port picked, primary
-included, must carry the consumer's protocol: Kubernetes accepts a TCP route to
-a UDP port, and the traffic never arrives. A service backend is not checked:
+port (a foreign Service carries its own port) and on a name the Service lacks.
+A null portName or service.port is unset, as the key left out (issue #303).
+The port picked, primary included, must carry the consumer's protocol:
+Kubernetes accepts a TCP route to a UDP port, and the traffic never arrives. A service backend is not checked:
 the chart does not know a foreign Service's ports.
 
 Output: JSON string of the form {"name":"<svc>","port":<int>}
