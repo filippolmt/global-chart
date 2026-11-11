@@ -770,8 +770,13 @@
         { "$ref": "#/$defs/dns1123Subdomain", "maxLength": 253 }
       ]
     },
+    "esoStoreKind": {
+      "description": "The kind of an ESO store reference, secretstore.kind and a dataFrom entry's storeRef.kind: the two kinds ESO's ExternalSecret CRD accepts there.",
+      "type": "string",
+      "enum": ["ClusterSecretStore", "SecretStore"]
+    },
     "dns1123Subdomain": {
-      "description": "A DNS-1123 subdomain: dot-separated DNS-1123 labels. Constrains the keys of the externalSecrets and kedaTriggerAuthentications maps, which become part of a resource name, rbacs.roles[].name, which becomes the Role, RoleBinding and default ServiceAccount names, serviceAccount.name / serviceAccountName in every scope, the ESO store and generator names of an externalSecrets entry, and nameOverride / fullnameOverride. No maxLength here: the map keys are prefixed by the fullname, which the schema cannot see; the names used verbatim add maxLength 253 at their call site.",
+      "description": "A DNS-1123 subdomain: dot-separated DNS-1123 labels, for a name the chart renders as an object name or builds one from; every $ref to it is a user. No maxLength here: a map key is prefixed by the fullname, which the schema cannot see; a name used verbatim adds maxLength 253 at its call site.",
       "type": "string",
       "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
     },
@@ -1299,7 +1304,7 @@
                     "required": ["name"],
                     "properties": {
                       "name": { "description": "The name of the store, a DNS-1123 subdomain of at most 253 characters, as ESO's CRD requires. Required.", "$ref": "#/$defs/dns1123Subdomain", "maxLength": 253 },
-                      "kind": { "description": "SecretStore or ClusterSecretStore. Rendered only when set; ESO's default applies otherwise.", "type": "string", "enum": ["ClusterSecretStore", "SecretStore"] }
+                      "kind": { "description": "SecretStore or ClusterSecretStore. Rendered only when set; ESO's default applies otherwise.", "$ref": "#/$defs/esoStoreKind" }
                     },
                     "additionalProperties": false
                   },
@@ -1325,11 +1330,7 @@
           "description": "The store the entry reads from, rendered as spec.secretStoreRef. Required, with both kind and name, unless the entry has only dataFrom and every item carries its own sourceRef.",
           "type": "object",
           "properties": {
-            "kind": {
-              "description": "SecretStore or ClusterSecretStore. Required whenever secretstore is rendered.",
-              "type": "string",
-              "enum": ["ClusterSecretStore", "SecretStore"]
-            },
+            "kind": { "description": "SecretStore or ClusterSecretStore. Required whenever secretstore is rendered.", "$ref": "#/$defs/esoStoreKind" },
             "name": { "description": "The name of the store, a DNS-1123 subdomain of at most 253 characters, as ESO's CRD requires. Required whenever secretstore is rendered.", "$ref": "#/$defs/dns1123Subdomain", "maxLength": 253 }
           },
           "additionalProperties": false
