@@ -26,7 +26,9 @@ restores it on a removal (a key under a list item is not, since Helm replaces
 a list whole and the example lists of values.yaml default nothing).
 EXCEPTIONS lists the paths whose null is not their removal, each under the
 class CODING_STANDARDS.md names (a number printScalar renders, a required
-item field, ConfigMap and Secret data, a reference to an empty entry); a row
+item field, ConfigMap and Secret data, a reference to an empty entry). Where
+such a null differs from its removal it must fail naming its path, but under
+DATA, whose structured content renders as written. A row
 no finding needs fails the sweep, so no row outlives its reason.
 shortcut: the sweep sees only the nodes the scenarios set; when a regression
 turns up on a leaf none sets, add it to a scenario.
@@ -218,8 +220,9 @@ def removed(values, path, surfaces=frozenset()):
     absent. One exception, the surface a template reads through
     isSetPassthrough (surfaces): there a map of nulls is the map left out, so a
     cronjob's `nodeSelector: {zone: null}` inherits the workload's (issue #294).
-    shortcut: surfaces are matched by key, outside any list item; a generic
-    comparison (issue #294, the sweep switch) needs them by path."""
+    shortcut: surfaces are matched by key, outside any list item, so a map of
+    nulls under a key of that name that is no surface is left out too; match
+    them by path when the sweep passes or fails on such a map."""
     copy = json.loads(json.dumps(values))
     chain = [copy]
     for key in path[:-1]:
@@ -343,8 +346,22 @@ def unset_verdict(out, unset):
     if not out.returncode and not unset.returncode:
         a, b = stable_render(out.stdout), stable_render(unset.stdout)
         return None if a == b else "renders otherwise than with the key removed" + first_difference(a, b)
-    err = " ".join((out.stderr or unset.stderr).split())[:200]
+    err = " ".join((out if out.returncode else unset).stderr.split())[:200]
     return ("fails, and renders with the key removed: " if out.returncode else "renders, and fails with the key removed: ") + err
+
+
+def excepted_verdict(out, base, path, cls):
+    """A null on an EXCEPTIONS path: its class fails on null, but DATA's structured content renders."""
+    if out.returncode == 0 and cls != DATA:
+        return f"renders, where {cls!r} fails on null"
+    return verdict(out, base, path)
+
+
+def stale_exceptions(exceptions, used, standards):
+    """The EXCEPTIONS rows no finding needed, or whose class CODING_STANDARDS.md does not name."""
+    standards = " ".join(standards.split())
+    return [f"EXCEPTIONS: {dotted(e[0])}: no null map value of a scenario needs it; drop it" for e in exceptions if e not in used] + \
+        [f"EXCEPTIONS: {dotted(e[0])}: its class {e[1]!r} is not in CODING_STANDARDS.md" for e in exceptions if e[1] not in standards]
 
 
 def verdict(out, base, path):
@@ -376,6 +393,13 @@ def verdict_self_test(verdict=verdict):
         "renders otherwise than with the key removed: renders y: null"
     assert verdict(failed, "", ("svc", "protocol")).startswith("fails without naming protocol")
     assert verdict(failed, "", ("route", "portName")) is None
+    assert excepted_verdict(run(0, "replicas: null\n"), "", ("w", "replicaCount"), NUMBER).startswith("renders, where")
+    assert excepted_verdict(run(0, "max: null\n"), "", ("w", "configMap", "p", "max"), DATA) is None
+    assert excepted_verdict(failed, "", ("route", "portName"), NUMBER) is None
+    rows = [(("a", "*"), "Numbers are the exception"), (("b",), "no such class")]
+    stale = stale_exceptions(rows, {rows[0]}, "x\nNumbers are\n  the exception")
+    assert stale == ["EXCEPTIONS: b: no null map value of a scenario needs it; drop it",
+                     "EXCEPTIONS: b: its class 'no such class' is not in CODING_STANDARDS.md"], stale
 
 
 def values_to_json_chart(tmp):
@@ -511,11 +535,10 @@ def main(argv):
                 return verdict(out, bases[c.file], c.path)
             generic = unset_verdict(out, render(chart, flags, c.unset, tmp))
             exception = exception_for(c.path)
-            if exception is None:
+            if exception is None or generic is None:
                 return generic
-            if generic:
-                used.add(exception)
-            return verdict(out, bases[c.file], c.path)
+            used.add(exception)
+            return excepted_verdict(out, bases[c.file], c.path, exception[1])
 
         def type_job(c):
             out = render(chart, flags, c.values, tmp)
@@ -526,11 +549,7 @@ def main(argv):
             nulls, typed = pool.map(null_job, jobs), pool.map(type_job, wrongs)
             findings += [f"{c.file}: {'.'.join(map(str, c.path))} = {json.dumps(c.value)} → {v}"
                          for c, v in zip(jobs + wrongs, list(nulls) + list(typed)) if v]
-    standards = " ".join((pathlib.Path(__file__).parent.parent.parent / "CODING_STANDARDS.md").read_text().split())
-    findings += [f"EXCEPTIONS: {dotted(p)}: no null map value of a scenario needs it; drop it" for p, _ in EXCEPTIONS
-                 if (p, _) not in used]
-    findings += [f"EXCEPTIONS: {dotted(p)}: its class {cls!r} is not in CODING_STANDARDS.md" for p, cls in EXCEPTIONS
-                 if cls not in standards]
+    findings += stale_exceptions(EXCEPTIONS, used, (pathlib.Path(__file__).parent.parent.parent / "CODING_STANDARDS.md").read_text())
     if findings:
         print("    FAIL: a null or a wrong type under --skip-schema-validation does not fail naming its values path:")
         for line in sorted(findings):

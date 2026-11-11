@@ -111,10 +111,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   set and `httpGet: null`.
 - `make lint-release` fails a change to `charts/` or `tests/` that leaves
   `[Unreleased]` as it is at the merge-base with `RELEASE_BASE` (default
-  `origin/main`): a test-only change is logged too (#292 retro). `make
-  null-sweep` compares a null with its removal on a key under a list item as
-  well: the example lists of `values.yaml` had kept it from every key under
-  `ingress.hosts[]`.
+  `origin/main`): a test-only change is logged too (#292 retro).
 
 ### Fixed
 
