@@ -572,13 +572,13 @@
     "kedaTriggerAuthentication": {
       "type": "object",
       "properties": {
-        "secretTargetRef": { "description": "Values read from Secret keys; spec.secretTargetRef of the TriggerAuthentication, rendered verbatim when non-empty.", "type": "array", "items": { "$ref": "#/$defs/kedaSecretTargetRef" } },
-        "env": { "description": "Values read from environment variables of the scale target's containers; spec.env of the TriggerAuthentication, rendered verbatim when non-empty.", "type": "array", "items": { "$ref": "#/$defs/kedaEnvRef" } },
-        "podIdentity": { "description": "The TriggerAuthentication's spec.podIdentity (e.g. provider: azure-workload), rendered verbatim when non-empty.", "type": "object" },
-        "hashiCorpVault": { "description": "The TriggerAuthentication's spec.hashiCorpVault, rendered verbatim when non-empty.", "type": "object" },
-        "azureKeyVault": { "description": "The TriggerAuthentication's spec.azureKeyVault, rendered verbatim when non-empty.", "type": "object" },
-        "awsSecretManager": { "description": "The TriggerAuthentication's spec.awsSecretManager, rendered verbatim when non-empty.", "type": "object" },
-        "gcpSecretManager": { "description": "The TriggerAuthentication's spec.gcpSecretManager, rendered verbatim when non-empty.", "type": "object" }
+        "secretTargetRef": { "description": "Values read from Secret keys; spec.secretTargetRef of the TriggerAuthentication, rendered verbatim without its null values; one empty or of nulls only is left out.", "type": "array", "items": { "$ref": "#/$defs/kedaSecretTargetRef" } },
+        "env": { "description": "Values read from environment variables of the scale target's containers; spec.env of the TriggerAuthentication, rendered verbatim without its null values; one empty or of nulls only is left out.", "type": "array", "items": { "$ref": "#/$defs/kedaEnvRef" } },
+        "podIdentity": { "description": "The TriggerAuthentication's spec.podIdentity (e.g. provider: azure-workload), rendered verbatim without its null values; one empty or of nulls only is left out.", "type": "object" },
+        "hashiCorpVault": { "description": "The TriggerAuthentication's spec.hashiCorpVault, rendered verbatim without its null values; one empty or of nulls only is left out.", "type": "object" },
+        "azureKeyVault": { "description": "The TriggerAuthentication's spec.azureKeyVault, rendered verbatim without its null values; one empty or of nulls only is left out.", "type": "object" },
+        "awsSecretManager": { "description": "The TriggerAuthentication's spec.awsSecretManager, rendered verbatim without its null values; one empty or of nulls only is left out.", "type": "object" },
+        "gcpSecretManager": { "description": "The TriggerAuthentication's spec.gcpSecretManager, rendered verbatim without its null values; one empty or of nulls only is left out.", "type": "object" }
       },
       "additionalProperties": false
     },

@@ -70,6 +70,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   a volume whose only source is null now fails; write the source, `emptyDir:
   {}` for an empty directory. A volume with nothing but its name never
   installed.
+- **Breaking: a `kedaTriggerAuthentications` credential source of nulls only
+  fails the render** (issue #304), naming the source:
+  `podIdentity: {provider: null}`, which the schema accepts, rendered as
+  written in 4.2.1, a source with no provider. Its nulls are unset, so the
+  source is empty, and the entry declares no other. An empty source (`[]`,
+  `{}`) already failed; the message now names it too, and the other empty
+  sources after it. A null source is the source left out: the entry's own
+  message, as before. **Migration**: give the source its fields, or drop the
+  entry.
+- **Breaking: an ExternalSecret's null `data` or `dataFrom` is unset, as the
+  key left out, under `--skip-schema-validation`** (issue #304): without
+  `remote`, the render fails at `remote: mandatory`; it rendered `data: null`.
+  A null `generatorRef` or `storeRef` in a `dataFrom` entry's `sourceRef` is
+  no sourceRef, so the spec-level `secretstore` is mandatory; it rendered
+  `sourceRef: {generatorRef: null}` with no store. **Migration**: write
+  `data`, `remote` or the `secretstore` the error names.
+- **Breaking: a keda trigger's `authenticationRef` without `name`, `{}`
+  included, fails the render under `--skip-schema-validation`** (issue #304),
+  naming `…authenticationRef.name`, as the schema's `required` does; a null
+  `name` already failed. `{}` rendered as written, and a ref of kind
+  `ClusterTriggerAuthentication` rendered an empty `name`, a ref to nothing;
+  with no kind or a namespaced one the render died on a Go type error naming
+  no values path. **Migration**: name the TriggerAuthentication.
 
 - `make validate-bad-values` checks what a values file renders under
   `--skip-schema-validation`, not only that a `fail` fires (issue #292). A file
@@ -97,7 +120,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   manifests; one with a null rolls its pods once on upgrade, as the null
   leaves the pod template. A ConfigMap or Secret data value is outside the
   rule: a null there still fails, and inside a structured data value it is
-  the file's content.
+  the file's content. A TriggerAuthentication credential source of nulls
+  only is left empty by the rule, and fails (issue #304, under Changed).
 - A surface whose keys are all null renders as the surface left out (issue
   #294). On a hook or cronjob it inherits the workload's value, as an absent
   one does: `nodeSelector`, `affinity`, `podSecurityContext`,
@@ -131,8 +155,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   and `targetPort`, an `extraPorts` entry's `appProtocol`, `protocol` and
   `nodePort`, a backend's `portName` and `service.port` (80), a
   `kedaTriggerAuthentications` entry an `authenticationRef` names (the ref
-  then renders verbatim), and an ExternalSecret's `target.immutable`. A null
-  `imagePullSecrets` on a workload or a job, `externalSecrets` on a cronjob
+  then renders verbatim), an ExternalSecret's `target.immutable`, and its
+  `remote` or `secretkey` beside `data` or `dataFrom`, which failed as mixing
+  the two forms (issue #304). A null `imagePullSecrets` on a workload or a job, `externalSecrets` on a cronjob
   or hook, or `serviceAccount` on an `rbacs.roles` entry now falls back as
   the key left out, where it stopped the fallback or created a ServiceAccount.
   The schema rejects all of these but `image`. No values file that rendered
@@ -161,6 +186,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   path. With nothing but its name it rendered invalid YAML, so no release that
   installs changes; with a null source (`configMap: null`) it installed as an
   empty directory. Write the source, `emptyDir: {}` for an empty directory.
+- A `kedaTriggerAuthentications` credential source of nulls only
+  (`podIdentity: {provider: null}`) now fails the render naming it: it
+  installed a TriggerAuthentication whose source had no provider. Give the
+  source its fields, or drop the entry.
+- Under `--skip-schema-validation`, an ExternalSecret whose `data` or
+  `dataFrom` is null and has no `remote`, or whose `dataFrom` entries carry
+  only a null `generatorRef` / `storeRef` and no `secretstore`, now fails
+  naming the missing key. Write it; the schema already rejected the null.
+- Under `--skip-schema-validation`, a keda trigger's `authenticationRef`
+  without `name` now fails naming it; the schema already required it.
 
 ## [4.2.1] — 2026-10-26
 

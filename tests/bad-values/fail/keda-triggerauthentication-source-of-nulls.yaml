@@ -1,0 +1,9 @@
+# A credential source of nulls only (issue #304): the schema accepts it, since
+# podIdentity declares no properties. Its nulls are unset, so the source is
+# left out, and the entry declares no other; it used to render a
+# TriggerAuthentication with no credential source.
+# Expected fail substring: "kedaTriggerAuthentications.cloud.podIdentity: empty or of nulls only, so the entry declares no credential source"
+kedaTriggerAuthentications:
+  cloud:
+    podIdentity:
+      provider: null

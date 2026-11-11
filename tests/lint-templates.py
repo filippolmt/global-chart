@@ -117,6 +117,7 @@ ISSET_DYNAMIC = {
     ("templates/workload.yaml", "$raw $k"),  # the probe null filter: drops every null key, by construction
     ("templates/_validate-helpers.tpl", "$.probe ."),  # validateProbeHandler: null-sweep reads $handlers
     ("templates/_keda-helpers.tpl", "$auths .name"),  # kedaAuthRefName: a null entry is the key left out, skip-schema-render/keda-triggerauthentication-entry-null.yaml
+    ("templates/triggerauthentication.yaml", "$auth $field"),  # a null credential source is the source left out: skip-schema/keda-triggerauthentication-source-null.yaml
 }
 EXCEPTIONS = ("Name collision: ", "The fullname ", "Both .Values.ingress")
 KIND_ONLY = re.compile(r'\$kindOnly\s*:=\s*dict\s+(.*?)\}\}', re.S)
