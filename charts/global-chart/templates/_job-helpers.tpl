@@ -411,11 +411,14 @@ Resolution order:
 {{- end -}}
 
 {{/*
-The CronJob spec fields between schedule/timeZone and jobTemplate, for both
-scopes: one home, so the root and workload-scope CronJobs cannot drift apart.
-These are CronJob spec fields, not Job spec fields — jobSpecVerbatimFields
-below owns the Job template's. Rendered in this order, each from the job when
-it sets the key, else from its default, else not at all. A number is set when
+The CronJob spec fields before jobTemplate, for both scopes: one home, so the
+root and workload-scope CronJobs cannot drift apart. These are CronJob spec
+fields, not Job spec fields — jobSpecVerbatimFields below owns the Job
+template's. schedule comes first and is required: left out, null or "" fails
+naming it (issue #312), where it rendered an empty schedule the API server
+refuses. timeZone follows when set, quoted. The rest are rendered in this
+order, each from the job when it sets the key, else from its default, else not
+at all. A number is set when
 the key is there (hasKey, so 0 is kept and a null fails through printScalar);
 suspend and concurrencyPolicy are set through isSet, a null being the key left
 out (issue #303), false kept:
@@ -427,8 +430,8 @@ Nothing falls back to the workload or global: they describe this schedule.
 Every value goes through global-chart.printScalar (issue #132), unquoted:
 concurrencyPolicy is a schema enum (Allow/Forbid/Replace), a plain YAML string.
 Params: job (the job map) · errCtx (the job's jobValuesPath).
-Returns "field: value" lines at indent 0; concurrencyPolicy and the two limits
-always render, so it is never empty.
+Returns "field: value" lines at indent 0; schedule, concurrencyPolicy and the
+two limits always render, so it is never empty.
 Usage: {{- include "global-chart.cronJobSpecFields" (dict "job" $job "errCtx" $errCtx) | nindent 2 }}
 errCtx is the job's jobValuesPath: a null the job sets fails naming its key.
 */}}
@@ -442,7 +445,10 @@ errCtx is the job's jobValuesPath: a null the job sets fails naming its key.
       "concurrencyPolicy" (eq (include "global-chart.isSet" (list $job "concurrencyPolicy")) "true")
       "successfulJobsHistoryLimit" (hasKey $job "successfulJobsHistoryLimit")
       "failedJobsHistoryLimit" (hasKey $job "failedJobsHistoryLimit") -}}
-{{- $lines := list -}}
+{{- $lines := list (printf "schedule: %s" (required (printf "%s.schedule: required" $errCtx) $job.schedule | quote)) -}}
+{{- with $job.timeZone -}}
+  {{- $lines = append $lines (printf "timeZone: %s" (quote .)) -}}
+{{- end -}}
 {{- range (list "startingDeadlineSeconds" "suspend" "concurrencyPolicy" "successfulJobsHistoryLimit" "failedJobsHistoryLimit") -}}
   {{- if or (index $own .) (hasKey $defaults .) -}}
     {{- $value := ternary (index $job .) (index $defaults .) (index $own .) -}}

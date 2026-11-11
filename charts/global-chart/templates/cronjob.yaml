@@ -46,10 +46,6 @@ metadata:
     {{- . | nindent 4 }}
   {{- end }}
 spec:
-  schedule: {{ required (printf "%s.schedule: required" $errCtx) $job.schedule | quote }}
-  {{- with $job.timeZone }}
-  timeZone: {{ . | quote }}
-  {{- end }}
   {{- include "global-chart.cronJobSpecFields" (dict "job" $job "errCtx" $errCtx) | nindent 2 }}
   jobTemplate:
     {{- with (include "global-chart.renderAnnotations" (dict "root" $root)) }}
@@ -122,10 +118,6 @@ metadata:
     {{- . | nindent 4 }}
   {{- end }}
 spec:
-  schedule: {{ required (printf "%s.schedule: required" $errCtx) $job.schedule | quote }}
-  {{- with $job.timeZone }}
-  timeZone: {{ . | quote }}
-  {{- end }}
   {{- include "global-chart.cronJobSpecFields" (dict "job" $job "errCtx" $errCtx) | nindent 2 }}
   jobTemplate:
     {{- with (include "global-chart.renderAnnotations" (dict "root" $root)) }}

@@ -1084,7 +1084,7 @@
       "type": "object",
       "required": ["schedule"],
       "properties": {
-        "schedule": { "description": "Cron schedule in the five-field format, such as \"0 2 * * *\".", "type": "string" },
+        "schedule": { "description": "Cron schedule in the five-field format, such as \"0 2 * * *\".", "type": "string", "minLength": 1 },
         "successfulJobsHistoryLimit": { "description": "Successful Jobs kept; 2 when unset.", "type": "integer", "minimum": 0, "maximum": 2147483647 },
         "failedJobsHistoryLimit": { "description": "Failed Jobs kept; 2 when unset.", "type": "integer", "minimum": 0, "maximum": 2147483647 },
         "backoffLimit": { "description": "Retries before a Job is marked failed. Kubernetes defaults to 6.", "type": "integer", "minimum": 0, "maximum": 2147483647 },
