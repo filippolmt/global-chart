@@ -45,6 +45,10 @@ a rule below cannot recognise: a check that sees nothing is not a pass.
   probe, and `$defs/probe` declares them as its properties that are not
   integers (the timings are). A handler the schema adds and the list misses would fail
   a valid probe with "no handler" (issue #288).
+- sourceref-required: renderExternalSecretSpec's `$sourceRefRequired` lists,
+  per ref of a dataFrom entry's sourceRef, the keys `$defs/externalSecret`
+  requires of it. A ref or key the schema adds and the map misses would let a
+  ref without it count as the entry's own store (issue #309).
 - workload-kind: a quoted kind of a workload ("Deployment", "StatefulSet",
   "DaemonSet") appears only in its homes: the workloadKind and isStatefulSet
   defines and the `$kindOnly` map. Anywhere else it is a kind written by hand,
@@ -114,6 +118,7 @@ EXCEPTIONS = ("Name collision: ", "The fullname ", "Both .Values.ingress")
 KIND_ONLY = re.compile(r'\$kindOnly\s*:=\s*dict\s+(.*?)\}\}', re.S)
 KIND_LIST = re.compile(r'"(\w+)"\s*\(list\s+([^)]*)\)')
 PROBE_HANDLERS = re.compile(r'define "global-chart\.validateProbeHandler".*?\$handlers\s*:=\s*list\s+([^}]*?)\s*-?\}\}', re.S)
+SOURCEREF_REQUIRED = re.compile(r'define "global-chart\.renderExternalSecretSpec".*?\$sourceRefRequired\s*:=\s*dict\s+(.*?)\}\}', re.S)
 WORKLOAD_KIND = re.compile(r'"(Deployment|StatefulSet|DaemonSet)"')
 KIND_HOMES = {"global-chart.workloadKind", "global-chart.isStatefulSet"}
 DEFINE_NAME = re.compile(r'\{\{-?\s*define\s+"([^"]+)"')
@@ -207,6 +212,30 @@ def probe_handler_list_self_test():
     helper = '{{- define "global-chart.validateProbeHandler" -}}\n{{- $handlers := list "exec" "grpc" -}}'
     assert probe_handler_list(helper) == ["exec", "grpc"]
     assert probe_handler_list('{{- $handlers := list "exec" -}}') is None, "a list outside the helper is not its"
+
+
+def sourceref_required_map(text):
+    """renderExternalSecretSpec's $sourceRefRequired in text, as {ref: sorted keys}, or None without one."""
+    m = SOURCEREF_REQUIRED.search(text)
+    return {ref: sorted(re.findall(r'"(\w+)"', keys)) for ref, keys in KIND_LIST.findall(m.group(1))} if m else None
+
+
+def sourceref_required_self_test():
+    helper = '{{- define "global-chart.renderExternalSecretSpec" -}}\n{{- $sourceRefRequired := dict "storeRef" (list "name") "generatorRef" (list "name" "kind") -}}'
+    assert sourceref_required_map(helper) == {"storeRef": ["name"], "generatorRef": ["kind", "name"]}
+    assert sourceref_required_map('{{- $sourceRefRequired := dict "storeRef" (list "name") -}}') is None, "a map outside the helper is not its"
+
+
+def sourceref_required(chart, schema):
+    """The sourceref-required rule."""
+    listed = sourceref_required_map((chart / "templates" / "_render-helpers.tpl").read_text())
+    if listed is None:
+        return ["templates/_render-helpers.tpl: sourceref-required: no `$sourceRefRequired := dict …` in renderExternalSecretSpec to compare with the schema"]
+    refs = schema["$defs"]["externalSecret"]["properties"]["dataFrom"]["items"]["properties"]["sourceRef"]["properties"]
+    declared = {ref: sorted(v.get("required", [])) for ref, v in refs.items()}
+    if listed != declared:
+        return [f"templates/_render-helpers.tpl: sourceref-required: $sourceRefRequired {listed}, schema sourceRef required {declared}"]
+    return []
 
 
 def probe_handlers(chart, schema):
@@ -333,6 +362,7 @@ def every_kind(chart):
 
 def main(chart):
     probe_handler_list_self_test()
+    sourceref_required_self_test()
     chart = pathlib.Path(chart)
     templates = chart / "templates"
     schema = json.loads((chart / "values.schema.json").read_text())
@@ -392,6 +422,7 @@ def main(chart):
     problems += every_kind(chart)
     problems += kind_fields(chart, schema)
     problems += probe_handlers(chart, schema)
+    problems += sourceref_required(chart, schema)
     problems += workload_kind(chart)
     problems += render_order(chart)
     problems += read_only_by(chart)
