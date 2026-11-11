@@ -173,6 +173,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   stops rendering; an `extraPorts` entry's `name`, `port` and `targetPort`
   still fail on a null.
 
+### Tests
+
+- `make render VALUES=<file> BASE=<ref>` takes a values file outside the
+  repository: when both refs rendered the same, it printed the diff's OK line
+  with a path relative to the repository and crashed on one outside it.
+
 ### Migration guide from 4.2.1
 
 - Nothing to change for existing values: the new `fail`s read
