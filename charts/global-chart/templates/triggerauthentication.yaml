@@ -10,7 +10,7 @@
 {{- /* Read as the body renders it: a source empty or of nulls only is left out (issue #304) */ -}}
 {{- range $field := $sources }}
 {{- if include "global-chart.passthroughYaml" (index $auth $field) }}{{- $declared = true }}
-{{- else if hasKey $auth $field }}{{- $empty = append $empty $field }}{{- end }}
+{{- else if eq (include "global-chart.isSet" (list $auth $field)) "true" }}{{- $empty = append $empty $field }}{{- end }}
 {{- end }}
 {{- if not $declared }}
 {{- with $empty }}
