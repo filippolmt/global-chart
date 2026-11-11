@@ -402,12 +402,8 @@ Usage: {{- range (include "global-chart.podSpecOwners" . | fromJsonArray) }}
   {{- end -}}
 {{- end -}}
 {{- range $scope := $scopes -}}
-  {{- range $hookType, $jobs := (default (dict) $scope.hooks) -}}
-    {{- range $jobName, $job := (default (dict) $jobs) -}}
-      {{- if include "global-chart.isNonEmptyEntry" $job -}}
-        {{- $out = append $out (dict "path" (include "global-chart.jobValuesPath" (dict "kind" "hook" "deploymentName" $scope.deployName "hookType" $hookType "jobName" $jobName)) "kind" "hook" "spec" $job) -}}
-      {{- end -}}
-    {{- end -}}
+  {{- range (include "global-chart.hookEntries" $scope.hooks | fromJsonArray) -}}
+    {{- $out = append $out (dict "path" (include "global-chart.jobValuesPath" (dict "kind" "hook" "deploymentName" $scope.deployName "hookType" .hookType "jobName" .name)) "kind" "hook" "spec" (index $scope.hooks .hookType .name)) -}}
   {{- end -}}
   {{- range $jobName, $job := (default (dict) $scope.cronJobs) -}}
     {{- if include "global-chart.isNonEmptyEntry" $job -}}
