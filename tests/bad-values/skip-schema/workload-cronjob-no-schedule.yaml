@@ -1,0 +1,10 @@
+# A workload-scope cronjob with no schedule (issue #312). The schema rejects it
+# first; under --skip-schema-validation cronJobSpecFields fails naming the key.
+# It used to render `schedule:` with no value, which the API server refuses.
+# Expected fail substring: "workloads.app.cronJobs.c.schedule: required"
+workloads:
+  app:
+    image: nginx:1.25
+    cronJobs:
+      c:
+        command: ["true"]

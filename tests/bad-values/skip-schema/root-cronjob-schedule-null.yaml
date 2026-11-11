@@ -1,0 +1,9 @@
+# A root-level cronjob with a null schedule (issue #312). The schema rejects it
+# first; under --skip-schema-validation cronJobSpecFields fails naming the key.
+# It used to render `schedule:` with no value, which the API server refuses.
+# Expected fail substring: "cronJobs.cleanup.schedule: required"
+cronJobs:
+  cleanup:
+    schedule: null
+    image: busybox:1.36
+    command: ["true"]

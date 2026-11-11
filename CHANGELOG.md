@@ -93,6 +93,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   `ClusterTriggerAuthentication` rendered an empty `name`, a ref to nothing;
   with no kind or a namespaced one the render died on a Go type error naming
   no values path. **Migration**: name the TriggerAuthentication.
+- **Breaking: a cronjob's `schedule: ""` is rejected by the schema, and a
+  `schedule` left out, null or `""` fails the render under
+  `--skip-schema-validation`** (issue #312), root or workload scope, naming
+  `…schedule`. A left-out or null `schedule`, which the schema already
+  rejected, rendered `schedule:` with no value; `""` passed the schema and
+  rendered `schedule: ""`. The API server refuses both at apply.
+  **Migration**: none for a release that installs; such a CronJob never
+  applied.
 
 - `make validate-bad-values` checks what a values file renders under
   `--skip-schema-validation`, not only that a `fail` fires (issue #292). A file
@@ -211,6 +219,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   naming the missing key. Write it; the schema already rejected the null.
 - Under `--skip-schema-validation`, a keda trigger's `authenticationRef`
   without `name` now fails naming it; the schema already required it.
+- A cronjob with `schedule: ""` is now rejected by the schema, and under
+  `--skip-schema-validation` a `schedule` left out, null or `""` fails the
+  render naming it. The API server already refused the CronJob it rendered,
+  so no release that installs changes.
 
 ## [4.2.1] — 2026-10-26
 
