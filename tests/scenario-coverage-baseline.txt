@@ -28,7 +28,6 @@ cronJobs.*.volumeMounts: never set
 defaults: never set
 externalSecrets.*.annotations: never set
 externalSecrets.*.dataFrom[].rewrite: never set
-externalSecrets.*.dataFrom[].sourceRef.storeRef: never set
 externalSecrets.*.data[].remote.version: never number
 fullnameOverride: never set
 hooks.*.*.activeDeadlineSeconds: never set
