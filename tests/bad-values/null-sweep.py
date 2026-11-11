@@ -35,8 +35,8 @@ run over fewer reports the rows those scenarios do not reach.
 shortcut: the sweep sees only the nodes the scenarios set; when a regression
 turns up on a leaf none sets, add it to a scenario.
 
-Every other null — a list item, a defaulted key, an excepted path — must
-render with no more null-looking lines (`<nil>`, a `- null` list item, an
+Every null that renders — a map value as its removal does, a list item, a
+defaulted key, an excepted path — must also render with no more null-looking lines (`<nil>`, a `- null` list item, an
 empty `name:`) than the scenario's own render, or fail with a template `fail`
 or `required` (`execution error at (…): <message>`) whose message names the
 nulled node — its key, or `<list>[<i>]` for a list item — or the node holding
@@ -132,7 +132,7 @@ def surface_keys_self_test():
 
 # The map values whose null is not their removal, each in a class
 # CODING_STANDARDS.md (*A null means one thing per kind of node*) names: the
-# class text must occur there. "*" is one path segment (a key or a list index),
+# class text must occur there, so rewording a class there rewords it here. "*" is one path segment (a key or a list index),
 # "**" the rest of the path. A pattern no finding matches fails the sweep.
 # Markdown emphasis is ignored in the comparison.
 NUMBER = "Numbers are the exception"                # printScalar
@@ -377,7 +377,7 @@ def excepted_verdict(out, base, path, cls):
 def stale_exceptions(exceptions, used, standards):
     """The EXCEPTIONS rows no finding needed, or whose class CODING_STANDARDS.md does not name."""
     standards = " ".join(standards.replace("*", "").split())
-    return [f"EXCEPTIONS: {dotted(e.pattern)}: no null map value of a scenario needs it; drop it" for e in exceptions if e not in used] + \
+    return [f"EXCEPTIONS: {dotted(e.pattern)}: no null map value of a scenario needs it; drop it, or run every TEST_CASES scenario" for e in exceptions if e not in used] + \
         [f"EXCEPTIONS: {dotted(e.pattern)}: its class {e.cls!r} is not in CODING_STANDARDS.md" for e in exceptions if e.cls not in standards]
 
 
@@ -416,7 +416,7 @@ def verdict_self_test(verdict=verdict):
     assert excepted_verdict(failed, "", ("route", "portName"), NUMBER) is None
     rows = [Row(("a", "*"), "a null in a required field"), Row(("b",), "no such class")]
     stale = stale_exceptions(rows, {rows[0]}, "x\na null in a **required\n  field**")
-    assert stale == ["EXCEPTIONS: b: no null map value of a scenario needs it; drop it",
+    assert stale == ["EXCEPTIONS: b: no null map value of a scenario needs it; drop it, or run every TEST_CASES scenario",
                      "EXCEPTIONS: b: its class 'no such class' is not in CODING_STANDARDS.md"], stale
 
 
@@ -553,7 +553,10 @@ def main(argv):
                 return verdict(out, bases[c.file], c.path)
             as_removed = unset_verdict(out, render(chart, flags, c.unset, tmp))
             exception = exception_for(c.path)
-            if exception is None or as_removed is None:
+            if as_removed is None:
+                # both failing is equal; a render is still held to the null-looking lines
+                return verdict(out, bases[c.file], c.path) if out.returncode == 0 else None
+            if exception is None:
                 return as_removed
             used.add(exception)
             return excepted_verdict(out, bases[c.file], c.path, exception.cls)

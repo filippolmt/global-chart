@@ -294,6 +294,9 @@ def orchestration_test():
         assert len(passes[1]) == sum(len(sweep.wrong_types(sweep.value_at(v, p)))
                                      for v in f.values for p in sweep.paths(v))
         assert all(c.value is None for c in passes[0])
+        # every map value gets its removal case, no list item does: the null-vs-removed comparison runs
+        assert any(c.unset is not None for c in passes[0])
+        assert all((c.unset is not None) == (not isinstance(c.path[-1], int)) for c in passes[0])
         assert all(c.value is not None for c in passes[1])
         assert renders[:2] == f.values and len(renders) > 2, renders
 
