@@ -978,15 +978,30 @@ Params:
 {{/* A dataFrom whose every entry carries its own sourceRef (generatorRef or
      per-item storeRef) needs no spec-level store: the CRD makes secretStoreRef
      optional. An empty list is not self-contained — it would render a
-     store-less, data-less ExternalSecret. */}}
-{{- $selfContainedDataFrom := false -}}
-{{- if and $hasDataFrom (not $hasData) (gt (len (default (list) $secret.dataFrom)) 0) -}}
-{{- $selfContainedDataFrom = true -}}
-{{- range $item := $secret.dataFrom -}}
+     store-less, data-less ExternalSecret. A ref set without the keys the
+     schema requires, {} or nulls only, or with one of them "", fails naming
+     the key (issue #309): dataFrom is a passthrough surface, so a ref its
+     nulls empty stays, as {}, and ESO's CRD rejects a ref to no store or
+     generator at apply. $sourceRefRequired mirrors the
+     schema's sourceRef, held to it by lint-templates' sourceref-required. */}}
+{{- $sourceRefRequired := dict "generatorRef" (list "kind" "name") "storeRef" (list "name") -}}
+{{- $selfContainedDataFrom := and $hasDataFrom (not $hasData) (gt (len (default (list) $secret.dataFrom)) 0) -}}
+{{- range $i, $item := $secret.dataFrom -}}
 {{- $sourceRef := default (dict) $item.sourceRef -}}
-{{- if not (or (eq (include "global-chart.isSet" (list $sourceRef "generatorRef")) "true") (eq (include "global-chart.isSet" (list $sourceRef "storeRef")) "true")) -}}
-{{- $selfContainedDataFrom = false -}}
+{{- $hasRef := false -}}
+{{- range $ref, $requiredKeys := $sourceRefRequired -}}
+{{- if eq (include "global-chart.isSet" (list $sourceRef $ref)) "true" -}}
+{{- $hasRef = true -}}
+{{- range $requiredKeys -}}
+{{- $refMap := index $sourceRef $ref -}}
+{{- if or (ne (include "global-chart.isSet" (list $refMap .)) "true") (empty (index $refMap .)) -}}
+{{- fail (printf "externalSecrets.%s.dataFrom[%d].sourceRef.%s.%s: mandatory" $key $i $ref .) -}}
 {{- end -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- if not $hasRef -}}
+{{- $selfContainedDataFrom = false -}}
 {{- end -}}
 {{- end -}}
 {{- $secretStore := $secret.secretstore -}}
