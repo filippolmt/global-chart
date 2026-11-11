@@ -92,6 +92,9 @@ CANDIDATES = {
     "/$defs/optionalObjectName/anyOf/2": [SUBDOMAIN_253],
     "/$defs/l4RouteRule/properties/name": [SUBDOMAIN_253],
     "/$defs/rbacs/properties/roles/items/properties/name": [SUBDOMAIN_253],
+    "/$defs/externalSecret/properties/secretstore/properties/name": [SUBDOMAIN_253],
+    "/$defs/externalSecret/properties/dataFrom/items/properties/sourceRef/properties/storeRef/properties/name": [SUBDOMAIN_253],
+    "/$defs/externalSecret/properties/dataFrom/items/properties/sourceRef/properties/generatorRef/properties/name": [SUBDOMAIN_253],
     # a qualified name: a 63-character name, a full prefix, and names YAML reads as a number or a boolean
     "/$defs/podFailurePolicy/properties/rules/items/properties/onPodConditions/items/properties/type": [
         "a" * 63, SUBDOMAIN_253 + "/" + "a" * 63, "example.com/Ready", "0", "true"],

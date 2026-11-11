@@ -74,9 +74,11 @@ surface (issue option 2) misses the typo that motivated the issue:
   name (`httpGet`, `tcpSocket`, a NetworkPolicy port, a Service `targetPort`)
   goes through one `$defs/portNumberOrName`: 1-65535 or an IANA_SVC_NAME.
 - **`dataFrom[].sourceRef`: closed.** `storeRef` (`name`, `kind`) and
-  `generatorRef` (`apiVersion`, `kind`, `name`), with no `enum` on the `kind`s.
-  ESO adds generator types; it does not add fields to the reference. We close the
-  shape, not the vocabulary. The chart already reads both keys to decide whether
+  `generatorRef` (`apiVersion`, `kind`, `name`), with no `enum` on the `kind`s
+  (*amended by issue #317:* `storeRef.kind` takes `SecretStore` /
+  `ClusterSecretStore`, a vocabulary ESO's CRD fixes; `generatorRef.kind` stays
+  free). ESO adds generator types; it does not add fields to the reference. We
+  close the shape, not the generator vocabulary. The chart already reads both keys to decide whether
   `secretstore` is required.
 - **`volumes`: open.** About thirty volume sources, and the list grows (`image`
   arrived in 1.31). Each item declares `name`, required, because `renderVolume` and
