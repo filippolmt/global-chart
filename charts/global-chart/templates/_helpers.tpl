@@ -141,14 +141,17 @@ app.kubernetes.io/managed-by: {{ .root.Release.Service | quote }}
 {{- end }}
 
 {{/*
-Check if a workload is enabled. Defaults to true if the field is not set.
+Whether a workload renders: an entry that is not an *empty entry*
+(isNonEmptyEntry, issue #305), with enabled true or unset. The one test of a
+workload walk: an empty entry, null included, is "false", so a caller needs no
+presence test of its own.
 Usage: {{ include "global-chart.deploymentEnabled" $deploy }}
-Input: the workload map. The caller has already guarded it against nil —
-`hasKey` on nil fails, and every call site sits inside `{{- if include "global-chart.isEntry" $deploy }}`.
 Returns the string "true" or "false".
 */}}
 {{- define "global-chart.deploymentEnabled" -}}
+{{- if include "global-chart.isNonEmptyEntry" . -}}
 {{- ternary .enabled true (eq (include "global-chart.isSet" (list . "enabled")) "true") -}}
+{{- else -}}false{{- end -}}
 {{- end }}
 
 {{/*

@@ -125,7 +125,7 @@ Resolution:
 {{- /* The workload's SA name, created or referenced-existing; "" when it
        names none, and always "" at root level */ -}}
 {{- $deploymentSAName := "" -}}
-{{- if include "global-chart.isEntry" $deploy -}}
+{{- if include "global-chart.isNonEmptyEntry" $deploy -}}
   {{- $deploymentSAName = (include "global-chart.deploymentServiceAccount" (dict "root" $root "deploymentName" $deployName "deployment" $deploy) | fromJson).name -}}
 {{- end -}}
 {{- $saName := "" -}}
@@ -202,13 +202,13 @@ Usage: {{ $releaseSAs := include "global-chart.releaseServiceAccounts" $root | f
 {{- $root := . -}}
 {{- $out := dict -}}
 {{- range $deployName, $deploy := $root.Values.workloads -}}
-  {{- if and (include "global-chart.isEntry" $deploy) (eq (include "global-chart.deploymentEnabled" $deploy) "true") -}}
+  {{- if eq (include "global-chart.deploymentEnabled" $deploy) "true" -}}
     {{- $sa := include "global-chart.deploymentServiceAccount" (dict "root" $root "deploymentName" $deployName "deployment" $deploy) | fromJson -}}
     {{- if $sa.create -}}
       {{- $_ := set $out $sa.name (dict "automount" $sa.automount "annotations" $sa.annotations "owner" (include "global-chart.deploymentValuesPath" $deployName) "deploymentName" $deployName) -}}
     {{- end -}}
     {{- range $jobName, $job := $deploy.cronJobs -}}
-      {{- if include "global-chart.isEntry" $job -}}
+      {{- if include "global-chart.isNonEmptyEntry" $job -}}
         {{- $errCtx := include "global-chart.jobValuesPath" (dict "kind" "cronjob" "deploymentName" $deployName "jobName" $jobName) -}}
         {{- $jobSA := include "global-chart.jobServiceAccount" (dict "root" $root "job" $job "deploy" $deploy "deployName" $deployName "jobFullname" (include "global-chart.deploymentCronJobName" (dict "root" $root "deploymentName" $deployName "jobName" $jobName)) "errCtx" $errCtx) | fromJson -}}
         {{- if $jobSA.create -}}
@@ -219,7 +219,7 @@ Usage: {{ $releaseSAs := include "global-chart.releaseServiceAccounts" $root | f
   {{- end -}}
 {{- end -}}
 {{- range $jobName, $job := $root.Values.cronJobs -}}
-  {{- if include "global-chart.isEntry" $job -}}
+  {{- if include "global-chart.isNonEmptyEntry" $job -}}
     {{- $errCtx := include "global-chart.jobValuesPath" (dict "kind" "cronjob" "jobName" $jobName) -}}
     {{- $jobSA := include "global-chart.jobServiceAccount" (dict "root" $root "job" $job "jobFullname" (include "global-chart.rootCronJobName" (dict "root" $root "name" $jobName)) "errCtx" $errCtx) | fromJson -}}
     {{- if $jobSA.create -}}

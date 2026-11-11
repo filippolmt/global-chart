@@ -6,7 +6,6 @@
        #152). */ -}}
 {{- $root := . -}}
 {{- range $name, $deploy := .Values.workloads }}
-{{- if include "global-chart.isEntry" $deploy }}
 {{- if eq (include "global-chart.deploymentEnabled" $deploy) "true" }}
 {{- $mountedConfigFiles := $deploy.mountedConfigFiles -}}
 {{- if $mountedConfigFiles }}
@@ -60,7 +59,6 @@ data:
 {{- end }}
 {{- end }}
 
-{{- end }}
 {{- end }}
 {{- end }}
 {{- end }}

@@ -194,6 +194,25 @@ Usage: {{- if include "global-chart.isNamedEntry" $ref }}
 {{- end }}
 
 {{/*
+Fail unless the workload a values key names is one that is not an empty entry
+(issue #305): "which is empty" when its entry is null, {} or of nulls only,
+"which does not exist" when there is none. The single home of both messages,
+for every reference to a workload by name (a route backend, fromWorkload).
+Renders nothing when the workload is there.
+Usage: {{- include "global-chart.requireWorkloadEntry" (dict "root" $root "name" $ref.workload "errCtx" "httpRoute.rules[0].backendRefs[0].workload") -}}
+*/}}
+{{- define "global-chart.requireWorkloadEntry" -}}
+{{- $errCtx := required "requireWorkloadEntry: errCtx is required (the values path of the reference)" .errCtx -}}
+{{- $workloads := default (dict) .root.Values.workloads -}}
+{{- if not (include "global-chart.isNonEmptyEntry" (index $workloads .name)) -}}
+  {{- if hasKey $workloads .name -}}
+    {{- fail (printf "%s: references workload '%s', which is empty: an empty workloads entry renders nothing. Fill the entry, or drop the reference." $errCtx .name) -}}
+  {{- end -}}
+  {{- fail (printf "%s: references workload '%s', which does not exist in .Values.workloads" $errCtx .name) -}}
+{{- end -}}
+{{- end }}
+
+{{/*
 Whether an entry of a values map of named resources — a workload, a hook, a
 cronjob, an ExternalSecret, a TriggerAuthentication — is one (issue #305): a
 map with a key that is not null. Null, {} and a map of nulls only are an
@@ -202,9 +221,9 @@ reference to it fails as empty. A key holding {} is not null, so
 {image: {}} is an entry. The single presence test of those entries: a bare
 `if $deploy` is true on a map of nulls (lint-templates rejects it).
 Returns "true" or "".
-Usage: {{- if include "global-chart.isEntry" $deploy }}
+Usage: {{- if include "global-chart.isNonEmptyEntry" $deploy }}
 */}}
-{{- define "global-chart.isEntry" -}}
+{{- define "global-chart.isNonEmptyEntry" -}}
 {{- $set := false -}}
 {{- if kindIs "map" . -}}
 {{- range $v := . -}}{{- if not (kindIs "invalid" $v) -}}{{- $set = true -}}{{- end -}}{{- end -}}
@@ -243,7 +262,7 @@ The Kubernetes kind a workloads entry renders as (ADR 0020): its own kind, or
 Deployment. The one home of that default, read by workload.yaml, hpa.yaml,
 scaledobject.yaml and, through isStatefulSet, by service.yaml and the validators.
 Usage: {{ include "global-chart.workloadKind" $deploy }}
-Input: the workload map, guarded against nil like deploymentEnabled's.
+Input: the workload map; every caller reads it after deploymentEnabled.
 */}}
 {{- define "global-chart.workloadKind" -}}
 {{- ternary .kind "Deployment" (eq (include "global-chart.isSet" (list . "kind")) "true") -}}
@@ -377,7 +396,7 @@ Usage: {{- range (include "global-chart.podSpecOwners" . | fromJsonArray) }}
 {{- $scopes := list (dict "hooks" .Values.hooks "cronJobs" .Values.cronJobs "deployName" "") -}}
 {{- $out := list -}}
 {{- range $name, $deploy := (default (dict) .Values.workloads) -}}
-  {{- if and (include "global-chart.isEntry" $deploy) (eq (include "global-chart.deploymentEnabled" $deploy) "true") -}}
+  {{- if eq (include "global-chart.deploymentEnabled" $deploy) "true" -}}
     {{- $out = append $out (dict "path" (include "global-chart.deploymentValuesPath" $name) "kind" "workload" "spec" $deploy) -}}
     {{- $scopes = append $scopes (dict "hooks" $deploy.hooks "cronJobs" $deploy.cronJobs "deployName" $name) -}}
   {{- end -}}
@@ -385,13 +404,13 @@ Usage: {{- range (include "global-chart.podSpecOwners" . | fromJsonArray) }}
 {{- range $scope := $scopes -}}
   {{- range $hookType, $jobs := (default (dict) $scope.hooks) -}}
     {{- range $jobName, $job := (default (dict) $jobs) -}}
-      {{- if include "global-chart.isEntry" $job -}}
+      {{- if include "global-chart.isNonEmptyEntry" $job -}}
         {{- $out = append $out (dict "path" (include "global-chart.jobValuesPath" (dict "kind" "hook" "deploymentName" $scope.deployName "hookType" $hookType "jobName" $jobName)) "kind" "hook" "spec" $job) -}}
       {{- end -}}
     {{- end -}}
   {{- end -}}
   {{- range $jobName, $job := (default (dict) $scope.cronJobs) -}}
-    {{- if include "global-chart.isEntry" $job -}}
+    {{- if include "global-chart.isNonEmptyEntry" $job -}}
       {{- $out = append $out (dict "path" (include "global-chart.jobValuesPath" (dict "kind" "cronjob" "deploymentName" $scope.deployName "jobName" $jobName)) "kind" "cronjob" "spec" $job) -}}
     {{- end -}}
   {{- end -}}
@@ -754,13 +773,8 @@ Numbers come back float64: see the file header.
 {{- /* Priority 2: workload reference */ -}}
 {{- else if $ref.workload -}}
   {{- $depName := $ref.workload -}}
-  {{- $deploy := index (default (dict) $root.Values.workloads) $depName -}}
-  {{- if not (include "global-chart.isEntry" $deploy) -}}
-    {{- if hasKey (default (dict) $root.Values.workloads) $depName -}}
-      {{- fail (printf "%s.workload: references workload '%s', which is empty: an empty workloads entry renders nothing. Fill the entry, or drop the reference." $path $depName) -}}
-    {{- end -}}
-    {{- fail (printf "%s.workload: references workload '%s', which does not exist in .Values.workloads" $path $depName) -}}
-  {{- end -}}
+  {{- include "global-chart.requireWorkloadEntry" (dict "root" $root "name" $depName "errCtx" (printf "%s.workload" $path)) -}}
+  {{- $deploy := index $root.Values.workloads $depName -}}
   {{- if ne (include "global-chart.deploymentEnabled" $deploy) "true" -}}
     {{- fail (printf "%s.workload: references workload '%s', which has enabled: false (its Service will not be created)" $path $depName) -}}
   {{- end -}}
@@ -1063,7 +1077,7 @@ Params:
   {{- /* A null ref, or a null name, is validateNullItems' to report */ -}}
   {{- if include "global-chart.isNamedEntry" $ref -}}
   {{- $secret := index (default (dict) $root.Values.externalSecrets) $ref.name -}}
-  {{- if not (include "global-chart.isEntry" $secret) -}}
+  {{- if not (include "global-chart.isNonEmptyEntry" $secret) -}}
     {{- if hasKey (default (dict) $root.Values.externalSecrets) $ref.name -}}
       {{- fail (printf "%s.externalSecrets: references '%s', which is empty: an empty externalSecrets entry renders no ExternalSecret. Fill the entry, or drop the reference." $.errCtx $ref.name) -}}
     {{- end -}}

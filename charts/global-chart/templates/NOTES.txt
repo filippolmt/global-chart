@@ -1,25 +1,25 @@
 Thank you for installing {{ include "global-chart.fullname" . }}!
 
-{{- if .Values.workloads }}
+{{- $workloadList := list }}
+{{- range $name, $deploy := .Values.workloads }}
+{{- if eq (include "global-chart.deploymentEnabled" $deploy) "true" }}
+{{- $workloadList = append $workloadList $name }}
+{{- end }}
+{{- end }}
+{{- if $workloadList }}
 
 Workloads created:
-{{- range $name, $deploy := .Values.workloads }}
-{{- if include "global-chart.isEntry" $deploy }}
-{{- if eq (include "global-chart.deploymentEnabled" $deploy) "true" }}
-  - {{ $name }}
-{{- end }}
-{{- end }}
+{{- range $workloadList }}
+  - {{ . }}
 {{- end }}
 {{- end }}
 
 {{- $svcList := list }}
 {{- range $name, $deploy := .Values.workloads }}
-{{- if include "global-chart.isEntry" $deploy }}
 {{- if eq (include "global-chart.deploymentEnabled" $deploy) "true" }}
 {{- $svc := default (dict) $deploy.service }}
 {{- if eq (include "global-chart.serviceEnabled" $svc) "true" }}
 {{- $svcList = append $svcList $name }}
-{{- end }}
 {{- end }}
 {{- end }}
 {{- end }}
@@ -67,28 +67,31 @@ Reminder: the chart does not create the Gateway resource — it must be managed 
 {{- end }}
 {{- end }}
 
-{{- if .Values.hooks }}
+{{- with (include "global-chart.hookEntries" .Values.hooks | fromJsonArray) }}
 
 Hooks:
-{{- range (include "global-chart.hookEntries" .Values.hooks | fromJsonArray) }}
+{{- range . }}
   - {{ .hookType }}/{{ .name }}
 {{- end }}
 {{- end }}
 
-{{- if .Values.cronJobs }}
+{{- $cronList := list }}
+{{- range $name, $job := .Values.cronJobs }}
+{{- if include "global-chart.isNonEmptyEntry" $job }}
+{{- $cronList = append $cronList (printf "%s (%s)" $name (toString $job.schedule)) }}
+{{- end }}
+{{- end }}
+{{- if $cronList }}
 
 CronJobs:
-{{- range $name, $job := .Values.cronJobs }}
-{{- if include "global-chart.isEntry" $job }}
-  - {{ $name }} ({{ $job.schedule }})
-{{- end }}
+{{- range $cronList }}
+  - {{ . }}
 {{- end }}
 {{- end }}
 
 {{- $pdbList := list }}
 {{- $npList := list }}
 {{- range $name, $deploy := .Values.workloads }}
-{{- if include "global-chart.isEntry" $deploy }}
 {{- if eq (include "global-chart.deploymentEnabled" $deploy) "true" }}
 {{- $pdb := default (dict) $deploy.pdb }}
 {{- if $pdb.enabled }}
@@ -97,7 +100,6 @@ CronJobs:
 {{- $np := default (dict) $deploy.networkPolicy }}
 {{- if $np.enabled }}
 {{- $npList = append $npList $name }}
-{{- end }}
 {{- end }}
 {{- end }}
 {{- end }}

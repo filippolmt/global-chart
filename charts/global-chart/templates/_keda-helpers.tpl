@@ -25,8 +25,8 @@ name — the rendered name embeds the release name, which the user cannot know
 when writing values. If the key exists in the map, this returns the name the
 chart actually renders; otherwise the value is passed through verbatim so a
 TriggerAuthentication managed outside the chart can still be referenced. A key
-whose entry is empty fails: it renders nothing, so the ref would dangle. A null
-entry is the key left out (issue #303): the ref passes through verbatim.
+whose entry is an empty entry — null, {} or of nulls only (isNonEmptyEntry,
+issue #305) — fails: it renders nothing, so the ref would dangle.
 
 Only namespaced references are rewritten: the map renders TriggerAuthentication,
 never ClusterTriggerAuthentication, so a ref that names a cluster-scoped object
@@ -36,8 +36,8 @@ Usage: {{ include "global-chart.kedaAuthRefName" (dict "root" . "name" $refName 
 {{- define "global-chart.kedaAuthRefName" -}}
 {{- $auths := default (dict) .root.Values.kedaTriggerAuthentications -}}
 {{- $namespaced := or (not .kind) (eq .kind "TriggerAuthentication") -}}
-{{- if and $namespaced (eq (include "global-chart.isSet" (list $auths .name)) "true") -}}
-{{- if not (include "global-chart.isEntry" (index $auths .name)) -}}
+{{- if and $namespaced (hasKey $auths .name) -}}
+{{- if not (include "global-chart.isNonEmptyEntry" (index $auths .name)) -}}
 {{- fail (printf "kedaTriggerAuthentications.%s: empty, but a keda trigger's authenticationRef names it. An empty entry renders no TriggerAuthentication, and the ScaledObject would reference nothing. Fill the entry, or drop the reference." .name) -}}
 {{- end -}}
 {{- include "global-chart.kedaTriggerAuthName" (dict "root" .root "name" .name) -}}

@@ -82,7 +82,7 @@ A chart check that rejects a value the schema already rejects, and that therefor
 _Avoid_: dead guard, redundant guard, duplicate check
 
 **Empty entry**:
-An entry of a values map of named resources (a workload, a hook, a CronJob, an ExternalSecret, a TriggerAuthentication) that says nothing: left out, null, `{}`, or with every key null. It is the entry left out: it renders nothing, and whatever references it fails, naming it as empty. A key whose value is itself an empty map is not null, so an entry holding one is not empty.
+An entry of a values map of named resources (a workload, a hook, a CronJob, an ExternalSecret, a TriggerAuthentication) that says nothing: null, `{}`, or with every key null. It renders nothing, as the entry left out does, but it is not the entry left out: whatever references it fails, naming it as empty, where a reference to an entry left out names something that does not exist. A key whose value is itself an empty map is not null, so an entry holding one is not empty.
 _Avoid_: null entry, blank entry, entry of nulls (for the concept, not one of its forms)
 
 **Removed key**:

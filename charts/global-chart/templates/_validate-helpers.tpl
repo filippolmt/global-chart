@@ -492,7 +492,6 @@ Called from validate.yaml.
 
 {{- /* 1. Workload resource names (trunc 63) */ -}}
 {{- range $name, $deploy := .Values.workloads -}}
-  {{- if include "global-chart.isEntry" $deploy -}}
   {{- if eq (include "global-chart.deploymentEnabled" $deploy) "true" -}}
     {{- $depFullname := include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $name) -}}
     {{- include "global-chart.registerName" (dict "names" $deployNames "kind" (include "global-chart.workloadKind" $deploy) "name" $depFullname "owner" (include "global-chart.deploymentValuesPath" $name)) -}}
@@ -526,7 +525,7 @@ Called from validate.yaml.
 
     {{- /* 1a. Workload-scope CronJob names (trunc 52) — via deploymentCronJobName helper */ -}}
     {{- range $jobName, $job := $deploy.cronJobs -}}
-      {{- if include "global-chart.isEntry" $job -}}
+      {{- if include "global-chart.isNonEmptyEntry" $job -}}
         {{- $jobFullname := include "global-chart.deploymentCronJobName" (dict "root" $root "deploymentName" $name "jobName" $jobName) -}}
         {{- $errCtx := include "global-chart.jobValuesPath" (dict "kind" "cronjob" "deploymentName" $name "jobName" $jobName) -}}
         {{- include "global-chart.registerName" (dict "names" $cronNames "kind" "CronJob" "name" $jobFullname "owner" $errCtx) -}}
@@ -587,12 +586,11 @@ Called from validate.yaml.
     {{- end -}}
 
   {{- end -}}
-  {{- end -}}
 {{- end -}}
 
 {{- /* 2. Root-level CronJob names (trunc 52) */ -}}
 {{- range $name, $job := .Values.cronJobs -}}
-  {{- if include "global-chart.isEntry" $job -}}
+  {{- if include "global-chart.isNonEmptyEntry" $job -}}
     {{- $jobFullname := include "global-chart.rootCronJobName" (dict "root" $root "name" $name) -}}
     {{- $errCtx := include "global-chart.jobValuesPath" (dict "kind" "cronjob" "jobName" $name) -}}
     {{- include "global-chart.registerName" (dict "names" $cronNames "kind" "CronJob" "name" $jobFullname "owner" $errCtx) -}}
@@ -632,7 +630,7 @@ Called from validate.yaml.
        docs/adr/0013-an-owner-externalsecret-target-cannot-be-a-chart-secret.md). */ -}}
 {{- $consumers := include "global-chart.externalSecretHookConsumers" $root | fromJson -}}
 {{- range $key, $secret := .Values.externalSecrets -}}
-  {{- if include "global-chart.isEntry" $secret -}}
+  {{- if include "global-chart.isNonEmptyEntry" $secret -}}
     {{- $nameCtx := dict "root" $root "key" $key "secret" $secret -}}
     {{- $owner := printf "externalSecrets.%s" $key -}}
     {{- include "global-chart.registerName" (dict "names" $esNames "kind" "ExternalSecret" "name" (include "global-chart.externalSecretName" $nameCtx) "owner" $owner) -}}
@@ -647,7 +645,7 @@ Called from validate.yaml.
 {{- end -}}
 {{- $copyTargets := dict -}}
 {{- range $key, $secret := .Values.externalSecrets -}}
-  {{- if and (include "global-chart.isEntry" $secret) (hasKey $consumers $key) -}}
+  {{- if and (include "global-chart.isNonEmptyEntry" $secret) (hasKey $consumers $key) -}}
     {{- $nameCtx := dict "root" $root "key" $key "secret" $secret -}}
     {{- $owner := printf "externalSecrets.%s (hook prerequisite copy)" $key -}}
     {{- $copyTarget := include "global-chart.externalSecretHookTargetName" $nameCtx -}}
@@ -658,7 +656,7 @@ Called from validate.yaml.
   {{- end -}}
 {{- end -}}
 {{- range $key, $secret := .Values.externalSecrets -}}
-  {{- if and (include "global-chart.isEntry" $secret) (ne (include "global-chart.externalSecretCreationPolicy" $secret) "Owner") -}}
+  {{- if and (include "global-chart.isNonEmptyEntry" $secret) (ne (include "global-chart.externalSecretCreationPolicy" $secret) "Owner") -}}
     {{- $target := include "global-chart.externalSecretTargetName" (dict "root" $root "key" $key "secret" $secret) -}}
     {{- include "global-chart.registerName" (dict "names" (deepCopy $copyTargets) "kind" "Secret" "name" $target "owner" (printf "externalSecrets.%s (%s)" $key (include "global-chart.externalSecretCreationPolicy" $secret))) -}}
   {{- end -}}
@@ -669,7 +667,7 @@ Called from validate.yaml.
        second's credentials (issue #117) */ -}}
 {{- $taNames := dict -}}
 {{- range $key, $auth := .Values.kedaTriggerAuthentications -}}
-  {{- if include "global-chart.isEntry" $auth -}}
+  {{- if include "global-chart.isNonEmptyEntry" $auth -}}
     {{- include "global-chart.registerName" (dict "names" $taNames "kind" "TriggerAuthentication" "name" (include "global-chart.kedaTriggerAuthName" (dict "root" $root "name" $key)) "owner" (printf "kedaTriggerAuthentications.%s" $key)) -}}
   {{- end -}}
 {{- end -}}
@@ -824,7 +822,6 @@ Called from validate.yaml. Emits nothing on success.
 {{- define "global-chart.validateStatefulSets" -}}
 {{- $root := . -}}
 {{- range $name, $deploy := .Values.workloads -}}
-  {{- if include "global-chart.isEntry" $deploy -}}
   {{- if and (eq (include "global-chart.deploymentEnabled" $deploy) "true") (include "global-chart.isStatefulSet" $deploy) -}}
     {{- $errCtx := include "global-chart.deploymentValuesPath" $name -}}
     {{- $stsName := include "global-chart.deploymentUntruncatedName" (dict "root" $root "deploymentName" $name) -}}
@@ -854,7 +851,6 @@ Called from validate.yaml. Emits nothing on success.
       {{- end -}}
     {{- end -}}
   {{- end -}}
-  {{- end -}}
 {{- end -}}
 {{- end }}
 
@@ -880,13 +876,11 @@ Called from validate.yaml. Emits nothing on success.
 {{- $label := "" -}}
 {{- $service := "" -}}
 {{- range $name, $deploy := .Values.workloads -}}
-  {{- if include "global-chart.isEntry" $deploy -}}
   {{- if eq (include "global-chart.deploymentEnabled" $deploy) "true" -}}
     {{- $label = include "global-chart.deploymentValuesPath" $name -}}
     {{- if eq (include "global-chart.serviceEnabled" (default (dict) $deploy.service)) "true" -}}
       {{- $service = include "global-chart.deploymentValuesPath" $name -}}
     {{- end -}}
-  {{- end -}}
   {{- end -}}
 {{- end -}}
 {{- range (include "global-chart.hookEntries" .Values.hooks | fromJsonArray) -}}
@@ -1005,7 +999,6 @@ Called from validate.yaml. Emits nothing on success.
 */}}
 {{- define "global-chart.validateAutoscalingConflict" -}}
 {{- range $name, $deploy := .Values.workloads -}}
-  {{- if include "global-chart.isEntry" $deploy -}}
   {{- if eq (include "global-chart.deploymentEnabled" $deploy) "true" -}}
     {{- $hpa := default (dict) $deploy.autoscaling -}}
     {{- $keda := default (dict) $deploy.keda -}}
@@ -1015,7 +1008,6 @@ Called from validate.yaml. Emits nothing on success.
     {{- if and $hpa.enabled (not (include "global-chart.hpaActiveTargets" $hpa | fromJson)) -}}
       {{- fail (printf "%s.autoscaling: enabled, but neither targetCPUUtilizationPercentage nor targetMemoryUtilizationPercentage is a positive number; without one no HPA renders and the workload runs a single replica. Set a target or disable autoscaling." (include "global-chart.deploymentValuesPath" $name)) -}}
     {{- end -}}
-  {{- end -}}
   {{- end -}}
 {{- end -}}
 {{- end }}
@@ -1146,7 +1138,6 @@ Called from validate.yaml. Emits nothing on success.
 */}}
 {{- define "global-chart.validateServiceTargetPorts" -}}
 {{- range $name, $deploy := .Values.workloads -}}
-  {{- if include "global-chart.isEntry" $deploy -}}
   {{- if eq (include "global-chart.deploymentEnabled" $deploy) "true" -}}
     {{- $svc := default (dict) $deploy.service -}}
     {{- if eq (include "global-chart.serviceEnabled" $svc) "true" -}}
@@ -1168,7 +1159,6 @@ Called from validate.yaml. Emits nothing on success.
       {{- end -}}
     {{- end -}}
   {{- end -}}
-  {{- end -}}
 {{- end -}}
 {{- end }}
 
@@ -1188,7 +1178,6 @@ Called from validate.yaml. Emits nothing on success.
 */}}
 {{- define "global-chart.validateServicePorts" -}}
 {{- range $name, $deploy := .Values.workloads -}}
-  {{- if include "global-chart.isEntry" $deploy -}}
   {{- if eq (include "global-chart.deploymentEnabled" $deploy) "true" -}}
     {{- $svc := default (dict) $deploy.service -}}
     {{- if eq (include "global-chart.serviceEnabled" $svc) "true" -}}
@@ -1218,7 +1207,6 @@ Called from validate.yaml. Emits nothing on success.
         {{- $_ := set $portNumbers $number $owner -}}
       {{- end -}}
     {{- end -}}
-  {{- end -}}
   {{- end -}}
 {{- end -}}
 {{- end }}

@@ -1,6 +1,5 @@
 {{- $root := . }}
 {{- range $name, $deploy := .Values.workloads }}
-{{- if include "global-chart.isEntry" $deploy }}
 {{- if eq (include "global-chart.deploymentEnabled" $deploy) "true" }}
 {{- $keda := default (dict) $deploy.keda }}
 {{- $errCtx := include "global-chart.deploymentValuesPath" $name }}
@@ -64,7 +63,6 @@ spec:
   {{- end }}
   triggers:
     {{- include "global-chart.kedaTriggers" (dict "root" $root "triggers" $keda.triggers "errCtx" (printf "%s.keda.triggers" $errCtx)) | nindent 4 }}
-{{- end }}
 {{- end }}
 {{- end }}
 {{- end }}

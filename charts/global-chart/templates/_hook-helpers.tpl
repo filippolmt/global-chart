@@ -37,8 +37,8 @@ Usage: {{ include "global-chart.effectiveHookWeight" $command }}
 {{/*
 The hooks of one hooks map, root or a workload's, that render: a JSON list of
 {hookType, name}, in the order range gives them (type, then name), of the
-entries that are a hook (isEntry, issue #294): a map with a key that is not null. A
-null entry, {} and a map of nulls only are no hook, as the entry left out.
+entries that are a hook: not an empty entry (isNonEmptyEntry, issue #305),
+which renders no hook.
 The single walk of every template over hooks: a caller reads the entry itself
 with index $hooks .hookType .name, so its values keep their own types.
 Usage: {{- range (include "global-chart.hookEntries" $deploy.hooks | fromJsonArray) }}
@@ -47,7 +47,7 @@ Usage: {{- range (include "global-chart.hookEntries" $deploy.hooks | fromJsonArr
 {{- $out := list -}}
 {{- range $hookType, $jobs := (default (dict) .) -}}
 {{- range $name, $command := (default (dict) $jobs) -}}
-{{- if include "global-chart.isEntry" $command -}}
+{{- if include "global-chart.isNonEmptyEntry" $command -}}
 {{- $out = append $out (dict "hookType" $hookType "name" $name) -}}
 {{- end -}}
 {{- end -}}
@@ -166,7 +166,7 @@ Usage: {{- $hooks := dict }}{{- include "global-chart.prereqCopyHooks" (dict "ro
 {{- $out := .out -}}
 {{- $scopes := list (dict "hooks" $root.Values.hooks) -}}
 {{- range $deployName, $deploy := $root.Values.workloads -}}
-  {{- if and (include "global-chart.isEntry" $deploy) (eq (include "global-chart.deploymentEnabled" $deploy) "true") -}}
+  {{- if eq (include "global-chart.deploymentEnabled" $deploy) "true" -}}
     {{- $scopes = append $scopes (dict "hooks" $deploy.hooks "deploy" $deploy "deployName" $deployName) -}}
   {{- end -}}
 {{- end -}}
