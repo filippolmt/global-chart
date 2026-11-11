@@ -1,6 +1,5 @@
 {{- $root := . }}
 {{- range $name, $deploy := .Values.workloads }}
-{{- if $deploy }}
 {{- if eq (include "global-chart.deploymentEnabled" $deploy) "true" }}
 {{- $hpa := default (dict) $deploy.autoscaling }}
 {{- /* validateAutoscalingConflict fails an enabled HPA with no active target;
@@ -62,7 +61,6 @@ spec:
       {{- . | nindent 6 }}
     {{- end }}
   {{- end }}
-{{- end }}
 {{- end }}
 {{- end }}
 {{- end }}

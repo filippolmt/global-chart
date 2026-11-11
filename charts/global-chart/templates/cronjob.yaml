@@ -9,7 +9,7 @@
 {{/* ====== PART 1: Root-level cronJobs ====== */}}
 {{- if .Values.cronJobs }}
 {{- range $name, $job := .Values.cronJobs }}
-{{- if $job }}
+{{- if include "global-chart.isNonEmptyEntry" $job }}
 {{- $fullname := include "global-chart.fullname" $root }}
 {{- /* CronJob names limited to 52 chars (see rootCronJobName helper) */ -}}
 {{- $jobFullname := include "global-chart.rootCronJobName" (dict "root" $root "name" $name) }}
@@ -76,10 +76,9 @@ spec:
 
 {{/* ====== PART 2: workload-scope cronJobs (inherit from the workload) ====== */}}
 {{- range $deployName, $deploy := .Values.workloads }}
-{{- if $deploy }}
 {{- if and (eq (include "global-chart.deploymentEnabled" $deploy) "true") $deploy.cronJobs }}
 {{- range $name, $job := $deploy.cronJobs }}
-{{- if $job }}
+{{- if include "global-chart.isNonEmptyEntry" $job }}
 
 {{- /* Build cronjob fullname with workload name for uniqueness */ -}}
 {{- /* CronJob names limited to 52 chars (see deploymentCronJobName helper) */ -}}
@@ -148,7 +147,6 @@ spec:
           {{- $ctx := dict "root" $root "job" $job "deploy" $deploy "saName" $saName "containerName" $name "configMapRef" $deployFullname "secretRef" $deployFullname "kind" "cronjob" "deployName" $deployName "errCtx" $errCtx }}
           {{- include "global-chart.jobPodSpec" $ctx | trimPrefix "\n" | nindent 10 }}
 {{ end }}
-{{- end }}
 {{- end }}
 {{- end }}
 {{- end }}

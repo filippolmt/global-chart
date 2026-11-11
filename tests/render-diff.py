@@ -177,7 +177,7 @@ def compare_one(values, base, flags):
         print(f"    FAIL: {e}")
         return 1
     if a == b:
-        print(f"    OK: {values.relative_to(ROOT)} renders the same on {base} and HEAD")
+        print(f"    OK: {values.relative_to(ROOT) if values.is_relative_to(ROOT) else values} renders the same on {base} and HEAD")
     else:
         sys.stdout.writelines(difflib.unified_diff([l + "\n" for l in a], [l + "\n" for l in b], base, "HEAD"))
     return 0

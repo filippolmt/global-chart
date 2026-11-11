@@ -1,6 +1,5 @@
 {{- $root := . }}
 {{- range $name, $deploy := .Values.workloads }}
-{{- if $deploy }}
 {{- if eq (include "global-chart.deploymentEnabled" $deploy) "true" }}
 {{- $np := default (dict) $deploy.networkPolicy }}
 {{- if $np.enabled }}
@@ -45,7 +44,6 @@ spec:
   egress:
     {{- . | nindent 4 }}
   {{- end }}
-{{- end }}
 {{- end }}
 {{- end }}
 {{- end }}

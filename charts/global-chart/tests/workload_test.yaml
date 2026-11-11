@@ -13,6 +13,15 @@ tests:
       - hasDocuments:
           count: 0
 
+  - it: should render nothing for an entry whose keys are all null, as for {} (issue #305)
+    set:
+      workloads:
+        main:
+          image: null
+    asserts:
+      - hasDocuments:
+          count: 0
+
   - it: should render workload when enabled is true
     set:
       workloads:
@@ -1552,11 +1561,13 @@ tests:
       - failedTemplate:
           errorMessage: "workloads.main.image: requires either a tag or a digest when repository is provided"
 
-  - it: should fail when image is nil
+  # image alone null is an empty entry, which renders nothing (issue #305)
+  - it: should fail when image is nil beside another key
     set:
       workloads:
         main:
           image: null
+          replicaCount: 2
     asserts:
       - failedTemplate:
           errorMessage: "workloads.main.image: must define a repository with a tag or a digest, or be a full image reference"

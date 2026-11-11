@@ -6,7 +6,6 @@ kind; it changes name only together with the map (issue #215).
 */ -}}
 {{- $root := . }}
 {{- range $name, $deploy := .Values.workloads }}
-{{- if $deploy }}
 {{- if eq (include "global-chart.deploymentEnabled" $deploy) "true" }}
 {{- $depFullname := include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $name) }}
 {{- $errCtx := include "global-chart.deploymentValuesPath" $name }}
@@ -352,6 +351,5 @@ spec:
     {{- end }}
     {{- end }}
   {{- end }}
-{{- end }}
 {{- end }}
 {{- end }}

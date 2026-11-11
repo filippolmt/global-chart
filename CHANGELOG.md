@@ -76,9 +76,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   written in 4.2.1, a source with no provider. Its nulls are unset, so the
   source is empty, and the entry declares no other. An empty source (`[]`,
   `{}`) already failed; the message now names it too, and the other empty
-  sources after it. A null source is the source left out: the entry's own
-  message, as before. **Migration**: give the source its fields, or drop the
-  entry.
+  sources after it. A null source is the source left out; an entry of null
+  sources only is an empty entry (issue #305, under Fixed). **Migration**:
+  give the source its fields, or drop the entry.
 - **Breaking: an ExternalSecret's null `data` or `dataFrom` is unset, as the
   key left out, under `--skip-schema-validation`** (issue #304): without
   `remote`, the render fails at `remote: mandatory`; it rendered `data: null`.
@@ -140,6 +140,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 - A hook of nulls only renders no hook, and its type no longer joins the
   `helm.sh/hook` of the hook prerequisite copies; a workload whose hooks are
   all of nulls renders no copies (issue #294).
+- An entry of nulls only is an empty entry, as `{}` (issue #305): a workload,
+  a cronjob of either scope, an ExternalSecret or a TriggerAuthentication
+  whose keys are all null renders nothing, as a hook of nulls already did;
+  NOTES no longer lists such an entry, nor a header with no entry under it. A
+  route backend, `fromWorkload`, `externalSecrets` ref or KEDA
+  `authenticationRef` that names an empty entry, a null one included, fails
+  as naming it empty, as 4.2.1 did for a null TriggerAuthentication. Such an
+  entry used to fail on the first field it lacked (the schema accepts
+  `workloads.<name>: {image: null}`), and a workload's cronjob of nulls
+  rendered a CronJob with an empty `schedule`, which the API server refuses.
 - An HPA `behavior` whose `scaleUp` and `scaleDown` are both left out or of
   nulls only renders no `behavior`, which the controller reads with the same
   defaults; an ExternalSecret's null `remote.property` is left out, not
@@ -153,9 +163,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   hook's `weight` (10), a cronjob's `concurrencyPolicy` (`Forbid`) and
   `suspend`, the primary Service port's `port` (80), `portName`, `protocol`
   and `targetPort`, an `extraPorts` entry's `appProtocol`, `protocol` and
-  `nodePort`, a backend's `portName` and `service.port` (80), a
-  `kedaTriggerAuthentications` entry an `authenticationRef` names (the ref
-  then renders verbatim), an ExternalSecret's `target.immutable`, and its
+  `nodePort`, a backend's `portName` and `service.port` (80), an
+  ExternalSecret's `target.immutable`, and its
   `remote` or `secretkey` beside `data` or `dataFrom`, which failed as mixing
   the two forms (issue #304). A null `imagePullSecrets` on a workload or a job, `externalSecrets` on a cronjob
   or hook, or `serviceAccount` on an `rbacs.roles` entry now falls back as
@@ -163,6 +172,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   The schema rejects all of these but `image`. No values file that rendered
   stops rendering; an `extraPorts` entry's `name`, `port` and `targetPort`
   still fail on a null.
+
+### Tests
+
+- `make render VALUES=<file> BASE=<ref>` takes a values file outside the
+  repository: when both refs rendered the same, it printed the diff's OK line
+  with a path relative to the repository and crashed on one outside it.
 
 ### Migration guide from 4.2.1
 

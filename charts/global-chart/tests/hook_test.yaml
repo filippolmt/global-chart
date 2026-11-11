@@ -4380,6 +4380,20 @@ tests:
       - failedTemplate:
           errorPattern: "hooks.post-install.migrate: volumeMounts\\[1\\] mounts on '/data', which volumeMounts\\[0\\] already mounts"
 
+  - it: should fail naming a fromWorkload target of nulls only as empty (issue #305)
+    set:
+      workloads:
+        backend:
+          image: null
+      hooks:
+        post-install:
+          migrate:
+            fromWorkload: backend
+            command: ["true"]
+    asserts:
+      - failedTemplate:
+          errorPattern: "hooks\\.post-install\\.migrate\\.fromWorkload: references workload 'backend', which is empty: an empty workloads entry renders nothing"
+
   - it: should fail naming an empty fromWorkload target as empty, not missing
     set:
       workloads:

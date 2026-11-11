@@ -1,8 +1,8 @@
 # A null kedaTriggerAuthentications entry a trigger's authenticationRef names
-# (issue #303): the schema requires a map, and under --skip-schema-validation
-# the null is unset, as the entry left out, so the ref is passed through
-# verbatim, as one to a TriggerAuthentication managed outside the chart. It
-# used to fail as an empty entry.
+# (issue #305): the schema requires a map, and under --skip-schema-validation
+# the null is an empty entry, as `shared-auth: {}`, so the ref fails as one to
+# an empty entry, as 4.2.1 failed.
+# Expected fail substring: "kedaTriggerAuthentications.shared-auth: empty, but a keda trigger's authenticationRef names it"
 workloads:
   app:
     image: nginx:1.25

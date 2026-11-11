@@ -1,6 +1,0 @@
-# A null credential source is the source left out (issue #304), not an empty
-# one: the entry fails as declaring none, without naming the null key.
-# Expected fail substring: "kedaTriggerAuthentications.cloud: declares no credential source"
-kedaTriggerAuthentications:
-  cloud:
-    podIdentity: null

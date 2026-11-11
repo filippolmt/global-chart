@@ -403,14 +403,9 @@ Resolution order:
 {{- else if .deployName -}}
   {{- $image = dict "image" (index .root.Values.workloads .deployName).image "from" (include "global-chart.deploymentValuesPath" .deployName) -}}
 {{- else if $job.fromWorkload -}}
-  {{- $dep := index (default (dict) .root.Values.workloads) $job.fromWorkload -}}
-  {{- if not $dep -}}
-    {{- if hasKey (default (dict) .root.Values.workloads) $job.fromWorkload -}}
-      {{- fail (printf "%s.fromWorkload: references workload '%s', which is empty: an empty workloads entry renders nothing. Fill the entry, or drop the reference." $errCtx $job.fromWorkload) -}}
-    {{- end -}}
-    {{- fail (printf "%s.fromWorkload: references workload '%s', which does not exist in .Values.workloads" $errCtx $job.fromWorkload) -}}
-  {{- end -}}
-  {{- $image = dict "image" $dep.image "from" (include "global-chart.deploymentValuesPath" $job.fromWorkload) -}}
+  {{- include "global-chart.requireWorkloadEntry" (dict "root" .root "name" $job.fromWorkload "errCtx" (printf "%s.fromWorkload" $errCtx)) -}}
+  {{- $deploy := index .root.Values.workloads $job.fromWorkload -}}
+  {{- $image = dict "image" $deploy.image "from" (include "global-chart.deploymentValuesPath" $job.fromWorkload) -}}
 {{- end -}}
 {{- $image | toJson -}}
 {{- end -}}

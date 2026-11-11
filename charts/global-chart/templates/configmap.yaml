@@ -1,6 +1,5 @@
 {{- $root := . }}
 {{- range $name, $deploy := .Values.workloads }}
-{{- if $deploy }}
 {{- if and (eq (include "global-chart.deploymentEnabled" $deploy) "true") $deploy.configMap }}
 {{- $depFullname := include "global-chart.deploymentFullname" (dict "root" $root "deploymentName" $name) }}
 {{- $labelCtx := dict "root" $root "deploymentName" $name }}
@@ -17,6 +16,5 @@ metadata:
   {{- end }}
 data:
   {{- include "global-chart.renderConfigMapData" (dict "data" $deploy.configMap "deploymentName" $name) | nindent 2 }}
-{{- end }}
 {{- end }}
 {{- end }}

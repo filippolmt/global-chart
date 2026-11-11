@@ -1,0 +1,7 @@
+# A root cronJobs entry whose keys are all null (issue #305): the schema
+# rejects the null, and under --skip-schema-validation the entry is an empty
+# entry, as `nightly: {}`: no CronJob, no ServiceAccount. It used to fail on
+# the image it lacks.
+cronJobs:
+  nightly:
+    schedule: null

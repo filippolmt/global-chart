@@ -1,6 +1,5 @@
 {{- $root := . }}
 {{- range $name, $deploy := .Values.workloads }}
-{{- if $deploy }}
 {{- if eq (include "global-chart.deploymentEnabled" $deploy) "true" }}
 {{- $pdb := default (dict) $deploy.pdb }}
 {{- if $pdb.enabled }}
@@ -35,7 +34,6 @@ spec:
   selector:
     matchLabels:
       {{- include "global-chart.deploymentSelectorLabels" $labelCtx | nindent 6 }}
-{{- end }}
 {{- end }}
 {{- end }}
 {{- end }}

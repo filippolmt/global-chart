@@ -1,6 +1,5 @@
 {{- $root := . }}
 {{- range $name, $deploy := .Values.workloads }}
-{{- if $deploy }}
 {{- if eq (include "global-chart.deploymentEnabled" $deploy) "true" }}
 {{- $svc := default (dict) $deploy.service }}
 {{- $labelCtx := dict "root" $root "deploymentName" $name }}
@@ -58,7 +57,6 @@ spec:
     {{- end }}
   selector:
     {{- include "global-chart.deploymentSelectorLabels" $labelCtx | nindent 4 }}
-{{- end }}
 {{- end }}
 {{- end }}
 {{- end }}

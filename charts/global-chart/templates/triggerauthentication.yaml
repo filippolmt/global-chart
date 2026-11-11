@@ -3,7 +3,7 @@
        so adding a credential source is a schema change plus one word here. */ -}}
 {{- $sources := list "secretTargetRef" "env" "podIdentity" "hashiCorpVault" "azureKeyVault" "awsSecretManager" "gcpSecretManager" -}}
 {{- range $name, $auth := .Values.kedaTriggerAuthentications }}
-{{- if $auth }}
+{{- if include "global-chart.isNonEmptyEntry" $auth }}
 {{- include "global-chart.requireKedaCrd" (dict "root" $root "errCtx" (printf "kedaTriggerAuthentications.%s" $name)) }}
 {{- $declared := false }}
 {{- $unrendered := list }}

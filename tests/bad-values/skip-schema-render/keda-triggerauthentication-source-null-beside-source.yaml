@@ -1,0 +1,12 @@
+# A null credential source beside one that is set (issue #304): the schema
+# rejects the null, and under --skip-schema-validation it is the source left
+# out, so the TriggerAuthentication renders the other source alone. An entry
+# whose sources are all null is an empty entry instead (issue #305):
+# keda-triggerauthentication-entry-of-nulls.yaml.
+kedaTriggerAuthentications:
+  sqs-auth:
+    podIdentity: null
+    secretTargetRef:
+      - parameter: awsAccessKeyID
+        name: aws-credentials
+        key: AWS_ACCESS_KEY_ID
