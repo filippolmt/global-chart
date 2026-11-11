@@ -42,6 +42,9 @@ or a release leaves the version as is and adds its CHANGELOG entry under
 `## [Unreleased]`, a test-only change included; a Breaking entry
 (a new template `fail` is one) also adds its bullet to the *Migration guide
 from <previous release>* there, and `make lint-release` checks all three.
+A Breaking entry, and a fixture's "it used to …" comment, state what the
+last release did, not main: `make render VALUES=<fixture>
+BASE=global-chart-<version> SKIP_SCHEMA=1`.
 A change that alters what an earlier `[Unreleased]` entry states edits that
 entry: the release ships one statement per behaviour. The bump is its own
 release PR, made by `make release VERSION=x.y.z` (`tests/check-release.py`
@@ -86,8 +89,9 @@ passes, so a `fail` is proven by `tests/bad-values/` and the suites;
 - `charts/global-chart/tests/` — helm-unittest suites, one `*_test.yaml` per
   template
 - `tests/` — lint scenario values + `bad-values/` for rejection tests. Before
-  adding a fixture, read *Schema validation* in the README's *Testing & CI*:
-  the subdirectory declares which mechanism must reject it
+  adding a fixture, or a suite case for a value the schema rejects, read
+  *Schema validation* in the README's *Testing & CI*: the subdirectory
+  declares which mechanism must reject it
 - `docs/values-authors/` — the guide for values authors and its examples,
   which are `TEST_CASES` scenarios: a change to a rule it states updates it
 
