@@ -27,9 +27,11 @@ a list whole and the example lists of values.yaml default nothing).
 EXCEPTIONS lists the paths whose null is not their removal, each under the
 class CODING_STANDARDS.md names (a number printScalar renders, a required
 item field, ConfigMap and Secret data, a reference to an empty entry). Where
-such a null differs from its removal it must fail naming its path, but under
-DATA, whose structured content renders as written. A row
-no finding needs fails the sweep, so no row outlives its reason.
+such a null differs from its removal it must fail naming its path, except a
+null inside a structured ConfigMap or Secret value, which renders as written.
+A row no finding needs fails the sweep, so no row outlives its reason; that
+holds for a run over every TEST_CASES scenario, as make null-sweep does, and a
+run over fewer reports the rows those scenarios do not reach.
 shortcut: the sweep sees only the nodes the scenarios set; when a regression
 turns up on a leaf none sets, add it to a scenario.
 
@@ -111,8 +113,11 @@ FAIL = re.compile(r"execution error at \([^)]*\): ")
 # podRecreation stamps the pod template with the render time: two renders a
 # second apart differ there and nowhere else
 TIMESTAMP = re.compile(r'^\s*timestamp: "\d{14}"\n', re.M)
-# The surfaces a job inherits, read through isSetPassthrough: a map of nulls
-# there is the map left out (removed). Read from the templates.
+# The surfaces a job inherits, read through isSetPassthrough on the job: a map
+# of nulls there is the map left out (removed). Read from the templates; the
+# jobs are JOBS, the two scopes of hooks and cronjobs (GLOSSARY.md, *Root
+# scope / workload scope*).
+JOBS = [("hooks", "*", "*"), ("cronJobs", "*"), ("workloads", "*", "hooks", "*", "*"), ("workloads", "*", "cronJobs", "*")]
 SURFACES = re.compile(r'isSetPassthrough" \(list \S+ "(\w+)"\)')
 
 
@@ -129,47 +134,58 @@ def surface_keys_self_test():
 # CODING_STANDARDS.md (*A null means one thing per kind of node*) names: the
 # class text must occur there. "*" is one path segment (a key or a list index),
 # "**" the rest of the path. A pattern no finding matches fails the sweep.
+# Markdown emphasis is ignored in the comparison.
 NUMBER = "Numbers are the exception"                # printScalar
-REQUIRED = "a null in a **required field**"         # rejectNullItems
-DATA = "ConfigMap and Secret data"                  # rejectNullDataValue, structured content verbatim
+REQUIRED = "a null in a required field"             # rejectNullItems
+DATA = "ConfigMap and Secret data"                  # rejectNullDataValue
+VERBATIM = "a null inside a structured value"       # renders as written: the one class that may render
 REFERENCE = "a reference to an empty entry"         # an entry left out is outside the chart
+
+
+class Row(NamedTuple):
+    pattern: tuple
+    cls: str
+
+
 EXCEPTIONS = [
-    (('workloads', '*', 'replicaCount'), NUMBER),
-    (('workloads', '*', 'progressDeadlineSeconds'), NUMBER),
-    (('workloads', '*', 'revisionHistoryLimit'), NUMBER),
-    (('workloads', '*', 'updateStrategy', 'rollingUpdate', 'partition'), NUMBER),
-    (('workloads', '*', 'keda', 'minReplicaCount'), NUMBER),
-    (('workloads', '*', 'keda', 'maxReplicaCount'), NUMBER),
-    (('workloads', '*', 'keda', 'cooldownPeriod'), NUMBER),
-    (('workloads', '*', 'keda', 'pollingInterval'), NUMBER),
-    (('cronJobs', '*', 'successfulJobsHistoryLimit'), NUMBER),
-    (('cronJobs', '*', 'failedJobsHistoryLimit'), NUMBER),
-    (('workloads', '*', 'cronJobs', '*', 'successfulJobsHistoryLimit'), NUMBER),
-    (('workloads', '*', 'cronJobs', '*', 'failedJobsHistoryLimit'), NUMBER),
-    (('workloads', '*', 'hooks', '*', '*', 'activeDeadlineSeconds'), NUMBER),
-    (('workloads', '*', 'hooks', '*', '*', 'backoffLimit'), NUMBER),
-    (('httpRoute', 'rules', '*', 'backendRefs', '*', 'weight'), NUMBER),
-    (('httpRoutes', '*', 'rules', '*', 'backendRefs', '*', 'weight'), NUMBER),
-    (('tcpRoutes', '*', 'rules', '*', 'backendRefs', '*', 'weight'), NUMBER),
-    (('udpRoutes', '*', 'rules', '*', 'backendRefs', '*', 'weight'), NUMBER),
-    (('externalSecrets', '*', 'data', '*', 'remote', 'version'), NUMBER),
-    (('workloads', '*', 'volumeMounts', '*', 'name'), REQUIRED),
-    (('workloads', '*', 'volumeMounts', '*', 'mountPath'), REQUIRED),
-    (('workloads', '*', 'volumeClaimTemplates', '*', 'name'), REQUIRED),
-    (('workloads', '*', 'volumeClaimTemplates', '*', 'size'), REQUIRED),
-    (('workloads', '*', 'mountedConfigFiles', 'files', '*', 'name'), REQUIRED),
-    (('workloads', '*', 'mountedConfigFiles', 'bundles', '*', 'files', '*', 'name'), REQUIRED),
-    (('workloads', '*', 'dnsConfig', 'options', '*', 'name'), REQUIRED),
-    (('workloads', '*', 'imagePullSecrets', '*', 'name'), REQUIRED),
-    (('global', 'imagePullSecrets', '*', 'name'), REQUIRED),
-    (('workloads', '*', 'externalSecrets', '*', 'name'), REQUIRED),
-    (('workloads', '*', 'cronJobs', '*', 'externalSecrets', '*', 'name'), REQUIRED),
-    (('hooks', '*', '*', 'externalSecrets', '*', 'name'), REQUIRED),
-    (('rbacs', 'roles', '*', 'name'), REQUIRED),
-    (('httpRoute', 'rules', '*', 'filters', '*', 'type'), REQUIRED),
-    (('workloads', '*', 'configMap', '**'), DATA),
-    (('workloads', '*', 'secret', '**'), DATA),
-    (('kedaTriggerAuthentications', '*'), REFERENCE),
+    Row(('workloads', '*', 'replicaCount'), NUMBER),
+    Row(('workloads', '*', 'progressDeadlineSeconds'), NUMBER),
+    Row(('workloads', '*', 'revisionHistoryLimit'), NUMBER),
+    Row(('workloads', '*', 'updateStrategy', 'rollingUpdate', 'partition'), NUMBER),
+    Row(('workloads', '*', 'keda', 'minReplicaCount'), NUMBER),
+    Row(('workloads', '*', 'keda', 'maxReplicaCount'), NUMBER),
+    Row(('workloads', '*', 'keda', 'cooldownPeriod'), NUMBER),
+    Row(('workloads', '*', 'keda', 'pollingInterval'), NUMBER),
+    Row(('cronJobs', '*', 'successfulJobsHistoryLimit'), NUMBER),
+    Row(('cronJobs', '*', 'failedJobsHistoryLimit'), NUMBER),
+    Row(('workloads', '*', 'cronJobs', '*', 'successfulJobsHistoryLimit'), NUMBER),
+    Row(('workloads', '*', 'cronJobs', '*', 'failedJobsHistoryLimit'), NUMBER),
+    Row(('workloads', '*', 'hooks', '*', '*', 'activeDeadlineSeconds'), NUMBER),
+    Row(('workloads', '*', 'hooks', '*', '*', 'backoffLimit'), NUMBER),
+    Row(('httpRoute', 'rules', '*', 'backendRefs', '*', 'weight'), NUMBER),
+    Row(('httpRoutes', '*', 'rules', '*', 'backendRefs', '*', 'weight'), NUMBER),
+    Row(('tcpRoutes', '*', 'rules', '*', 'backendRefs', '*', 'weight'), NUMBER),
+    Row(('udpRoutes', '*', 'rules', '*', 'backendRefs', '*', 'weight'), NUMBER),
+    Row(('externalSecrets', '*', 'data', '*', 'remote', 'version'), NUMBER),
+    Row(('workloads', '*', 'volumeMounts', '*', 'name'), REQUIRED),
+    Row(('workloads', '*', 'volumeMounts', '*', 'mountPath'), REQUIRED),
+    Row(('workloads', '*', 'volumeClaimTemplates', '*', 'name'), REQUIRED),
+    Row(('workloads', '*', 'volumeClaimTemplates', '*', 'size'), REQUIRED),
+    Row(('workloads', '*', 'mountedConfigFiles', 'files', '*', 'name'), REQUIRED),
+    Row(('workloads', '*', 'mountedConfigFiles', 'bundles', '*', 'files', '*', 'name'), REQUIRED),
+    Row(('workloads', '*', 'dnsConfig', 'options', '*', 'name'), REQUIRED),
+    Row(('workloads', '*', 'imagePullSecrets', '*', 'name'), REQUIRED),
+    Row(('global', 'imagePullSecrets', '*', 'name'), REQUIRED),
+    Row(('workloads', '*', 'externalSecrets', '*', 'name'), REQUIRED),
+    Row(('workloads', '*', 'cronJobs', '*', 'externalSecrets', '*', 'name'), REQUIRED),
+    Row(('hooks', '*', '*', 'externalSecrets', '*', 'name'), REQUIRED),
+    Row(('rbacs', 'roles', '*', 'name'), REQUIRED),
+    Row(('httpRoute', 'rules', '*', 'filters', '*', 'type'), REQUIRED),
+    Row(('workloads', '*', 'configMap', '*'), DATA),
+    Row(('workloads', '*', 'secret', '*'), DATA),
+    Row(('workloads', '*', 'configMap', '*', '**'), VERBATIM),
+    Row(('workloads', '*', 'secret', '*', '**'), VERBATIM),
+    Row(('kedaTriggerAuthentications', '*'), REFERENCE),
 ]
 
 
@@ -190,7 +206,7 @@ def matches_self_test():
 
 
 def exception_for(path):
-    return next((e for e in EXCEPTIONS if matches(e[0], path)), None)
+    return next((e for e in EXCEPTIONS if matches(e.pattern, path)), None)
 
 
 NULLISH = re.compile(r"<nil>|^\s*-\s+null\s*$|^\s*-?\s*name:\s*(\"\")?\s*$", re.M)
@@ -218,18 +234,16 @@ def removed(values, path, surfaces=frozenset()):
     """values without the key at path. A map the removal empties stays, as
     `{}`, as the templates read it (dropNullsInPlace): in Kubernetes `{}` is not
     absent. One exception, the surface a template reads through
-    isSetPassthrough (surfaces): there a map of nulls is the map left out, so a
-    cronjob's `nodeSelector: {zone: null}` inherits the workload's (issue #294).
-    shortcut: surfaces are matched by key, outside any list item, so a map of
-    nulls under a key of that name that is no surface is left out too; match
-    them by path when the sweep passes or fails on such a map."""
+    isSetPassthrough (surfaces) on a job (JOBS): there a map of nulls is the
+    map left out, so a cronjob's `nodeSelector: {zone: null}` inherits the
+    workload's (issue #294)."""
     copy = json.loads(json.dumps(values))
     chain = [copy]
     for key in path[:-1]:
         chain.append(chain[-1][key])
     del chain[-1][path[-1]]
-    if (len(path) > 1 and not chain[-1] and path[-2] in surfaces
-            and isinstance(chain[-2], dict) and not any(isinstance(k, int) for k in path)):
+    if (len(path) > 2 and not chain[-1] and path[-2] in surfaces
+            and any(matches(job, path[:-2]) for job in JOBS)):
         del chain[-2][path[-2]]
     return copy
 
@@ -237,7 +251,10 @@ def removed(values, path, surfaces=frozenset()):
 def removed_self_test():
     assert removed({"a": {"b": None, "c": 1}}, ("a", "b")) == {"a": {"c": 1}}
     assert removed({"a": {"b": {"c": None}}}, ("a", "b", "c")) == {"a": {"b": {}}}
-    assert removed({"j": {"nodeSelector": {"z": None}}}, ("j", "nodeSelector", "z"), {"nodeSelector"}) == {"j": {}}
+    job = {"cronJobs": {"c": {"nodeSelector": {"z": None}}}}
+    assert removed(job, ("cronJobs", "c", "nodeSelector", "z"), {"nodeSelector"}) == {"cronJobs": {"c": {}}}
+    workload = {"workloads": {"w": {"nodeSelector": {"z": None}}}}
+    assert removed(workload, ("workloads", "w", "nodeSelector", "z"), {"nodeSelector"}) == {"workloads": {"w": {"nodeSelector": {}}}}
     assert removed({"l": [{"resources": {"k": None}}]}, ("l", 0, "resources", "k"), {"resources"}) == {"l": [{"resources": {}}]}
 
 
@@ -351,17 +368,17 @@ def unset_verdict(out, unset):
 
 
 def excepted_verdict(out, base, path, cls):
-    """A null on an EXCEPTIONS path: its class fails on null, but DATA's structured content renders."""
-    if out.returncode == 0 and cls != DATA:
+    """A null on an EXCEPTIONS path: its class fails on null, but VERBATIM content renders."""
+    if out.returncode == 0 and cls != VERBATIM:
         return f"renders, where {cls!r} fails on null"
     return verdict(out, base, path)
 
 
 def stale_exceptions(exceptions, used, standards):
     """The EXCEPTIONS rows no finding needed, or whose class CODING_STANDARDS.md does not name."""
-    standards = " ".join(standards.split())
-    return [f"EXCEPTIONS: {dotted(e[0])}: no null map value of a scenario needs it; drop it" for e in exceptions if e not in used] + \
-        [f"EXCEPTIONS: {dotted(e[0])}: its class {e[1]!r} is not in CODING_STANDARDS.md" for e in exceptions if e[1] not in standards]
+    standards = " ".join(standards.replace("*", "").split())
+    return [f"EXCEPTIONS: {dotted(e.pattern)}: no null map value of a scenario needs it; drop it" for e in exceptions if e not in used] + \
+        [f"EXCEPTIONS: {dotted(e.pattern)}: its class {e.cls!r} is not in CODING_STANDARDS.md" for e in exceptions if e.cls not in standards]
 
 
 def verdict(out, base, path):
@@ -394,10 +411,11 @@ def verdict_self_test(verdict=verdict):
     assert verdict(failed, "", ("svc", "protocol")).startswith("fails without naming protocol")
     assert verdict(failed, "", ("route", "portName")) is None
     assert excepted_verdict(run(0, "replicas: null\n"), "", ("w", "replicaCount"), NUMBER).startswith("renders, where")
-    assert excepted_verdict(run(0, "max: null\n"), "", ("w", "configMap", "p", "max"), DATA) is None
+    assert excepted_verdict(run(0, "max: null\n"), "", ("w", "configMap", "p", "max"), VERBATIM) is None
+    assert excepted_verdict(run(0, "FOO: null\n"), "", ("w", "configMap", "FOO"), DATA).startswith("renders, where")
     assert excepted_verdict(failed, "", ("route", "portName"), NUMBER) is None
-    rows = [(("a", "*"), "Numbers are the exception"), (("b",), "no such class")]
-    stale = stale_exceptions(rows, {rows[0]}, "x\nNumbers are\n  the exception")
+    rows = [Row(("a", "*"), "a null in a required field"), Row(("b",), "no such class")]
+    stale = stale_exceptions(rows, {rows[0]}, "x\na null in a **required\n  field**")
     assert stale == ["EXCEPTIONS: b: no null map value of a scenario needs it; drop it",
                      "EXCEPTIONS: b: its class 'no such class' is not in CODING_STANDARDS.md"], stale
 
@@ -533,12 +551,12 @@ def main(argv):
             out = render(chart, flags, c.values, tmp)
             if c.unset is None:
                 return verdict(out, bases[c.file], c.path)
-            generic = unset_verdict(out, render(chart, flags, c.unset, tmp))
+            as_removed = unset_verdict(out, render(chart, flags, c.unset, tmp))
             exception = exception_for(c.path)
-            if exception is None or generic is None:
-                return generic
+            if exception is None or as_removed is None:
+                return as_removed
             used.add(exception)
-            return excepted_verdict(out, bases[c.file], c.path, exception[1])
+            return excepted_verdict(out, bases[c.file], c.path, exception.cls)
 
         def type_job(c):
             out = render(chart, flags, c.values, tmp)
@@ -547,9 +565,13 @@ def main(argv):
         with concurrent.futures.ThreadPoolExecutor(max_workers=os.cpu_count() or 4) as pool:
             # map submits every job at once: both passes share the pool
             nulls, typed = pool.map(null_job, jobs), pool.map(type_job, wrongs)
-            findings += [f"{c.file}: {'.'.join(map(str, c.path))} = {json.dumps(c.value)} → {v}"
+            findings += [f"{c.file}: {dotted(c.path)} = {json.dumps(c.value)} → {v}"
                          for c, v in zip(jobs + wrongs, list(nulls) + list(typed)) if v]
-    findings += stale_exceptions(EXCEPTIONS, used, (pathlib.Path(__file__).parent.parent.parent / "CODING_STANDARDS.md").read_text())
+    standards = pathlib.Path(__file__).parent.parent.parent / "CODING_STANDARDS.md"
+    try:
+        findings += stale_exceptions(EXCEPTIONS, used, standards.read_text())
+    except OSError as e:
+        findings.append(f"EXCEPTIONS: cannot read {standards.name}, which names each row's class: {e}")
     if findings:
         print("    FAIL: a null or a wrong type under --skip-schema-validation does not fail naming its values path:")
         for line in sorted(findings):
