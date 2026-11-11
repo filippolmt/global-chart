@@ -275,7 +275,7 @@ externalSecrets:
   "*":
     annotations: map
     data: [{remote: map}]
-    dataFrom: [{sourceRef: map}]
+    dataFrom: [{sourceRef: {generatorRef: map, storeRef: map}}]
     remote: map
     secretstore: map
     target: map

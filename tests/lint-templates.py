@@ -116,7 +116,7 @@ FAIL = re.compile(r"\bfail\s+(\(\s*printf\s+\"|\")((?:[^\"\\]|\\.)*)\"", re.S)
 FAIL_ANY = re.compile(r"\bfail\s+(?!\(\s*printf\s+\"|\")(\S+)")
 EXCEPTIONS = ("Name collision: ", "The fullname ", "Both .Values.ingress")
 KIND_ONLY = re.compile(r'\$kindOnly\s*:=\s*dict\s+(.*?)\}\}', re.S)
-KIND_LIST = re.compile(r'"(\w+)"\s*\(list\s+([^)]*)\)')
+DICT_OF_LISTS = re.compile(r'"(\w+)"\s*\(list\s+([^)]*)\)')
 PROBE_HANDLERS = re.compile(r'define "global-chart\.validateProbeHandler".*?\$handlers\s*:=\s*list\s+([^}]*?)\s*-?\}\}', re.S)
 SOURCEREF_REQUIRED = re.compile(r'define "global-chart\.renderExternalSecretSpec".*?\$sourceRefRequired\s*:=\s*dict\s+(.*?)\}\}', re.S)
 WORKLOAD_KIND = re.compile(r'"(Deployment|StatefulSet|DaemonSet)"')
@@ -182,7 +182,7 @@ def kind_fields(chart, schema):
     m = KIND_ONLY.search(text)
     if not m:
         return ["templates/workload.yaml: kind-fields: no `$kindOnly := dict …` to compare with the schema"]
-    guard = {kind: set(re.findall(r'"(\w+)"', fields)) for kind, fields in KIND_LIST.findall(m.group(1))}
+    guard = {kind: set(re.findall(r'"(\w+)"', fields)) for kind, fields in DICT_OF_LISTS.findall(m.group(1))}
     dep = schema["$defs"]["deployment"]
 
     def rejected(branch):
@@ -214,10 +214,19 @@ def probe_handler_list_self_test():
     assert probe_handler_list('{{- $handlers := list "exec" -}}') is None, "a list outside the helper is not its"
 
 
+def mirror_problems(rel, rule, decl, helper, listed, declared):
+    """A mirror rule's verdict: the template's copy (None when the helper has no `decl`) against the schema's."""
+    if listed is None:
+        return [f"{rel}: {rule}: no `{decl}` in {helper} to compare with the schema"]
+    if listed != declared:
+        return [f"{rel}: {rule}: {decl.split()[0]} {listed}, schema {declared}"]
+    return []
+
+
 def sourceref_required_map(text):
     """renderExternalSecretSpec's $sourceRefRequired in text, as {ref: sorted keys}, or None without one."""
     m = SOURCEREF_REQUIRED.search(text)
-    return {ref: sorted(re.findall(r'"(\w+)"', keys)) for ref, keys in KIND_LIST.findall(m.group(1))} if m else None
+    return {ref: sorted(re.findall(r'"(\w+)"', keys)) for ref, keys in DICT_OF_LISTS.findall(m.group(1))} if m else None
 
 
 def sourceref_required_self_test():
@@ -229,24 +238,18 @@ def sourceref_required_self_test():
 def sourceref_required(chart, schema):
     """The sourceref-required rule."""
     listed = sourceref_required_map((chart / "templates" / "_render-helpers.tpl").read_text())
-    if listed is None:
-        return ["templates/_render-helpers.tpl: sourceref-required: no `$sourceRefRequired := dict …` in renderExternalSecretSpec to compare with the schema"]
     refs = schema["$defs"]["externalSecret"]["properties"]["dataFrom"]["items"]["properties"]["sourceRef"]["properties"]
     declared = {ref: sorted(v.get("required", [])) for ref, v in refs.items()}
-    if listed != declared:
-        return [f"templates/_render-helpers.tpl: sourceref-required: $sourceRefRequired {listed}, schema sourceRef required {declared}"]
-    return []
+    return mirror_problems("templates/_render-helpers.tpl", "sourceref-required", "$sourceRefRequired := dict …",
+                           "renderExternalSecretSpec", listed, declared)
 
 
 def probe_handlers(chart, schema):
     """The probe-handlers rule."""
     listed = probe_handler_list((chart / "templates" / "_validate-helpers.tpl").read_text())
-    if listed is None:
-        return ["templates/_validate-helpers.tpl: probe-handlers: no `$handlers := list …` in validateProbeHandler to compare with the schema"]
     declared = [k for k, v in schema["$defs"]["probe"]["properties"].items() if v.get("type") != "integer"]
-    if sorted(listed) != sorted(declared):
-        return [f"templates/_validate-helpers.tpl: probe-handlers: $handlers {listed}, $defs/probe non-integer properties {declared}"]
-    return []
+    return mirror_problems("templates/_validate-helpers.tpl", "probe-handlers", "$handlers := list …", "validateProbeHandler",
+                           listed and sorted(listed), sorted(declared))
 
 
 def define_at(starts, pos, default):

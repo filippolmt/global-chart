@@ -1298,7 +1298,7 @@
                     "type": "object",
                     "required": ["name"],
                     "properties": {
-                      "name": { "description": "The name of the store. Required.", "type": "string" },
+                      "name": { "description": "The name of the store. Required.", "type": "string", "minLength": 1 },
                       "kind": { "description": "SecretStore or ClusterSecretStore. Rendered only when set; ESO's default applies otherwise.", "type": "string" }
                     },
                     "additionalProperties": false
@@ -1309,8 +1309,8 @@
                     "required": ["kind", "name"],
                     "properties": {
                       "apiVersion": { "description": "The generator's apiVersion. Rendered only when set; ESO's default applies otherwise.", "type": "string" },
-                      "kind": { "description": "The generator's kind, such as Password or ECRAuthorizationToken. Required.", "type": "string" },
-                      "name": { "description": "The name of the generator resource. Required.", "type": "string" }
+                      "kind": { "description": "The generator's kind, such as Password or ECRAuthorizationToken. Required.", "type": "string", "minLength": 1 },
+                      "name": { "description": "The name of the generator resource. Required.", "type": "string", "minLength": 1 }
                     },
                     "additionalProperties": false
                   }
