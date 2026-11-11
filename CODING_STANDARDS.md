@@ -66,6 +66,17 @@ Generated names too: whether a name can be user-written is not a pattern.
 {{ ternary $job.field $deploy.field (eq (include "global-chart.isSet" (list $job "field")) "true") }}
 ```
 
+**An entry's presence — use `isEntry`, never the entry itself:**
+```yaml
+# WRONG: true on {image: null}, an empty entry, which then fails on its image
+{{- if $deploy }}
+# CORRECT: null, {} and a map of nulls only render nothing
+{{- if include "global-chart.isEntry" $deploy }}
+```
+A workload, cronjob, ExternalSecret or TriggerAuthentication entry is bound to
+`$deploy`, `$job`, `$secret` or `$auth`: `make lint-templates` checks those
+names, so an entry bound to another one escapes it (issue #305).
+
 **Never mutate `.Values`:**
 ```yaml
 # WRONG:

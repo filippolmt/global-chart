@@ -1,6 +1,6 @@
 {{- $root := . }}
 {{- range $name, $deploy := .Values.workloads }}
-{{- if $deploy }}
+{{- if include "global-chart.isEntry" $deploy }}
 {{- if eq (include "global-chart.deploymentEnabled" $deploy) "true" }}
 {{- $hpa := default (dict) $deploy.autoscaling }}
 {{- /* validateAutoscalingConflict fails an enabled HPA with no active target;

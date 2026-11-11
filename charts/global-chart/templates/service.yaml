@@ -1,6 +1,6 @@
 {{- $root := . }}
 {{- range $name, $deploy := .Values.workloads }}
-{{- if $deploy }}
+{{- if include "global-chart.isEntry" $deploy }}
 {{- if eq (include "global-chart.deploymentEnabled" $deploy) "true" }}
 {{- $svc := default (dict) $deploy.service }}
 {{- $labelCtx := dict "root" $root "deploymentName" $name }}

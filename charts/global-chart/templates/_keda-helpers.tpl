@@ -37,7 +37,7 @@ Usage: {{ include "global-chart.kedaAuthRefName" (dict "root" . "name" $refName 
 {{- $auths := default (dict) .root.Values.kedaTriggerAuthentications -}}
 {{- $namespaced := or (not .kind) (eq .kind "TriggerAuthentication") -}}
 {{- if and $namespaced (eq (include "global-chart.isSet" (list $auths .name)) "true") -}}
-{{- if not (index $auths .name) -}}
+{{- if not (include "global-chart.isEntry" (index $auths .name)) -}}
 {{- fail (printf "kedaTriggerAuthentications.%s: empty, but a keda trigger's authenticationRef names it. An empty entry renders no TriggerAuthentication, and the ScaledObject would reference nothing. Fill the entry, or drop the reference." .name) -}}
 {{- end -}}
 {{- include "global-chart.kedaTriggerAuthName" (dict "root" .root "name" .name) -}}

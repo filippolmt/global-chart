@@ -4,7 +4,7 @@ Thank you for installing {{ include "global-chart.fullname" . }}!
 
 Workloads created:
 {{- range $name, $deploy := .Values.workloads }}
-{{- if $deploy }}
+{{- if include "global-chart.isEntry" $deploy }}
 {{- if eq (include "global-chart.deploymentEnabled" $deploy) "true" }}
   - {{ $name }}
 {{- end }}
@@ -14,7 +14,7 @@ Workloads created:
 
 {{- $svcList := list }}
 {{- range $name, $deploy := .Values.workloads }}
-{{- if $deploy }}
+{{- if include "global-chart.isEntry" $deploy }}
 {{- if eq (include "global-chart.deploymentEnabled" $deploy) "true" }}
 {{- $svc := default (dict) $deploy.service }}
 {{- if eq (include "global-chart.serviceEnabled" $svc) "true" }}
@@ -82,9 +82,9 @@ Hooks:
 {{- if .Values.cronJobs }}
 
 CronJobs:
-{{- range $name, $cron := .Values.cronJobs }}
-{{- if $cron }}
-  - {{ $name }} ({{ $cron.schedule }})
+{{- range $name, $job := .Values.cronJobs }}
+{{- if include "global-chart.isEntry" $job }}
+  - {{ $name }} ({{ $job.schedule }})
 {{- end }}
 {{- end }}
 {{- end }}
@@ -92,7 +92,7 @@ CronJobs:
 {{- $pdbList := list }}
 {{- $npList := list }}
 {{- range $name, $deploy := .Values.workloads }}
-{{- if $deploy }}
+{{- if include "global-chart.isEntry" $deploy }}
 {{- if eq (include "global-chart.deploymentEnabled" $deploy) "true" }}
 {{- $pdb := default (dict) $deploy.pdb }}
 {{- if $pdb.enabled }}

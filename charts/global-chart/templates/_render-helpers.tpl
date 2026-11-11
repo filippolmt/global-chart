@@ -194,6 +194,25 @@ Usage: {{- if include "global-chart.isNamedEntry" $ref }}
 {{- end }}
 
 {{/*
+Whether an entry of a values map of named resources — a workload, a hook, a
+cronjob, an ExternalSecret, a TriggerAuthentication — is one (issue #305): a
+map with a key that is not null. Null, {} and a map of nulls only are an
+*empty entry* (GLOSSARY.md), the entry left out: it renders nothing, and a
+reference to it fails as empty. A key holding {} is not null, so
+{image: {}} is an entry. The single presence test of those entries: a bare
+`if $deploy` is true on a map of nulls (lint-templates rejects it).
+Returns "true" or "".
+Usage: {{- if include "global-chart.isEntry" $deploy }}
+*/}}
+{{- define "global-chart.isEntry" -}}
+{{- $set := false -}}
+{{- if kindIs "map" . -}}
+{{- range $v := . -}}{{- if not (kindIs "invalid" $v) -}}{{- $set = true -}}{{- end -}}{{- end -}}
+{{- end -}}
+{{- if $set -}}true{{- end -}}
+{{- end }}
+
+{{/*
 Fail on a null item of a list read from values, naming its index (issue #198):
 `<errCtx>[<i>]: null`, and on a null in one of the item's required fields,
 `<errCtx>[<i>].<field>: null`, through rejectNull. A null item is a value
@@ -736,7 +755,7 @@ Numbers come back float64: see the file header.
 {{- else if $ref.workload -}}
   {{- $depName := $ref.workload -}}
   {{- $deploy := index (default (dict) $root.Values.workloads) $depName -}}
-  {{- if not $deploy -}}
+  {{- if not (include "global-chart.isEntry" $deploy) -}}
     {{- if hasKey (default (dict) $root.Values.workloads) $depName -}}
       {{- fail (printf "%s.workload: references workload '%s', which is empty: an empty workloads entry renders nothing. Fill the entry, or drop the reference." $path $depName) -}}
     {{- end -}}
@@ -1044,7 +1063,7 @@ Params:
   {{- /* A null ref, or a null name, is validateNullItems' to report */ -}}
   {{- if include "global-chart.isNamedEntry" $ref -}}
   {{- $secret := index (default (dict) $root.Values.externalSecrets) $ref.name -}}
-  {{- if not $secret -}}
+  {{- if not (include "global-chart.isEntry" $secret) -}}
     {{- if hasKey (default (dict) $root.Values.externalSecrets) $ref.name -}}
       {{- fail (printf "%s.externalSecrets: references '%s', which is empty: an empty externalSecrets entry renders no ExternalSecret. Fill the entry, or drop the reference." $.errCtx $ref.name) -}}
     {{- end -}}

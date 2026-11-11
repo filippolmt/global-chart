@@ -1,0 +1,19 @@
+# A KEDA authenticationRef naming a kedaTriggerAuthentications entry whose keys
+# are all null (issue #305): the schema rejects the null, and under
+# --skip-schema-validation the entry is an empty entry, so the ref fails as one
+# to `shared-auth: {}`. It used to fail as an entry that declares no
+# credential source.
+# Expected fail substring: "kedaTriggerAuthentications.shared-auth: empty, but a keda trigger's authenticationRef names it"
+workloads:
+  web:
+    image: nginx:1.25
+    keda:
+      enabled: true
+      triggers:
+        - type: cron
+          metadata: { timezone: UTC, start: "0 0 * * *", end: "59 23 * * *", desiredReplicas: "3" }
+          authenticationRef:
+            name: shared-auth
+kedaTriggerAuthentications:
+  shared-auth:
+    secretTargetRef: null

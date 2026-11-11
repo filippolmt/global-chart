@@ -144,7 +144,7 @@ app.kubernetes.io/managed-by: {{ .root.Release.Service | quote }}
 Check if a workload is enabled. Defaults to true if the field is not set.
 Usage: {{ include "global-chart.deploymentEnabled" $deploy }}
 Input: the workload map. The caller has already guarded it against nil —
-`hasKey` on nil fails, and every call site sits inside `{{- if $deploy }}`.
+`hasKey` on nil fails, and every call site sits inside `{{- if include "global-chart.isEntry" $deploy }}`.
 Returns the string "true" or "false".
 */}}
 {{- define "global-chart.deploymentEnabled" -}}

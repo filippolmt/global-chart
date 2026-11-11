@@ -295,6 +295,29 @@ tests:
           count: 0
         template: templates/ingress.yaml
 
+  - it: should fail naming a backendRef workload of nulls only as empty (issue #305)
+    set:
+      workloads:
+        backend:
+          image: myapp:v2
+        frontend:
+          image: null
+      httpRoute:
+        enabled: true
+        parentRefs:
+          - name: gw
+        rules:
+          - matches:
+              - path:
+                  type: PathPrefix
+                  value: /
+            backendRefs:
+              - workload: frontend
+    asserts:
+      - failedTemplate:
+          errorPattern: "httpRoute\\.rules\\[0\\]\\.backendRefs\\[0\\]\\.workload: references workload 'frontend', which is empty: an empty workloads entry renders nothing"
+        template: templates/httproute.yaml
+
   - it: should fail naming an empty backendRef workload as empty, not missing
     set:
       workloads:

@@ -76,8 +76,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   written in 4.2.1, a source with no provider. Its nulls are unset, so the
   source is empty, and the entry declares no other. An empty source (`[]`,
   `{}`) already failed; the message now names it too, and the other empty
-  sources after it. A null source is the source left out: the entry's own
-  message, as before. **Migration**: give the source its fields, or drop the
+  sources after it. A null source is the source left out, and an entry whose
+  sources are all null is an empty entry, which renders nothing (issue #305).
+  **Migration**: give the source its fields, or drop the
   entry.
 - **Breaking: an ExternalSecret's null `data` or `dataFrom` is unset, as the
   key left out, under `--skip-schema-validation`** (issue #304): without
@@ -140,6 +141,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 - A hook of nulls only renders no hook, and its type no longer joins the
   `helm.sh/hook` of the hook prerequisite copies; a workload whose hooks are
   all of nulls renders no copies (issue #294).
+- An entry of nulls only is an empty entry, as `{}` (issue #305): a workload,
+  a cronjob of either scope, an ExternalSecret or a TriggerAuthentication
+  whose keys are all null renders nothing, as a hook of nulls already did,
+  and a route backend, `fromWorkload`, `externalSecrets` ref or KEDA
+  `authenticationRef` that names it fails as naming an empty entry. Such an
+  entry used to fail on the first field it lacked (the schema accepts
+  `workloads.<name>: {image: null}`), and a workload's cronjob of nulls
+  rendered a CronJob with an empty `schedule`, which the API server refuses.
 - An HPA `behavior` whose `scaleUp` and `scaleDown` are both left out or of
   nulls only renders no `behavior`, which the controller reads with the same
   defaults; an ExternalSecret's null `remote.property` is left out, not

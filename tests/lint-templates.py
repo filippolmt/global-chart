@@ -87,6 +87,11 @@ a rule below cannot recognise: a check that sees nothing is not a pass.
   `true`, `on`) reaches the API server as a number or a boolean, and the apply
   fails (issue #251). Every such print is quoted, generated names too: whether
   a name can be user-written is not a pattern.
+- entry-presence: an entry of a values map of named resources is tested with
+  global-chart.isEntry, never bare: `if $deploy` is true on a map of nulls
+  only, which is an empty entry (issue #305). The rule sees the variables the
+  templates bind such an entry to — `$deploy`, `$job`, `$secret`, `$auth` —
+  so an entry bound to another name escapes it: bind it to one of these.
 
 Comments (`{{/* … */}}`) are stripped before matching, so a rule may be named in
 prose. Matching runs over the whole file, so an expression split across lines
@@ -117,7 +122,7 @@ ISSET_DYNAMIC = {
     ("templates/workload.yaml", "$raw $k"),  # the probe null filter: drops every null key, by construction
     ("templates/_validate-helpers.tpl", "$.probe ."),  # validateProbeHandler: null-sweep reads $handlers
     ("templates/_keda-helpers.tpl", "$auths .name"),  # kedaAuthRefName: a null entry is the key left out, skip-schema-render/keda-triggerauthentication-entry-null.yaml
-    ("templates/triggerauthentication.yaml", "$auth $field"),  # a null credential source is the source left out: skip-schema/keda-triggerauthentication-source-null.yaml
+    ("templates/triggerauthentication.yaml", "$auth $field"),  # a null credential source is the source left out: skip-schema-render/keda-triggerauthentication-source-null-beside-source.yaml
 }
 EXCEPTIONS = ("Name collision: ", "The fullname ", "Both .Values.ingress")
 KIND_ONLY = re.compile(r'\$kindOnly\s*:=\s*dict\s+(.*?)\}\}', re.S)
@@ -131,6 +136,7 @@ READ_ONLY_BY = re.compile(r"\bRead only by\s+(.*?)\.(?:\s|$)", re.S)
 ERRCTX_HELPER = re.compile(r'required\s+"([\w-]+): errCtx is required')
 DICT_CALL = re.compile(r'\b(?:include|template)\s+"global-chart\.([\w-]+)"\s+\(dict\b')
 SCHEMA_ALTERNATIVE = re.compile(r"^\s*errorPattern:.*\|.*\bat '/", re.M)
+ENTRY_PRESENCE = re.compile(r"\b(?:if|not|and|or|with)\s+\(?\$(?:deploy|job|secret|auth)(?![\w.])")
 HEADER_BEFORE = re.compile(r'\{\{-?\s*/\*((?:(?!\*/).)*)\*/\s*-?\}\}\s*$', re.S)
 
 
@@ -395,6 +401,9 @@ def main(chart):
         for m in NAME_PRINT.finditer(text):
             if not re.search(r"\|\s*quote\s*$", m.group(1)):
                 problems.append(f"{rel}:{lineno(text, m.start())}: quoted-name: {m.group(0).strip()} prints a name unquoted; end the print in | quote")
+        for m in ENTRY_PRESENCE.finditer(text):
+            problems.append(f"{rel}:{lineno(text, m.start())}: entry-presence: {m.group(0).strip()} is true on an entry of nulls only; "
+                            "test it with include \"global-chart.isEntry\"")
         if home in text:
             problems.append(f"{rel}:{lineno(text, text.index(home))}: chart-home: {home} written by hand; read .Chart.Home")
         if path.suffix != ".tpl":

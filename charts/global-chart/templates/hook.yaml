@@ -108,7 +108,7 @@ spec:
 
 {{/* ====== PART 2: workload-scope hooks (inherit from the workload) ====== */}}
 {{- range $deployName, $deploy := .Values.workloads }}
-{{- if $deploy }}
+{{- if include "global-chart.isEntry" $deploy }}
 {{- $hookEntries := include "global-chart.hookEntries" $deploy.hooks | fromJsonArray }}
 {{- if and (eq (include "global-chart.deploymentEnabled" $deploy) "true") $hookEntries }}
 
