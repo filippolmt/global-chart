@@ -889,10 +889,8 @@ Called from validate.yaml. Emits nothing on success.
   {{- end -}}
   {{- end -}}
 {{- end -}}
-{{- range $hookType, $jobs := .Values.hooks -}}
-  {{- range $name, $job := $jobs -}}
-    {{- if include "global-chart.isEntry" $job -}}{{- $label = include "global-chart.jobValuesPath" (dict "kind" "hook" "hookType" $hookType "jobName" $name) -}}{{- end -}}
-  {{- end -}}
+{{- range (include "global-chart.hookEntries" .Values.hooks | fromJsonArray) -}}
+  {{- $label = include "global-chart.jobValuesPath" (dict "kind" "hook" "hookType" .hookType "jobName" .name) -}}
 {{- end -}}
 {{- if and $label (contains "." $fullname) -}}
   {{- fail (printf "The fullname %q contains a dot, but %s names a container after it, and a container name is a DNS-1123 label. The dot comes from the release name or from nameOverride/fullnameOverride: set fullnameOverride to a name without dots." $fullname $label) -}}

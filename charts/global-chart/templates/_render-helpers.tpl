@@ -377,7 +377,7 @@ Usage: {{- range (include "global-chart.podSpecOwners" . | fromJsonArray) }}
 {{- $scopes := list (dict "hooks" .Values.hooks "cronJobs" .Values.cronJobs "deployName" "") -}}
 {{- $out := list -}}
 {{- range $name, $deploy := (default (dict) .Values.workloads) -}}
-  {{- if and (kindIs "map" $deploy) $deploy (eq (include "global-chart.deploymentEnabled" $deploy) "true") -}}
+  {{- if and (include "global-chart.isEntry" $deploy) (eq (include "global-chart.deploymentEnabled" $deploy) "true") -}}
     {{- $out = append $out (dict "path" (include "global-chart.deploymentValuesPath" $name) "kind" "workload" "spec" $deploy) -}}
     {{- $scopes = append $scopes (dict "hooks" $deploy.hooks "cronJobs" $deploy.cronJobs "deployName" $name) -}}
   {{- end -}}
@@ -385,13 +385,13 @@ Usage: {{- range (include "global-chart.podSpecOwners" . | fromJsonArray) }}
 {{- range $scope := $scopes -}}
   {{- range $hookType, $jobs := (default (dict) $scope.hooks) -}}
     {{- range $jobName, $job := (default (dict) $jobs) -}}
-      {{- if and (kindIs "map" $job) $job -}}
+      {{- if include "global-chart.isEntry" $job -}}
         {{- $out = append $out (dict "path" (include "global-chart.jobValuesPath" (dict "kind" "hook" "deploymentName" $scope.deployName "hookType" $hookType "jobName" $jobName)) "kind" "hook" "spec" $job) -}}
       {{- end -}}
     {{- end -}}
   {{- end -}}
   {{- range $jobName, $job := (default (dict) $scope.cronJobs) -}}
-    {{- if and (kindIs "map" $job) $job -}}
+    {{- if include "global-chart.isEntry" $job -}}
       {{- $out = append $out (dict "path" (include "global-chart.jobValuesPath" (dict "kind" "cronjob" "deploymentName" $scope.deployName "jobName" $jobName)) "kind" "cronjob" "spec" $job) -}}
     {{- end -}}
   {{- end -}}

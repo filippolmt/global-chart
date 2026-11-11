@@ -70,12 +70,8 @@ Reminder: the chart does not create the Gateway resource — it must be managed 
 {{- if .Values.hooks }}
 
 Hooks:
-{{- range $hookType, $jobs := .Values.hooks }}
-{{- range $name, $cmd := $jobs }}
-{{- if $cmd }}
-  - {{ $hookType }}/{{ $name }}
-{{- end }}
-{{- end }}
+{{- range (include "global-chart.hookEntries" .Values.hooks | fromJsonArray) }}
+  - {{ .hookType }}/{{ .name }}
 {{- end }}
 {{- end }}
 

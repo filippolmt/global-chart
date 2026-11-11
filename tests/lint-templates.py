@@ -91,7 +91,9 @@ a rule below cannot recognise: a check that sees nothing is not a pass.
   global-chart.isEntry, never bare: `if $deploy` is true on a map of nulls
   only, which is an empty entry (issue #305). The rule sees the variables the
   templates bind such an entry to — `$deploy`, `$job`, `$secret`, `$auth` —
-  so an entry bound to another name escapes it: bind it to one of these.
+  as an operand of if/not/and/or/with or after another operand's `)`, so an
+  entry bound to another name escapes it: bind it to one of these, and walk
+  hooks through global-chart.hookEntries.
 
 Comments (`{{/* … */}}`) are stripped before matching, so a rule may be named in
 prose. Matching runs over the whole file, so an expression split across lines
@@ -136,7 +138,7 @@ READ_ONLY_BY = re.compile(r"\bRead only by\s+(.*?)\.(?:\s|$)", re.S)
 ERRCTX_HELPER = re.compile(r'required\s+"([\w-]+): errCtx is required')
 DICT_CALL = re.compile(r'\b(?:include|template)\s+"global-chart\.([\w-]+)"\s+\(dict\b')
 SCHEMA_ALTERNATIVE = re.compile(r"^\s*errorPattern:.*\|.*\bat '/", re.M)
-ENTRY_PRESENCE = re.compile(r"\b(?:if|not|and|or|with)\s+\(?\$(?:deploy|job|secret|auth)(?![\w.])")
+ENTRY_PRESENCE = re.compile(r"(?:\b(?:if|not|and|or|with)|\))\s+\(?\$(?:deploy|job|secret|auth)(?![\w.])")
 HEADER_BEFORE = re.compile(r'\{\{-?\s*/\*((?:(?!\*/).)*)\*/\s*-?\}\}\s*$', re.S)
 
 

@@ -13,6 +13,21 @@ tests:
       - notMatchRegexRaw:
           pattern: "main"
 
+  - it: should not list a hook of nulls only, which renders no Job (issue #305)
+    set:
+      hooks:
+        post-install:
+          seed:
+            image: null
+          migrate:
+            image: busybox:1.36
+            command: ["true"]
+    asserts:
+      - matchRegexRaw:
+          pattern: "post-install/migrate"
+      - notMatchRegexRaw:
+          pattern: "seed"
+
   - it: should render NOTES.txt with workload info
     set:
       workloads:
