@@ -75,22 +75,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   `podIdentity: {provider: null}`, which the schema accepts, rendered as
   written in 4.2.1, a source with no provider. Its nulls are unset, so the
   source is empty, and the entry declares no other. An empty source (`[]`,
-  `{}`) already failed; the message now names it too. A null source is the
-  source left out: the entry's own message, as before. **Migration**: give
-  the source its fields, or drop the entry.
+  `{}`) already failed; the message now names it too, and the other empty
+  sources after it. A null source is the source left out: the entry's own
+  message, as before. **Migration**: give the source its fields, or drop the
+  entry.
 - **Breaking: an ExternalSecret's null `data` or `dataFrom` is unset, as the
   key left out, under `--skip-schema-validation`** (issue #304): without
   `remote`, the render fails at `remote: mandatory`; it rendered `data: null`.
   A null `generatorRef` or `storeRef` in a `dataFrom` entry's `sourceRef` is
   no sourceRef, so the spec-level `secretstore` is mandatory; it rendered
-  `sourceRef: {}` with no store. A null `remote` or `secretkey` beside `data`
-  no longer fails as mixing the two forms. **Migration**: write `data`,
-  `remote` or the `secretstore` the error names.
+  `sourceRef: {generatorRef: null}` with no store. **Migration**: write
+  `data`, `remote` or the `secretstore` the error names.
 - **Breaking: a keda trigger's `authenticationRef` without `name`, `{}`
   included, fails the render under `--skip-schema-validation`** (issue #304),
   naming `…authenticationRef.name`, as the schema's `required` does; a null
-  `name` already failed. It rendered a ref to nothing. **Migration**: name the
-  TriggerAuthentication.
+  `name` already failed. `{}` rendered as written, and a ref of kind
+  `ClusterTriggerAuthentication` rendered an empty `name`, a ref to nothing;
+  with no kind or a namespaced one the render died on a Go type error naming
+  no values path. **Migration**: name the TriggerAuthentication.
 
 - `make validate-bad-values` checks what a values file renders under
   `--skip-schema-validation`, not only that a `fail` fires (issue #292). A file
@@ -153,8 +155,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   and `targetPort`, an `extraPorts` entry's `appProtocol`, `protocol` and
   `nodePort`, a backend's `portName` and `service.port` (80), a
   `kedaTriggerAuthentications` entry an `authenticationRef` names (the ref
-  then renders verbatim), and an ExternalSecret's `target.immutable`. A null
-  `imagePullSecrets` on a workload or a job, `externalSecrets` on a cronjob
+  then renders verbatim), an ExternalSecret's `target.immutable`, and its
+  `remote` or `secretkey` beside `data` or `dataFrom`, which failed as mixing
+  the two forms (issue #304). A null `imagePullSecrets` on a workload or a job, `externalSecrets` on a cronjob
   or hook, or `serviceAccount` on an `rbacs.roles` entry now falls back as
   the key left out, where it stopped the fallback or created a ServiceAccount.
   The schema rejects all of these but `image`. No values file that rendered

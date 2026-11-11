@@ -1,6 +1,7 @@
 # A KEDA trigger's authenticationRef without a name (issue #304): the schema
-# requires it, and the template fails as on a null name. It used to render a
-# ref to nothing.
+# requires it, and the template fails naming it. With a cluster-scoped kind it
+# rendered `name:` empty, a ref to nothing; with no kind or a namespaced one it
+# died on a Go type error naming no values path.
 # Expected fail substring: "workloads.web.keda.triggers[0].authenticationRef.name: mandatory"
 workloads:
   web:
@@ -11,4 +12,4 @@ workloads:
         - type: cron
           metadata: { timezone: UTC, start: "0 0 * * *", end: "59 23 * * *", desiredReplicas: "3" }
           authenticationRef:
-            kind: TriggerAuthentication
+            kind: ClusterTriggerAuthentication
