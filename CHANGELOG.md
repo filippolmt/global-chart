@@ -89,8 +89,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 - **Breaking: a `dataFrom` entry's `generatorRef` or `storeRef` without the
   keys the schema requires, `{}` or nulls only, fails the render under
   `--skip-schema-validation`, and the schema rejects `""` in
-  `generatorRef.kind`** (issue #309; for the names, see issue #317 below). The render names `…sourceRef.generatorRef.kind`,
-  `…generatorRef.name` or `…storeRef.name`, a `""` included; a ref that is
+  `generatorRef.kind`** (issue #309; for the names, see issue #317 below).
+  The render names `…sourceRef.generatorRef.kind`, `…generatorRef.name` or
+  `…storeRef.name`, a `""` included; a ref that is
   not a map fails naming it as one. Such a ref rendered as written, a ref to
   no generator or store, and counted as the entry's own sourceRef, so a
   missing `secretstore` went unnoticed. **Migration**: name the generator or
@@ -244,9 +245,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   only a null `generatorRef` / `storeRef` and no `secretstore`, now fails
   naming the missing key. Write it; the schema already rejected the null.
 - A `dataFrom` entry's `generatorRef` `kind` of `""` is now rejected by the
-  schema. Under
-  `--skip-schema-validation`, such a ref, or one that is `{}`, of nulls only
-  or not a map, now fails naming it. ESO's CRD already refused the
+  schema. Under `--skip-schema-validation`, such a ref, or one that is `{}`,
+  of nulls only or not a map, now fails naming it. ESO's CRD already refused the
   ExternalSecret it rendered, so no release that installs changes.
 - Under `--skip-schema-validation`, a keda trigger's `authenticationRef`
   without `name` now fails naming it; the schema already required it.
