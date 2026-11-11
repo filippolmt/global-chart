@@ -214,6 +214,8 @@ def repository_test(schema):
          "deploymentHookJob", "hookJobSpec", "deploymentJobSpec"),
         (("workloads", "web", "cronJobs", "run"), ("workloads", "*", "cronJobs", "*"),
          "deploymentCronJob", "cronJobSpec", "deploymentJobSpec")]
+    # null-sweep's removed() reads a job's surfaces under the same four scopes
+    assert [j[1] for j in jobs] == sweep.JOBS, sweep.JOBS
     prefixes = {
         "hookJob": ["/properties/hooks/additionalProperties/additionalProperties",
                     "/properties/hooks/additionalProperties/additionalProperties/oneOf/0",

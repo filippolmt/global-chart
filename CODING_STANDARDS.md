@@ -262,6 +262,17 @@ every render (issue #235).
   `nodePort`), is not one: its null is unset like any map value (issue #303).
   A number in a map rendered whole (a probe's timings, issue #288) is a map
   value like any other;
+  ConfigMap and Secret data are the other: they render verbatim, so a null
+  `configMap.<KEY>` or `secret.<KEY>` fails naming it (`rejectNullDataValue`)
+  and a null inside a structured value is written as the user wrote it. An
+  entry left out and an empty one render alike, but a reference to an empty
+  entry fails naming it (*Empty entry* in `GLOSSARY.md`), where one to an
+  entry left out may name a resource outside the chart (a KEDA
+  `authenticationRef`, issue #305). `make null-sweep` renders every null map
+  value a scenario sets beside the key removed, and the two must match: both
+  failing, whatever the message, or rendering the same manifests; the
+  exceptions above, and the required fields below, are its `EXCEPTIONS`
+  table, each row naming its class (issue #294);
 - a null **list item** fails, anywhere, passthrough lists included:
   `rejectNullInLists`, run over all of `.Values` by `validateNullItems`;
 - a null in a **required field** of an item the chart reads fails:

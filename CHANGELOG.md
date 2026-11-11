@@ -111,10 +111,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   set and `httpGet: null`.
 - `make lint-release` fails a change to `charts/` or `tests/` that leaves
   `[Unreleased]` as it is at the merge-base with `RELEASE_BASE` (default
-  `origin/main`): a test-only change is logged too (#292 retro). `make
-  null-sweep` compares a null with its removal on a key under a list item as
-  well: the example lists of `values.yaml` had kept it from every key under
-  `ingress.hosts[]`.
+  `origin/main`): a test-only change is logged too (#292 retro).
 
 ### Fixed
 
@@ -186,6 +183,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 - `make render VALUES=<file> BASE=<ref>` takes a values file outside the
   repository: when both refs rendered the same, it printed the diff's OK line
   with a path relative to the repository and crashed on one outside it.
+- `make null-sweep` renders every null map value a scenario sets beside the
+  key removed, and the two must match (issue #294): both failing, or
+  rendering the same manifests, a `key: null` line included. It compared only
+  the keys an `isSet` call names as a literal, and read a `key: null` as
+  absent. The paths whose null is not their removal are its `EXCEPTIONS`
+  table, each row under its class in `CODING_STANDARDS.md` (a `printScalar`
+  number, a required item field, ConfigMap and Secret data, a null inside a
+  structured value, a reference to an empty entry); there a null that differs
+  from its removal must still fail naming its path, a structured value aside,
+  and a row no finding needs fails the sweep.
 
 ### Migration guide from 4.2.1
 
