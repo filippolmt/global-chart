@@ -46,7 +46,7 @@ metadata:
     {{- . | nindent 4 }}
   {{- end }}
 spec:
-  schedule: {{ $job.schedule | quote }}
+  schedule: {{ required (printf "%s.schedule: required" $errCtx) $job.schedule | quote }}
   {{- with $job.timeZone }}
   timeZone: {{ . | quote }}
   {{- end }}
@@ -122,7 +122,7 @@ metadata:
     {{- . | nindent 4 }}
   {{- end }}
 spec:
-  schedule: {{ $job.schedule | quote }}
+  schedule: {{ required (printf "%s.schedule: required" $errCtx) $job.schedule | quote }}
   {{- with $job.timeZone }}
   timeZone: {{ . | quote }}
   {{- end }}

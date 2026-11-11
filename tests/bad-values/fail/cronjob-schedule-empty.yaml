@@ -1,0 +1,8 @@
+# An empty schedule: the schema accepts any string, and it rendered
+# `schedule: ""`, which the API server refuses at install (issue #312).
+# Expected fail substring: "cronJobs.cleanup.schedule: required"
+cronJobs:
+  cleanup:
+    schedule: ""
+    image: busybox:1.36
+    command: ["true"]
