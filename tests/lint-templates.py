@@ -41,15 +41,9 @@ a rule below cannot recognise: a check that sees nothing is not a pass.
   `$defs/deployment` rejects the same ones with `false` (ADR 0020). The two are
   one partition written twice, the guard being what --skip-schema-validation
   leaves: a field added to one and not the other is the bug.
-- isset-key: an isSet call names its key as a string literal, so null-sweep
-  reads it and holds a null on it to the key removed. A call whose key is a
-  variable is invisible to the sweep, and sits in ISSET_DYNAMIC with the reason
-  it is covered anyway, until issue #294 makes the sweep compare every null
-  map value with the key removed.
 - probe-handlers: validateProbeHandler's `$handlers` lists the handlers of a
   probe, and `$defs/probe` declares them as its properties that are not
-  integers (the timings are). null-sweep reads the list through
-  probe_handler_list too, so the two read one parser. A handler the schema adds and the list misses would fail
+  integers (the timings are). A handler the schema adds and the list misses would fail
   a valid probe with "no handler" (issue #288).
 - workload-kind: a quoted kind of a workload ("Deployment", "StatefulSet",
   "DaemonSet") appears only in its homes: the workloadKind and isStatefulSet
@@ -116,15 +110,6 @@ COPY = re.compile(r"^\(?\s*(deepCopy|dict|list|append|include|fromJson|fromJsonA
 DEFINE = re.compile(r"\{\{-?\s*define\s")
 FAIL = re.compile(r"\bfail\s+(\(\s*printf\s+\"|\")((?:[^\"\\]|\\.)*)\"", re.S)
 FAIL_ANY = re.compile(r"\bfail\s+(?!\(\s*printf\s+\"|\")(\S+)")
-ISSET_CALL = re.compile(r'isSet"\s*\(list\s+(\S+)\s+([^()]+?)\s*\)')
-# The isSet calls whose key is a variable, by file and argument list.
-# shortcut: an allowlist, until issue #294 makes the sweep see these keys.
-ISSET_DYNAMIC = {
-    ("templates/workload.yaml", "$deploy ."),  # $kindOnly guard: each field fails at render whatever the null
-    ("templates/workload.yaml", "$raw $k"),  # the probe null filter: drops every null key, by construction
-    ("templates/_validate-helpers.tpl", "$.probe ."),  # validateProbeHandler: null-sweep reads $handlers
-    ("templates/triggerauthentication.yaml", "$auth $field"),  # a null credential source is the source left out: skip-schema-render/keda-triggerauthentication-source-null-beside-source.yaml
-}
 EXCEPTIONS = ("Name collision: ", "The fullname ", "Both .Values.ingress")
 KIND_ONLY = re.compile(r'\$kindOnly\s*:=\s*dict\s+(.*?)\}\}', re.S)
 KIND_LIST = re.compile(r'"(\w+)"\s*\(list\s+([^)]*)\)')
@@ -327,24 +312,6 @@ def errctx(chart):
     return out
 
 
-def isset_keys(rel, text):
-    """The isset-key rule on one template's text."""
-    problems = []
-    for m in ISSET_CALL.finditer(text):
-        args = f"{m.group(1)} {m.group(2)}"
-        if not re.fullmatch(r'"\w+"', m.group(2)) and (rel, args) not in ISSET_DYNAMIC:
-            problems.append(f"{rel}:{lineno(text, m.start())}: isset-key: isSet (list {args}) names its key "
-                            "through a variable, which null-sweep cannot read; name it as a literal, or add the "
-                            "call to ISSET_DYNAMIC with why a null on it is covered (issue #294)")
-    return problems
-
-
-def isset_keys_self_test():
-    assert not isset_keys("t", 'include "global-chart.isSet" (list $deploy "enabled")')
-    assert isset_keys("t", 'include "global-chart.isSet" (list $m $key)')
-    assert not isset_keys("templates/workload.yaml", 'include "global-chart.isSet" (list $raw $k)')
-
-
 def every_kind(chart):
     """Each template reading a `workloads` entry, with no suite case setting kind: StatefulSet."""
     suites = {}
@@ -366,7 +333,6 @@ def every_kind(chart):
 
 def main(chart):
     probe_handler_list_self_test()
-    isset_keys_self_test()
     chart = pathlib.Path(chart)
     templates = chart / "templates"
     schema = json.loads((chart / "values.schema.json").read_text())
@@ -385,7 +351,6 @@ def main(chart):
             continue
         text = blank_comments(path.read_text())
         rel = path.relative_to(chart)
-        problems += isset_keys(rel.as_posix(), text)
         for m in DEFAULT_TRUE.finditer(text):
             problems.append(f"{rel}:{lineno(text, m.start())}: default-true: {m.group(0).strip()}")
         # A variable lives in its define (or the file's top level): aliases are

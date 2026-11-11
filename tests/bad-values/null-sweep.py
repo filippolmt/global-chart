@@ -11,25 +11,34 @@ The sweep. Each lint scenario is read back as JSON through a scratch chart
 (`{{ .Values | toJson }}`), so YAML parsing is Helm's own and nothing needs
 PyYAML. Then every node under it — each map value and each list item — is set to
 null in turn, and the chart is rendered with --skip-schema-validation plus the
-CRD API versions. A render that succeeds passes (a null the chart tolerates),
-unless a null on a key the templates read through isSet renders otherwise than
-the same key removed — a null is unset, so the two must match (a key the
-chart's values.yaml defaults is left out: Helm deletes the default on a null,
-and restores it on a removal; a key under a list item is not, since Helm
-replaces a list whole and the example lists of values.yaml default nothing) —
-or unless its output carries more null-looking lines — `<nil>`, a `- null`
-list item, an empty `name:` — than the scenario's own render: a null that reached
-the manifest. A `key: null` is not one: a null map value is unset, for the
-chart as for the API server. A render that fails passes only when Helm reports a
-template `fail` or `required` (`execution error at (…): <message>`) whose
-message names the nulled node — its key, or `<list>[<i>]` for a list item — or
-the node holding it (a null filters list leaves its rule without backendRefs,
-and the rule is what the message names), and carries no raw template error: a fail about another key is the null reaching a
-check it was never meant for. On a key read through isSet, the same error as
-the key removed passes too: the null is unset, and the check it reaches is
-the one its default reaches (a null extraPorts protocol is TCP, and a UDP
-route to that port fails as without the key, issue #303). Anything else is a finding: the template path and
-the error are printed.
+CRD API versions.
+
+A null map value is unset (CODING_STANDARDS.md, *A null means one thing per
+kind of node*), so it is rendered beside the same key removed and the two must
+match: both fail, whatever the message (the path of a `fail` is the suites'),
+or both render the same manifests, a `key: null` line included — the API
+server reads it as `""` or `"0"`, not as the key absent (issue #294). The
+comparison is textual, after stable_render: a difference of YAML style alone
+would show as a finding, never hide one. A map the removal empties stays `{}`
+(see removed()). This holds for a list item's optional fields too. A key
+values.yaml defaults is left out: Helm deletes the default on a null and
+restores it on a removal (a key under a list item is not, since Helm replaces
+a list whole and the example lists of values.yaml default nothing).
+EXCEPTIONS lists the paths whose null is not their removal, each under the
+class CODING_STANDARDS.md names (a number printScalar renders, a required
+item field, ConfigMap and Secret data, a reference to an empty entry); a row
+no finding needs fails the sweep, so no row outlives its reason.
+shortcut: the sweep sees only the nodes the scenarios set; when a regression
+turns up on a leaf none sets, add it to a scenario.
+
+Every other null — a list item, a defaulted key, an excepted path — must
+render with no more null-looking lines (`<nil>`, a `- null` list item, an
+empty `name:`) than the scenario's own render, or fail with a template `fail`
+or `required` (`execution error at (…): <message>`) whose message names the
+nulled node — its key, or `<list>[<i>]` for a list item — or the node holding
+it, and carries no raw template error: a fail about another key is the null
+reaching a check it was never meant for. Anything else is a finding: the
+template path and the error are printed.
 
 When it arrived the sweep found 166 such nulls (issue #198), all fixed; a
 finding now fails CI. The rule it holds is in CODING_STANDARDS.md (fallback
@@ -97,50 +106,12 @@ preflight = contracts.preflight
 RAW = re.compile(r"nil pointer|error calling|wrong type for value|can't evaluate|"
                  r"executing \"|invalid value; expected|incompatible types|error converting YAML|%!")
 FAIL = re.compile(r"execution error at \([^)]*\): ")
-# A `key: null` line toYaml writes for a passthrough value: the API server
-# reads it as the key absent, so the comparison with the key removed drops it.
-# On a list item's first line the dash moves to the next key, or the item is
-# left `- {}`, as toYaml writes it without the key.
-NULL_VALUE = re.compile(r"^[ \t]*[^\s:-][^:\n]*:[ \t]+null[ \t]*\n", re.M)
-NULL_ITEM_HEAD = re.compile(r"^([ \t]*)- [^\s:][^:\n]*:[ \t]+null[ \t]*\n(?:\1  (?=\S))?", re.M)
-
-
-def drop_nulls(text):
-    """text as toYaml writes it with every `key: null` of a map removed."""
-    while True:
-        dropped = NULL_ITEM_HEAD.sub(lambda m: m[1] + ("- " if m[0].endswith("  ") else "- {}\n"), text)
-        if dropped == text:
-            return NULL_VALUE.sub("", text)
-        text = dropped
-
-
-def drop_nulls_self_test():
-    assert drop_nulls("a:\n  b: null\n  c: 1\n") == "a:\n  c: 1\n"
-    assert drop_nulls("ports:\n  - port: null\n    protocol: TCP\n") == "ports:\n  - protocol: TCP\n"
-    assert drop_nulls("x:\n- a: null\n  b: null\n  c: 1\n") == "x:\n- c: 1\n"
-    assert drop_nulls("x:\n  - a: null\n  - b: 2\n") == "x:\n  - {}\n  - b: 2\n"
-    assert drop_nulls("x:\n  - null\n") == "x:\n  - null\n"
 # podRecreation stamps the pod template with the render time: two renders a
 # second apart differ there and nowhere else
 TIMESTAMP = re.compile(r'^\s*timestamp: "\d{14}"\n', re.M)
-# The keys the templates read through isSet: a null on one must render as the
-# key absent. Read from the templates, so the list cannot drift from them.
-IS_SET = re.compile(r'isSet" \(list \S+ "(\w+)"\)')
 # The surfaces a job inherits, read through isSetPassthrough: a map of nulls
-# there is the map left out (removed). Read from the templates, like IS_SET.
+# there is the map left out (removed). Read from the templates.
 SURFACES = re.compile(r'isSetPassthrough" \(list \S+ "(\w+)"\)')
-# validateProbeHandler reads its handlers through isSet off a literal list
-# (issue #288), parsed by lint-templates' probe_handler_list: one parser of it.
-# shortcut: this one helper by name, and only literal isSet keys besides;
-# issue #294 replaces both with a removal case for every null map value.
-_lint = importlib.util.spec_from_file_location("lint_templates", pathlib.Path(__file__).parent.parent / "lint-templates.py")
-lint_templates = importlib.util.module_from_spec(_lint)
-_lint.loader.exec_module(lint_templates)
-
-
-def is_set_keys(text):
-    """The keys a template reads through isSet or isSetPassthrough."""
-    return set(IS_SET.findall(text)) | set(SURFACES.findall(text)) | set(lint_templates.probe_handler_list(text) or ())
 
 
 def surface_keys(chart):
@@ -148,11 +119,78 @@ def surface_keys(chart):
     return {k for t in (chart / "templates").rglob("*") if t.is_file() for k in SURFACES.findall(t.read_text())}
 
 
-def is_set_keys_self_test():
-    assert is_set_keys('isSet" (list $deploy "enabled")') == {"enabled"}
-    assert is_set_keys('isSetPassthrough" (list $job "affinity")') == {"affinity"}
-    helper = '{{- define "global-chart.validateProbeHandler" -}}\n{{- $handlers := list "exec" "httpGet" -}}'
-    assert is_set_keys(helper) == {"exec", "httpGet"}
+def surface_keys_self_test():
+    assert SURFACES.findall('isSetPassthrough" (list $job "affinity")') == ["affinity"]
+
+
+# The map values whose null is not their removal, each in a class
+# CODING_STANDARDS.md (*A null means one thing per kind of node*) names: the
+# class text must occur there. "*" is one path segment (a key or a list index),
+# "**" the rest of the path. A pattern no finding matches fails the sweep.
+NUMBER = "Numbers are the exception"                # printScalar
+REQUIRED = "a null in a **required field**"         # rejectNullItems
+DATA = "ConfigMap and Secret data"                  # rejectNullDataValue, structured content verbatim
+REFERENCE = "a reference to an empty entry"         # an entry left out is outside the chart
+EXCEPTIONS = [
+    (('workloads', '*', 'replicaCount'), NUMBER),
+    (('workloads', '*', 'progressDeadlineSeconds'), NUMBER),
+    (('workloads', '*', 'revisionHistoryLimit'), NUMBER),
+    (('workloads', '*', 'updateStrategy', 'rollingUpdate', 'partition'), NUMBER),
+    (('workloads', '*', 'keda', 'minReplicaCount'), NUMBER),
+    (('workloads', '*', 'keda', 'maxReplicaCount'), NUMBER),
+    (('workloads', '*', 'keda', 'cooldownPeriod'), NUMBER),
+    (('workloads', '*', 'keda', 'pollingInterval'), NUMBER),
+    (('cronJobs', '*', 'successfulJobsHistoryLimit'), NUMBER),
+    (('cronJobs', '*', 'failedJobsHistoryLimit'), NUMBER),
+    (('workloads', '*', 'cronJobs', '*', 'successfulJobsHistoryLimit'), NUMBER),
+    (('workloads', '*', 'cronJobs', '*', 'failedJobsHistoryLimit'), NUMBER),
+    (('workloads', '*', 'hooks', '*', '*', 'activeDeadlineSeconds'), NUMBER),
+    (('workloads', '*', 'hooks', '*', '*', 'backoffLimit'), NUMBER),
+    (('httpRoute', 'rules', '*', 'backendRefs', '*', 'weight'), NUMBER),
+    (('httpRoutes', '*', 'rules', '*', 'backendRefs', '*', 'weight'), NUMBER),
+    (('tcpRoutes', '*', 'rules', '*', 'backendRefs', '*', 'weight'), NUMBER),
+    (('udpRoutes', '*', 'rules', '*', 'backendRefs', '*', 'weight'), NUMBER),
+    (('externalSecrets', '*', 'data', '*', 'remote', 'version'), NUMBER),
+    (('workloads', '*', 'volumeMounts', '*', 'name'), REQUIRED),
+    (('workloads', '*', 'volumeMounts', '*', 'mountPath'), REQUIRED),
+    (('workloads', '*', 'volumeClaimTemplates', '*', 'name'), REQUIRED),
+    (('workloads', '*', 'volumeClaimTemplates', '*', 'size'), REQUIRED),
+    (('workloads', '*', 'mountedConfigFiles', 'files', '*', 'name'), REQUIRED),
+    (('workloads', '*', 'mountedConfigFiles', 'bundles', '*', 'files', '*', 'name'), REQUIRED),
+    (('workloads', '*', 'dnsConfig', 'options', '*', 'name'), REQUIRED),
+    (('workloads', '*', 'imagePullSecrets', '*', 'name'), REQUIRED),
+    (('global', 'imagePullSecrets', '*', 'name'), REQUIRED),
+    (('workloads', '*', 'externalSecrets', '*', 'name'), REQUIRED),
+    (('workloads', '*', 'cronJobs', '*', 'externalSecrets', '*', 'name'), REQUIRED),
+    (('hooks', '*', '*', 'externalSecrets', '*', 'name'), REQUIRED),
+    (('rbacs', 'roles', '*', 'name'), REQUIRED),
+    (('httpRoute', 'rules', '*', 'filters', '*', 'type'), REQUIRED),
+    (('workloads', '*', 'configMap', '**'), DATA),
+    (('workloads', '*', 'secret', '**'), DATA),
+    (('kedaTriggerAuthentications', '*'), REFERENCE),
+]
+
+
+def matches(pattern, path):
+    """pattern, a tuple of keys, "*" and a trailing "**" (one segment or more), matches path."""
+    if pattern and pattern[-1] == "**":
+        return len(path) >= len(pattern) and matches(pattern[:-1], path[:len(pattern) - 1])
+    return len(pattern) == len(path) and all(p in ("*", k) for p, k in zip(pattern, path))
+
+
+def matches_self_test():
+    assert matches(("workloads", "*", "replicaCount"), ("workloads", "app", "replicaCount"))
+    assert not matches(("workloads", "*", "replicaCount"), ("workloads", "app", "keda", "replicaCount"))
+    assert matches(("a", "*", "name"), ("a", 0, "name"))
+    assert matches(("a", "**"), ("a", "b", "c")) and matches(("a", "**"), ("a", "b"))
+    assert not matches(("a", "**"), ("a",)), "the map itself is not its content"
+    assert not matches(("a", "**"), ("b", "c"))
+
+
+def exception_for(path):
+    return next((e for e in EXCEPTIONS if matches(e[0], path)), None)
+
+
 NULLISH = re.compile(r"<nil>|^\s*-\s+null\s*$|^\s*-?\s*name:\s*(\"\")?\s*$", re.M)
 
 
@@ -219,7 +257,7 @@ class Case(NamedTuple):
     path: tuple
     value: object       # what the node became: None, or the wrong type
     values: dict        # the scenario with the node changed
-    unset: dict = None  # the scenario with the node removed, for a null read through isSet
+    unset: dict = None  # the scenario with the node removed, for a null map value
 
 
 def wrong_types(node):
@@ -298,18 +336,24 @@ def stable_render_self_test():
     assert stable_render(other) != stable_render(other.replace('"YQ=="', '"Yw=="'))
 
 
-def verdict(out, base, path, unset=None):
+def unset_verdict(out, unset):
+    """A null map value against the key removed: both fail, or both render the same."""
+    if out.returncode and unset.returncode:
+        return None
+    if not out.returncode and not unset.returncode:
+        a, b = stable_render(out.stdout), stable_render(unset.stdout)
+        return None if a == b else "renders otherwise than with the key removed" + first_difference(a, b)
+    err = " ".join((out.stderr or unset.stderr).split())[:200]
+    return ("fails, and renders with the key removed: " if out.returncode else "renders, and fails with the key removed: ") + err
+
+
+def verdict(out, base, path):
     if out.returncode == 0:
-        if unset is not None and unset.returncode == 0 and \
-                stable_render(drop_nulls(out.stdout)) != stable_render(unset.stdout):
-            return "renders otherwise than with the key removed: a null map value is not read as unset"
         if len(NULLISH.findall(out.stdout)) > len(NULLISH.findall(base)):
             new = [l.strip() for l in out.stdout.splitlines() if NULLISH.search(l) and l not in base.splitlines()]
             return f"renders a null: {new[0] if new else '(a null-looking line)'}"
         return None
     err = " ".join(out.stderr.split())
-    if unset is not None and unset.returncode != 0 and " ".join(unset.stderr.split()) == err:
-        return None
     m = FAIL.search(err)
     if m and not RAW.search(err[m.end():]):
         message = err[m.end():]
@@ -321,12 +365,17 @@ def verdict(out, base, path, unset=None):
 
 # verdict is bound here: check-null-preflight.py patches it while running main
 def verdict_self_test(verdict=verdict):
-    def run(code, err):
-        return subprocess.CompletedProcess([], code, "", err)
-    failed = run(1, "Error: execution error at (t:1:1): route.portName: resolves to a TCP port")
-    assert verdict(failed, "", ("svc", "protocol"), run(1, failed.stderr)) is None
-    assert verdict(failed, "", ("svc", "protocol"), run(0, "")).startswith("fails without naming protocol")
+    def run(code, out="", err=""):
+        return subprocess.CompletedProcess([], code, out, err)
+    failed = run(1, err="Error: execution error at (t:1:1): route.portName: resolves to a TCP port")
+    assert unset_verdict(failed, run(1, err="Error: execution error at (t:1:1): other")) is None
+    assert unset_verdict(failed, run(0, "x: 1\n")).startswith("fails, and renders with the key removed")
+    assert unset_verdict(run(0, "x: 1\n"), failed).startswith("renders, and fails with the key removed")
+    assert unset_verdict(run(0, "x: 1\n"), run(0, "x: 1\n")) is None
+    assert unset_verdict(run(0, "x: 1\ny: null\n"), run(0, "x: 1\n")) == \
+        "renders otherwise than with the key removed: renders y: null"
     assert verdict(failed, "", ("svc", "protocol")).startswith("fails without naming protocol")
+    assert verdict(failed, "", ("route", "portName")) is None
 
 
 def values_to_json_chart(tmp):
@@ -412,8 +461,8 @@ def render_as_unset(chart, files, flags):
 
 def main(argv):
     stable_render_self_test()
-    drop_nulls_self_test()
-    is_set_keys_self_test()
+    surface_keys_self_test()
+    matches_self_test()
     defaulted_self_test()
     null_keys_self_test()
     verdict_self_test()
@@ -444,24 +493,29 @@ def main(argv):
     with tempfile.TemporaryDirectory() as tmp:
         scratch = values_to_json_chart(tmp)
         jobs, bases = [], {}
-        # "name" is left out: isSet reads it for one default (an ExternalSecret's
-        # target), and the key names every other required field of the chart
-        is_set = {k for t in (chart / "templates").rglob("*") if t.is_file()
-                  for k in is_set_keys(t.read_text())} - {"name"}
         defaults = set(paths(to_json(chart / "values.yaml", scratch)))
         surfaces = surface_keys(chart)
         wrongs = []
         for f, values in scenarios:
             bases[f] = render(chart, flags, values, tmp).stdout
             jobs += [Case(f, p, None, nulled(values, p),
-                          removed(values, p, surfaces) if p[-1] in is_set and not defaulted(p, defaults) else None)
+                          removed(values, p, surfaces) if not isinstance(p[-1], int) and not defaulted(p, defaults) else None)
                      for p in paths(values)]
             wrongs += [Case(f, p, wrong, set_at(values, p, wrong))
                        for p in paths(values) for wrong in wrong_types(value_at(values, p))]
+        used = set()
 
         def null_job(c):
-            return verdict(render(chart, flags, c.values, tmp), bases[c.file], c.path,
-                           render(chart, flags, c.unset, tmp) if c.unset is not None else None)
+            out = render(chart, flags, c.values, tmp)
+            if c.unset is None:
+                return verdict(out, bases[c.file], c.path)
+            generic = unset_verdict(out, render(chart, flags, c.unset, tmp))
+            exception = exception_for(c.path)
+            if exception is None:
+                return generic
+            if generic:
+                used.add(exception)
+            return verdict(out, bases[c.file], c.path)
 
         def type_job(c):
             out = render(chart, flags, c.values, tmp)
@@ -472,6 +526,11 @@ def main(argv):
             nulls, typed = pool.map(null_job, jobs), pool.map(type_job, wrongs)
             findings += [f"{c.file}: {'.'.join(map(str, c.path))} = {json.dumps(c.value)} → {v}"
                          for c, v in zip(jobs + wrongs, list(nulls) + list(typed)) if v]
+    standards = " ".join((pathlib.Path(__file__).parent.parent.parent / "CODING_STANDARDS.md").read_text().split())
+    findings += [f"EXCEPTIONS: {dotted(p)}: no null map value of a scenario needs it; drop it" for p, _ in EXCEPTIONS
+                 if (p, _) not in used]
+    findings += [f"EXCEPTIONS: {dotted(p)}: its class {cls!r} is not in CODING_STANDARDS.md" for p, cls in EXCEPTIONS
+                 if cls not in standards]
     if findings:
         print("    FAIL: a null or a wrong type under --skip-schema-validation does not fail naming its values path:")
         for line in sorted(findings):

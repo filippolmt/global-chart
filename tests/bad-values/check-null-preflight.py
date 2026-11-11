@@ -277,6 +277,7 @@ def orchestration_test():
                 patch.object(sweep, "to_json", return_value={}), \
                 patch.object(sweep, "verdict", return_value=None), \
                 patch.object(sweep, "type_verdict", return_value=None), \
+                patch.object(sweep, "EXCEPTIONS", []), \
                 patch.object(sweep.concurrent.futures, "ThreadPoolExecutor", Pool):
             code, output = invoke([str(f.chart), *f.files, "--", *flags])
             assert code == 0 and "OK:" in output, output
