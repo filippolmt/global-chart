@@ -213,6 +213,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   structured value, a reference to an empty entry); there a null that differs
   from its removal must still fail naming its path, a structured value aside,
   and a row no finding needs fails the sweep.
+- `make scenario-coverage` reports a bounded node no scenario sets even below
+  a gap of its parent (#317 retro). It reported only the topmost gap, so a
+  bound under a parent gap in the baseline passed with nothing to sweep it:
+  `storeRef.name` in #317, and 15 nodes of the day, now in the baseline
+  (probe `tcpSocket` and `grpc` ports, `tolerationSeconds` of hooks and
+  cronjobs, egress ports, a job's `serviceAccount.name`, L4 backend ports).
+- The schema keeps each API vocabulary in one `$defs`: `imagePullPolicy`,
+  `portProtocol`, `httpRouteFilterType` beside `esoStoreKind`. Every scenario
+  renders as before.
 
 ### Migration guide from 4.2.1
 

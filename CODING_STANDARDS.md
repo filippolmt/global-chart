@@ -176,6 +176,21 @@ every reader ranges over it: `l4RouteKinds`, `prereqCopyHooks`,
 `servicePorts`, `hpaActiveTargets`. The same `dict "A" … "B" …` or the same
 `range` written at two sites is the smell; the third kind added to one site
 and not the other is the bug (issue #82 is the port version of it).
+The schema holds the same rule: an `enum` that mirrors one API vocabulary
+lives in one `$defs` every field using it references (`esoStoreKind`, issue
+#317). Two enums equal by coincidence of the API (`whenDeleted` /
+`whenScaled`) stay apart.
+
+**A `$defs` description says what the value is.** Its users are its `$ref`s, a
+grep away; a list of them in the description goes stale with the next `$ref`
+(`dns1123Subdomain`, issue #317). Name a user only where the sharing is the
+point (`httpRouteFields`, an `allOf` branch of two closed objects).
+
+**A change updates the text that states the old behaviour.** An ADR, a
+CHANGELOG entry of `[Unreleased]`, a schema description or a fixture comment
+that states what the change replaces is part of the change; the review greps
+for the field and the rule it changed (ADR 0017 said "no `enum` on the
+`kind`s" after #317 gave `storeRef.kind` one).
 
 **Text names a kind only where it holds for that kind alone.** A `fail`
 message, a schema description, NOTES or a comment that holds for every kind of
