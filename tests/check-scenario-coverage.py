@@ -18,7 +18,9 @@ node it declares. A gap is:
 - `<path>: never <type>`: a node a scenario sets, accepting two types or more (an
   imagePullSecrets item, a map or a string; a targetPort, a number or a name),
   where no scenario uses that one.
-Only the topmost gap counts: below a node no scenario sets, nothing is reported.
+Only the topmost gap counts: below a node no scenario sets, nothing is reported
+but a bounded node. That one is always its own gap: under a parent gap in the
+baseline, a new bound would otherwise pass unswept (storeRef.name, issue #317).
 A new `never set` gap names, after it, the nodes below it that become gaps once
 it is set, so a scenario covers the subtree in one pass, not one level a run.
 A removed key (declared with no type, ADR 0022) has no type to reach. A
@@ -87,10 +89,15 @@ def bounded(schema, path):
 
 
 def gaps(schema, schema_paths, reached):
-    """The topmost gaps: a node whose parent no scenario reaches is its parent's gap, not its own."""
+    """The topmost gaps: a node whose parent no scenario reaches is its parent's gap, not its own,
+    unless bounded: bound-sweep reads only what a scenario sets, so a bound is a gap of its own."""
     out = set()
     for path, types in schema_paths.items():
-        if not path or not types or (parent(path) and parent(path) not in reached):
+        if not path or not types:
+            continue
+        if parent(path) and parent(path) not in reached:
+            if path not in reached and bounded(schema, path):
+                out.add(f"{path}: never set")
             continue
         seen = reached.get(path, set())
         if not seen and (types & {"map", "list"} or bounded(schema, path)):

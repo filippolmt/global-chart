@@ -147,8 +147,7 @@
         },
         "pullPolicy": {
           "description": "The container's imagePullPolicy; IfNotPresent when unset. A job running this image takes it with the image, unless it sets imagePullPolicy.",
-          "type": "string",
-          "enum": ["Always", "IfNotPresent", "Never"]
+          "$ref": "#/$defs/imagePullPolicy"
         }
       },
       "additionalProperties": false,
@@ -336,8 +335,7 @@
         },
         "protocol": {
           "description": "Protocol of the primary port: TCP (the default), UDP or SCTP.",
-          "type": "string",
-          "enum": ["TCP", "UDP", "SCTP"]
+          "$ref": "#/$defs/portProtocol"
         },
         "annotations": {
           "description": "Annotations on the Service, such as for external-dns or a cloud load balancer, merged over global.commonAnnotations. Not copied onto a StatefulSet's headless Service.",
@@ -358,8 +356,7 @@
               },
               "protocol": {
                 "description": "TCP (the default), UDP or SCTP.",
-                "type": "string",
-                "enum": ["TCP", "UDP", "SCTP"]
+                "$ref": "#/$defs/portProtocol"
               },
               "appProtocol": { "description": "The port's appProtocol, rendered verbatim, such as http or kubernetes.io/h2c.", "type": "string" },
               "nodePort": { "description": "Fixed node port, in the cluster's default NodePort range: for a NodePort or LoadBalancer Service only. Unset, Kubernetes picks one.", "type": "integer", "minimum": 30000, "maximum": 32767 }
@@ -662,7 +659,7 @@
       "description": "A NetworkPolicy v1 port. Closed in full: a small, fixed shape (ADR 0017).",
       "type": "object",
       "properties": {
-        "protocol": { "description": "TCP (Kubernetes' default when unset), UDP or SCTP.", "type": "string", "enum": ["TCP", "UDP", "SCTP"] },
+        "protocol": { "description": "TCP (Kubernetes' default when unset), UDP or SCTP.", "$ref": "#/$defs/portProtocol" },
         "port": { "description": "A port number or a named container port. Unset, every port of the protocol.", "$ref": "#/$defs/portNumberOrName" },
         "endPort": { "description": "With a numeric port: the last port of the range starting at port.", "type": "integer", "minimum": 1, "maximum": 65535 }
       },
@@ -763,12 +760,27 @@
       ]
     },
     "optionalObjectName": {
-      "description": "The name of an existing object, used verbatim: a DNS-1123 subdomain of at most 253 characters, or null / \"\" for unset. Shared by serviceAccountName and priorityClassName.",
+      "description": "The name of an existing object, used verbatim: a DNS-1123 subdomain of at most 253 characters, or null / \"\" for unset.",
       "anyOf": [
         { "type": "null" },
         { "const": "" },
         { "$ref": "#/$defs/dns1123Subdomain", "maxLength": 253 }
       ]
+    },
+    "imagePullPolicy": {
+      "description": "A container's imagePullPolicy, the Kubernetes PullPolicy vocabulary.",
+      "type": "string",
+      "enum": ["Always",  "IfNotPresent",  "Never"]
+    },
+    "portProtocol": {
+      "description": "A port's protocol, the Kubernetes Protocol vocabulary.",
+      "type": "string",
+      "enum": ["TCP",  "UDP",  "SCTP"]
+    },
+    "httpRouteFilterType": {
+      "description": "A Gateway API HTTPRouteFilter type, for a rule's filters and a backendRef's alike.",
+      "type": "string",
+      "enum": ["RequestHeaderModifier",  "ResponseHeaderModifier",  "RequestRedirect",  "URLRewrite",  "RequestMirror",  "ExtensionRef"]
     },
     "esoStoreKind": {
       "description": "The kind of an ESO store reference, secretstore.kind and a dataFrom entry's storeRef.kind: the two kinds ESO's ExternalSecret CRD accepts there.",
@@ -1038,8 +1050,7 @@
         },
         "imagePullPolicy": {
           "description": "Overrides the pull policy; else the pullPolicy of the image the job runs, inherited one included, else IfNotPresent.",
-          "type": "string",
-          "enum": ["Always", "IfNotPresent", "Never"]
+          "$ref": "#/$defs/imagePullPolicy"
         },
         "imagePullSecrets": { "description": "Pull secrets of the job's pod. Workload scope: the workload's when unset, then global.imagePullSecrets. Root scope: global.imagePullSecrets. [] renders none.", "type": "array", "items": { "$ref": "#/$defs/imagePullSecret" } },
         "nodeSelector": {
@@ -1543,15 +1554,7 @@
             "properties": {
               "type": {
                 "description": "The Gateway API filter type. Required, a null item is rejected at render time.",
-                "type": "string",
-                "enum": [
-                  "RequestHeaderModifier",
-                  "ResponseHeaderModifier",
-                  "RequestRedirect",
-                  "URLRewrite",
-                  "RequestMirror",
-                  "ExtensionRef"
-                ]
+                "$ref": "#/$defs/httpRouteFilterType"
               }
             },
             "required": ["type"]
@@ -1574,7 +1577,7 @@
       }
     },
     "gatewayParentRef": {
-      "description": "A Gateway API parentRef, rendered verbatim: the Gateway (and optionally its listener) a route attaches to. Shared by httpRoute and the L4 routes.",
+      "description": "A Gateway API parentRef, rendered verbatim: the Gateway (and optionally its listener) a route attaches to.",
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -1588,7 +1591,7 @@
       "required": ["name"]
     },
     "backendServiceRef": {
-      "description": "An explicit Service backend, in place of a workload: its name and port (default 80). Shared by ingress, httpRoute and the L4 routes.",
+      "description": "An explicit Service backend, in place of a workload: its name and port (default 80).",
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -1657,15 +1660,7 @@
             "properties": {
               "type": {
                 "description": "The Gateway API filter type. Required, a null item is rejected at render time.",
-                "type": "string",
-                "enum": [
-                  "RequestHeaderModifier",
-                  "ResponseHeaderModifier",
-                  "RequestRedirect",
-                  "URLRewrite",
-                  "RequestMirror",
-                  "ExtensionRef"
-                ]
+                "$ref": "#/$defs/httpRouteFilterType"
               }
             },
             "required": ["type"]

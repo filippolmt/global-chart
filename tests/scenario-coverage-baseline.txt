@@ -19,6 +19,7 @@ cronJobs.*.resources.limits: never set
 cronJobs.*.resources.requests.cpu: never number
 cronJobs.*.resources.requests.memory: never number
 cronJobs.*.securityContext: never set
+cronJobs.*.serviceAccount.name: never set
 cronJobs.*.serviceAccount: never set
 cronJobs.*.serviceAccountAnnotations: never set
 cronJobs.*.serviceAccountName: never set
@@ -46,6 +47,7 @@ hooks.*.*.resources.limits: never set
 hooks.*.*.resources.requests.cpu: never number
 hooks.*.*.resources.requests.memory: never number
 hooks.*.*.securityContext: never set
+hooks.*.*.serviceAccount.name: never set
 hooks.*.*.serviceAccount: never set
 hooks.*.*.serviceAccountAnnotations: never set
 hooks.*.*.volumeMounts: never set
@@ -64,8 +66,10 @@ kedaTriggerAuthentications.*.env: never set
 kedaTriggerAuthentications.*.gcpSecretManager: never set
 kedaTriggerAuthentications.*.hashiCorpVault: never set
 nameOverride: never set
+tcpRoutes.*.rules[].backendRefs[].service.port: never set
 tcpRoutes.*.rules[].backendRefs[].service: never set
 udpRoutes.*.annotations: never set
+udpRoutes.*.rules[].backendRefs[].service.port: never set
 udpRoutes.*.rules[].backendRefs[].service: never set
 workloads.*.annotations: never set
 workloads.*.autoscaling.targetCPUUtilizationPercentage: never string
@@ -95,6 +99,7 @@ workloads.*.cronJobs.*.serviceAccountAnnotations: never set
 workloads.*.cronJobs.*.serviceAccountName: never set
 workloads.*.cronJobs.*.startingDeadlineSeconds: never set
 workloads.*.cronJobs.*.tolerations: never set
+workloads.*.cronJobs.*.tolerations[].tolerationSeconds: never set
 workloads.*.cronJobs.*.ttlSecondsAfterFinished: never set
 workloads.*.cronJobs.*.volumeMounts: never set
 workloads.*.dnsConfig.options[].value: never number
@@ -116,9 +121,11 @@ workloads.*.hooks.*.*.resources.limits: never set
 workloads.*.hooks.*.*.resources.requests.cpu: never number
 workloads.*.hooks.*.*.resources.requests.memory: never number
 workloads.*.hooks.*.*.securityContext: never set
+workloads.*.hooks.*.*.serviceAccount.name: never set
 workloads.*.hooks.*.*.serviceAccount: never set
 workloads.*.hooks.*.*.serviceAccountAnnotations: never set
 workloads.*.hooks.*.*.tolerations: never set
+workloads.*.hooks.*.*.tolerations[].tolerationSeconds: never set
 workloads.*.hooks.*.*.volumeMounts: never set
 workloads.*.hostAliases[]: never set
 workloads.*.keda.advanced.scalingModifiers: never set
@@ -126,10 +133,14 @@ workloads.*.keda.idleReplicaCount: never set
 workloads.*.keda.initialCooldownPeriod: never set
 workloads.*.lifecycle: never set
 workloads.*.livenessProbe.exec: never set
+workloads.*.livenessProbe.grpc.port: never set
 workloads.*.livenessProbe.grpc: never set
+workloads.*.livenessProbe.tcpSocket.port: never set
 workloads.*.livenessProbe.tcpSocket: never set
 workloads.*.livenessProbe.terminationGracePeriodSeconds: never set
 workloads.*.networkPolicy.egress: never set
+workloads.*.networkPolicy.egress[].ports[].endPort: never set
+workloads.*.networkPolicy.egress[].ports[].port: never set
 workloads.*.networkPolicy.ingress[].from[].ipBlock: never set
 workloads.*.networkPolicy.ingress[].from[].namespaceSelector.matchExpressions: never set
 workloads.*.networkPolicy.ingress[].from[].podSelector: never set
@@ -139,7 +150,9 @@ workloads.*.pdb.minAvailable: never string
 workloads.*.podSecurityContext: never set
 workloads.*.priorityClassName: never set
 workloads.*.readinessProbe.exec: never set
+workloads.*.readinessProbe.grpc.port: never set
 workloads.*.readinessProbe.grpc: never set
+workloads.*.readinessProbe.tcpSocket.port: never set
 workloads.*.readinessProbe.tcpSocket: never set
 workloads.*.readinessProbe.terminationGracePeriodSeconds: never set
 workloads.*.reloader: never set
@@ -150,8 +163,10 @@ workloads.*.resources.requests.cpu: never number
 workloads.*.resources.requests.memory: never number
 workloads.*.securityContext: never set
 workloads.*.startupProbe.exec: never set
+workloads.*.startupProbe.grpc.port: never set
 workloads.*.startupProbe.grpc: never set
 workloads.*.startupProbe.successThreshold: never set
+workloads.*.startupProbe.tcpSocket.port: never set
 workloads.*.startupProbe.tcpSocket: never set
 workloads.*.startupProbe.terminationGracePeriodSeconds: never set
 workloads.*.terminationGracePeriodSeconds: never set

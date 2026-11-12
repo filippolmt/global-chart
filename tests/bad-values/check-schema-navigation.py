@@ -278,6 +278,10 @@ def callers_test():
     assert coverage.below(schema, paths, {"": {"map"}}, "a") == ["x"]
     assert coverage.gaps(schema, paths, {"": {"map"}, "a": {"map"}, "b": {"number", "string"}, "c": {"number"}}) == {"a.x: never set", "n: never set"}
     assert coverage.below(schema, paths, {"a.x": {"list"}}, "a") == []
+    # a bounded node below a node no scenario sets is a gap of its own: bound-sweep reads none of it (#317 retro)
+    nested = {"type": "object", "properties": {"d": {"type": "object", "properties": {
+        "y": {"type": "integer", "minimum": 1, "maximum": 2}, "z": {"type": "string"}}}}}
+    assert coverage.gaps(nested, navigation.declared_paths(nested), {"": {"map"}}) == {"d: never set", "d.y: never set"}
     arrays = {"properties": {"b": {"type": "array", "items": {"type": "array", "items": {
         "type": "integer", "minimum": 1, "maximum": 2}}}}}
     assert not coverage.bounded(arrays, "b")
