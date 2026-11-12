@@ -39,6 +39,7 @@ apiVersion: batch/v1
 kind: CronJob
 metadata:
   name: {{ $jobFullname | quote }}
+  namespace: {{ $root.Release.Namespace | quote }}
   labels:
     {{- include "global-chart.labels" $root | nindent 4 }}
   {{- with (include "global-chart.renderAnnotations" (dict "root" $root "own" $job.annotations)) }}
@@ -111,6 +112,7 @@ apiVersion: batch/v1
 kind: CronJob
 metadata:
   name: {{ $jobFullname | quote }}
+  namespace: {{ $root.Release.Namespace | quote }}
   labels:
     {{- include "global-chart.deploymentLabels" (dict "root" $root "deploymentName" $deployName) | nindent 4 }}
   {{- with (include "global-chart.renderAnnotations" (dict "root" $root "own" $job.annotations)) }}

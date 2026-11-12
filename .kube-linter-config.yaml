@@ -26,9 +26,8 @@ checks:
     # Test scenarios use default namespace and default SA intentionally
     - "use-namespace"
     - "default-service-account"
-    # The chart sets metadata.namespace on a ServiceAccount, not on a workload, and
-    # kube-linter matches the two by namespace: it finds none. The scenarios also
-    # name ServiceAccounts outside the release (create: false).
+    # The scenarios name ServiceAccounts outside the release (create: false),
+    # which no rendered manifest holds.
     - "non-existent-service-account"
     # PDB unhealthyPodEvictionPolicy is K8s 1.27+ beta feature, not universally available
     - "pdb-unhealthy-pod-eviction-policy"

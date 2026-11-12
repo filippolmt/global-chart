@@ -80,6 +80,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: {{ $hookFullname | quote }}
+  namespace: {{ $root.Release.Namespace | quote }}
   labels:
     {{- include "global-chart.hookLabelsWithComponent" (dict "root" $root) | nindent 4 }}
   annotations:
@@ -139,6 +140,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: {{ include "global-chart.hookPrereqConfigName" (dict "deploymentFullname" $deployFullname) | quote }}
+  namespace: {{ $root.Release.Namespace | quote }}
   labels:
     {{- include "global-chart.hookLabelsWithComponent" (dict "root" $root "deploymentName" $deployName) | nindent 4 }}
   annotations:
@@ -155,6 +157,7 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: {{ include "global-chart.hookPrereqSecretName" (dict "deploymentFullname" $deployFullname) | quote }}
+  namespace: {{ $root.Release.Namespace | quote }}
   labels:
     {{- include "global-chart.hookLabelsWithComponent" (dict "root" $root "deploymentName" $deployName) | nindent 4 }}
   annotations:
@@ -221,6 +224,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: {{ $hookFullname | quote }}
+  namespace: {{ $root.Release.Namespace | quote }}
   labels:
     {{- include "global-chart.hookLabelsWithComponent" (dict "root" $root "deploymentName" $deployName) | nindent 4 }}
   annotations:

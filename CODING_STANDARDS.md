@@ -8,7 +8,8 @@ Two kinds of rule:
 - **Mechanical**: a fixed pattern, so a check enforces it and the review need
   not. `make lint-templates` (`tests/lint-templates.py`, its docstring lists
   them): `default true` on a boolean, `set` on `.Values`, the shape of a
-  `fail` message, a suite per template, a quoted name. `make null-sweep` nulls
+  `fail` message, a suite per template, a quoted name, the release namespace
+  on every object. `make null-sweep` nulls
   every values node of every scenario, then gives each map and list the wrong
   type, after its contract preflight. `make null-sweep-preflight` runs only
   those contracts: `valuesShape` against the schema's types, `nullItemFields`
@@ -55,6 +56,17 @@ name: {{ $role.name }}
 name: {{ $role.name | quote }}
 ```
 Generated names too: whether a name can be user-written is not a pattern.
+
+**Namespace — on every object:**
+```yaml
+# WRONG: the object lands wherever the render is applied, apart from the ones that name it
+metadata:
+  name: {{ $depFullname | quote }}
+# CORRECT: a `helm template` render keeps every object in one namespace (issue #323)
+metadata:
+  name: {{ $depFullname | quote }}
+  namespace: {{ $root.Release.Namespace | quote }}
+```
 
 **Inheritance — use `isSet` to distinguish "not set" from "empty":**
 ```yaml

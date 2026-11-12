@@ -92,6 +92,11 @@ a rule below cannot recognise: a check that sees nothing is not a pass.
   as an operand of if/not/and/or/with or after another operand's `)`, so an
   entry bound to another name escapes it: bind it to one of these, and walk
   hooks through global-chart.hookEntries.
+- release-namespace: every object's top-level `metadata:` block carries
+  `namespace: {{ $root.Release.Namespace | quote }}`. Every kind the chart
+  renders is namespaced, and an object without the field lands wherever the
+  render is applied: `helm template` piped to `kubectl apply -n` split the
+  ServiceAccounts from their pods until issue #323.
 
 Comments (`{{/* … */}}`) are stripped before matching, so a rule may be named in
 prose. Matching runs over the whole file, so an expression split across lines
@@ -132,6 +137,8 @@ SCHEMA_ALTERNATIVE = re.compile(r"^\s*errorPattern:.*\|.*\bat '/", re.M)
 # $deploy`); parse the template expressions when an entry needs another name or a
 # false positive appears.
 ENTRY_PRESENCE = re.compile(r"(?:\b(?:if|not|and|or|with)|\))\s+\(?\$(?:deploy|job|secret|auth)(?![\w.])")
+METADATA_BLOCK = re.compile(r"^metadata:\n((?:[ \t]+[^\n]*\n|\n)*)", re.M)
+RELEASE_NAMESPACE = re.compile(r"^  namespace: \{\{ \$root\.Release\.Namespace \| quote \}\}$", re.M)
 HEADER_BEFORE = re.compile(r'\{\{-?\s*/\*((?:(?!\*/).)*)\*/\s*-?\}\}\s*$', re.S)
 
 
@@ -407,6 +414,11 @@ def main(chart):
         for m in ENTRY_PRESENCE.finditer(text):
             problems.append(f"{rel}:{lineno(text, m.start())}: entry-presence: {m.group(0).strip()} is true on an entry of nulls only; "
                             "test it with include \"global-chart.isNonEmptyEntry\"")
+        if path.suffix == ".yaml":
+            for m in METADATA_BLOCK.finditer(text):
+                if not RELEASE_NAMESPACE.search(m.group(1)):
+                    problems.append(f"{rel}:{lineno(text, m.start())}: release-namespace: metadata without "
+                                    "`namespace: {{ $root.Release.Namespace | quote }}`")
         if home in text:
             problems.append(f"{rel}:{lineno(text, text.index(home))}: chart-home: {home} written by hand; read .Chart.Home")
         if path.suffix != ".tpl":

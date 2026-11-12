@@ -22,6 +22,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Changed
 
+- **Breaking: every object carries `metadata.namespace: <release namespace>`**
+  (issue #323). Only the ServiceAccounts, Roles and RoleBindings carried it,
+  so `helm template` piped to `kubectl apply -n <ns>` put the workloads in
+  `<ns>` and their ServiceAccounts in the namespace `helm template` was given
+  (`default` without `--namespace`). `helm install`/`upgrade`, Argo CD and
+  Flux already put every object in the release namespace: nothing they
+  install changes. `make lint-templates` holds the rule.
+
 - **Breaking: `podFailurePolicy` beside `restartPolicy: OnFailure` fails the
   render** (issue #282), naming its values path: the API server accepts a
   `podFailurePolicy` only with `Never`, the default. The schema rejected
@@ -238,6 +246,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Migration guide from 4.2.1
 
+- A render applied outside Helm passes the target namespace to `helm
+  template --namespace <ns>`: `kubectl apply -n <other>` now refuses the
+  mismatch instead of splitting the release across two namespaces.
 - Nothing to change for existing values: the new `fail`s read
   `podFailurePolicy`, which 4.2.1 rejected. A cronjob with `restartPolicy: OnFailure` that adopts
   `podFailurePolicy` moves to `Never`: a failed container then starts a new
