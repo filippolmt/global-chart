@@ -33,7 +33,7 @@ HELM_DOCS_IMAGE := jnorwood/helm-docs:$(HELM_DOCS_VERSION)
 HELM_UNITTEST_VERSION := 3.21.0-1.0.3
 HELM_UNITTEST_IMAGE := helmunittest/helm-unittest:$(HELM_UNITTEST_VERSION)
 # renovate: datasource=docker depName=ghcr.io/yannh/kubeconform
-KUBECONFORM_VERSION := v0.7.0
+KUBECONFORM_VERSION := v0.8.0
 # The CRD schemas make kubeconform reads, at one commit of the catalog: at main
 # they changed under a green build. The catalog follows each operator's latest
 # release, not KEDA_VERSION or ESO_VERSION: make e2e-dryrun checks those.
