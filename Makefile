@@ -30,7 +30,7 @@ HELM_DOCS_VERSION := v1.14.2
 HELM_DOCS_IMAGE := jnorwood/helm-docs:$(HELM_DOCS_VERSION)
 # Tag <helm version>-<plugin version>: renovate.json gives it its versioning.
 # renovate: datasource=docker depName=helmunittest/helm-unittest
-HELM_UNITTEST_VERSION := 3.19.0-1.0.3
+HELM_UNITTEST_VERSION := 3.21.0-1.0.3
 HELM_UNITTEST_IMAGE := helmunittest/helm-unittest:$(HELM_UNITTEST_VERSION)
 # renovate: datasource=docker depName=ghcr.io/yannh/kubeconform
 KUBECONFORM_VERSION := v0.7.0
