@@ -241,7 +241,8 @@ workloads:
       tag: "1.25"
     service:
       port: 80
-    # The tcpSocket probe handler, by number: the port nginx.conf listens on (issue #320)
+      targetPort: 8080  # the port nginx.conf listens on
+    # The tcpSocket probe handler, by number (issue #320)
     livenessProbe:
       tcpSocket:
         port: 8080

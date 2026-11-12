@@ -77,7 +77,7 @@ workloads:
       policyTypes:
         - Ingress
         - Egress
-      # DNS, and a port range to the backends (issue #320)
+      # DNS, and a port range to the backends through every kind of peer (issue #320)
       egress:
         - ports:
             - port: 53

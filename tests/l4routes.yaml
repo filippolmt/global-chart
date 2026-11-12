@@ -63,6 +63,7 @@ udpRoutes:
           - workload: traccar
             portName: osmand-udp
             weight: 1
+          # an explicit Service beside the workload (issue #320)
           - service:
               name: gps-legacy
               port: 5055
