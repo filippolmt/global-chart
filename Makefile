@@ -49,7 +49,7 @@ KIND_VERSION := v0.33.0
 # The Kubernetes version of the e2e cluster and of make kubeconform: a kind
 # release bump would otherwise move the node image with it, unseen.
 # renovate: datasource=docker depName=kindest/node
-KIND_NODE_VERSION := v1.34.0
+KIND_NODE_VERSION := v1.37.0
 KIND_CLUSTER := global-chart-e2e
 KIND_BIN_DIR := $(CURDIR)/.bin
 KIND := $(KIND_BIN_DIR)/kind
