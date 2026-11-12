@@ -216,9 +216,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 - `make scenario-coverage` reports a bounded node no scenario sets even below
   a gap of its parent (#317 retro). It reported only the topmost gap, so a
   bound under a parent gap in the baseline passed with nothing to sweep it:
-  `storeRef.name` in #317, and 15 nodes of the day, now in the baseline
-  (probe `tcpSocket` and `grpc` ports, `tolerationSeconds` of hooks and
-  cronjobs, egress ports, a job's `serviceAccount.name`, L4 backend ports).
+  `storeRef.name` in #317, and 15 nodes of the day, which the lint scenarios
+  now set (issue #320): probe `tcpSocket` and `grpc` ports, `tolerationSeconds`
+  of a workload's hooks and cronjobs, NetworkPolicy egress ports and ranges, a
+  job's `serviceAccount.name`, L4 route Service backends. `make bound-sweep`
+  sends their bounds to the API server, which accepts every one.
 - The schema keeps each API vocabulary in one `$defs`: `imagePullPolicy`,
   `portProtocol`, `httpRouteFilterType` beside `esoStoreKind`. Every scenario
   renders as before.

@@ -218,6 +218,24 @@ workloads:
                     - background
                     - worker
 
+  # gRPC API - the grpc probe handler, on the port the Service exposes (issue #320)
+  grpc-api:
+    image:
+      repository: myapp/grpc-api
+      tag: "v1.0.0"
+    service:
+      port: 9090
+      portName: grpc
+    livenessProbe:
+      grpc:
+        port: 9090
+    readinessProbe:
+      grpc:
+        port: 9090
+    startupProbe:
+      grpc:
+        port: 9090
+
   # Minimal workload - tests defaults
   minimal:
     image: busybox:latest
@@ -230,6 +248,17 @@ workloads:
       tag: "1.25"
     service:
       port: 80
+      targetPort: 8080  # the port nginx.conf listens on
+    # The tcpSocket probe handler, by number (issue #320)
+    livenessProbe:
+      tcpSocket:
+        port: 8080
+    readinessProbe:
+      tcpSocket:
+        port: 8080
+    startupProbe:
+      tcpSocket:
+        port: 8080
     mountedConfigFiles:
       files:
         - name: nginx-conf
@@ -257,6 +286,16 @@ workloads:
       tag: "v2.1.0"
     service:
       port: 3000
+    # The tcpSocket probe handler, by container port name (issue #320)
+    livenessProbe:
+      tcpSocket:
+        port: http
+    readinessProbe:
+      tcpSocket:
+        port: http
+    startupProbe:
+      tcpSocket:
+        port: http
     mountedConfigFiles:
       files:
         - name: app-config

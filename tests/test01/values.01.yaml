@@ -76,6 +76,37 @@ workloads:
       enabled: true
       policyTypes:
         - Ingress
+        - Egress
+      # DNS, and a port range to the backends through every kind of peer (issue #320)
+      egress:
+        - ports:
+            - port: 53
+              protocol: UDP
+        - to:
+            - namespaceSelector:
+                matchLabels:
+                  kubernetes.io/metadata.name: backends
+                matchExpressions:
+                  - key: tier
+                    operator: In
+                    values: [backend]
+            # the release's own pods: kube-linter rejects a selector no rendered pod matches
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/name: global-chart
+                matchExpressions:
+                  - key: app.kubernetes.io/component
+                    operator: In
+                    values: [main]
+            - ipBlock:
+                cidr: 10.0.0.0/8
+                except:
+                  - 10.1.0.0/16
+          ports:
+            - port: 9000
+              endPort: 9100
+              protocol: TCP
+            - port: metrics
       ingress:
         - from:
             - namespaceSelector:
