@@ -40,16 +40,16 @@ checks:
     - "access-to-create-pods"
     - "non-isolated-pod"
     - "dnsconfig-options"
-    # Added to the built-ins by kube-linter 0.8:
     # Key order is the template's, not alphabetical; the API server ignores it
     - "sorted-keys"
     # Downloads schemas at lint time (unverifiable TLS in the image); make
-    # kubeconform validates the same manifests against a pinned catalog
+    # kubeconform validates the same manifests, against the cluster's Kubernetes
+    # version and a pinned CRD catalog
     - "schema-validation"
-    # restartPolicy Never is the chart's default for a job, and podFailurePolicy requires it
+    # Only Always/OnFailure pass: a Deployment or StatefulSet leaves the field to
+    # its Always default, a job defaults to Never (podFailurePolicy requires it),
+    # and the helm test Pod runs once
     - "restart-policy"
-    # Reusable chart: ttlSecondsAfterFinished is the consumer's per job; a completed
-    # hook Job is kept as the record of what ran until its next run (_hook-helpers.tpl)
+    # A completed hook Job is kept as the record of what ran until its next run
+    # (_hook-helpers.tpl); a hook takes no ttlSecondsAfterFinished
     - "job-ttl-seconds-after-finished"
-    # The scenarios reference Secrets and ConfigMaps outside the release
-    - "env-value-from"

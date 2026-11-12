@@ -63,7 +63,6 @@ kedaTriggerAuthentications.*.gcpSecretManager: never set
 kedaTriggerAuthentications.*.hashiCorpVault: never set
 nameOverride: never set
 udpRoutes.*.annotations: never set
-workloads.*.annotations: never set
 workloads.*.autoscaling.targetCPUUtilizationPercentage: never string
 workloads.*.autoscaling.targetMemoryUtilizationPercentage: never string
 workloads.*.cronJobs.*.activeDeadlineSeconds: never set
