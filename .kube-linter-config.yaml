@@ -26,7 +26,9 @@ checks:
     # Test scenarios use default namespace and default SA intentionally
     - "use-namespace"
     - "default-service-account"
-    # SA names are dynamic (generated or inherited); linter can't resolve Helm expressions
+    # The chart sets metadata.namespace on a ServiceAccount, not on a workload, and
+    # kube-linter matches the two by namespace: it finds none. The scenarios also
+    # name ServiceAccounts outside the release (create: false).
     - "non-existent-service-account"
     # PDB unhealthyPodEvictionPolicy is K8s 1.27+ beta feature, not universally available
     - "pdb-unhealthy-pod-eviction-policy"
@@ -39,5 +41,3 @@ checks:
     - "access-to-create-pods"
     - "non-isolated-pod"
     - "dnsconfig-options"
-    # Ingress references are resolved at deploy time, not at lint time
-    - "dangling-ingress"

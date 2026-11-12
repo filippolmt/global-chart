@@ -22,17 +22,34 @@ HELM_API_VERSIONS := --api-versions keda.sh/v1alpha1 \
 	--api-versions gateway.envoyproxy.io/v1alpha1/SecurityPolicy
 
 # Docker images
-KUBE_LINTER_VERSION := 0.7.1
-KUBE_LINTER_IMAGE := ghcr.io/stackrox/kube-linter:v$(KUBE_LINTER_VERSION)
-HELM_DOCS_IMAGE := jnorwood/helm-docs:latest
-HELM_UNITTEST_IMAGE := helmunittest/helm-unittest:3.19.0-1.0.3
+# renovate: datasource=docker depName=ghcr.io/stackrox/kube-linter
+KUBE_LINTER_VERSION := v0.7.1
+KUBE_LINTER_IMAGE := ghcr.io/stackrox/kube-linter:$(KUBE_LINTER_VERSION)
+# renovate: datasource=docker depName=jnorwood/helm-docs
+HELM_DOCS_VERSION := v1.14.2
+HELM_DOCS_IMAGE := jnorwood/helm-docs:$(HELM_DOCS_VERSION)
+# Tag <helm version>-<plugin version>: renovate.json gives it its versioning.
+# renovate: datasource=docker depName=helmunittest/helm-unittest
+HELM_UNITTEST_VERSION := 3.19.0-1.0.3
+HELM_UNITTEST_IMAGE := helmunittest/helm-unittest:$(HELM_UNITTEST_VERSION)
+# renovate: datasource=docker depName=ghcr.io/yannh/kubeconform
 KUBECONFORM_VERSION := v0.7.0
+# The CRD schemas make kubeconform reads, at one commit of the catalog: at main
+# they changed under a green build. The catalog follows each operator's latest
+# release, not KEDA_VERSION or ESO_VERSION: make e2e-dryrun checks those.
+# renovate: datasource=git-refs depName=https://github.com/datreeio/CRDs-catalog branch=main
+CRDS_CATALOG_REF := 89c736bdde38b5fecd0f8436ec5f3aa3679a3b86
 KUBECONFORM_IMAGE := ghcr.io/yannh/kubeconform:$(KUBECONFORM_VERSION)
 
 # kind (end-to-end install tests)
 # KIND_KUBECONFIG is deliberately NOT ~/.kube/config: e2e must never be able to
 # touch a real cluster, whatever kubectl context happens to be selected.
+# renovate: datasource=github-releases depName=kubernetes-sigs/kind
 KIND_VERSION := v0.30.0
+# The Kubernetes version of the e2e cluster and of make kubeconform: a kind
+# release bump would otherwise move the node image with it, unseen.
+# renovate: datasource=docker depName=kindest/node
+KIND_NODE_VERSION := v1.34.0
 KIND_CLUSTER := global-chart-e2e
 KIND_BIN_DIR := $(CURDIR)/.bin
 KIND := $(KIND_BIN_DIR)/kind
@@ -140,7 +157,7 @@ TEST_CASES := \
 .PHONY: help scenarios all check lint-chart render-diff mutate lint-templates lint-docs lint-shell lint-glossary lint-inheritance lint-checks lint-labels unit-test null-sweep null-sweep-preflight scenario-coverage schema-descriptions schema-bounds lint-release release validate-bad-values generate-templates \
 	kubeconform kube-linter-manifests kube-linter generate-docs package \
 	install install-test01 render clean clean-all \
-	kind-install kind-cluster kind-keda kind-eso kind-gateway-api kind-envoy-gateway kind-argocd kind-delete e2e e2e-dryrun bound-sweep e2e-routes e2e-argocd check-helm-floor helm-floor-image
+	kind-install kind-cluster kind-keda kind-eso kind-gateway-api kind-envoy-gateway kind-argocd kind-delete e2e e2e-dryrun bound-sweep e2e-routes e2e-argocd check-helm-floor helm-floor-image ci-images
 
 # ============================================================================
 # Help
@@ -166,10 +183,10 @@ scenarios: ## Print the values file of every TEST_CASES scenario, one per line, 
 # Main targets
 # ============================================================================
 
-all: check null-sweep generate-templates kubeconform kube-linter ## make check, the null sweep, then generate, validate and lint the manifests
+all: check null-sweep ## make check (manifests validated and linted included), then the null sweep
 	@echo "==> make all: every check passed"
 
-check: null-sweep-preflight lint-chart lint-templates lint-docs lint-shell lint-glossary lint-inheritance lint-checks unit-test validate-bad-values scenario-coverage schema-descriptions schema-bounds lint-release kubeconform ## The development loop: every fast check, its prerequisites listed here (no null sweep, no kube-linter: make all and CI run them)
+check: null-sweep-preflight lint-chart lint-templates lint-docs lint-shell lint-glossary lint-inheritance lint-checks unit-test validate-bad-values scenario-coverage schema-descriptions schema-bounds lint-release kubeconform kube-linter ## The development loop: every fast check, its prerequisites listed here (no null sweep: make all and CI run it)
 
 lint-chart: ## Lint chart with all test values files
 	@echo "==> Linting chart with all test cases..."
@@ -351,19 +368,19 @@ generate-templates: lint-chart ## Generate templates for all test cases
 # Kubeconform
 # ============================================================================
 
-kubeconform: generate-templates ## Validate generated manifests against K8s 1.29 schema
+kubeconform: generate-templates ## Validate generated manifests against the schema of the e2e cluster's Kubernetes (KIND_NODE_VERSION)
 	@echo "==> Running kubeconform..."
 	@docker run --rm \
 		-v $(CURDIR):/work \
 		$(KUBECONFORM_IMAGE) \
-		-kubernetes-version 1.29.0 \
+		-kubernetes-version $(patsubst v%,%,$(KIND_NODE_VERSION)) \
 		-strict \
 		-summary \
 		-schema-location default \
-		-schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/external-secrets.io/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
-		-schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/gateway.networking.k8s.io/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
-		-schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/gateway.envoyproxy.io/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
-		-schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/keda.sh/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
+		-schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/$(CRDS_CATALOG_REF)/external-secrets.io/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
+		-schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/$(CRDS_CATALOG_REF)/gateway.networking.k8s.io/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
+		-schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/$(CRDS_CATALOG_REF)/gateway.envoyproxy.io/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
+		-schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/$(CRDS_CATALOG_REF)/keda.sh/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
 		-output pretty \
 		/work/$(GENERATED_DIR)
 	@echo "==> Kubeconform validation passed!"
@@ -467,7 +484,7 @@ kind-install: ## Download the kind binary into .bin/ (no-op if already there)
 kind-cluster: kind-install ## Create the e2e kind cluster (isolated kubeconfig, never ~/.kube/config)
 	@if ! $(KIND) get clusters 2>/dev/null | grep -qx "$(KIND_CLUSTER)"; then \
 		echo "==> Creating kind cluster $(KIND_CLUSTER)..."; \
-		$(KIND) create cluster --name "$(KIND_CLUSTER)" --kubeconfig "$(KIND_KUBECONFIG)"; \
+		$(KIND) create cluster --name "$(KIND_CLUSTER)" --kubeconfig "$(KIND_KUBECONFIG)" --image "kindest/node:$(KIND_NODE_VERSION)"; \
 	fi
 	@# A cluster from an earlier session survives a Docker restart stopped: kind
 	@# still lists it, and a stopped container has no address to repoint at.
@@ -583,6 +600,9 @@ kind-delete: ## Delete the e2e kind cluster
 
 helm-floor-image: ## Print the image used to test the Helm floor warning
 	@printf '%s\n' '$(HELM_FLOOR_IMAGE)'
+
+ci-images: ## Print the images the lint job pre-pulls, one per line: the pins live here only
+	@printf '%s\n' '$(KUBE_LINTER_IMAGE)' '$(KUBECONFORM_IMAGE)' '$(HELM_UNITTEST_IMAGE)' '$(HELM_DOCS_IMAGE)'
 
 check-helm-floor: kind-cluster ## Assert NOTES.txt warns on a Helm below 3.18.6
 	@# NOTES.txt renders only on install/upgrade, and Helm 3's --dry-run=client

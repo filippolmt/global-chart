@@ -11,8 +11,21 @@
         "/^Makefile$/"
       ],
       "matchStrings": [
-        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)(?: registryUrl=(?<registryUrl>\\S+))?\\s*\\n[A-Z_]+ *:= *(?<currentValue>\\S+)"
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)(?: registryUrl=(?<registryUrl>\\S+))?\\s*\\n[A-Z_]+ *:= *(?<currentValue>\\S+)",
+        "# renovate: datasource=(?<datasource>git-refs) depName=(?<depName>\\S+) branch=(?<currentValue>\\S+)\\s*\\n[A-Z_]+ *:= *(?<currentDigest>[0-9a-f]{40})"
       ]
+    }
+  ],
+  "packageRules": [
+    {
+      "description": "helm-unittest tags are <helm version>-<plugin version>, six numbers where regex versioning compares five: the helm version, then the plugin's minor and patch. shortcut: a plugin major bump within one helm version sorts low; read such a PR by hand.",
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchPackageNames": [
+        "helmunittest/helm-unittest"
+      ],
+      "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-\\d+\\.(?<build>\\d+)\\.(?<revision>\\d+)$"
     }
   ]
 }
