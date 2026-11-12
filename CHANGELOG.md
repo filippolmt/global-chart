@@ -28,7 +28,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   `<ns>` and their ServiceAccounts in the namespace `helm template` was given
   (`default` without `--namespace`). `helm install`/`upgrade`, Argo CD and
   Flux already put every object in the release namespace: nothing they
-  install changes. `make lint-templates` holds the rule.
+  install changes. `make lint-templates` holds the rule. **Migration**: a
+  render applied outside Helm passes the target namespace to `helm template
+  --namespace`.
 
 - **Breaking: `podFailurePolicy` beside `restartPolicy: OnFailure` fails the
   render** (issue #282), naming its values path: the API server accepts a
@@ -246,13 +248,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Migration guide from 4.2.1
 
-- A render applied outside Helm passes the target namespace to `helm
-  template --namespace <ns>`: `kubectl apply -n <other>` now refuses the
-  mismatch instead of splitting the release across two namespaces.
 - Nothing to change for existing values: the new `fail`s read
   `podFailurePolicy`, which 4.2.1 rejected. A cronjob with `restartPolicy: OnFailure` that adopts
   `podFailurePolicy` moves to `Never`: a failed container then starts a new
   pod, which spends `backoffLimit` the same way and keeps the failed pod's logs.
+- A render applied outside Helm passes the target namespace to `helm
+  template --namespace <ns>`: `kubectl apply -n <other>` now refuses the
+  mismatch instead of splitting the release across two namespaces.
 - A container with no `name`, or a `name` that is not a DNS-1123 label of at
   most 63 characters, is now rejected by the schema; the API server already
   refused it, so no release that installs changes.
