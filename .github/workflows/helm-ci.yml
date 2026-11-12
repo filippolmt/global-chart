@@ -22,7 +22,9 @@ jobs:
 
       - name: Pre-pull Docker images
         run: |
-          for img in $(make -s ci-images); do
+          # assigned first: a failing make fails the step, where a for over $(...) would loop on nothing
+          images=$(make -s ci-images)
+          for img in $images; do
             sh tests/tools/pull-image.sh "$img"
           done
 

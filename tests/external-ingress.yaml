@@ -3,6 +3,8 @@ workloads: {}
 ingress:
   enabled: true
   className: "nginx"
+  annotations:
+    ignore-check.kube-linter.io/dangling-ingress: "a host routes to a Service outside the release, which no render contains"
   hosts:
     - host: backend.example.com
       service:

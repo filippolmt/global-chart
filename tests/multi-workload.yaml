@@ -335,6 +335,7 @@ ingress:
   annotations:
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
     cert-manager.io/cluster-issuer: letsencrypt-prod
+    ignore-check.kube-linter.io/dangling-ingress: "a host routes to a Service outside the release, which no render contains"
 
   tls:
     - secretName: myapp-tls

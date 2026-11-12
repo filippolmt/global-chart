@@ -318,7 +318,8 @@ externalSecrets:
 ingress:
   enabled: true
   className: "nginx"
-  annotations: {}
+  annotations:
+    ignore-check.kube-linter.io/dangling-ingress: "a host routes to a Service outside the release, which no render contains"
   tls: []
 
   hosts:

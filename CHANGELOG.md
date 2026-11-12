@@ -221,6 +221,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   of a workload's hooks and cronjobs, NetworkPolicy egress ports and ranges, a
   job's `serviceAccount.name`, L4 route Service backends. `make bound-sweep`
   sends their bounds to the API server, which accepts every one.
+- `make check` runs `make kube-linter` (#320 retro): it failed CI on #321
+  after `make check`, the bound sweep and the dry run were green. `make all`
+  is `make check` and the null sweep. kube-linter's `dangling-ingress` check
+  is on: a scenario routing to a Service outside the release carries
+  `ignore-check.kube-linter.io/dangling-ingress` on its Ingress.
+- `make kubeconform` validates against Kubernetes `KIND_NODE_VERSION`, the
+  version the kind cluster now pins (`kindest/node:v1.34.0`), instead of a
+  hard-coded 1.29.0; its CRD schemas come from one commit of the datreeio
+  catalog, `CRDS_CATALOG_REF`, instead of `main`. Renovate bumps both, and
+  kube-linter, kubeconform, kind, helm-docs (pinned from `latest`) and
+  helm-unittest, which had no `# renovate:` comment.
 - The schema keeps each API vocabulary in one `$defs`: `imagePullPolicy`,
   `portProtocol`, `httpRouteFilterType` beside `esoStoreKind`. Every scenario
   renders as before.
