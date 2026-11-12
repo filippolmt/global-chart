@@ -30,7 +30,7 @@ HELM_DOCS_VERSION := v1.14.2
 HELM_DOCS_IMAGE := jnorwood/helm-docs:$(HELM_DOCS_VERSION)
 # Tag <helm version>-<plugin version>: renovate.json gives it its versioning.
 # renovate: datasource=docker depName=helmunittest/helm-unittest
-HELM_UNITTEST_VERSION := 3.21.0-1.0.3
+HELM_UNITTEST_VERSION := 4.3.0-1.2.1
 HELM_UNITTEST_IMAGE := helmunittest/helm-unittest:$(HELM_UNITTEST_VERSION)
 # renovate: datasource=docker depName=ghcr.io/yannh/kubeconform
 KUBECONFORM_VERSION := v0.8.0
@@ -280,7 +280,8 @@ unit-test: ## Run helm-unittest via Docker and verify random Basic Auth credenti
 	@echo "==> Running helm unit tests..."
 	@# helm-unittest runs 0 suites and passes on a SUITE path that names no file
 	@for f in $(SUITE); do [ -f "$(CHART_DIR)/$(GLOBAL_CHART_NAME)/$$f" ] || { echo "    FAIL: SUITE=$$f names no file under $(CHART_DIR)/$(GLOBAL_CHART_NAME)/ (the path is relative to the chart: tests/<name>_test.yaml)"; exit 1; }; done
-	@docker run --rm -u $$(id -u):$$(id -g) -v $(CURDIR)/$(CHART_DIR)/$(GLOBAL_CHART_NAME):/apps -w /apps $(HELM_UNITTEST_IMAGE) $(foreach f,$(SUITE),-f $(f)) .
+	@# Helm 4 (helm-unittest 4.x) loads the plugin through a cache under $$HOME, which is / for -u: not writable
+	@docker run --rm -u $$(id -u):$$(id -g) -e HELM_CACHE_HOME=/tmp/helm-cache -v $(CURDIR)/$(CHART_DIR)/$(GLOBAL_CHART_NAME):/apps -w /apps $(HELM_UNITTEST_IMAGE) $(foreach f,$(SUITE),-f $(f)) .
 	@python3 tests/check-basic-auth.py $(HELM_API_VERSIONS)
 	@echo "==> All unit tests passed!"
 
