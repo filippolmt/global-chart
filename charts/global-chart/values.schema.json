@@ -1431,7 +1431,7 @@
       "unevaluatedProperties": false
     },
     "httpRouteBasicAuth": {
-      "description": "Opt-in Envoy Gateway Basic Auth for every rule of this HTTPRoute. Generates a random credentials Secret and a SecurityPolicy. Argo CD must ignore this Secret's /data with RespectIgnoreDifferences=true to preserve credentials across syncs; Helm alone regenerates them on every render.",
+      "description": "Opt-in Envoy Gateway Basic Auth for every rule of this HTTPRoute. Generates a random credentials Secret and a SecurityPolicy. Excludes jwt on the same route (issue #261). Argo CD must ignore this Secret's /data with RespectIgnoreDifferences=true to preserve credentials across syncs; Helm alone regenerates them on every render.",
       "type": "object",
       "additionalProperties": false,
       "properties": {

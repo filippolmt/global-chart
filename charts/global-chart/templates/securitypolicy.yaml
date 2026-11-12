@@ -20,9 +20,10 @@
 {{- if $method -}}
 {{- $ctx := printf "%s.%s" .errCtx $method -}}
 {{- include "global-chart.requireCrd" (dict "root" $root "apiVersion" "gateway.envoyproxy.io/v1alpha1/SecurityPolicy" "install" "Install Envoy Gateway's SecurityPolicy CRD" "errCtx" $ctx) -}}
-{{- $secretName := include "global-chart.httpRouteBasicAuthSecretName" .name -}}
-{{- $providers := list -}}
+{{- /* Each method writes its Secret, if any, and its block of spec */ -}}
+{{- $spec := "" -}}
 {{- if eq $method "basicAuth" -}}
+{{- $secretName := include "global-chart.httpRouteBasicAuthSecretName" .name -}}
 {{- $username := ternary $auth.username "admin" (eq (include "global-chart.isSet" (list $auth "username")) "true") -}}
 {{- if not (and (kindIs "string" $username) (regexMatch "^[a-zA-Z0-9_-]+$" $username)) -}}
   {{- fail (printf "%s.username: must be a non-empty string of letters, digits, underscores and hyphens." $ctx) -}}
@@ -45,8 +46,9 @@ data:
   username: {{ $username | b64enc | quote }}
   password: {{ $password | b64enc | quote }}
   .htpasswd: {{ printf "%s:{SHA}%s" $username (include "global-chart.basicAuthSha" $password) | b64enc | quote }}
+{{- $spec = printf "basicAuth:\n  users:\n    name: %s" ($secretName | quote) -}}
 {{- else -}}
-{{- $providers = default (list) $jwt.providers -}}
+{{- $providers := default (list) $jwt.providers -}}
 {{- if not $providers -}}
   {{- fail (printf "%s.providers: needs at least one provider when %s.enabled is true." $ctx $ctx) -}}
 {{- end -}}
@@ -61,6 +63,7 @@ data:
     {{- $_ := set $seen $name $i -}}
   {{- end -}}
 {{- end -}}
+{{- $spec = printf "jwt:\n  providers:\n%s" (include "global-chart.toYamlWithoutNulls" $providers | indent 4) -}}
 {{- end }}
 ---
 apiVersion: gateway.envoyproxy.io/v1alpha1
@@ -79,14 +82,6 @@ spec:
     - group: gateway.networking.k8s.io
       kind: HTTPRoute
       name: {{ .name | quote }}
-  {{- if eq $method "basicAuth" }}
-  basicAuth:
-    users:
-      name: {{ $secretName | quote }}
-  {{- else }}
-  jwt:
-    providers:
-      {{- include "global-chart.toYamlWithoutNulls" $providers | nindent 6 }}
-  {{- end }}
+  {{- $spec | nindent 2 }}
 {{- end -}}
 {{- end -}}

@@ -433,6 +433,7 @@ httpRoute:
   # the SecurityPolicy CRD. With Argo CD, ignore /data of the generated Secret
   # and enable RespectIgnoreDifferences=true BEFORE the first sync; otherwise
   # every render generates new credentials. See the repository README.
+  # Excludes jwt on the same route.
   basicAuth:
     # -- Generate a random credentials Secret and an Envoy SecurityPolicy.
     enabled: false

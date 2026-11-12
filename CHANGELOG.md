@@ -16,13 +16,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   targeting it, `providers` rendered verbatim as `spec.jwt.providers`; no
   Secret, nothing random. A policy written by hand targets the route by name
   and protects nothing once that name changes. The schema closes the
-  provider and its `extractFrom` and `localJWKS`, requires `name` and
+  provider, its `extractFrom` (header items included) and its `localJWKS`
+  (`valueRef` included), leaves `remoteJWKS` open beside `uri`, requires `name` and
   exactly one of `remoteJWKS` / `localJWKS`, as Envoy does, and, stricter
   than Envoy, `issuer` and `audiences`: without an audience a token issued
   for another application passes. It offers neither `optional` nor
   `failOpen`; a null `issuer` or `audiences` fails the render under
   `--skip-schema-validation`. It also holds
-  Envoy Gateway's CEL rules a render can see: `localJWKS.type` matching
+  Envoy Gateway's CEL rules on the provider, `localJWKS` and
+  `claimToHeaders`: `localJWKS.type` matching
   `inline` or `valueRef`, one of `claim` / `claimPath`, `recomputeRoute`
   only with `claimToHeaders`. The render fails
   with no provider, on two providers of one name (Envoy Gateway drops such a
