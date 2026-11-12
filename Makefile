@@ -22,16 +22,21 @@ HELM_API_VERSIONS := --api-versions keda.sh/v1alpha1 \
 	--api-versions gateway.envoyproxy.io/v1alpha1/SecurityPolicy
 
 # Docker images
-KUBE_LINTER_VERSION := 0.7.1
-KUBE_LINTER_IMAGE := ghcr.io/stackrox/kube-linter:v$(KUBE_LINTER_VERSION)
-HELM_DOCS_IMAGE := jnorwood/helm-docs:latest
+# renovate: datasource=github-releases depName=stackrox/kube-linter
+KUBE_LINTER_VERSION := v0.7.1
+KUBE_LINTER_IMAGE := ghcr.io/stackrox/kube-linter:$(KUBE_LINTER_VERSION)
+# renovate: datasource=docker depName=jnorwood/helm-docs
+HELM_DOCS_VERSION := v1.14.2
+HELM_DOCS_IMAGE := jnorwood/helm-docs:$(HELM_DOCS_VERSION)
 HELM_UNITTEST_IMAGE := helmunittest/helm-unittest:3.19.0-1.0.3
+# renovate: datasource=github-releases depName=yannh/kubeconform
 KUBECONFORM_VERSION := v0.7.0
 KUBECONFORM_IMAGE := ghcr.io/yannh/kubeconform:$(KUBECONFORM_VERSION)
 
 # kind (end-to-end install tests)
 # KIND_KUBECONFIG is deliberately NOT ~/.kube/config: e2e must never be able to
 # touch a real cluster, whatever kubectl context happens to be selected.
+# renovate: datasource=github-releases depName=kubernetes-sigs/kind
 KIND_VERSION := v0.30.0
 KIND_CLUSTER := global-chart-e2e
 KIND_BIN_DIR := $(CURDIR)/.bin
@@ -140,7 +145,7 @@ TEST_CASES := \
 .PHONY: help scenarios all check lint-chart render-diff mutate lint-templates lint-docs lint-shell lint-glossary lint-inheritance lint-checks lint-labels unit-test null-sweep null-sweep-preflight scenario-coverage schema-descriptions schema-bounds lint-release release validate-bad-values generate-templates \
 	kubeconform kube-linter-manifests kube-linter generate-docs package \
 	install install-test01 render clean clean-all \
-	kind-install kind-cluster kind-keda kind-eso kind-gateway-api kind-envoy-gateway kind-argocd kind-delete e2e e2e-dryrun bound-sweep e2e-routes e2e-argocd check-helm-floor helm-floor-image
+	kind-install kind-cluster kind-keda kind-eso kind-gateway-api kind-envoy-gateway kind-argocd kind-delete e2e e2e-dryrun bound-sweep e2e-routes e2e-argocd check-helm-floor helm-floor-image ci-images
 
 # ============================================================================
 # Help
@@ -169,7 +174,7 @@ scenarios: ## Print the values file of every TEST_CASES scenario, one per line, 
 all: check null-sweep generate-templates kubeconform kube-linter ## make check, the null sweep, then generate, validate and lint the manifests
 	@echo "==> make all: every check passed"
 
-check: null-sweep-preflight lint-chart lint-templates lint-docs lint-shell lint-glossary lint-inheritance lint-checks unit-test validate-bad-values scenario-coverage schema-descriptions schema-bounds lint-release kubeconform ## The development loop: every fast check, its prerequisites listed here (no null sweep, no kube-linter: make all and CI run them)
+check: null-sweep-preflight lint-chart lint-templates lint-docs lint-shell lint-glossary lint-inheritance lint-checks unit-test validate-bad-values scenario-coverage schema-descriptions schema-bounds lint-release kubeconform kube-linter ## The development loop: every fast check, its prerequisites listed here (no null sweep: make all and CI run it)
 
 lint-chart: ## Lint chart with all test values files
 	@echo "==> Linting chart with all test cases..."
@@ -583,6 +588,9 @@ kind-delete: ## Delete the e2e kind cluster
 
 helm-floor-image: ## Print the image used to test the Helm floor warning
 	@printf '%s\n' '$(HELM_FLOOR_IMAGE)'
+
+ci-images: ## Print the images the lint job pre-pulls, one per line: the pins live here only
+	@printf '%s\n' '$(KUBE_LINTER_IMAGE)' '$(KUBECONFORM_IMAGE)' '$(HELM_UNITTEST_IMAGE)' '$(HELM_DOCS_IMAGE)'
 
 check-helm-floor: kind-cluster ## Assert NOTES.txt warns on a Helm below 3.18.6
 	@# NOTES.txt renders only on install/upgrade, and Helm 3's --dry-run=client

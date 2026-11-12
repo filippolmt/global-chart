@@ -186,6 +186,13 @@ grep away; a list of them in the description goes stale with the next `$ref`
 (`dns1123Subdomain`, issue #317). Name a user only where the sharing is the
 point (`httpRouteFields`, an `allOf` branch of two closed objects).
 
+**A scenario grows; it keeps what it shows.** A lint scenario's header and
+entries state a behaviour (an inheritance, a default, a handler). A change that
+needs a new value on a node adds an entry beside them rather than overriding
+one an existing entry demonstrates: the scenario would still render, and stop
+showing what its header claims (#320: a hook given its own ServiceAccount
+stopped showing the workload's).
+
 **A change updates the text that states the old behaviour.** An ADR, a
 CHANGELOG entry of `[Unreleased]`, a schema description or a fixture comment
 that states what the change replaces is part of the change; the review greps

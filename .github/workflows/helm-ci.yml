@@ -22,11 +22,7 @@ jobs:
 
       - name: Pre-pull Docker images
         run: |
-          for img in \
-            ghcr.io/stackrox/kube-linter:v0.7.1 \
-            ghcr.io/yannh/kubeconform:v0.7.0 \
-            helmunittest/helm-unittest:3.19.0-1.0.3 \
-            jnorwood/helm-docs:latest; do
+          for img in $(make -s ci-images); do
             sh tests/tools/pull-image.sh "$img"
           done
 
