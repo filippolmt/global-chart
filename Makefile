@@ -45,7 +45,7 @@ KUBECONFORM_IMAGE := ghcr.io/yannh/kubeconform:$(KUBECONFORM_VERSION)
 # KIND_KUBECONFIG is deliberately NOT ~/.kube/config: e2e must never be able to
 # touch a real cluster, whatever kubectl context happens to be selected.
 # renovate: datasource=github-releases depName=kubernetes-sigs/kind
-KIND_VERSION := v0.30.0
+KIND_VERSION := v0.33.0
 # The Kubernetes version of the e2e cluster and of make kubeconform: a kind
 # release bump would otherwise move the node image with it, unseen.
 # renovate: datasource=docker depName=kindest/node
