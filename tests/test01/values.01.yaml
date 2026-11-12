@@ -90,13 +90,14 @@ workloads:
                   - key: tier
                     operator: In
                     values: [backend]
+            # the release's own pods: kube-linter rejects a selector no rendered pod matches
             - podSelector:
                 matchLabels:
-                  app: cache
+                  app.kubernetes.io/name: global-chart
                 matchExpressions:
-                  - key: role
-                    operator: NotIn
-                    values: [replica]
+                  - key: app.kubernetes.io/component
+                    operator: In
+                    values: [main]
             - ipBlock:
                 cidr: 10.0.0.0/8
                 except:

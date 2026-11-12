@@ -201,17 +201,6 @@ workloads:
     podRecreation:
       enabled: true  # Force pod recreation on each deploy
 
-    # A gRPC health server on its own port: the grpc probe handler (issue #320)
-    livenessProbe:
-      grpc:
-        port: 9090
-    readinessProbe:
-      grpc:
-        port: 9090
-    startupProbe:
-      grpc:
-        port: 9090
-
     tolerations:
       - key: "workload"
         operator: "Equal"
@@ -228,6 +217,24 @@ workloads:
                   values:
                     - background
                     - worker
+
+  # gRPC API - the grpc probe handler, on the port the Service exposes (issue #320)
+  grpc-api:
+    image:
+      repository: myapp/grpc-api
+      tag: "v1.0.0"
+    service:
+      port: 9090
+      portName: grpc
+    livenessProbe:
+      grpc:
+        port: 9090
+    readinessProbe:
+      grpc:
+        port: 9090
+    startupProbe:
+      grpc:
+        port: 9090
 
   # Minimal workload - tests defaults
   minimal:
