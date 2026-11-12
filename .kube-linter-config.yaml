@@ -40,3 +40,16 @@ checks:
     - "access-to-create-pods"
     - "non-isolated-pod"
     - "dnsconfig-options"
+    # Key order is the template's, not alphabetical; the API server ignores it
+    - "sorted-keys"
+    # Downloads schemas at lint time (unverifiable TLS in the image); make
+    # kubeconform validates the same manifests, against the cluster's Kubernetes
+    # version and a pinned CRD catalog
+    - "schema-validation"
+    # Only Always/OnFailure pass: a Deployment or StatefulSet leaves the field to
+    # its Always default, a job defaults to Never (podFailurePolicy requires it),
+    # and the helm test Pod runs once
+    - "restart-policy"
+    # A completed hook Job is kept as the record of what ran until its next run
+    # (_hook-helpers.tpl); a hook takes no ttlSecondsAfterFinished
+    - "job-ttl-seconds-after-finished"

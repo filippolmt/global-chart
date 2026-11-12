@@ -157,6 +157,9 @@ workloads:
       initialDelaySeconds: 10
       timeoutSeconds: 5
 
+    annotations:
+      ignore-check.kube-linter.io/env-value-from: "additionalEnvs reads a Secret and a ConfigMap of tests/test01/test01.yaml, outside the release"
+
     additionalEnvs:
       - name: NEWPASS
         valueFrom:

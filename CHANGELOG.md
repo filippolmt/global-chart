@@ -245,6 +245,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 - The schema keeps each API vocabulary in one `$defs`: `imagePullPolicy`,
   `portProtocol`, `httpRouteFilterType` beside `esoStoreKind`. Every scenario
   renders as before.
+- kube-linter 0.8.3 (from 0.7.1). Of the built-in checks it adds,
+  `env-value-from` is on: the `test01` Deployment, whose `additionalEnvs` read
+  a Secret and a ConfigMap outside the release, carries
+  `ignore-check.kube-linter.io/env-value-from`. `sorted-keys`,
+  `schema-validation`, `restart-policy` and `job-ttl-seconds-after-finished`
+  are excluded, each with its reason in `.kube-linter-config.yaml`; none
+  found a chart defect.
 
 ### Migration guide from 4.2.1
 
