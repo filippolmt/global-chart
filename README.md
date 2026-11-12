@@ -659,7 +659,7 @@ The `tests/` directory is the list — `TEST_CASES` in the `Makefile` is what
 | `httproute-canary.yaml`          | HTTPRoute with weighted backends                                                          |
 | `httproute-filters.yaml`         | HTTPRoute rule filters                                                                    |
 | `httproutes.yaml`                | `httpRoutes` entries next to `httpRoute`, a redirect-only route                           |
-| `l4routes.yaml`                  | TCPRoute and UDPRoute to named extra ports and an explicit Service, alongside an HTTPRoute |
+| `l4routes.yaml`                  | TCPRoute and UDPRoute to named extra ports and a Service, beside an HTTPRoute             |
 | `keda.yaml`                      | KEDA ScaledObject and TriggerAuthentication                                               |
 | `rbac.yaml`                      | RBAC with roles and service accounts                                                      |
 | `rbac-hooks.yaml`                | RBAC roles read by hooks (hook-prerequisite copy, ADR 0010)                               |
