@@ -1,0 +1,13 @@
+# Expected fail substring: "httpRoute.jwt.providers[0].audiences"
+# Dropped as unset, the null would render a policy without the check.
+httpRoute:
+  enabled: true
+  parentRefs: [{name: gw}]
+  rules: [{backendRefs: [{service: {name: web, port: 80}}]}]
+  jwt:
+    enabled: true
+    providers:
+      - name: idp
+        issuer: https://idp.example.com
+        audiences: null
+        remoteJWKS: {uri: https://idp.example.com/certs}

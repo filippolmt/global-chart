@@ -1465,7 +1465,7 @@
       "if": { "properties": { "recomputeRoute": { "const": true } }, "required": ["recomputeRoute"] },
       "then": { "required": ["claimToHeaders"], "properties": { "claimToHeaders": { "minItems": 1 } } },
       "properties": {
-        "name": { "description": "The provider's name, unique within the route. A Kubernetes qualified name without prefix: letters, digits, '-', '_' and '.', starting and ending alphanumeric, at most 63 characters (Envoy allows 253).", "type": "string", "maxLength": 63, "pattern": "^[A-Za-z0-9]([-A-Za-z0-9_.]*[A-Za-z0-9])?$" },
+        "name": { "description": "The provider's name, unique within the route. A Kubernetes qualified name without prefix: letters, digits, '-', '_' and '.', starting and ending alphanumeric, at most 63 characters. A choice of the chart (issue #261), tighter than Envoy Gateway, which takes any 1 to 253 characters: the name of a provider stays the form of a Kubernetes name.", "type": "string", "maxLength": 63, "pattern": "^[A-Za-z0-9]([-A-Za-z0-9_.]*[A-Za-z0-9])?$" },
         "issuer": { "description": "The token's expected iss claim. Required by the chart, and not empty: Envoy Gateway skips the issuer check on an empty one. At most 253 characters, as Envoy Gateway allows.", "type": "string", "minLength": 1, "maxLength": 253 },
         "audiences": {
           "description": "The aud values accepted; a token must carry one of them. Required by the chart, 1 to 8, as Envoy Gateway allows at most 8. An empty string is refused too: it names no audience.",
@@ -1492,7 +1492,7 @@
             { "properties": { "type": { "description": "Type ValueRef takes valueRef alone.", "const": "ValueRef" } }, "required": ["valueRef"], "not": { "required": ["inline"] } }
           ],
           "properties": {
-            "type": { "description": "Inline or ValueRef. Required by the chart: the CRD requires it and the API server defaults it to Inline, so a valueRef without it would be refused at apply.", "type": "string", "enum": ["Inline", "ValueRef"] },
+            "type": { "description": "Inline or ValueRef. Required, Inline included: the CRD's OpenAPI schema requires it, which kubeconform reads, though the API server defaults it to Inline; the stricter holds. Without it, a valueRef is refused at apply.", "type": "string", "enum": ["Inline", "ValueRef"] },
             "inline": { "description": "The JWKS itself, as a JSON string.", "type": "string" },
             "valueRef": {
               "description": "The object holding the JWKS under its jwks key, in the route's namespace. A ConfigMap: group \"\", kind ConfigMap.",

@@ -151,10 +151,8 @@ before enabling it.
 **Envoy JWT authentication is per HTTPRoute too.** `httpRoute.jwt` (and the
 same block on each `httpRoutes.<key>`) renders a SecurityPolicy named like the
 route, targeting it, with `providers` as Envoy Gateway's
-`spec.jwt.providers`; no Secret. Each provider takes `name`, `issuer`,
-`audiences` and one of `remoteJWKS` / `localJWKS`. The render fails with no
-provider, on two providers of one name, and beside `basicAuth` on the same
-route. See the
+`spec.jwt.providers`; no Secret, and never beside `basicAuth` on the same
+route. What a provider needs and what fails the render: the
 [root README](../../README.md#protecting-an-httproute-with-envoy-jwt-authentication).
 
 **Offline renders of a CRD.** KEDA and Gateway API routes are checked against

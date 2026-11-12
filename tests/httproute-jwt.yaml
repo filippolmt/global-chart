@@ -3,7 +3,8 @@
 # the token an identity-aware proxy injects in its own header and fetches the
 # keys remotely; a second provider keeps its keys in a ConfigMap of the
 # namespace. The httpRoutes entry takes the token from a header, a cookie or a
-# query parameter, and copies a flat and a nested claim into headers.
+# query parameter, and copies a flat and a nested claim into headers; its
+# third provider holds its keys inline.
 httpRoute:
   enabled: true
   jwt:
@@ -67,6 +68,12 @@ httpRoutes:
           localJWKS:
             type: ValueRef
             valueRef: {group: "", kind: ConfigMap, name: internal-jwks}
+        - name: partner
+          issuer: https://partner.example.com
+          audiences: [api]
+          localJWKS:
+            type: Inline
+            inline: '{"keys":[{"kty":"oct","kid":"partner","k":"c2VjcmV0"}]}'
     parentRefs:
       - name: shared-gateway
         namespace: envoy-gateway-system

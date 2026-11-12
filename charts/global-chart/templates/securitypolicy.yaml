@@ -5,7 +5,9 @@
        request passes. Basic Auth passwords are random on EVERY render. Argo CD
        must preserve that Secret's /data with ignoreDifferences AND
        RespectIgnoreDifferences=true; no lookup, Job, operator or hidden cluster
-       access participates in rendering. jwt renders no Secret. */ -}}
+       access participates in rendering. jwt renders no Secret. A null issuer
+       or audiences fails like a null name: dropped, it would render a policy
+       without the check the schema requires. */ -}}
 {{- $root := . -}}
 {{- range (include "global-chart.httpRouteEntries" . | fromJsonArray) -}}
 {{- $auth := default (dict) .route.basicAuth -}}
@@ -13,33 +15,14 @@
 {{- if and $auth.enabled $jwt.enabled -}}
   {{- fail (printf "%s.jwt: cannot be enabled beside %s.basicAuth on one route: Envoy runs both filters, which by default both read the Authorization header, so no request passes. Enable one of the two." .errCtx .errCtx) -}}
 {{- end -}}
+{{- $method := "" -}}
+{{- if $auth.enabled -}}{{- $method = "basicAuth" -}}{{- else if $jwt.enabled -}}{{- $method = "jwt" -}}{{- end -}}
+{{- if $method -}}
+{{- $ctx := printf "%s.%s" .errCtx $method -}}
+{{- include "global-chart.requireCrd" (dict "root" $root "apiVersion" "gateway.envoyproxy.io/v1alpha1/SecurityPolicy" "install" "Install Envoy Gateway's SecurityPolicy CRD" "errCtx" $ctx) -}}
 {{- $secretName := include "global-chart.httpRouteBasicAuthSecretName" .name -}}
-{{- if or $auth.enabled $jwt.enabled -}}
-{{- $method := "jwt" -}}
-{{- if $auth.enabled -}}{{- $method = "basicAuth" -}}{{- end -}}
-{{- include "global-chart.requireCrd" (dict "root" $root "apiVersion" "gateway.envoyproxy.io/v1alpha1/SecurityPolicy" "install" "Install Envoy Gateway's SecurityPolicy CRD" "errCtx" (printf "%s.%s" .errCtx $method)) -}}
-{{- end -}}
 {{- $providers := list -}}
-{{- if $jwt.enabled -}}
-{{- $ctx := printf "%s.jwt" .errCtx -}}
-{{- $providers = default (list) $jwt.providers -}}
-{{- if not $providers -}}
-  {{- fail (printf "%s.providers: needs at least one provider when %s.enabled is true." $ctx $ctx) -}}
-{{- end -}}
-{{- include "global-chart.rejectNullItems" (dict "list" $providers "errCtx" (printf "%s.providers" $ctx) "required" (list "name")) -}}
-{{- $seen := dict -}}
-{{- range $i, $p := $providers -}}
-  {{- if eq (include "global-chart.isSet" (list $p "name")) "true" -}}
-    {{- $name := toString $p.name -}}
-    {{- if hasKey $seen $name -}}
-      {{- fail (printf "%s.providers[%d].name: %q is also the name of providers[%d]; Envoy Gateway drops a policy whose providers share a name, and the route serves unauthenticated." $ctx $i $name (index $seen $name)) -}}
-    {{- end -}}
-    {{- $_ := set $seen $name $i -}}
-  {{- end -}}
-{{- end -}}
-{{- end -}}
-{{- if $auth.enabled -}}
-{{- $ctx := printf "%s.basicAuth" .errCtx -}}
+{{- if eq $method "basicAuth" -}}
 {{- $username := ternary $auth.username "admin" (eq (include "global-chart.isSet" (list $auth "username")) "true") -}}
 {{- if not (and (kindIs "string" $username) (regexMatch "^[a-zA-Z0-9_-]+$" $username)) -}}
   {{- fail (printf "%s.username: must be a non-empty string of letters, digits, underscores and hyphens." $ctx) -}}
@@ -62,8 +45,23 @@ data:
   username: {{ $username | b64enc | quote }}
   password: {{ $password | b64enc | quote }}
   .htpasswd: {{ printf "%s:{SHA}%s" $username (include "global-chart.basicAuthSha" $password) | b64enc | quote }}
+{{- else -}}
+{{- $providers = default (list) $jwt.providers -}}
+{{- if not $providers -}}
+  {{- fail (printf "%s.providers: needs at least one provider when %s.enabled is true." $ctx $ctx) -}}
+{{- end -}}
+{{- include "global-chart.rejectNullItems" (dict "list" $providers "errCtx" (printf "%s.providers" $ctx) "required" (list "name" "issuer" "audiences")) -}}
+{{- $seen := dict -}}
+{{- range $i, $p := $providers -}}
+  {{- if eq (include "global-chart.isSet" (list $p "name")) "true" -}}
+    {{- $name := toString $p.name -}}
+    {{- if hasKey $seen $name -}}
+      {{- fail (printf "%s.providers[%d].name: %q is also the name of providers[%d]; Envoy Gateway drops a policy whose providers share a name, and the route serves unauthenticated." $ctx $i $name (index $seen $name)) -}}
+    {{- end -}}
+    {{- $_ := set $seen $name $i -}}
+  {{- end -}}
+{{- end -}}
 {{- end }}
-{{- if or $auth.enabled $jwt.enabled }}
 ---
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: SecurityPolicy
@@ -81,7 +79,7 @@ spec:
     - group: gateway.networking.k8s.io
       kind: HTTPRoute
       name: {{ .name | quote }}
-  {{- if $auth.enabled }}
+  {{- if eq $method "basicAuth" }}
   basicAuth:
     users:
       name: {{ $secretName | quote }}
