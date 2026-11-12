@@ -9,6 +9,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Added
 
+- **Opt-in Envoy Gateway JWT authentication per HTTPRoute** (issue #261):
+  `httpRoute.jwt` and the same block on each `httpRoutes.<key>` entry,
+  `{enabled: false, providers: []}` by default. Enabled, it renders a
+  `gateway.envoyproxy.io/v1alpha1` SecurityPolicy named like the route and
+  targeting it, `providers` rendered verbatim as `spec.jwt.providers`; no
+  Secret, nothing random. A policy written by hand targets the route by name
+  and protects nothing once that name changes. The schema closes the
+  provider and its `extractFrom` and `localJWKS`, requires `name`, `issuer`
+  and `audiences` (stricter than Envoy: without an audience a token issued
+  for another application passes) and exactly one of `remoteJWKS` /
+  `localJWKS`, and offers neither `optional` nor `failOpen`. The render fails
+  with no provider, on two providers of one name (Envoy Gateway drops such a
+  policy), and with `basicAuth` enabled on the same route (both filters read
+  `Authorization`, no request passes). Needs the SecurityPolicy CRD, like
+  Basic Auth.
 - A cronjob, root or workload scope, takes `podFailurePolicy`, rendered
   verbatim into its Job spec when set (issue #282). An `Ignore` rule on the
   `DisruptionTarget` pod condition keeps a Spot preemption from spending

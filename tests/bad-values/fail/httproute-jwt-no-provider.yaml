@@ -1,0 +1,7 @@
+# Expected fail substring: "httpRoutes.sso.jwt.providers: needs at least one provider"
+httpRoutes:
+  sso:
+    parentRefs: [{name: gw}]
+    rules: [{backendRefs: [{service: {name: web, port: 80}}]}]
+    jwt:
+      enabled: true

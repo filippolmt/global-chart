@@ -181,6 +181,8 @@ EXCEPTIONS = [
     Row(('hooks', '*', '*', 'externalSecrets', '*', 'name'), REQUIRED),
     Row(('rbacs', 'roles', '*', 'name'), REQUIRED),
     Row(('httpRoute', 'rules', '*', 'filters', '*', 'type'), REQUIRED),
+    Row(('httpRoute', 'jwt', 'providers', '*', 'name'), REQUIRED),
+    Row(('httpRoutes', '*', 'jwt', 'providers', '*', 'name'), REQUIRED),
     Row(('workloads', '*', 'configMap', '*'), DATA),
     Row(('workloads', '*', 'secret', '*'), DATA),
     Row(('workloads', '*', 'configMap', '*', '**'), VERBATIM),

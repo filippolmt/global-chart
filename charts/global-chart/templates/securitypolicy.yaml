@@ -1,10 +1,39 @@
-{{- /* Per-HTTPRoute Envoy Basic Auth, never a policy on a shared Gateway.
-       Passwords are random on EVERY render. Argo CD must preserve this Secret's
-       /data with ignoreDifferences AND RespectIgnoreDifferences=true; no lookup,
-       Job, operator or hidden cluster access participates in rendering. */ -}}
+{{- /* Per-HTTPRoute Envoy SecurityPolicy, never a policy on a shared Gateway:
+       basicAuth or jwt (issue #261), never both on one route. Two policies on
+       one route do not merge in Envoy Gateway, and one policy with both makes
+       Envoy run both filters, which by default both read Authorization: no
+       request passes. Basic Auth passwords are random on EVERY render. Argo CD
+       must preserve that Secret's /data with ignoreDifferences AND
+       RespectIgnoreDifferences=true; no lookup, Job, operator or hidden cluster
+       access participates in rendering. jwt renders no Secret. */ -}}
 {{- $root := . -}}
 {{- range (include "global-chart.httpRouteEntries" . | fromJsonArray) -}}
 {{- $auth := default (dict) .route.basicAuth -}}
+{{- $jwt := default (dict) .route.jwt -}}
+{{- if and $auth.enabled $jwt.enabled -}}
+  {{- fail (printf "%s.jwt: cannot be enabled beside %s.basicAuth on one route: Envoy runs both filters, which by default both read the Authorization header, so no request passes. Enable one of the two." .errCtx .errCtx) -}}
+{{- end -}}
+{{- $secretName := include "global-chart.httpRouteBasicAuthSecretName" .name -}}
+{{- $providers := list -}}
+{{- if $jwt.enabled -}}
+{{- $ctx := printf "%s.jwt" .errCtx -}}
+{{- include "global-chart.requireCrd" (dict "root" $root "apiVersion" "gateway.envoyproxy.io/v1alpha1/SecurityPolicy" "install" "Install Envoy Gateway's SecurityPolicy CRD" "errCtx" $ctx) -}}
+{{- $providers = default (list) $jwt.providers -}}
+{{- if not $providers -}}
+  {{- fail (printf "%s.providers: needs at least one provider when %s.enabled is true." $ctx $ctx) -}}
+{{- end -}}
+{{- include "global-chart.rejectNullItems" (dict "list" $providers "errCtx" (printf "%s.providers" $ctx) "required" (list "name")) -}}
+{{- $seen := dict -}}
+{{- range $i, $p := $providers -}}
+  {{- if eq (include "global-chart.isSet" (list $p "name")) "true" -}}
+    {{- $name := toString $p.name -}}
+    {{- if hasKey $seen $name -}}
+      {{- fail (printf "%s.providers[%d].name: %q is also the name of providers[%d]; Envoy Gateway drops a policy whose providers share a name, and the route serves unauthenticated." $ctx $i $name (index $seen $name)) -}}
+    {{- end -}}
+    {{- $_ := set $seen $name $i -}}
+  {{- end -}}
+{{- end -}}
+{{- end -}}
 {{- if $auth.enabled -}}
 {{- $ctx := printf "%s.basicAuth" .errCtx -}}
 {{- include "global-chart.requireCrd" (dict "root" $root "apiVersion" "gateway.envoyproxy.io/v1alpha1/SecurityPolicy" "install" "Install Envoy Gateway's SecurityPolicy CRD" "errCtx" $ctx) -}}
@@ -12,7 +41,6 @@
 {{- if not (and (kindIs "string" $username) (regexMatch "^[a-zA-Z0-9_-]+$" $username)) -}}
   {{- fail (printf "%s.username: must be a non-empty string of letters, digits, underscores and hyphens." $ctx) -}}
 {{- end -}}
-{{- $secretName := include "global-chart.httpRouteBasicAuthSecretName" .name -}}
 {{- $password := randAlphaNum 32 }}
 ---
 apiVersion: v1
@@ -31,6 +59,8 @@ data:
   username: {{ $username | b64enc | quote }}
   password: {{ $password | b64enc | quote }}
   .htpasswd: {{ printf "%s:{SHA}%s" $username (include "global-chart.basicAuthSha" $password) | b64enc | quote }}
+{{- end }}
+{{- if or $auth.enabled $jwt.enabled }}
 ---
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: SecurityPolicy
@@ -48,8 +78,14 @@ spec:
     - group: gateway.networking.k8s.io
       kind: HTTPRoute
       name: {{ .name | quote }}
+  {{- if $auth.enabled }}
   basicAuth:
     users:
       name: {{ $secretName | quote }}
+  {{- else }}
+  jwt:
+    providers:
+      {{- include "global-chart.toYamlWithoutNulls" $providers | nindent 6 }}
+  {{- end }}
 {{- end -}}
 {{- end -}}

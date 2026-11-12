@@ -1,0 +1,77 @@
+# Envoy Gateway JWT authentication (issue #261): one SecurityPolicy per route,
+# targeting the route the chart renders, no Secret. The single httpRoute reads
+# the token an identity-aware proxy injects in its own header and fetches the
+# keys remotely; a second provider keeps its keys in a ConfigMap of the
+# namespace. The httpRoutes entry takes the token from a header, a cookie or a
+# query parameter, and copies a flat and a nested claim into headers.
+httpRoute:
+  enabled: true
+  jwt:
+    enabled: true
+    providers:
+      - name: idp
+        issuer: https://idp.example.com
+        audiences: [app]
+        remoteJWKS:
+          uri: https://idp.example.com/certs
+        extractFrom:
+          headers:
+            - name: X-Jwt-Assertion
+        claimToHeaders:
+          - header: X-User-Email
+            claim: email
+          - header: X-User-Team
+            claimPath: [org, team]
+      - name: internal
+        issuer: https://issuer.internal.example.com
+        audiences: [app]
+        localJWKS:
+          type: ValueRef
+          valueRef: {group: "", kind: ConfigMap, name: internal-jwks}
+        extractFrom:
+          cookies: [internal-token]
+          params: [internal_token]
+  parentRefs:
+    - name: shared-gateway
+      namespace: envoy-gateway-system
+      sectionName: https
+  hostnames: [app.example.com]
+  rules:
+    - backendRefs:
+        - service: {name: web, port: 80}
+httpRoutes:
+  api:
+    jwt:
+      enabled: true
+      providers:
+        - name: idp
+          issuer: https://idp.example.com
+          audiences: [api, api-staging]
+          remoteJWKS:
+            uri: https://idp.example.com/certs
+          extractFrom:
+            headers:
+              - name: Authorization
+                valuePrefix: "Bearer "
+            cookies: [api-token]
+            params: [access_token]
+          claimToHeaders:
+            - header: X-User-Email
+              claim: email
+            - header: X-User-Team
+              claimPath: [org, team]
+          recomputeRoute: true
+        - name: internal
+          issuer: https://issuer.internal.example.com
+          audiences: [api]
+          localJWKS:
+            type: ValueRef
+            valueRef: {group: "", kind: ConfigMap, name: internal-jwks}
+    parentRefs:
+      - name: shared-gateway
+        namespace: envoy-gateway-system
+        sectionName: https
+    hostnames: [api.example.com]
+    rules:
+      - backendRefs:
+          - service: {name: api, port: 8080}

@@ -1,0 +1,4 @@
+# covers: httpRouteJwt
+httpRoute:
+  jwt:
+    enabld: true

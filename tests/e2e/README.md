@@ -65,7 +65,7 @@ templates render.
 artifact at the pinned `envoyproxy/gateway` release tag (the Makefile carries
 its URL), then waits for the CRD
 to be established. Both `e2e-dryrun` and `bound-sweep` require it. The
-`tests/httproute-basic-auth.yaml` scenario checks the opt-in SecurityPolicy
+`tests/httproute-basic-auth.yaml` and `tests/httproute-jwt.yaml` scenarios check the opt-in SecurityPolicy
 against the API server's CRD validation; kubeconform uses the
 [SecurityPolicy schema in the Datree CRDs catalog](https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/gateway.envoyproxy.io/securitypolicy_v1alpha1.json). Neither check tests authentication at runtime: no Envoy Gateway
 controller or proxy is installed, and no authenticated request is sent.

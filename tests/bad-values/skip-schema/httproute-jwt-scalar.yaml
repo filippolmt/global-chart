@@ -1,0 +1,6 @@
+# Expected fail substring: "httpRoute.jwt: a number, where the chart reads a map"
+httpRoute:
+  enabled: true
+  jwt: 42
+  parentRefs: [{name: gw}]
+  rules: [{backendRefs: [{service: {name: web, port: 80}}]}]

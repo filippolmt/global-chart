@@ -148,10 +148,19 @@ and render/repo-server caches; base64 is not encryption. See the
 [root README's dev example and Application settings](../../README.md#protecting-an-httproute-with-envoy-basic-auth)
 before enabling it.
 
+**Envoy JWT authentication is per HTTPRoute too.** `httpRoute.jwt` (and the
+same block on each `httpRoutes.<key>`) renders a SecurityPolicy named like the
+route, targeting it, with `providers` as Envoy Gateway's
+`spec.jwt.providers`; no Secret. Each provider takes `name`, `issuer`,
+`audiences` and one of `remoteJWKS` / `localJWKS`. The render fails with no
+provider, on two providers of one name, and beside `basicAuth` on the same
+route. See the
+[root README](../../README.md#protecting-an-httproute-with-envoy-jwt-authentication).
+
 **Offline renders of a CRD.** KEDA and Gateway API routes are checked against
 the cluster's API versions: `helm template` needs `--api-versions
 keda.sh/v1alpha1`, `--api-versions gateway.networking.k8s.io/v1/HTTPRoute`
-(or `TCPRoute`, `UDPRoute`). Envoy Basic Auth also needs `--api-versions
+(or `TCPRoute`, `UDPRoute`). Envoy Basic Auth and JWT also need `--api-versions
 gateway.envoyproxy.io/v1alpha1/SecurityPolicy`. The fail message names the flag.
 ExternalSecrets need none.
 

@@ -287,6 +287,7 @@ ingress:
   tls: [{hosts: list}]
 httpRoute: &httpRoute
   basicAuth: map
+  jwt: {providers: [map]}
   annotations: map
   hostnames: list
   parentRefs: [map]
