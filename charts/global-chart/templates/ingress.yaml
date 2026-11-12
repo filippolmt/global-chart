@@ -11,6 +11,7 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: {{ $fullName | quote }}
+  namespace: {{ $root.Release.Namespace | quote }}
   labels:
     {{- include "global-chart.labels" $root | nindent 4 }}
   {{- with (include "global-chart.renderAnnotations" (dict "root" $root "own" $ing.annotations)) }}

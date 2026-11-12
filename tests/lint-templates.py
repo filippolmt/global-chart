@@ -92,6 +92,14 @@ a rule below cannot recognise: a check that sees nothing is not a pass.
   as an operand of if/not/and/or/with or after another operand's `)`, so an
   entry bound to another name escapes it: bind it to one of these, and walk
   hooks through global-chart.hookEntries.
+- release-namespace: every object's top-level `metadata:` opens with its
+  `name:` line and, right after it, `namespace: {{ $root.Release.Namespace |
+  quote }}` (`$.Release` too): unconditional, so no `if` can drop it. Every
+  kind the chart renders is namespaced, and an object without the field lands
+  wherever the render is applied: `helm template` piped to `kubectl apply -n`
+  split the ServiceAccounts from their pods until issue #323. A file's
+  top-level `kind:` lines and `metadata:` lines are as many, so an object
+  whose `metadata:` the rule cannot see is reported, not passed.
 
 Comments (`{{/* … */}}`) are stripped before matching, so a rule may be named in
 prose. Matching runs over the whole file, so an expression split across lines
@@ -132,6 +140,12 @@ SCHEMA_ALTERNATIVE = re.compile(r"^\s*errorPattern:.*\|.*\bat '/", re.M)
 # $deploy`); parse the template expressions when an entry needs another name or a
 # false positive appears.
 ENTRY_PRESENCE = re.compile(r"(?:\b(?:if|not|and|or|with)|\))\s+\(?\$(?:deploy|job|secret|auth)(?![\w.])")
+# shortcut: sees objects written at column 0 of a template or helper; one
+# emitted indented (from inside a block) escapes both the kind count and the
+# metadata match. Parse the rendered manifests if a template ever does that.
+TOP_KIND = re.compile(r"^kind:", re.M)
+TOP_METADATA = re.compile(r"^metadata:$", re.M)
+RELEASE_NAMESPACE = re.compile(r"metadata:\n  name: [^\n]*\n  namespace: \{\{ \$(?:root)?\.Release\.Namespace \| quote \}\}\n")
 HEADER_BEFORE = re.compile(r'\{\{-?\s*/\*((?:(?!\*/).)*)\*/\s*-?\}\}\s*$', re.S)
 
 
@@ -407,6 +421,14 @@ def main(chart):
         for m in ENTRY_PRESENCE.finditer(text):
             problems.append(f"{rel}:{lineno(text, m.start())}: entry-presence: {m.group(0).strip()} is true on an entry of nulls only; "
                             "test it with include \"global-chart.isNonEmptyEntry\"")
+        kinds, metas = len(TOP_KIND.findall(text)), list(TOP_METADATA.finditer(text))
+        if kinds != len(metas):
+            problems.append(f"{rel}: release-namespace: {kinds} top-level kind: but {len(metas)} top-level metadata:; "
+                            "write each object's metadata: at column 0 so the rule sees it")
+        for m in metas:
+            if not RELEASE_NAMESPACE.match(text, m.start()):
+                problems.append(f"{rel}:{lineno(text, m.start())}: release-namespace: metadata whose name: is not followed by "
+                                "`namespace: {{ $root.Release.Namespace | quote }}`")
         if home in text:
             problems.append(f"{rel}:{lineno(text, text.index(home))}: chart-home: {home} written by hand; read .Chart.Home")
         if path.suffix != ".tpl":

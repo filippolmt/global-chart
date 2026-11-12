@@ -30,10 +30,10 @@ HELM_DOCS_VERSION := v1.14.2
 HELM_DOCS_IMAGE := jnorwood/helm-docs:$(HELM_DOCS_VERSION)
 # Tag <helm version>-<plugin version>: renovate.json gives it its versioning.
 # renovate: datasource=docker depName=helmunittest/helm-unittest
-HELM_UNITTEST_VERSION := 3.19.0-1.0.3
+HELM_UNITTEST_VERSION := 4.3.0-1.2.1
 HELM_UNITTEST_IMAGE := helmunittest/helm-unittest:$(HELM_UNITTEST_VERSION)
 # renovate: datasource=docker depName=ghcr.io/yannh/kubeconform
-KUBECONFORM_VERSION := v0.7.0
+KUBECONFORM_VERSION := v0.8.0
 # The CRD schemas make kubeconform reads, at one commit of the catalog: at main
 # they changed under a green build. The catalog follows each operator's latest
 # release, not KEDA_VERSION or ESO_VERSION: make e2e-dryrun checks those.
@@ -45,7 +45,7 @@ KUBECONFORM_IMAGE := ghcr.io/yannh/kubeconform:$(KUBECONFORM_VERSION)
 # KIND_KUBECONFIG is deliberately NOT ~/.kube/config: e2e must never be able to
 # touch a real cluster, whatever kubectl context happens to be selected.
 # renovate: datasource=github-releases depName=kubernetes-sigs/kind
-KIND_VERSION := v0.30.0
+KIND_VERSION := v0.33.0
 # The Kubernetes version of the e2e cluster and of make kubeconform: a kind
 # release bump would otherwise move the node image with it, unseen.
 # renovate: datasource=docker depName=kindest/node
@@ -280,7 +280,8 @@ unit-test: ## Run helm-unittest via Docker and verify random Basic Auth credenti
 	@echo "==> Running helm unit tests..."
 	@# helm-unittest runs 0 suites and passes on a SUITE path that names no file
 	@for f in $(SUITE); do [ -f "$(CHART_DIR)/$(GLOBAL_CHART_NAME)/$$f" ] || { echo "    FAIL: SUITE=$$f names no file under $(CHART_DIR)/$(GLOBAL_CHART_NAME)/ (the path is relative to the chart: tests/<name>_test.yaml)"; exit 1; }; done
-	@docker run --rm -u $$(id -u):$$(id -g) -v $(CURDIR)/$(CHART_DIR)/$(GLOBAL_CHART_NAME):/apps -w /apps $(HELM_UNITTEST_IMAGE) $(foreach f,$(SUITE),-f $(f)) .
+	@# Helm 4 (helm-unittest 4.x) loads the plugin through a cache under $$HOME, which is / for -u: not writable
+	@docker run --rm -u $$(id -u):$$(id -g) -e HELM_CACHE_HOME=/tmp/helm-cache -v $(CURDIR)/$(CHART_DIR)/$(GLOBAL_CHART_NAME):/apps -w /apps $(HELM_UNITTEST_IMAGE) $(foreach f,$(SUITE),-f $(f)) .
 	@python3 tests/check-basic-auth.py $(HELM_API_VERSIONS)
 	@echo "==> All unit tests passed!"
 
