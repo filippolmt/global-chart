@@ -24,6 +24,7 @@ apiVersion: keda.sh/v1alpha1
 kind: TriggerAuthentication
 metadata:
   name: {{ include "global-chart.kedaTriggerAuthName" (dict "root" $root "name" $name) | quote }}
+  namespace: {{ $root.Release.Namespace | quote }}
   labels:
     {{- include "global-chart.labels" $root | nindent 4 }}
   {{- with (include "global-chart.renderAnnotations" (dict "root" $root)) }}

@@ -45,6 +45,7 @@ apiVersion: apps/v1
 kind: {{ $kind }}
 metadata:
   name: {{ $depFullname | quote }}
+  namespace: {{ $root.Release.Namespace | quote }}
   labels:
     {{- include "global-chart.deploymentLabels" $labelCtx | nindent 4 }}
   {{- /* reloader.externalSecrets (ADR 0016): on the workload's metadata, where

@@ -15,6 +15,7 @@ apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: {{ $depFullname | quote }}
+  namespace: {{ $root.Release.Namespace | quote }}
   labels:
     {{- include "global-chart.deploymentLabels" $labelCtx | nindent 4 }}
   {{- with (include "global-chart.renderAnnotations" (dict "root" $root)) }}
