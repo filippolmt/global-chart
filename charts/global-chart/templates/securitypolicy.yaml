@@ -14,10 +14,14 @@
   {{- fail (printf "%s.jwt: cannot be enabled beside %s.basicAuth on one route: Envoy runs both filters, which by default both read the Authorization header, so no request passes. Enable one of the two." .errCtx .errCtx) -}}
 {{- end -}}
 {{- $secretName := include "global-chart.httpRouteBasicAuthSecretName" .name -}}
+{{- if or $auth.enabled $jwt.enabled -}}
+{{- $method := "jwt" -}}
+{{- if $auth.enabled -}}{{- $method = "basicAuth" -}}{{- end -}}
+{{- include "global-chart.requireCrd" (dict "root" $root "apiVersion" "gateway.envoyproxy.io/v1alpha1/SecurityPolicy" "install" "Install Envoy Gateway's SecurityPolicy CRD" "errCtx" (printf "%s.%s" .errCtx $method)) -}}
+{{- end -}}
 {{- $providers := list -}}
 {{- if $jwt.enabled -}}
 {{- $ctx := printf "%s.jwt" .errCtx -}}
-{{- include "global-chart.requireCrd" (dict "root" $root "apiVersion" "gateway.envoyproxy.io/v1alpha1/SecurityPolicy" "install" "Install Envoy Gateway's SecurityPolicy CRD" "errCtx" $ctx) -}}
 {{- $providers = default (list) $jwt.providers -}}
 {{- if not $providers -}}
   {{- fail (printf "%s.providers: needs at least one provider when %s.enabled is true." $ctx $ctx) -}}
@@ -36,7 +40,6 @@
 {{- end -}}
 {{- if $auth.enabled -}}
 {{- $ctx := printf "%s.basicAuth" .errCtx -}}
-{{- include "global-chart.requireCrd" (dict "root" $root "apiVersion" "gateway.envoyproxy.io/v1alpha1/SecurityPolicy" "install" "Install Envoy Gateway's SecurityPolicy CRD" "errCtx" $ctx) -}}
 {{- $username := ternary $auth.username "admin" (eq (include "global-chart.isSet" (list $auth "username")) "true") -}}
 {{- if not (and (kindIs "string" $username) (regexMatch "^[a-zA-Z0-9_-]+$" $username)) -}}
   {{- fail (printf "%s.username: must be a non-empty string of letters, digits, underscores and hyphens." $ctx) -}}

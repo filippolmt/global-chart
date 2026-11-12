@@ -1,0 +1,14 @@
+# Envoy Gateway's CEL rule: type Inline takes inline, not valueRef.
+httpRoute:
+  enabled: true
+  parentRefs: [{name: gw}]
+  rules: [{backendRefs: [{service: {name: web, port: 80}}]}]
+  jwt:
+    enabled: true
+    providers:
+      - name: idp
+        issuer: https://idp.example.com
+        audiences: [app]
+        localJWKS:
+          type: Inline
+          valueRef: {group: '', kind: ConfigMap, name: jwks}

@@ -9,4 +9,4 @@ httpRoute:
       - name: idp
         issuer: https://idp.example.com
         audiences: [app]
-        localJWKS: {type: Inline, inlne: '{"keys": []}'}
+        localJWKS: {type: Inline, inline: '{"keys": []}', inlne: x}

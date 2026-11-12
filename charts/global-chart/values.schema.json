@@ -1454,7 +1454,7 @@
       }
     },
     "jwtProvider": {
-      "description": "One Envoy Gateway JWTProvider (gateway.envoyproxy.io/v1alpha1). Its top level is closed: a typo here would drop a check in silence. Stricter than Envoy: issuer and audiences are required, since without an audience a token the same identity provider issued for another application passes. Takes exactly one of remoteJWKS and localJWKS.",
+      "description": "One Envoy Gateway JWTProvider (gateway.envoyproxy.io/v1alpha1). Its top level, unchanged since Envoy Gateway 1.4, is closed: a typo here would drop a check in silence. Stricter than Envoy: issuer and audiences are required, since without an audience a token the same identity provider issued for another application passes. Takes exactly one of remoteJWKS and localJWKS.",
       "type": "object",
       "additionalProperties": false,
       "required": ["name", "issuer", "audiences"],
@@ -1462,11 +1462,13 @@
         { "required": ["remoteJWKS"] },
         { "required": ["localJWKS"] }
       ],
+      "if": { "properties": { "recomputeRoute": { "const": true } }, "required": ["recomputeRoute"] },
+      "then": { "required": ["claimToHeaders"], "properties": { "claimToHeaders": { "minItems": 1 } } },
       "properties": {
         "name": { "description": "The provider's name, unique within the route. A Kubernetes qualified name without prefix: letters, digits, '-', '_' and '.', starting and ending alphanumeric, at most 63 characters (Envoy allows 253).", "type": "string", "maxLength": 63, "pattern": "^[A-Za-z0-9]([-A-Za-z0-9_.]*[A-Za-z0-9])?$" },
-        "issuer": { "description": "The token's expected iss claim. Required by the chart. At most 253 characters, as Envoy Gateway allows.", "type": "string", "minLength": 1, "maxLength": 253 },
+        "issuer": { "description": "The token's expected iss claim. Required by the chart, and not empty: Envoy Gateway skips the issuer check on an empty one. At most 253 characters, as Envoy Gateway allows.", "type": "string", "minLength": 1, "maxLength": 253 },
         "audiences": {
-          "description": "The aud values accepted; a token must carry one of them. Required by the chart, 1 to 8, as Envoy Gateway allows at most 8.",
+          "description": "The aud values accepted; a token must carry one of them. Required by the chart, 1 to 8, as Envoy Gateway allows at most 8. An empty string is refused too: it names no audience.",
           "type": "array",
           "minItems": 1,
           "maxItems": 8,
@@ -1481,21 +1483,26 @@
           }
         },
         "localJWKS": {
-          "description": "A JSON Web Key Set held in the cluster, rendered verbatim: inline, or in a ConfigMap of the route's namespace (valueRef). Envoy requires inline with type Inline and valueRef with type ValueRef.",
+          "description": "A JSON Web Key Set held in the cluster, rendered verbatim: inline, or in a ConfigMap of the route's namespace (valueRef). Exactly one of the two, matching type, as Envoy Gateway's CEL rule requires.",
           "type": "object",
           "additionalProperties": false,
+          "required": ["type"],
+          "oneOf": [
+            { "properties": { "type": { "description": "Type Inline takes inline alone.", "const": "Inline" } }, "required": ["inline"], "not": { "required": ["valueRef"] } },
+            { "properties": { "type": { "description": "Type ValueRef takes valueRef alone.", "const": "ValueRef" } }, "required": ["valueRef"], "not": { "required": ["inline"] } }
+          ],
           "properties": {
-            "type": { "description": "Inline or ValueRef. Unset, Envoy Gateway defaults it to Inline.", "type": "string", "enum": ["Inline", "ValueRef"] },
-            "inline": { "description": "The JWKS itself, as a JSON string.", "type": "string", "minLength": 1 },
+            "type": { "description": "Inline or ValueRef. Required by the chart: the CRD requires it and the API server defaults it to Inline, so a valueRef without it would be refused at apply.", "type": "string", "enum": ["Inline", "ValueRef"] },
+            "inline": { "description": "The JWKS itself, as a JSON string.", "type": "string" },
             "valueRef": {
               "description": "The object holding the JWKS under its jwks key, in the route's namespace. A ConfigMap: group \"\", kind ConfigMap.",
               "type": "object",
               "additionalProperties": false,
               "required": ["group", "kind", "name"],
               "properties": {
-                "group": { "description": "The API group of the object; \"\" for a ConfigMap.", "type": "string" },
-                "kind": { "description": "The kind of the object, such as ConfigMap.", "type": "string", "minLength": 1 },
-                "name": { "description": "The name of the object.", "type": "string", "minLength": 1 }
+                "group": { "description": "The API group of the object; \"\" for a ConfigMap. Empty or a DNS subdomain, at most 253 characters, as Gateway API allows.", "type": "string", "maxLength": 253, "pattern": "^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$" },
+                "kind": { "description": "The kind of the object, such as ConfigMap. At most 63 characters, as Gateway API allows.", "type": "string", "minLength": 1, "maxLength": 63, "pattern": "^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$" },
+                "name": { "description": "The name of the object. At most 253 characters, as Gateway API allows.", "type": "string", "minLength": 1, "maxLength": 253 }
               }
             }
           }
@@ -1504,17 +1511,21 @@
           "description": "Claims copied into request headers, rendered verbatim. Its items stay open: the shape grew in Envoy Gateway 1.10 (claimPath).",
           "type": "array",
           "items": {
-            "description": "One claim copied into a header. Envoy requires exactly one of claim and claimPath.",
+            "description": "One claim copied into a header. Exactly one of claim and claimPath, as Envoy Gateway's CEL rule requires.",
             "type": "object",
             "required": ["header"],
+            "oneOf": [
+              { "required": ["claim"], "not": { "required": ["claimPath"] } },
+              { "required": ["claimPath"], "not": { "required": ["claim"] } }
+            ],
             "properties": {
-              "header": { "description": "The request header the claim is written to.", "type": "string", "minLength": 1 },
-              "claim": { "description": "The claim's name.", "type": "string", "minLength": 1 },
+              "header": { "description": "The request header the claim is written to.", "type": "string" },
+              "claim": { "description": "The claim's name.", "type": "string" },
               "claimPath": { "description": "The path of a nested claim, one segment per item.", "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } }
             }
           }
         },
-        "recomputeRoute": { "description": "Recompute the route after claimToHeaders has written its headers. Envoy requires claimToHeaders when true.", "type": "boolean" },
+        "recomputeRoute": { "description": "Recompute the route after claimToHeaders has written its headers. True needs at least one claimToHeaders item, as Envoy Gateway's CEL rule requires.", "type": "boolean" },
         "extractFrom": {
           "description": "Where Envoy reads the token. Unset, the Authorization header (Bearer) and the access_token query parameter.",
           "type": "object",
@@ -1528,13 +1539,13 @@
                 "additionalProperties": false,
                 "required": ["name"],
                 "properties": {
-                  "name": { "description": "The header's name.", "type": "string", "minLength": 1 },
+                  "name": { "description": "The header's name.", "type": "string" },
                   "valuePrefix": { "description": "The prefix before the token in the header's value, such as \"Bearer \".", "type": "string" }
                 }
               }
             },
-            "cookies": { "description": "Cookies holding the token.", "type": "array", "items": { "type": "string", "minLength": 1 } },
-            "params": { "description": "Query parameters holding the token.", "type": "array", "items": { "type": "string", "minLength": 1 } }
+            "cookies": { "description": "Cookies holding the token.", "type": "array", "items": { "type": "string" } },
+            "params": { "description": "Query parameters holding the token.", "type": "array", "items": { "type": "string" } }
           }
         }
       }

@@ -19,7 +19,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   provider and its `extractFrom` and `localJWKS`, requires `name`, `issuer`
   and `audiences` (stricter than Envoy: without an audience a token issued
   for another application passes) and exactly one of `remoteJWKS` /
-  `localJWKS`, and offers neither `optional` nor `failOpen`. The render fails
+  `localJWKS`, and offers neither `optional` nor `failOpen`. It also holds
+  Envoy Gateway's CEL rules a render can see: `localJWKS.type` matching
+  `inline` or `valueRef`, one of `claim` / `claimPath`, `recomputeRoute`
+  only with `claimToHeaders`. The render fails
   with no provider, on two providers of one name (Envoy Gateway drops such a
   policy), and with `basicAuth` enabled on the same route (both filters read
   `Authorization`, no request passes). Needs the SecurityPolicy CRD, like

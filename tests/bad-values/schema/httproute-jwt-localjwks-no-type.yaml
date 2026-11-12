@@ -1,0 +1,14 @@
+# The CRD requires type and the API server defaults it to Inline: a valueRef
+# without it is refused at apply, so the chart requires it.
+httpRoute:
+  enabled: true
+  parentRefs: [{name: gw}]
+  rules: [{backendRefs: [{service: {name: web, port: 80}}]}]
+  jwt:
+    enabled: true
+    providers:
+      - name: idp
+        issuer: https://idp.example.com
+        audiences: [app]
+        localJWKS:
+          valueRef: {group: '', kind: ConfigMap, name: jwks}
