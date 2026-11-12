@@ -208,6 +208,19 @@ workloads:
         init-queues:
           command: ["./init-queues.sh"]
           weight: "5"
+        # Its own ServiceAccount and tolerations, replacing the worker's (issue #320)
+        seed-queues:
+          command: ["./seed-queues.sh"]
+          serviceAccount:
+            create: true
+            name: queue-admin
+            annotations:
+              example.com/role: queue-admin
+          tolerations:
+            - key: node.kubernetes.io/not-ready
+              operator: Exists
+              effect: NoExecute
+              tolerationSeconds: 60
 
     # Worker cronjobs
     cronJobs:
@@ -215,6 +228,18 @@ workloads:
         schedule: "0 */6 * * *"
         command: ["./queue-cleanup.sh"]
         args: ["--stale"]
+      # Its own ServiceAccount and tolerations, replacing the worker's (issue #320)
+      queue-audit:
+        schedule: "30 3 * * *"
+        command: ["./queue-audit.sh"]
+        serviceAccount:
+          create: false
+          name: queue-auditor
+        tolerations:
+          - key: node.kubernetes.io/unreachable
+            operator: Exists
+            effect: NoExecute
+            tolerationSeconds: 120
 
 # Root-level hooks (standalone, must specify image or fromWorkload)
 hooks:
@@ -243,9 +268,28 @@ hooks:
       volumes:
         - name: logs
           emptyDir: {}
+    # A ServiceAccount of its own, by name (issue #320)
+    audit:
+      image: curlimages/curl:latest
+      command: ["curl", "https://audit.example.com/deployed"]
+      serviceAccount:
+        create: true
+        name: notifier
+        annotations:
+          example.com/role: notifier
 
 # Root-level cronJobs (standalone, must specify image or fromWorkload)
 cronJobs:
+  # A ServiceAccount of its own, by name (issue #320)
+  usage-export:
+    schedule: "0 2 * * *"
+    image: myapp/reports:latest
+    command: ["export-usage"]
+    serviceAccount:
+      create: true
+      name: report-reader
+      annotations:
+        example.com/role: report-reader
   report-generator:
     schedule: "0 8 * * 1"
     image: myapp/reports:latest
