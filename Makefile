@@ -23,7 +23,7 @@ HELM_API_VERSIONS := --api-versions keda.sh/v1alpha1 \
 
 # Docker images
 # renovate: datasource=docker depName=ghcr.io/stackrox/kube-linter
-KUBE_LINTER_VERSION := v0.7.1
+KUBE_LINTER_VERSION := v0.8.3
 KUBE_LINTER_IMAGE := ghcr.io/stackrox/kube-linter:$(KUBE_LINTER_VERSION)
 # renovate: datasource=docker depName=jnorwood/helm-docs
 HELM_DOCS_VERSION := v1.14.2
