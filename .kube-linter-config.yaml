@@ -48,8 +48,8 @@ checks:
     - "schema-validation"
     # restartPolicy Never is the chart's default for a job, and podFailurePolicy requires it
     - "restart-policy"
-    # Reusable chart: ttlSecondsAfterFinished is the consumer's per job; hooks are
-    # removed by their delete policy
+    # Reusable chart: ttlSecondsAfterFinished is the consumer's per job; a completed
+    # hook Job is kept as the record of what ran until its next run (_hook-helpers.tpl)
     - "job-ttl-seconds-after-finished"
     # The scenarios reference Secrets and ConfigMaps outside the release
     - "env-value-from"
