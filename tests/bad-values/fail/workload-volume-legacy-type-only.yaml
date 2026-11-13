@@ -1,0 +1,14 @@
+# The legacy volume form, `type` with no native source (issue #183), which the
+# schema no longer declares (issue #236). The volume surface is open, so the
+# schema lets `type` through; renderVolume fails naming the volume, as for any
+# volume with no source, rather than render an emptyDir in silence.
+# Expected fail substring: "workloads.web.volumes[0]: names no volume source"
+workloads:
+  web:
+    image: nginx:1.25
+    volumes:
+      - name: cache
+        type: emptyDir
+    volumeMounts:
+      - name: cache
+        mountPath: /cache

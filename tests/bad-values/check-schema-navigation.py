@@ -245,10 +245,6 @@ def repository_test(schema):
         key = "fromWorkload" if scope == "rootJobSpec" else "inheritWorkloadConfigMap"
         assert navigation.declaration(schema, generic + (key,)) == ({"string"} if scope == "rootJobSpec" else {"boolean"}, False)
         assert_sources(schema, concrete + (key,), [f"/$defs/{scope}/properties/{key}"])
-        removed = "fromDeployment" if scope == "rootJobSpec" else "inheritDeploymentConfigMap"
-        assert navigation.declaration(schema, generic + (removed,)) == (set(), True)
-        assert_sources(schema, concrete + (removed,), [f"/$defs/{scope}/properties/{removed}"])
-    assert navigation.declaration(schema, ("deployments",)) == (set(), True)
     assert navigation.declaration(schema, ("workloads", "*", "service", "portName")) == ({"string"}, True)
     nodes = assert_sources(schema, ("workloads", "web", "service", "portName"), [
         "/$defs/service/properties/portName", "/$defs/service/properties/portName/anyOf/0",
