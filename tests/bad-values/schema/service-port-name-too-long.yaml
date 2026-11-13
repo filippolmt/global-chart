@@ -2,7 +2,6 @@
 # names: at most 15 characters. `http-management-api` is 19 — it renders and
 # passes `helm lint`, then the API server rejects the Service and the Deployment.
 # API rejects: "spec.ports[0].targetPort: Invalid value: "http-management-api": must be no more than 15 characters"
-# naming key: /$defs/service/properties/portName
 workloads:
   app:
     image: nginx:1.25

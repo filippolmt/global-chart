@@ -1,0 +1,15 @@
+# A claim template's name is a naming key: it names the claim template, the pod
+# volume and every claim, so an uppercase or an underscore could never be
+# applied.
+# API rejects: "spec.template.spec.volumes[0].name: Invalid value: "Data_Vol""
+# naming key: /$defs/volumeClaimTemplate/properties/name
+workloads:
+  db:
+    kind: StatefulSet
+    image: postgres:16
+    volumeMounts:
+      - name: Data_Vol
+        mountPath: /var/lib/postgresql/data
+    volumeClaimTemplates:
+      - name: Data_Vol
+        size: 1Gi

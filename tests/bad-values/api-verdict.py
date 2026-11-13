@@ -15,8 +15,9 @@ validation; its verdict must match the markers it carries:
 - `# naming key: <schema pointer>`: the fixture sets a naming key (GLOSSARY.md),
   which rejects only what could never be applied: the API server must reject it,
   and an `# API accepts:` line on it is a FAIL.
-  Every propertyNames of the schema, a naming key by ADR 0008, is marked by
-  at least one fixture: a naming key added to the schema comes with one.
+  Every naming key of the schema (a propertyNames, or a list item's `name`
+  under a `$ref`: ADR 0008) is marked by at least one fixture, so a naming key
+  added to the schema comes with one.
 
 A fixture with no verdict marker fails with the verdict the cluster gave, so the
 markers are written from a run. A line that reads as a marker and matches none
@@ -102,14 +103,20 @@ def judge(accepts, rejects, naming, error):
 
 
 def naming_key_gaps(schema, texts):
-    """Every propertyNames of the schema (a naming key, ADR 0008) that no fixture marks as one.
-    shortcut: a naming key on a list field (`rbacs.roles[].name`) is marked by hand, not required;
-    read the `$ref` of a list item's name field when one goes unmarked."""
+    """Every naming key of the schema that no fixture marks as one. A naming key (ADR 0008) is a
+    propertyNames, or the `name` of a list item that a `$ref` constrains (`rbacs.roles[].name`);
+    an item that is itself a `$ref` counts at its target (`/$defs/container/properties/name`)."""
     declared = set()
 
     def walk(node, pointer):
         if isinstance(node, dict):
             declared.update([f"{pointer}/propertyNames"] if "propertyNames" in node else [])
+            items, at = node.get("items"), f"{pointer}/items"
+            if isinstance(items, dict) and "$ref" in items:
+                at = items["$ref"].lstrip("#")
+                items = navigation.resolve_pointer(schema, at)
+            name = items.get("properties", {}).get("name") if isinstance(items, dict) else None
+            declared.update([f"{at}/properties/name"] if isinstance(name, dict) and "$ref" in name else [])
             for k, v in node.items():
                 walk(v, f"{pointer}/{k}")
         elif isinstance(node, list):
