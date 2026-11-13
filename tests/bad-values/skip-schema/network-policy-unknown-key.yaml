@@ -1,0 +1,12 @@
+# covers: networkPolicy
+# An unknown key under workloads.<name>.networkPolicy (typo of policyTypes).
+# The schema's closure rejects it first; under --skip-schema-validation
+# networkpolicy.yaml fails on a policy with neither types nor rules.
+# Expected fail substring: "workloads.web.networkPolicy: at least one of policyTypes, ingress, or egress must be set"
+workloads:
+  web:
+    image: nginx:1.25
+    networkPolicy:
+      enabled: true
+      policyTypez:
+        - Ingress

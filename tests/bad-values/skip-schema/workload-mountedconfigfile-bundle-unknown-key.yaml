@@ -1,7 +1,8 @@
 # covers: mountedConfigFiles/properties/bundles/items
 # An unknown key inside a mountedConfigFiles.bundles entry (typo of mountDir).
-# Without the closure the bundle has no mount directory and its files land
-# somewhere other than where the values file says.
+# The schema's closure rejects it first; under --skip-schema-validation
+# workload.yaml names the mountDir it drops.
+# Expected fail substring: "workloads.web.mountedConfigFiles.bundles[0].mountDir: required"
 workloads:
   web:
     image: nginx:1.25

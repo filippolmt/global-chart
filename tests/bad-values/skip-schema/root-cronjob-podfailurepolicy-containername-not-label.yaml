@@ -1,5 +1,6 @@
 # A podFailurePolicy containerName that is not a DNS-1123 label can name no
 # container, so the schema rejects it before the render (issue #285).
+# Expected fail substring: "cronJobs.report.podFailurePolicy.rules[0].onExitCodes.containerName: 'Report_Main' names no container of the job's pod"
 cronJobs:
   report:
     schedule: "0 3 * * *"

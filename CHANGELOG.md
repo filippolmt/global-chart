@@ -271,6 +271,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   `schema-validation`, `restart-policy` and `job-ttl-seconds-after-finished`
   are excluded, each with its reason in `.kube-linter-config.yaml`; none
   found a chart defect.
+- `make validate-bad-values` renders each `tests/bad-values/schema/` fixture
+  with `--skip-schema-validation` and fails when a template `fail` rejects it
+  too, pointing at `skip-schema/` (issue #336). Such a fixture tested a
+  backstop guard without a `# Expected fail substring:` line, so a guard that
+  stopped firing, or another `fail` firing in its place, went unnoticed. 19
+  fixtures move to `skip-schema/` with the substring of the `fail` that
+  fires; 8 more repeated a `skip-schema/` fixture of the same `fail` and are
+  removed.
+  `autoscaling-unknown-key` gains a CPU target, so the `fail` it pins is the
+  `maxReplicas` its typo drops rather than the missing target.
+  `check-closure-coverage.py` reads `# covers:` in both directories.
 
 ### Migration guide from 4.2.1
 

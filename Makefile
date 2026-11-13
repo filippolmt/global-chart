@@ -290,13 +290,18 @@ render-diff: ## Render every TEST_CASES scenario on BASE (default main) and on t
 	@echo "==> Diffing the rendered manifests against $(or $(BASE),main)..."
 	@python3 tests/render-diff.py $(if $(filter ignore,$(QUOTES)),--ignore-quotes) $(or $(BASE),main) $(HELM_API_VERSIONS)
 
-validate-bad-values: ## Verify bad-values are rejected: schema/ by values.schema.json, fail/ by the template fail each names, skip-schema/ by both (the fail under --skip-schema-validation), skip-schema-render/ by the schema while rendering as its nulls removed
+validate-bad-values: ## Verify bad-values are rejected: schema/ by values.schema.json alone (it renders under --skip-schema-validation), fail/ by the template fail each names, skip-schema/ by both (the fail under --skip-schema-validation), skip-schema-render/ by the schema while rendering as its nulls removed
 	@echo "==> Validating bad-values are correctly rejected..."
 	@set -e; for f in tests/bad-values/schema/*.yaml; do \
 		[ -e "$$f" ] || { echo "    FAIL: tests/bad-values/schema/ holds no fixture; green here would be vacuous"; exit 1; }; \
 		if ! helm lint $(STRICT) -f "$$f" ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) 2>&1 | grep -qF "$(SCHEMA_REJECTION)"; then \
 			echo "    FAIL: $$f was not rejected by values.schema.json"; \
 			echo "          (if every file here fails, check whether Helm reworded: $(SCHEMA_REJECTION))"; \
+			exit 1; \
+		elif ! out=$$(helm template global-chart-bad-values ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) --skip-schema-validation $(HELM_API_VERSIONS) -f "$$f" 2>&1); then \
+			echo "    FAIL: $$f is also rejected under --skip-schema-validation, by a backstop guard no substring pins;"; \
+			echo "          it belongs in tests/bad-values/skip-schema/ with an '# Expected fail substring: \"...\"' line"; \
+			echo "          got: $$out"; \
 			exit 1; \
 		fi; \
 	done

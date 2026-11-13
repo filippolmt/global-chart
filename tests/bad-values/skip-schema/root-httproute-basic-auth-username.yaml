@@ -1,0 +1,10 @@
+# A username with a ':' on an httpRoutes entry: the schema's pattern rejects it
+# first; under --skip-schema-validation the SecurityPolicy guard names it.
+# Expected fail substring: "httpRoutes.dev.basicAuth.username: must be a non-empty string of letters, digits, underscores and hyphens."
+httpRoutes:
+  dev:
+    parentRefs: [{name: gw}]
+    rules: [{backendRefs: [{service: {name: web, port: 80}}]}]
+    basicAuth:
+      enabled: true
+      username: 'user:injected'

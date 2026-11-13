@@ -1,0 +1,12 @@
+# covers: kedaTriggerAuthentication
+# An unknown key under kedaTriggerAuthentications.<name> (typo of
+# secretTargetRef). The schema's closure rejects it first; under
+# --skip-schema-validation triggerauthentication.yaml fails on an entry with no
+# credential source.
+# Expected fail substring: "kedaTriggerAuthentications.my-auth: declares no credential source"
+kedaTriggerAuthentications:
+  my-auth:
+    secretTargetRefs:
+      - parameter: password
+        name: my-secret
+        key: password
