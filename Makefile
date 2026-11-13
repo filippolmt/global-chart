@@ -465,8 +465,11 @@ RETRY3 = for i in 1 2 3; do $(1) && break; echo "    attempt $$i/3 failed"; [ "$
 # never lands stops here. Without it the failure surfaced two lines down as
 # `chmod: cannot access .bin/kind`, which names the wrong thing: the file is
 # missing because curl wrote nothing, not because of a permission problem.
-kind-install: ## Download the kind binary into .bin/ (no-op if already there)
-	@set -e; if [ ! -x "$(KIND)" ]; then \
+# A binary of another version is downloaded again (issue #331): after a
+# KIND_VERSION bump, an old kind fails on the new node image with a kubeadm
+# error that never names kind.
+kind-install: ## Download the kind binary of KIND_VERSION into .bin/ (no-op if that version is already there)
+	@set -e; if ! "$(KIND)" version 2>/dev/null | grep -qF "kind $(KIND_VERSION) "; then \
 		mkdir -p $(KIND_BIN_DIR); \
 		os=$$(uname -s | tr '[:upper:]' '[:lower:]'); \
 		arch=$$(uname -m); \
