@@ -1,0 +1,16 @@
+# A bundle file's name is a naming key: it names the file's ConfigMap,
+# <workload fullname>-md-cm-<name>, so an uppercase or an underscore could never
+# be applied. Its 52 cap is the files one, kept for a name moving between the two.
+# API rejects: "metadata.name: Invalid value: "api-verdict-global-chart-app-md-cm-App_Conf""
+# naming key: /$defs/mountedConfigFiles/properties/bundles/items/properties/files/items/properties/name
+workloads:
+  app:
+    image: nginx:1.25
+    mountedConfigFiles:
+      bundles:
+        - mountDir: /etc/app
+          files:
+            - name: App_Conf
+              relPath: app.conf
+              content: |
+                key = value

@@ -1,4 +1,5 @@
 # covers: jwtProvider
+# API rejects: "unknown field "spec.jwt.providers[0].failOpen""
 httpRoute:
   enabled: true
   parentRefs: [{name: gw}]

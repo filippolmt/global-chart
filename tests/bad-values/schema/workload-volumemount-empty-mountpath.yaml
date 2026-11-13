@@ -1,5 +1,6 @@
 # A volumeMounts entry with an empty mountPath. The API server rejects it at
 # apply; validateMountPaths skips an empty path, so the schema must catch it.
+# API rejects: "spec.template.spec.containers[0].volumeMounts[0].mountPath: Required value"
 workloads:
   app:
     image: nginx:1.25

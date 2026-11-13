@@ -1,5 +1,6 @@
 # Same core violation on $defs/hookJob. See
 # invalid-job-image-pull-policy-root-cronjob.yaml for why there are four files.
+# API rejects: "spec.template.spec.containers[0].imagePullPolicy: Unsupported value: "Bogus": supported values: "Always""
 hooks:
   pre-install:
     demo:

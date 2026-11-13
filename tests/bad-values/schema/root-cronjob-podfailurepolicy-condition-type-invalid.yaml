@@ -1,5 +1,6 @@
 # A pod condition type is a qualified name: the API server rejects a space,
 # and the rule would never match (issue #282).
+# API rejects: "spec.jobTemplate.spec.podFailurePolicy.rules[0].onPodConditions[0].type: Invalid value: "Disruption Target""
 cronJobs:
   report:
     schedule: "0 3 * * *"

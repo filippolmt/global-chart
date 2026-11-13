@@ -1,6 +1,7 @@
 # covers: probe/properties/grpc
 # An unknown key in grpc (typo of service): the probe checks the server's
 # overall health instead of the named service.
+# API rejects: "unknown field "spec.template.spec.containers[0].readinessProbe.grpc.servce""
 workloads:
   app:
     image: nginx:1.25

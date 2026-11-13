@@ -1,5 +1,6 @@
 # podFailurePolicy is offered on cronjobs only (issue #282); why not on a hook:
 # the jobSpecVerbatimFields header in _job-helpers.tpl.
+# API accepts: dropped: a hook renders no podFailurePolicy
 workloads:
   app:
     image: nginx:1.25

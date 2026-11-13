@@ -1,0 +1,11 @@
+# A route rule's name is a naming key: it lands raw as the rule's name, which
+# Gateway API validates as a section name.
+# API rejects: "spec.rules[0].name: Invalid value: "Rule_A""
+# naming key: /$defs/l4RouteRule/properties/name
+tcpRoutes:
+  gps:
+    parentRefs: [{name: gw}]
+    rules:
+      - name: Rule_A
+        backendRefs:
+          - service: {name: gps, port: 5027}

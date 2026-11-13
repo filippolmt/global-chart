@@ -1,5 +1,6 @@
 # covers: probe/properties/exec
 # An unknown key in exec (typo of command): the probe has no command to run.
+# API rejects: "unknown field "spec.template.spec.containers[0].startupProbe.exec.comand""
 workloads:
   app:
     image: nginx:1.25

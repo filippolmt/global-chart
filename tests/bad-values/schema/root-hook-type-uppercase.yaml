@@ -1,0 +1,11 @@
+# Helm accepts `PRE-INSTALL`, but the chart's case-sensitive checks miss it and
+# the name it yields is invalid. Root scope; workload-hook-unknown-type is the
+# workload one. root-hook-unknown-type holds a lowercase typo, which renders a
+# valid name and which Helm drops instead.
+# API rejects: "metadata.name: Invalid value: "api-verdict-global-chart-PRE-INSTALL-migrate""
+# naming key: /properties/hooks/propertyNames
+hooks:
+  PRE-INSTALL:
+    migrate:
+      image: busybox:1.36
+      command: ["true"]

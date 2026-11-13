@@ -1,4 +1,5 @@
 # covers: jwtProvider/properties/localJWKS
+# API rejects: "unknown field "spec.jwt.providers[0].localJWKS.inlne""
 httpRoute:
   enabled: true
   parentRefs: [{name: gw}]

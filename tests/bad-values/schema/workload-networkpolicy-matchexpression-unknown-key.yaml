@@ -1,5 +1,6 @@
 # covers: labelSelector/properties/matchExpressions/items
 # An unknown key in a matchExpressions entry (typo of values).
+# API rejects: "unknown field "spec.ingress[0].from[0].podSelector.matchExpressions[0].vlaues""
 workloads:
   app:
     image: nginx:1.25

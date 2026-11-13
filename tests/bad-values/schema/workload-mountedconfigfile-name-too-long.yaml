@@ -1,6 +1,8 @@
 # `name` drives the pod volume name `md-cm-file-<name>`, a DNS-1123 label capped
 # at 63 chars. 53 chars here overflows it by one, and the API server rejects the
 # Deployment; the schema stops it at lint time instead.
+# API rejects: "spec.template.spec.volumes[0].name: Invalid value: "md-cm-file-aaaaaaaaaabbbbbbbbbbccccccccccddddddddddeeeeeeeeeefff": must be no more than 63 characters"
+# naming key: /$defs/mountedConfigFiles/properties/files/items/properties/name
 workloads:
   app:
     image: nginx:1.25

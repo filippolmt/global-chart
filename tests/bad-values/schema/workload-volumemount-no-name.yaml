@@ -1,5 +1,6 @@
 # A volumeMounts entry without a name. Kubernetes rejects it at apply time;
 # the schema catches it first.
+# API rejects: "spec.template.spec.containers[0].volumeMounts[0].name: Required value"
 workloads:
   app:
     image: nginx:1.25

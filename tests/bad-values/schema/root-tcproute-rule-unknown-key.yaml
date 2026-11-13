@@ -1,6 +1,7 @@
 # covers: l4RouteRule
 # An unknown key in a tcpRoutes rule (typo of backendRefs, next to the real
 # one). Without the closure the misspelled list is dropped in silence.
+# API accepts: dropped: no template reads the unknown key, so the manifest never carries it
 tcpRoutes:
   db:
     parentRefs:

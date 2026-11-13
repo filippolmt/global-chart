@@ -1,5 +1,6 @@
 # A PDB bound that is neither a count nor a percentage: it printed unquoted,
 # passed lint, and the API server rejected it ("two") or read it as octal ("010").
+# API accepts: silent-misrender: "010" renders unquoted and the API server reads the octal 8
 workloads:
   app:
     image: nginx:1.25

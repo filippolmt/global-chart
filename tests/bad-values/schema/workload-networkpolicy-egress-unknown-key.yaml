@@ -1,6 +1,7 @@
 # covers: networkPolicy/properties/egress/items
 # An unknown key in an egress rule (typo of to). Dropped, the rule allows
 # egress to everywhere on its ports.
+# API rejects: "unknown field "spec.egress[0].too""
 workloads:
   app:
     image: nginx:1.25

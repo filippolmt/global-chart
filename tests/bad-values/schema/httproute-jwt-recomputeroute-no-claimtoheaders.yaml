@@ -1,4 +1,5 @@
 # Envoy Gateway's CEL rule: recomputeRoute needs claimToHeaders.
+# API rejects: "spec.jwt.providers[0]: Invalid value: "object": no such key: claimToHeaders evaluating rule: claimToHeaders"
 httpRoute:
   enabled: true
   parentRefs: [{name: gw}]

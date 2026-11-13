@@ -2,6 +2,7 @@
 # An unknown key inside an httpRoute.parentRefs entry (typo of sectionName).
 # Without the closure the route attaches to every listener of the gateway
 # instead of the one intended.
+# API rejects: "unknown field "spec.parentRefs[0].section""
 workloads:
   api:
     image: nginx:1.25

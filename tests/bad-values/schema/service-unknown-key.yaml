@@ -2,6 +2,7 @@
 # An unknown key under workloads.<name>.service (typo of portName). Without
 # the constraint the primary port keeps the default name 'http', and a
 # targetPort referring to the intended name resolves to nothing.
+# API accepts: dropped: no template reads the unknown key, so the manifest never carries it
 workloads:
   web:
     image: nginx:1.25

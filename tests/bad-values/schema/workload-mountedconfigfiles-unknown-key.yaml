@@ -3,6 +3,7 @@
 # Must be rejected by values.schema.json ($defs/mountedConfigFiles is closed).
 # Without the constraint no ConfigMap is generated and no volume is mounted,
 # while the values file reads as if the configuration were there.
+# API accepts: dropped: no template reads the unknown key, so the manifest never carries it
 workloads:
   web:
     image: nginx:1.25

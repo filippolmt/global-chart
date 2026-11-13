@@ -1,5 +1,6 @@
 # A PDB bound is an integer count or a "N%" string; a digit string with no
 # percent sign is rejected (issue #156).
+# API accepts: chart-rule: "2" renders as the count 2; a PDB bound is an integer or a "N%" string (#156)
 workloads:
   web:
     image: nginx:1.25

@@ -1,6 +1,7 @@
 # covers: probe/properties/httpGet
 # An unknown key in httpGet (typo of path). Kubernetes drops it, and the probe
 # checks / instead of the health endpoint.
+# API rejects: "unknown field "spec.template.spec.containers[0].livenessProbe.httpGet.pth""
 workloads:
   app:
     image: nginx:1.25

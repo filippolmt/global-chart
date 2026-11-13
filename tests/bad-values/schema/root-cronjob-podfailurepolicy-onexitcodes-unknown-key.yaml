@@ -1,6 +1,7 @@
 # covers: podFailurePolicy/properties/rules/items/properties/onExitCodes
 # An unknown key in onExitCodes (typo of containerName): the rule checks every
 # container instead of the one named.
+# API rejects: "unknown field "spec.jobTemplate.spec.podFailurePolicy.rules[0].onExitCodes.container""
 cronJobs:
   report:
     schedule: "0 3 * * *"

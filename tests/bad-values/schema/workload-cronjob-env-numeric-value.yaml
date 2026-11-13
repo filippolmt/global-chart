@@ -1,5 +1,6 @@
 # EnvVar.value is a string (issue #137), in a workload-scope job's env:
 # the jobCommon $ref of the workload scope.
+# API rejects: "cannot unmarshal number into Go struct field EnvVar.spec.jobTemplate.spec.template.spec.containers.env.value"
 workloads:
   app:
     image: nginx:1.25

@@ -1,6 +1,7 @@
 # covers: probe
 # An unknown key in a probe (typo of periodSeconds). Client-side apply drops it
 # with a warning, so the probe runs on the default period instead.
+# API rejects: "unknown field "spec.template.spec.containers[0].livenessProbe.periodSecond""
 workloads:
   app:
     image: nginx:1.25

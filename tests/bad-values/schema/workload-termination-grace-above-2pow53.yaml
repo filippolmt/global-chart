@@ -2,6 +2,7 @@
 # as a float64, so 2^53+1 becomes 2^53 and the API server would accept a number
 # other than the one written. The maximum is 2^53-1: a maximum of 2^53 would
 # let this value through, since the schema sees the rounded 2^53 too.
+# API accepts: silent-misrender: Helm rounds 2^53+1 to 2^53, an int64 the API server accepts
 workloads:
   app:
     image: nginx:1.25

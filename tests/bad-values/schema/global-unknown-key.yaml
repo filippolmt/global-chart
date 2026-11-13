@@ -2,6 +2,7 @@
 # An unknown key under global (typo of imageRegistry). Without the constraint
 # every image renders from the default registry while the values file reads as
 # if it had been repointed.
+# API accepts: dropped: no template reads the unknown key, so the manifest never carries it
 global:
   imageRegistri: registry.example.com
 workloads:

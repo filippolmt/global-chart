@@ -1,5 +1,6 @@
 # covers: networkPolicyPeer/properties/ipBlock
 # An unknown key in an ipBlock (typo of except): the excluded range is admitted.
+# API rejects: "unknown field "spec.ingress[0].from[0].ipBlock.excpet""
 workloads:
   app:
     image: nginx:1.25

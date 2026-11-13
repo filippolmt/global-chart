@@ -1,5 +1,6 @@
 # An unknown hook type renders, and Helm drops the resource with an INFO log and
 # exit 0: the hook never runs and nothing says so.
+# API accepts: silent-misrender: Helm skips an unknown hook type with an INFO log, so the hook never runs
 hooks:
   pre-instal:
     migrate:

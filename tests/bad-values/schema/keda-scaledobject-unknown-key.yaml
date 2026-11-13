@@ -2,6 +2,7 @@
 # An unknown key under workloads.<name>.keda (typo of cooldownPeriod).
 # Without the constraint KEDA keeps its own default cooldown and the intended
 # value never reaches the ScaledObject.
+# API accepts: dropped: no template reads the unknown key, so the manifest never carries it
 workloads:
   web:
     image: nginx:1.25

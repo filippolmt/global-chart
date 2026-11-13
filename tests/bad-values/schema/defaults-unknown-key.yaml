@@ -2,6 +2,7 @@
 # An unknown key under defaults (typo of resources). Without the constraint no
 # chart-wide default applies and every container that declares none ships
 # without requests or limits.
+# API accepts: dropped: no template reads the unknown key, so the manifest never carries it
 defaults:
   resource:
     requests:

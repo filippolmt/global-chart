@@ -1,5 +1,6 @@
 # A host with no paths renders `paths:` as null: `Required value` at apply
 # (issue #156).
+# API rejects: "spec.rules[0].http.paths: Required value"
 ingress:
   enabled: true
   hosts:

@@ -1,0 +1,14 @@
+# 64 characters: one over the 63 the chart allows a provider name (issue #261),
+# tighter than Envoy Gateway's 253.
+# API accepts: stricter: Envoy Gateway takes a provider name of 1 to 253 characters (#261)
+httpRoute:
+  enabled: true
+  parentRefs: [{name: gw}]
+  rules: [{backendRefs: [{service: {name: web, port: 80}}]}]
+  jwt:
+    enabled: true
+    providers:
+      - name: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+        issuer: https://idp.example.com
+        audiences: [app]
+        remoteJWKS: {uri: https://idp.example.com/certs}

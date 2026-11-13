@@ -1,5 +1,6 @@
 # A Job pod takes restartPolicy OnFailure or Never; Always passed lint and was
 # rejected by the API server (issue #158).
+# API rejects: "spec.jobTemplate.spec.template.spec.restartPolicy: Required value: valid values: "OnFailure", "Never""
 cronJobs:
   report:
     schedule: "0 3 * * *"

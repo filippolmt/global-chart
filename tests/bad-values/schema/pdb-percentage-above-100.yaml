@@ -1,5 +1,6 @@
 # A PDB percentage above 100%: it rendered, and the API server rejected it at
 # apply (IsNotMoreThan100Percent).
+# API rejects: "spec.minAvailable: Invalid value: "150%": must not be greater than 100%"
 workloads:
   app:
     image: nginx:1.25

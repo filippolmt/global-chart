@@ -1,0 +1,11 @@
+# An extraContainers entry's name is a naming key: it becomes the container
+# name raw, a DNS-1123 label.
+# API rejects: "spec.template.spec.containers[1].name: Invalid value: "Side_Car""
+# naming key: /$defs/container/properties/name
+workloads:
+  app:
+    image: nginx:1.25
+    extraContainers:
+      - name: Side_Car
+        image: busybox:1.36
+        command: ["sleep", "infinity"]

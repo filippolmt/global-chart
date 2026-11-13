@@ -1,5 +1,7 @@
 # A cronjob key is part of the CronJob name and, at workload scope, the
 # container name raw: a DNS-1123 label. `_` is not in it.
+# API rejects: "metadata.name: Invalid value: "api-verdict-global-chart-nightly_report": a lowercase RFC 1123 subdomain must"
+# naming key: /properties/cronJobs/propertyNames
 cronJobs:
   nightly_report:
     image: busybox:1.36

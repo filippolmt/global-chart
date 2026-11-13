@@ -144,6 +144,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   **Migration**: none for a release that installs; such an ExternalSecret
   never applied.
 
+- `rbacs.roles[].name` takes any length (issue #338). The schema capped it at
+  253 characters, while the API server bounds no RBAC name and every other
+  name the Role feeds (RoleBinding, ServiceAccount, hook copies) is
+  truncated: a *naming key* rejects only what could never be applied. The
+  DNS-1123 subdomain pattern stays; ADR 0008 is amended.
 - `make validate-bad-values` checks what a values file renders under
   `--skip-schema-validation`, not only that a `fail` fires (issue #292). A file
   in `tests/bad-values/skip-schema-render/` is rejected by the schema at each
@@ -282,6 +287,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   `autoscaling-unknown-key` gains a CPU target, so the `fail` it pins is the
   `maxReplicas` its typo drops rather than the missing target.
   `check-closure-coverage.py` reads `# covers:` in both directories.
+- `make api-verdict`, a prerequisite of `make e2e` beside `bound-sweep`,
+  renders each `tests/bad-values/schema/` fixture with
+  `--skip-schema-validation` and sends it to a server-side dry run with
+  strict field validation on the kind cluster (issue #287). The verdict must
+  match the fixture's markers: `# API rejects: "<substring>"` lines, each in
+  the API error, or one `# API accepts: <category>: <reason>`, the category
+  one of `dropped`, `chart-rule`, `silent-misrender`, `stricter`. A fixture
+  with a `# naming key: <pointer>` line must be rejected, and every naming
+  key of the schema (a `propertyNames`, or a list item's `name` under a
+  `$ref`: ADR 0008) is marked by at least one fixture.
+  `fullname-override-invalid` and `name-override-invalid` gain a workload:
+  they rendered nothing, so the override never reached the API server.
+  `workload-invalid-name` and `root-hook-type-uppercase` mark the
+  `workloads` key and the root hook type, whose other fixtures the API server
+  accepts (a 58 cap kept for a hook to come, a lowercase typo Helm drops);
+  `workload-extracontainer-invalid-name`, `root-tcproute-rule-invalid-name`,
+  `workload-mountedconfigfile-bundle-file-invalid-name` and
+  `workload-statefulset-claim-invalid-name` mark the list naming keys that had
+  no fixture.
+  `httproute-jwt-provider-name-too-long` holds the provider name cap of #261,
+  tighter than Envoy Gateway's. `bound-sweep.py` and `api-verdict.py` reach
+  the API server through `tests/bad-values/api_server.py`; bound-sweep's dry
+  run now names `--validate=strict`, which kubectl already defaulted to.
 
 ### Migration guide from 4.2.1
 

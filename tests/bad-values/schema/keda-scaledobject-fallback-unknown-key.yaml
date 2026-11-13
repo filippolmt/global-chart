@@ -2,6 +2,7 @@
 # An unknown key under workloads.<name>.keda.fallback (typo of replicas).
 # Without the closure the fallback has no replica count and KEDA rejects it
 # at apply time rather than here.
+# API rejects: "unknown field "spec.fallback.replica""
 workloads:
   web:
     image: nginx:1.25

@@ -1,6 +1,8 @@
 # The name becomes the Role, the RoleBinding and, with no serviceAccount.name,
 # the ServiceAccount `<name>-sa`: a DNS-1123 subdomain. `Reader_Role` renders
 # and passes `helm lint`, then the API server rejects the ServiceAccount.
+# API rejects: "metadata.name: Invalid value: "Reader_Role-sa": a lowercase RFC 1123 subdomain must consist of lower case"
+# naming key: /$defs/rbacs/properties/roles/items/properties/name
 rbacs:
   roles:
     - name: Reader_Role

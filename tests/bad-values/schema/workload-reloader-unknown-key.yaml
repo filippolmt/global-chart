@@ -2,6 +2,7 @@
 # An unknown key under workloads.<name>.reloader (typo of externalSecrets).
 # Without the closure the field is dropped in silence and Reloader never rolls
 # the pods on an ExternalSecret rotation.
+# API accepts: dropped: no template reads the unknown key, so the manifest never carries it
 externalSecrets:
   app-env:
     secretstore: { kind: ClusterSecretStore, name: store }

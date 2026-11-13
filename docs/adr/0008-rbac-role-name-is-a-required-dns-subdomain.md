@@ -22,6 +22,10 @@ whether or not a `serviceAccount` sits next to it.** The SA subdomain is the
 tightest place the value lands; the constraint must not depend on neighbours.
 The name is used verbatim, without the fullname, so unlike the
 `externalSecrets` keys it can carry a real length bound.
+*Amended by issue #338:* the bound is gone. The API server caps no RBAC name
+(a 5000-character Role passes a server-side dry run), and the ServiceAccount,
+the RoleBinding and the hook copies truncate, so no place the name lands in
+rejects a long one; `maxLength: 253` rejected what could be applied.
 
 **No `maxLength: 60`.** A name longer than 60 makes `<name>-sa` truncate to 63,
 a shorter but valid ServiceAccount. The glossary rejects only what could never be

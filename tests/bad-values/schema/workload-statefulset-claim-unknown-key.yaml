@@ -1,6 +1,7 @@
 # covers: volumeClaimTemplate
 # An unknown key under a claim template (typo of storageClassName). Without the
 # constraint the claim takes the default class, and the template is immutable.
+# API accepts: dropped: no template reads the unknown key, so the manifest never carries it
 workloads:
   db:
     kind: StatefulSet

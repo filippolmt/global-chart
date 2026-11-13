@@ -5,6 +5,7 @@
 # constraint the hook Job keeps the default before-hook-creation policy and
 # the intended cleanup never happens.
 # Requires Helm >= 3.18.6: older Helm ignores unevaluatedProperties silently.
+# API accepts: dropped: no template reads the unknown key, so the manifest never carries it
 workloads:
   web:
     image: nginx:1.25

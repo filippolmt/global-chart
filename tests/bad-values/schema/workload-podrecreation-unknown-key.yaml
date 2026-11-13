@@ -2,6 +2,7 @@
 # An unknown key under workloads.<name>.podRecreation (typo of enabled).
 # Without the closure the pods never roll on upgrade, while the values file
 # reads as if they did.
+# API accepts: dropped: no template reads the unknown key, so the manifest never carries it
 workloads:
   web:
     image: nginx:1.25

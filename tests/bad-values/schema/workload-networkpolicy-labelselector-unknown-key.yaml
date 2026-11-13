@@ -1,6 +1,7 @@
 # covers: labelSelector
 # An unknown key in a label selector (typo of matchLabels). Dropped, the
 # selector is empty and matches every pod.
+# API rejects: "unknown field "spec.ingress[0].from[0].podSelector.matchLabel""
 workloads:
   app:
     image: nginx:1.25

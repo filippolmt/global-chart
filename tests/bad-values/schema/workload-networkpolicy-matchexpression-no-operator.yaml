@@ -1,5 +1,6 @@
 # A matchExpressions entry without an operator is rejected by the API server
 # at apply; the schema catches it at lint.
+# API rejects: "spec.ingress[0].from[0].podSelector.matchExpressions[0].operator: Invalid value: "": not a valid selector"
 workloads:
   app:
     image: nginx:1.25

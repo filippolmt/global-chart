@@ -1,5 +1,6 @@
 # A hook weight given as a string that `int` cannot parse used to lint fine and
 # render as weight 0 — silently, on every resource derived from the hook.
+# API accepts: silent-misrender: the API server does not read hook-weight; it rendered "0"
 workloads:
   backend:
     image: myapp:v1

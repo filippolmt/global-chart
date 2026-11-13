@@ -1,5 +1,7 @@
 # A pod condition type's prefix is a DNS subdomain of at most 253 characters;
 # the API server rejects a longer one (issue #282).
+# API rejects: "spec.jobTemplate.spec.podFailurePolicy.rules[0].onPodConditions[0].type: Invalid value"
+# API rejects: "must be no more than 253 bytes"
 cronJobs:
   report:
     schedule: "0 3 * * *"

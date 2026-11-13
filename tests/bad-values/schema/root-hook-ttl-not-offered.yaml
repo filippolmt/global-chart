@@ -1,5 +1,6 @@
 # A hook does not admit ttlSecondsAfterFinished (issue #113); jobSpecVerbatimFields in
 # _job-helpers.tpl records why. Root scope; the workload scope has its own.
+# API accepts: dropped: a hook renders no ttlSecondsAfterFinished
 hooks:
   pre-install:
     migrate:

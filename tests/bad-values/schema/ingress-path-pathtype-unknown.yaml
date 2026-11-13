@@ -1,5 +1,6 @@
 # pathType is an enum on the API server: Exact, Prefix, ImplementationSpecific.
 # A lowercase `prefix` passed lint and was rejected at apply (issue #156).
+# API rejects: "spec.rules[0].http.paths[0].pathType: Unsupported value: "prefix": supported values: "Exact""
 ingress:
   enabled: true
   hosts:

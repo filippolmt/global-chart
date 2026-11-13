@@ -1,5 +1,7 @@
 # A hook key is part of the Job name: a DNS-1123 label, the same rule as at
 # workload scope even though the root scope truncates.
+# API rejects: "metadata.name: Invalid value: "api-verdict-global-chart-pre-install-Migrate": a lowercase RFC 1123 subdomain"
+# naming key: /properties/hooks/additionalProperties/propertyNames
 hooks:
   pre-install:
     Migrate:

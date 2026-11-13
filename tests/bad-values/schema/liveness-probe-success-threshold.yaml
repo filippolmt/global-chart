@@ -1,5 +1,6 @@
 # A liveness probe's successThreshold other than 1: the API server refuses it
 # (issue #226). A readiness probe takes any count.
+# API rejects: "spec.template.spec.containers[0].livenessProbe.successThreshold: Invalid value: 2: must be 1"
 workloads:
   app:
     image: nginx:1.25

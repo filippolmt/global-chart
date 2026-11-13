@@ -1,5 +1,6 @@
 # A job's priorityClassName names an existing PriorityClass: a DNS-1123
 # subdomain. `Batch_Low` renders, lints, and the API server rejects the CronJob.
+# API rejects: "spec.jobTemplate.spec.template.spec.priorityClassName: Invalid value: "Batch_Low": a lowercase RFC 1123"
 workloads:
   main:
     image: nginx:1.25

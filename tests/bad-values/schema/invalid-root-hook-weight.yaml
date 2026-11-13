@@ -1,4 +1,5 @@
 # Same for a root-level hook: .Values.hooks has its own weight declaration.
+# API accepts: silent-misrender: the API server does not read hook-weight; it rendered "0"
 hooks:
   pre-install:
     migrate:

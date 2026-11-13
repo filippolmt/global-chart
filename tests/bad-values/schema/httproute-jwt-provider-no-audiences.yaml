@@ -1,5 +1,6 @@
 # Without an audience, a token issued for another application of the same
 # identity provider passes: the chart requires audiences, Envoy does not.
+# API accepts: stricter: Envoy Gateway accepts no audiences, and a token issued for another application passes (#261)
 httpRoute:
   enabled: true
   parentRefs: [{name: gw}]
