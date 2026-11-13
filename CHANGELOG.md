@@ -34,7 +34,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Changed
 
-- **Breaking: every object carries `metadata.namespace: <release namespace>`**
+- **Breaking (BC break): every object carries `metadata.namespace: <release namespace>`**
   (issue #323). Only the ServiceAccounts, Roles and RoleBindings carried it,
   so `helm template` piped to `kubectl apply -n <ns>` put the workloads in
   `<ns>` and their ServiceAccounts in the namespace `helm template` was given
@@ -82,7 +82,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   from the manifest in silence; the schema and the API server reject it. A
   null stays unset. **Migration**: drop `rollingUpdate`, or set
   `type: RollingUpdate`.
-- **Breaking: a volume with no source besides its `name` fails the render**
+- **Breaking (BC break): a volume with no source besides its `name` fails the render**
   (issue #300), naming `<owner>.volumes[<i>]`, on a workload, a hook or a
   cronjob: a volume source is a map, so a null source, or a scalar such as
   `readOnly: true` beside the name, is none. A volume with nothing but its name
@@ -323,6 +323,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   tighter than Envoy Gateway's. `bound-sweep.py` and `api-verdict.py` reach
   the API server through `tests/bad-values/api_server.py`; bound-sweep's dry
   run now names `--validate=strict`, which kubectl already defaulted to.
+- Release guardrails from the #287/#236 retro. `make release` refuses a major
+  that still declares keys `removed in` an earlier major in
+  `values.schema.json` (5.0.0 was about to ship the 4.0.0 declarations), and a
+  non-major over a *BC break*: values or a deploy flow that installed with the
+  last release and fail now. `make bc-check`, a prerequisite of `make e2e`,
+  renders every `tests/bad-values/` fixture with the last release's chart under
+  `validate-bad-values`' release name and dry-runs it: one that installed then
+  carries `# BC break: <release>`. A break with no fixture says `BC break` in
+  its Breaking entry, which the two 4.x entries of #323 and #300 now do.
+  `api-verdict` takes a `# naming key:` pointer only on a naming key
+  (`serviceAccount.name`, a name given as a value, is none), the GLOSSARY says
+  so, and CODING_STANDARDS asks a bound an ADR decided to cite it. `make
+  mutate` says when a `$$` was the reason FROM matched nothing, and
+  `tests/e2e/README.md` that a new worktree has no kubeconfig yet.
 
 ### Migration guide from 4.2.1
 

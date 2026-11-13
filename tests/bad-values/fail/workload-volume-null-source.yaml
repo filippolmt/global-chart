@@ -3,6 +3,7 @@
 # makes the volume an emptyDir in silence, so a configMap mount would be an
 # empty directory. renderVolume fails naming the volume.
 # Expected fail substring: "workloads.web.volumes[0]: names no volume source;"
+# BC break: 4.2.1
 workloads:
   web:
     image: nginx:1.25

@@ -158,7 +158,7 @@ TEST_CASES := \
 .PHONY: help scenarios all check lint-chart render-diff mutate lint-templates lint-docs lint-shell lint-glossary lint-inheritance lint-checks lint-labels unit-test null-sweep null-sweep-preflight scenario-coverage schema-descriptions schema-bounds lint-release release validate-bad-values generate-templates \
 	kubeconform kube-linter-manifests kube-linter generate-docs package \
 	install install-test01 render clean clean-all \
-	kind-install kind-cluster kind-keda kind-eso kind-gateway-api kind-envoy-gateway kind-argocd kind-delete e2e e2e-dryrun bound-sweep api-verdict e2e-routes e2e-argocd check-helm-floor helm-floor-image ci-images
+	kind-install kind-cluster kind-keda kind-eso kind-gateway-api kind-envoy-gateway kind-argocd kind-delete e2e e2e-dryrun bound-sweep api-verdict bc-check e2e-routes e2e-argocd check-helm-floor helm-floor-image ci-images
 
 # ============================================================================
 # Help
@@ -268,7 +268,7 @@ lint-release: ## Chart.yaml's version is the CHANGELOG's last release, or the re
 	@python3 tests/check-release.py --self-test
 	@python3 tests/check-release.py CHANGELOG.md ./$(CHART_DIR)/$(GLOBAL_CHART_NAME)/Chart.yaml $(or $(RELEASE_BASE),origin/main)
 
-release: ## The release PR's edit: VERSION=x.y.z renames [Unreleased], bumps Chart.yaml, regenerates the README; refuses a non-major over a Removed section
+release: ## The release PR's edit: VERSION=x.y.z renames [Unreleased], bumps Chart.yaml, regenerates the README; refuses a non-major over a Removed section or a BC break, and a major that still declares an earlier major's removed keys
 	@[ -n "$(VERSION)" ] || { echo "    FAIL: VERSION: not set; make release VERSION=x.y.z"; exit 1; }
 	@python3 tests/check-release.py --bump $(VERSION) CHANGELOG.md ./$(CHART_DIR)/$(GLOBAL_CHART_NAME)/Chart.yaml
 	@$(MAKE) --no-print-directory generate-docs
@@ -598,6 +598,11 @@ api-verdict: kind-cluster kind-keda kind-eso kind-gateway-api kind-envoy-gateway
 	@KUBECONFIG=$(KIND_KUBECONFIG) python3 tests/bad-values/api-verdict.py ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) \
 		tests/bad-values/schema/*.yaml -- $(HELM_API_VERSIONS)
 
+bc-check: kind-cluster kind-keda kind-eso kind-gateway-api kind-envoy-gateway ## Every bad-values fixture that installed with the last release carries `# BC break: <release>`, which makes the release a major
+	@echo "==> Checking the fixtures against the last release..."
+	@KUBECONFIG=$(KIND_KUBECONFIG) python3 tests/bad-values/bc-check.py ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) CHANGELOG.md \
+		tests/bad-values/*/*.yaml -- $(HELM_API_VERSIONS)
+
 e2e-routes: e2e-dryrun ## Alias of e2e-dryrun, which sends every route along with the rest
 
 kind-argocd: kind-cluster ## Install Argo CD (core) into the e2e kind cluster
@@ -635,7 +640,7 @@ check-helm-floor: kind-cluster ## Assert NOTES.txt warns on a Helm below 3.18.6
 		|| { echo "FAIL: NOTES.txt did not warn on $(HELM_FLOOR_IMAGE)"; exit 1; }
 	@echo "    warning shown below the floor"
 
-e2e: kind-cluster kind-keda kind-eso check-helm-floor e2e-dryrun bound-sweep api-verdict ## Install/upgrade/rollback/uninstall tests/e2e/values.yaml on kind and assert the hook lifecycle
+e2e: kind-cluster kind-keda kind-eso check-helm-floor e2e-dryrun bound-sweep api-verdict bc-check ## Install/upgrade/rollback/uninstall tests/e2e/values.yaml on kind and assert the hook lifecycle
 	@set -e; \
 	export KUBECONFIG=$(KIND_KUBECONFIG); \
 	ns=$(E2E_NAMESPACE); rel=$(E2E_RELEASE); \

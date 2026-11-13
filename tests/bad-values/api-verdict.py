@@ -15,9 +15,10 @@ validation; its verdict must match the markers it carries:
 - `# naming key: <schema pointer>`: the fixture sets a naming key (GLOSSARY.md),
   which rejects only what could never be applied: the API server must reject it,
   and an `# API accepts:` line on it is a FAIL.
-  Every naming key of the schema (a propertyNames, or a list item's `name`
-  under a `$ref`: ADR 0008) is marked by at least one fixture, so a naming key
-  added to the schema comes with one.
+  Every naming key of the schema (a propertyNames, a list item's `name` under
+  a `$ref`, or a name override: ADR 0008) is marked by at least one fixture, so
+  a naming key added to the schema comes with one, and a marked pointer that is
+  none (a name given as a value, `serviceAccount.name`) fails.
 
 A fixture with no verdict marker fails with the verdict the cluster gave, so the
 markers are written from a run. A line that reads as a marker and matches none
@@ -102,11 +103,16 @@ def judge(accepts, rejects, naming, error):
     return problems
 
 
+NAME_OVERRIDES = {"/properties/nameOverride", "/properties/fullnameOverride"}
+
+
 def naming_key_gaps(schema, texts):
-    """Every naming key of the schema that no fixture marks as one. A naming key (ADR 0008) is a
-    propertyNames, or the `name` of a list item that a `$ref` constrains (`rbacs.roles[].name`);
-    an item that is itself a `$ref` counts at its target (`/$defs/container/properties/name`)."""
-    declared = set()
+    """Every naming key of the schema that no fixture marks as one, and every marked pointer that is
+    none. A naming key (ADR 0008, GLOSSARY.md) is a propertyNames, the `name` of a list item that a
+    `$ref` constrains (`rbacs.roles[].name`), or a name override (NAME_OVERRIDES); an item that is
+    itself a `$ref` counts at its target (`/$defs/container/properties/name`). A name given as a
+    value (`serviceAccount.name`, `service.portName`) is none."""
+    declared = set(NAME_OVERRIDES)
 
     def walk(node, pointer):
         if isinstance(node, dict):
@@ -125,7 +131,9 @@ def naming_key_gaps(schema, texts):
     walk(schema, "")
     marked = {p for t in texts for p in NAMING.findall(t)}
     return [f"{p}: a naming key no fixture marks; add a schema/ fixture the API server rejects for it, "
-            f"with `# naming key: {p}`" for p in sorted(declared - marked)]
+            f"with `# naming key: {p}`" for p in sorted(declared - marked)] + \
+           [f"{p}: marked `# naming key:`, and it is none: a name given as a value (ADR 0008); drop the line"
+            for p in sorted(marked - declared)]
 
 
 def check(chart, flags, schema, fixture):

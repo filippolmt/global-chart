@@ -12,9 +12,15 @@ a subcommand that talks to a cluster, in a command that does not name
 --client`, `--help`, offline helm (template, lint, unittest, show, repo…), and
 every make target.
 
+A backtick or `$(` inside single quotes substitutes nothing, so a call it
+opens there is text (a sed replacement, a PR body), not a call: the #287
+session had a commit blocked by one.
+
 shortcut: the kubeconfig is looked for anywhere in the command, not in the
 call's own segment; parse the shell segments if a command ever mixes a pinned
-call with an unpinned one.
+call with an unpinned one. shortcut: quoting is read without escapes, and a
+backtick inside single quotes handed to `sh -c` would run; parse the quoting
+if either ever matters.
 
 Usage: kind-kubeconfig-only.py            (hook input as JSON on stdin)
        kind-kubeconfig-only.py --self-test
@@ -33,10 +39,24 @@ HELM_CLUSTER = {"install", "upgrade", "rollback", "uninstall", "delete", "del", 
 KUBECTL_LOCAL = {"config", "completion"}
 
 
+def in_single_quotes(command, pos):
+    """Whether pos sits inside a single-quoted string (no escapes read)."""
+    quote = None
+    for c in command[:pos]:
+        if quote is None and c in "'\"":
+            quote = c
+        elif c == quote:
+            quote = None
+    return quote == "'"
+
+
 def reason(command):
     if KIND_KUBECONFIG in command:
         return None
     for m in CALL.finditer(command):
+        opener = command[m.start():m.start() + 2]
+        if (opener[:1] == "`" or opener == "$(") and in_single_quotes(command, m.start()):
+            continue
         tool, words = m.group(1), m.group(2).split()
         args = [w for w in words if not w.startswith("-")]
         if "--help" in words or "-h" in words or args[:1] == ["help"]:
@@ -58,13 +78,14 @@ def self_test():
                "helm install x charts/global-chart", "cd /x && helm upgrade --install a b",
                "/usr/local/bin/kubectl --context prod get ns", "helm -n ns status x",
                "make check && KUBECONFIG=~/.kube/config kubectl get ns", "echo $(kubectl get ns)",
-               "sudo kubectl delete ns x"]
+               "sudo kubectl delete ns x", "bash -c 'x; kubectl get ns'", 'echo "`kubectl get ns`"']
     allowed = ["kubectl --kubeconfig .bin/kind-kubeconfig get pods",
                "KUBECONFIG=.bin/kind-kubeconfig helm status x", "kubectl config get-contexts",
                "kubectl version --client", "helm template x charts/global-chart",
                "helm lint charts/global-chart", "make e2e", "kubectl get --help",
                "git commit -m 'kubectl-free'", "grep -n kubectl tests/e2e/README.md",
-               "rg 'helm install' docs/"]
+               "rg 'helm install' docs/", "sed -i 's/x/`kubectl --dry-run=server` y/' f",
+               "printf '%s' '$(kubectl get ns)'"]
     for c in blocked:
         assert reason(c), f"not blocked: {c}"
     for c in allowed:

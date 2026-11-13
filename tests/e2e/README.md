@@ -150,6 +150,10 @@ selected** — it can be production. `make e2e` pins `KUBECONFIG` to
 that way. A one-off probe of the e2e cluster (a `kubectl` server-side dry run,
 a `helm get`) names it the same way, never through the default context:
 `kubectl --kubeconfig .bin/kind-kubeconfig --context kind-global-chart-e2e …`.
+A new worktree has no `.bin/kind-kubeconfig` (`.bin/` is gitignored and not
+copied): any cluster target, `make kind-cluster` for one, writes it and reuses
+the one kind cluster every worktree shares; a probe before that fails on
+`stat .bin/kind-kubeconfig`.
 The project hook `.claude/hooks/kind-kubeconfig-only.py` blocks an agent's
 `kubectl` or cluster `helm` call that does not name that kubeconfig (a dry run
 went to the default context in the #254 session). The target also repoints the API server at the control-plane
