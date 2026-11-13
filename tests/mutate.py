@@ -39,7 +39,8 @@ def mutate(path, old, new, command):
         return False, f"cannot read {path}: {e}", ""
     count = original.count(old.encode())
     if count != 1:
-        return False, f"{path}: FROM occurs {count} times, not once: the mutation would prove nothing", ""
+        hint = " (FROM has a `$$`: make passes it on literally, write one `$`)" if "$$" in old else ""
+        return False, f"{path}: FROM occurs {count} times, not once: the mutation would prove nothing{hint}", ""
     code, tail = run(command)
     if code is None:
         return False, tail, ""

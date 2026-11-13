@@ -1787,7 +1787,7 @@
             "type": "object",
             "required": ["name", "rules"],
             "properties": {
-              "name": { "description": "The Role's name, used verbatim. The RoleBinding is <name>-rolebinding, a trailing -role dropped, and the default ServiceAccount <name>-sa, both truncated to 63 characters; a name landing on another the chart renders is a render fail. No length cap: the API server bounds no RBAC name (issue #338), and every other name the Role feeds is truncated.", "$ref": "#/$defs/dns1123Subdomain" },
+              "name": { "description": "The Role's name, used verbatim. The RoleBinding is <name>-rolebinding, a trailing -role dropped, and the default ServiceAccount <name>-sa, both truncated to 63 characters; a name landing on another the chart renders is a render fail. A naming key (ADR 0008). No length cap: the API server bounds no RBAC name (issue #338), and every other name the Role feeds is truncated.", "$ref": "#/$defs/dns1123Subdomain" },
               "serviceAccount": { "description": "The ServiceAccount the Role is bound to, created as <name>-sa by default; {} is enough to declare it. With create: false it binds an existing one, <name>-sa unless name is set. Without this key no ServiceAccount and no RoleBinding are rendered.", "$ref": "#/$defs/serviceAccount" },
               "rules": {
                 "description": "The Role's PolicyRules, rendered verbatim; the hook-prerequisite copy grants the same ones.",

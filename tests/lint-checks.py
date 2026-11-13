@@ -35,6 +35,7 @@ PROBES = {
     "tests/bad-values/null-sweep.py": [MISSING, MISSING],
     "tests/bad-values/bound-sweep.py": [MISSING, MISSING],
     "tests/bad-values/api-verdict.py": [MISSING, MISSING],
+    "tests/bad-values/bc-check.py": [MISSING, MISSING, MISSING],
     "tests/render-diff.py": ["refs/nonexistent-lint-checks"],
     "tests/mutate.py": [MISSING, "from", "to", "true"],
     "tests/tools/schema-describe.py": [MISSING, MISSING],

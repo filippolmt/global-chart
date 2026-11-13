@@ -182,6 +182,13 @@ where the API server defaults a field the OpenAPI schema requires
 description says why. A bound tighter than both is a choice its description
 states.
 
+**A bound an ADR decided names it in its description.** A `maxLength`,
+`pattern` or `minimum` chosen by an ADR, rather than mirrored from the API
+server, cites the ADR (and the issue that changed it) in the field's
+description: whoever changes the bound reads the decision first. The review
+asks for the citation on every bound the diff adds, removes or loosens
+(issue #338 dropped the cap ADR 0008 chose, and amended it only afterwards).
+
 **One home per enumeration.** A list of things that more than one template
 reads (kinds, fields, ports, hooks, active targets) lives in one helper, and
 every reader ranges over it: `l4RouteKinds`, `prereqCopyHooks`,

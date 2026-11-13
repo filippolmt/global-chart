@@ -37,7 +37,14 @@ top; one in any other form fails, rather than drop out of the release order.
 `[Unreleased]` to `[x.y.z] — <today>` and sets Chart.yaml's version. It refuses
 when the two files already disagree, when `[Unreleased]` holds no entry, a
 version not above the last release, and a non-major one when the section
-carries `### Removed`: a key is removed only in a major (ADR 0022).
+carries `### Removed`: a key is removed only in a major (ADR 0022). It refuses
+a non-major too over a *BC break*: values or a deploy flow that installed with
+the last release and fail now, stated by `BC break` in `[Unreleased]` or by a
+`# BC break: <last release>` line in a tests/bad-values/ fixture (make bc-check
+holds the fixtures to the cluster). And it refuses a major while
+values.schema.json still declares a key `removed in <an earlier major>`:
+phase 3 of the removal rule undeclares it then (ADR 0022; #236 found 5.0.0
+about to ship the 4.0.0 declarations).
 
 shortcut: a pre-release (x.y.z-rc.1) is refused, as a VERSION and as a
 heading: the chart has never published one; accept SemVer's pre-release form
@@ -218,7 +225,12 @@ def unmarked_breaking(changelog, chart_file):
     return breaking_problems(changelog, fail_calls(release_templates(chart_file, secs[1][0])), fail_calls(now))
 
 
-def bump(changelog, chart, version, today):
+BC_BREAK = re.compile(r"^# BC break: (\S+)$", re.M)
+REMOVED_IN = re.compile(r"removed in (\d+)\.0\.0")
+
+
+def bump(changelog, chart, version, today, schema="", fixtures=()):
+    """fixtures: (path, text) of the tests/bad-values/ files; schema: values.schema.json's text."""
     new = semver(version, "VERSION")
     drift = problems(changelog, chart)
     if drift:
@@ -231,9 +243,20 @@ def bump(changelog, chart, version, today):
         raise Failure("CHANGELOG.md: [Unreleased] holds no entry: nothing to release")
     if new <= semver(last, "CHANGELOG.md"):
         raise Failure(f"VERSION: {version} is not above the last release, {last}")
-    if re.search(r"^### Removed\b", body, re.M) and new[0] == semver(last, "CHANGELOG.md")[0]:
+    same_major = new[0] == semver(last, "CHANGELOG.md")[0]
+    if re.search(r"^### Removed\b", body, re.M) and same_major:
         raise Failure(f"VERSION: [Unreleased] carries `### Removed`, and a key is removed only in a major "
                       f"(ADR 0022): {version} keeps the major of {last}")
+    breaks = (["[Unreleased] says `BC break`"] if "BC break" in body else []) + \
+        [str(path) for path, text in fixtures if last in BC_BREAK.findall(text)]
+    if breaks and same_major:
+        raise Failure(f"VERSION: a BC break, values that installed with {last} and fail now, takes a major: "
+                      f"{version} keeps the major of {last} ({', '.join(breaks)})")
+    stale = sorted({int(m) for m in REMOVED_IN.findall(schema) if int(m) < new[0]})
+    if stale:
+        raise Failure(f"values.schema.json: still declares keys removed in "
+                      f"{', '.join(f'{m}.0.0' for m in stale)}; at {version} they go with their fail and "
+                      "fixtures (ADR 0022, phase 3 of the removal rule)")
     changelog = f"{changelog[:heading.start()]}## [{version}] — {today}{changelog[heading.end():]}"
     v = chart_version(chart)
     chart = f"{chart[:v.start(1)]}{version}{chart[v.end(1):]}"
@@ -269,6 +292,16 @@ def self_test():
     for v, why in (("1.2.0", "not above"), ("1.3.0", "removed in a minor"), ("1.2", "not x.y.z")):
         assert fails(bump, removed, chart, v, "2026-02-03"), f"bump {v} accepted: {why}"
     assert "## [2.0.0]" in bump(removed, chart, "2.0.0", "2026-02-03")[0]
+    declared = '{"k": {"description": "removed in 1.0.0, issue #1: use j."}}'
+    assert fails(bump, log(unreleased, r120), chart, "2.0.0", "2026-02-03", declared), "a major keeping old removed keys"
+    assert bump(log(unreleased, r120), chart, "1.3.0", "2026-02-03", declared), "a minor keeps them, as it should"
+    bc = [(pathlib.Path("f.yaml"), "# BC break: 1.2.0\nk: v\n")]
+    assert fails(bump, log(unreleased, r120), chart, "1.3.0", "2026-02-03", "", bc), "a fixture BC break in a minor"
+    assert bump(log(unreleased, r120), chart, "2.0.0", "2026-02-03", "", bc), "a fixture BC break in a major"
+    assert bump(log(unreleased, r120), chart, "1.3.0", "2026-02-03", "", [(bc[0][0], "# BC break: 1.1.0\n")]), \
+        "a BC break of an earlier release is history"
+    bc_entry = f"{unreleased}\n\n### Changed\n\n- **Breaking (BC break): x** y\n\n{r120}\n"
+    assert fails(bump, bc_entry, chart, "1.3.0", "2026-02-03"), "a BC break entry in a minor"
     assert fails(bump, f"{unreleased}\n\n{r120}\n", chart, "1.3.0", "2026-02-03"), "an empty [Unreleased]"
     assert fails(bump, log(unreleased, r120), "version: 1.1.0\n", "1.3.0", "2026-02-03"), "a drift"
     assert fails(bump, log(unreleased, r120), chart, "1.3.0-rc.1", "2026-02-03"), "a pre-release"
@@ -307,8 +340,11 @@ def main(argv):
         return self_test()
     if len(argv) == 4 and argv[0] == "--bump":
         version, paths = argv[1], [pathlib.Path(p) for p in argv[2:]]
+        schema = paths[1].with_name("values.schema.json")
+        fixtures = [(f, f.read_text()) for f in sorted(paths[0].parent.glob("tests/bad-values/*/*.yaml"))]
         changelog, chart = bump(paths[0].read_text(), paths[1].read_text(), version,
-                                datetime.date.today().isoformat())
+                                datetime.date.today().isoformat(),
+                                schema.read_text() if schema.is_file() else "", fixtures)
         # both written beside their target first, then renamed: a failed write leaves neither file half-bumped
         for path, text in zip(paths, (changelog, chart)):
             path.with_name(path.name + ".release-tmp").write_text(text)
