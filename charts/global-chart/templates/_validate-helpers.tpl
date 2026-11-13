@@ -17,8 +17,8 @@ checks every fail against them: change both.
 {{/*
 The values path of a map entry: "<map path>.<key>", the key alone at the
 root (an empty map path). The single home of that join for the walks over
-values maps. Read only by rejectRemovedKeys, checkValueType, rejectNullInLists
-and rejectNullItemsAt.
+values maps. Read only by checkValueType, rejectNullInLists and
+rejectNullItemsAt.
 Usage: {{ include "global-chart.childValuesPath" (list $errCtx $key) }}
 */}}
 {{- define "global-chart.childValuesPath" -}}
@@ -35,157 +35,6 @@ workloads.{{ . }}
 {{- end }}
 
 {{/*
-Fail on every key removed in 4.0.0, wherever it sits and whether or not its
-surface renders: a disabled Ingress, HTTPRoute or workload would carry the old
-key into the next enable (ADR 0023). The one home of that walk and of its
-message, called first from validate/validate.yaml, the first template Helm
-renders (see its header). Each key
-stays declared in the schema with no constraint, so any value reaches its fail
-(ADR 0022); the walk, the declarations and the fixtures go in 5.0.0. A node of
-the wrong type is skipped: the schema, or validateValueTypes right after,
-rejects it.
-  `deployments`                                 → workloads, with the migration guide (issue #221)
-  <hook or cronjob>.fromDeployment              → fromWorkload (issue #221)
-  <hook or cronjob>.inheritDeployment*          → inheritWorkload* (issue #221)
-    at the scope a job key never had, the replacement names the scope it belongs to
-  <ingress host or route backendRef>.deployment → workload (issue #221)
-  <pod spec>.volumes[<i>].type, .secret.name, .persistentVolumeClaim.name
-                                                → the native volume source (issue #230)
-Usage: {{- include "global-chart.validateRemovedKeys" . -}}
-*/}}
-{{- define "global-chart.validateRemovedKeys" -}}
-{{- $v := .Values -}}
-{{- $in := "4.0.0" -}}
-{{- $see := printf "%s/blob/main/CHANGELOG.md#migration-guide-from-3x" .Chart.Home -}}
-{{- include "global-chart.rejectRemovedKeys" (dict "map" $v "errCtx" "" "in" $in "keys" (dict "deployments" "workloads") "see" $see) -}}
-{{- $from := dict "fromDeployment" "fromWorkload" -}}
-{{- $inherit := dict "inheritDeploymentConfigMap" "inheritWorkloadConfigMap" "inheritDeploymentSecret" "inheritWorkloadSecret" "inheritDeploymentEnvFromConfigMaps" "inheritWorkloadEnvFromConfigMaps" "inheritDeploymentEnvFromSecrets" "inheritWorkloadEnvFromSecrets" -}}
-{{- $backend := dict "deployment" "workload" -}}
-{{- /* Both job key families at both scopes: the schema rejects one at the
-       wrong scope, and --skip-schema-validation would let it pass in silence.
-       There the replacement names the scope it belongs to, since it is no
-       more valid where the old key sat */ -}}
-{{- $inheritAtRoot := dict -}}
-{{- range $old, $new := $inherit -}}
-  {{- $_ := set $inheritAtRoot $old (printf "%s on a workload-scope job; a root-scope job inherits nothing" $new) -}}
-{{- end -}}
-{{- $rootJobKeys := merge (dict) $from $inheritAtRoot -}}
-{{- $workloadJobKeys := merge (dict "fromDeployment" "fromWorkload on a root-scope job; a workload-scope job takes its workload's image") $inherit -}}
-{{- include "global-chart.rejectRemovedJobKeys" (dict "cronJobs" $v.cronJobs "hooks" $v.hooks "in" $in "see" $see "keys" $rootJobKeys) -}}
-{{- if kindIs "map" $v.workloads -}}
-  {{- range $name, $w := $v.workloads -}}
-    {{- if kindIs "map" $w -}}
-      {{- include "global-chart.rejectRemovedVolumeKeys" (dict "volumes" $w.volumes "errCtx" (include "global-chart.deploymentValuesPath" $name) "in" $in "see" $see) -}}
-      {{- include "global-chart.rejectRemovedJobKeys" (dict "cronJobs" $w.cronJobs "hooks" $w.hooks "deploymentName" $name "in" $in "see" $see "keys" $workloadJobKeys) -}}
-    {{- end -}}
-  {{- end -}}
-{{- end -}}
-{{- if and (kindIs "map" $v.ingress) (kindIs "slice" $v.ingress.hosts) -}}
-  {{- range $i, $host := $v.ingress.hosts -}}
-    {{- include "global-chart.rejectRemovedKeys" (dict "map" $host "errCtx" (printf "ingress.hosts[%d]" $i) "in" $in "keys" $backend) -}}
-  {{- end -}}
-{{- end -}}
-{{- /* httpRoute is one route, httpRoutes and the l4RouteKinds fields maps of
-       them: every backendRef of every rule, enabled or not */ -}}
-{{- $routes := dict -}}
-{{- if kindIs "map" $v.httpRoute -}}
-  {{- $_ := set $routes "httpRoute" $v.httpRoute -}}
-{{- end -}}
-{{- $maps := list "httpRoutes" -}}
-{{- range (include "global-chart.l4RouteKinds" . | fromJsonArray) -}}
-  {{- $maps = append $maps .field -}}
-{{- end -}}
-{{- range $field := $maps -}}
-  {{- $entries := index $v $field -}}
-  {{- if kindIs "map" $entries -}}
-    {{- range $name, $route := $entries -}}
-      {{- $_ := set $routes (printf "%s.%s" $field $name) $route -}}
-    {{- end -}}
-  {{- end -}}
-{{- end -}}
-{{- range $ctx, $route := $routes -}}
-  {{- if and (kindIs "map" $route) (kindIs "slice" $route.rules) -}}
-    {{- range $r, $rule := $route.rules -}}
-      {{- if and (kindIs "map" $rule) (kindIs "slice" $rule.backendRefs) -}}
-        {{- range $b, $ref := $rule.backendRefs -}}
-          {{- include "global-chart.rejectRemovedKeys" (dict "map" $ref "errCtx" (printf "%s.rules[%d].backendRefs[%d]" $ctx $r $b) "in" $in "keys" $backend) -}}
-        {{- end -}}
-      {{- end -}}
-    {{- end -}}
-  {{- end -}}
-{{- end -}}
-{{- end }}
-
-{{/*
-validateRemovedKeys over the hooks and cronJobs of one scope: deploymentName
-empty at root scope, the workload's key at workload scope (jobValuesPath).
-keys are the removed job keys; the volume keys apply too.
-*/}}
-{{- define "global-chart.rejectRemovedJobKeys" -}}
-{{- $args := . -}}
-{{- $jobs := list -}}
-{{- if kindIs "map" .cronJobs -}}
-  {{- range $name, $job := .cronJobs -}}
-    {{- $jobs = append $jobs (dict "job" $job "errCtx" (include "global-chart.jobValuesPath" (dict "kind" "cronjob" "deploymentName" $args.deploymentName "jobName" $name))) -}}
-  {{- end -}}
-{{- end -}}
-{{- if kindIs "map" .hooks -}}
-  {{- range $type, $byName := .hooks -}}
-    {{- if kindIs "map" $byName -}}
-      {{- range $name, $job := $byName -}}
-        {{- $jobs = append $jobs (dict "job" $job "errCtx" (include "global-chart.jobValuesPath" (dict "kind" "hook" "deploymentName" $args.deploymentName "hookType" $type "jobName" $name))) -}}
-      {{- end -}}
-    {{- end -}}
-  {{- end -}}
-{{- end -}}
-{{- range $jobs -}}
-  {{- include "global-chart.rejectRemovedKeys" (dict "map" .job "errCtx" .errCtx "in" $args.in "keys" $args.keys) -}}
-  {{- if kindIs "map" .job -}}
-    {{- include "global-chart.rejectRemovedVolumeKeys" (dict "volumes" .job.volumes "errCtx" .errCtx "in" $args.in "see" $args.see) -}}
-  {{- end -}}
-{{- end -}}
-{{- end }}
-
-{{/*
-validateRemovedKeys over the volumes of one pod spec, errCtx its owner's path
-(issue #230): the legacy `type`, of any value, and the `name` aliases of
-secret and persistentVolumeClaim.
-*/}}
-{{- define "global-chart.rejectRemovedVolumeKeys" -}}
-{{- $args := . -}}
-{{- if kindIs "slice" .volumes -}}
-  {{- range $i, $vol := .volumes -}}
-    {{- $ctx := printf "%s.volumes[%d]" $args.errCtx $i -}}
-    {{- include "global-chart.rejectRemovedKeys" (dict "map" $vol "errCtx" $ctx "in" $args.in "keys" (dict "type" "the native volume source without type (emptyDir: {}, configMap.name, secret.secretName, persistentVolumeClaim.claimName)") "see" $args.see) -}}
-    {{- if kindIs "map" $vol -}}
-      {{- range $key, $field := dict "secret" "secretName" "persistentVolumeClaim" "claimName" -}}
-        {{- include "global-chart.rejectRemovedKeys" (dict "map" (get $vol $key) "errCtx" (printf "%s.%s" $ctx $key) "in" $args.in "keys" (dict "name" (printf "%s.%s" $key $field))) -}}
-      {{- end -}}
-    {{- end -}}
-  {{- end -}}
-{{- end -}}
-{{- end }}
-
-{{/*
-Fail on the first of keys (old → replacement) that map carries:
-"<values path>: removed in <in>, use <replacement>", and "; see <see>" when
-the replacement takes more than a key to explain (CODING_STANDARDS.md). A map
-of another type carries no key. Read only by validateRemovedKeys and its two
-helpers above, rejectRemovedJobKeys and rejectRemovedVolumeKeys.
-*/}}
-{{- define "global-chart.rejectRemovedKeys" -}}
-{{- $args := . -}}
-{{- if kindIs "map" .map -}}
-  {{- range $old, $new := .keys -}}
-    {{- if hasKey $args.map $old -}}
-      {{- $path := include "global-chart.childValuesPath" (list $args.errCtx $old) -}}
-      {{- fail (printf "%s: removed in %s, use %s%s" $path $args.in $new (ternary (printf "; see %s" $args.see) "" (hasKey $args "see"))) -}}
-    {{- end -}}
-  {{- end -}}
-{{- end -}}
-{{- end }}
-
-{{/*
 Fail on a values node of the wrong type where a template reads into it,
 naming its path (issue #235): `<values path>: a number, where the chart reads
 a map`. The schema rejects every such node; under --skip-schema-validation a
@@ -198,9 +47,9 @@ wrong render: a passthrough node the chart hands to passthroughYaml unread
 (tolerations, resources, a container list) stays out, as its wrong type
 renders and the API server rejects it. Each node reads exactly the types the
 schema accepts there, null aside, or a valid value fails (an imagePullSecrets
-item is a map or a string). Called second from validate/validate.yaml, after
-validateRemovedKeys, so the helpers every later check and template reads may
-take these types for granted; they stay unguarded. A null is skipped: a null
+item is a map or a string). Called first from validate/validate.yaml, so the
+helpers every later check and template reads may take these types for
+granted; they stay unguarded. A null is skipped: a null
 map value is unset (issue #198), a null list item validateNullItems'.
 `make null-sweep-preflight` holds valuesShape to the schema and checks the
 nullItemFields and scenario pod-spec-owner contracts. `make null-sweep` runs

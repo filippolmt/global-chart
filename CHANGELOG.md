@@ -160,6 +160,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   `[Unreleased]` as it is at the merge-base with `RELEASE_BASE` (default
   `origin/main`): a test-only change is logged too (#292 retro).
 
+### Removed
+
+- **Breaking: the keys removed in 4.0.0 are unknown keys** (issue #236, ADR
+  0022). `deployments`, `fromDeployment`, the four `inheritDeployment*`
+  toggles, the backend key `deployment`, and a volume's `type`,
+  `secret.name` and `persistentVolumeClaim.name` stayed declared through 4.x
+  so a template `fail` could name their replacement. The walk, the
+  declarations and their fixtures are gone: the schema's closure now rejects
+  such a key without naming the replacement. On the open volume surface,
+  `secret.name` and `persistentVolumeClaim.name` reach the manifest, where the
+  API server's strict field validation rejects them, and a volume with only
+  `type` fails as naming no source.
 ### Fixed
 
 - A null map value on a passthrough surface renders as the key removed
@@ -313,6 +325,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Migration guide from 4.2.1
 
+- A key removed in 4.0.0 is now an unknown key, and its error no longer names
+  the replacement. Rename it as the *Migration guide from 3.x* in 4.0.0 says;
+  a values file 4.x accepted needs no change.
 - Nothing to change for existing values: the new `fail`s read
   `podFailurePolicy`, which 4.2.1 rejected. A cronjob with `restartPolicy: OnFailure` that adopts
   `podFailurePolicy` moves to `Never`: a failed container then starts a new

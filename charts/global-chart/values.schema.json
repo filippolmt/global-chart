@@ -12,7 +12,6 @@
       "description": "Replaces the fullname that heads every generated name. A DNS-1123 subdomain, the loosest name it reaches; the stricter labels it can reach are checked at render time, where the release name is visible (issue #120). The empty string means no override.",
       "anyOf": [{ "const": "" }, { "$ref": "#/$defs/dns1123Subdomain" }]
     },
-    "deployments": { "description": "removed in 4.0.0, issue #221: use workloads." },
     "workloads": {
       "description": "The workloads of the release, keyed by name. Each entry renders a Deployment, or a StatefulSet with kind: StatefulSet, with its Service, ServiceAccount, ConfigMap, Secret, HPA, PDB and NetworkPolicy, named <fullname>-<key>.",
       "type": "object",
@@ -197,26 +196,13 @@
       "additionalProperties": false
     },
     "volumes": {
-      "description": "Kubernetes volumes, each a native volume source. Open: about thirty volume sources, and the list grows (ADR 0017). Each item declares the fields a template reads: name (renderVolume and the externalSecrets volume collision check) and the keys removed in 4.0.0 that renderVolume rejects naming their replacement (ADR 0022).",
+      "description": "Kubernetes volumes, each a native volume source. Open: about thirty volume sources, and the list grows (ADR 0017). Each item declares the fields a template reads: name (renderVolume and the externalSecrets volume collision check).",
       "type": "array",
       "items": {
         "type": "object",
         "required": ["name"],
         "properties": {
-          "name": { "description": "Name of the pod volume, which a volumeMounts item mounts. Unique within the pod, generated volumes included.", "type": "string", "minLength": 1 },
-          "type": { "description": "removed in 4.0.0, issue #183: write the native volume source." },
-          "secret": {
-            "description": "A native secret volume source, rendered verbatim.",
-            "properties": {
-              "name": { "description": "removed in 4.0.0, issue #183: use secret.secretName." }
-            }
-          },
-          "persistentVolumeClaim": {
-            "description": "A native persistentVolumeClaim volume source, rendered verbatim.",
-            "properties": {
-              "name": { "description": "removed in 4.0.0, issue #183: use persistentVolumeClaim.claimName." }
-            }
-          }
+          "name": { "description": "Name of the pod volume, which a volumeMounts item mounts. Unique within the pod, generated volumes included.", "type": "string", "minLength": 1 }
         }
       }
     },
@@ -1197,8 +1183,7 @@
     "rootJobSpec": {
       "type": "object",
       "properties": {
-        "fromWorkload": { "description": "Key of a workload whose image, with its pullPolicy, the job runs; a key naming no workload fails the render. Ignored when the job sets image. Nothing else is inherited.", "type": "string" },
-        "fromDeployment": { "description": "removed in 4.0.0, issue #221: use fromWorkload." }
+        "fromWorkload": { "description": "Key of a workload whose image, with its pullPolicy, the job runs; a key naming no workload fails the render. Ignored when the job sets image. Nothing else is inherited.", "type": "string" }
       }
     },
     "deploymentJobSpec": {
@@ -1213,11 +1198,7 @@
         "inheritWorkloadEnvFromSecrets": {
           "type": "boolean",
           "description": "false drops the workload's envFromSecrets from this job's envFrom. Default true. externalSecrets have their own rule: a job's own list replaces the inherited one."
-        },
-        "inheritDeploymentConfigMap": { "description": "removed in 4.0.0, issue #221: use inheritWorkloadConfigMap." },
-        "inheritDeploymentSecret": { "description": "removed in 4.0.0, issue #221: use inheritWorkloadSecret." },
-        "inheritDeploymentEnvFromConfigMaps": { "description": "removed in 4.0.0, issue #221: use inheritWorkloadEnvFromConfigMaps." },
-        "inheritDeploymentEnvFromSecrets": { "description": "removed in 4.0.0, issue #221: use inheritWorkloadEnvFromSecrets." }
+        }
       }
     },
     "cronJob": {
@@ -1397,7 +1378,6 @@
             "properties": {
               "host": { "description": "The rule's host, such as api.example.com. Unset, the rule matches every host.", "type": "string" },
               "workload": { "description": "The workload whose Service the rule routes to, unless service.name is set. A workload that does not exist, is empty, has enabled: false or service.enabled: false fails the render, as does an entry with neither workload nor service.name.", "type": "string" },
-              "deployment": { "description": "removed in 4.0.0, issue #221: use workload." },
               "portName": { "description": "With workload: the name of the Service port to route to, service.portName or a service.extraPorts[].name; omitted, the primary port. The port must be TCP. Rejected together with a service name or port.", "$ref": "#/$defs/backendPortName" },
               "service": { "description": "An explicit Service backend, in place of workload: name, and port (80 when unset). A service.name wins over workload.", "$ref": "#/$defs/backendServiceRef" },
               "paths": {
@@ -1760,7 +1740,6 @@
       "additionalProperties": false,
       "properties": {
         "workload": { "description": "Name of a workloads entry: resolves to its Service, <fullname>-<name>, and the port portName picks. The render fails if the workload does not exist, is empty, or has enabled or service.enabled false.", "type": "string" },
-        "deployment": { "description": "removed in 4.0.0, issue #221: use workload." },
         "portName": { "description": "With workload: the name of the workload Service port to route to; omitted, the primary port. Must be a TCP port.", "$ref": "#/$defs/backendPortName" },
         "service": { "description": "An explicit Service backend {name, port}, in place of workload. Set with a name, it takes precedence over workload; rejected together with portName.", "$ref": "#/$defs/backendServiceRef" },
         "weight": { "description": "Share of the rule's traffic sent to this backend, relative to the others, rendered as backendRefs[].weight when set. Unset, the Gateway API default applies (1).", "type": "integer", "minimum": 0, "maximum": 1000000 },
@@ -1786,7 +1765,6 @@
       "additionalProperties": false,
       "properties": {
         "workload": { "description": "Name of a workloads entry: resolves to its Service, <fullname>-<name>, and the port portName picks. The render fails if the workload does not exist, is empty, or has enabled or service.enabled false.", "type": "string" },
-        "deployment": { "description": "removed in 4.0.0, issue #221: use workload." },
         "portName": { "description": "With workload: the name of the workload Service port to route to; omitted, the primary port. Its protocol must be the route's.", "$ref": "#/$defs/backendPortName" },
         "service": { "description": "An explicit Service backend {name, port}, in place of workload. Set with a name, it takes precedence over workload; rejected together with portName.", "$ref": "#/$defs/backendServiceRef" },
         "weight": { "description": "Share of the rule's traffic sent to this backend, relative to the others, rendered as backendRefs[].weight when set. Unset, the Gateway API default applies (1).", "type": "integer", "minimum": 0, "maximum": 1000000 }

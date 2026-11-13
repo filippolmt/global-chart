@@ -113,7 +113,7 @@ is the source of truth, this table is only the routing.
 | `_keda-helpers.tpl` | KEDA names, trigger and `authenticationRef` resolution |
 | `_basicauth-helpers.tpl` | Envoy Basic Auth on an HTTPRoute: the `{SHA}` htpasswd hash; random credentials kept by Argo CD (ADR 0024) |
 | `_jwt-helpers.tpl` | Envoy JWT authentication on an HTTPRoute: `jwtSpec`, the providers' render checks (issue #261) |
-| `_validate-helpers.tpl` | Values paths, the `fail` shape, `validateRemovedKeys` (every key removed in 4.0.0, ADR 0023), `validateValueTypes` / `valuesShape` (the kind of every map and list a template reads), cross-resource validators, `validateStatefulSets`, `validatePdbEvictions`, `validateNullItems` / `rejectNullInLists`, `hpaActiveTargets`, `requireCrd` / `requireGatewayApiCrd` |
+| `_validate-helpers.tpl` | Values paths, the `fail` shape, `validateValueTypes` / `valuesShape` (the kind of every map and list a template reads), cross-resource validators, `validateStatefulSets`, `validatePdbEvictions`, `validateNullItems` / `rejectNullInLists`, `hpaActiveTargets`, `requireCrd` / `requireGatewayApiCrd` |
 
 ### Invariants
 

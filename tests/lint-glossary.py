@@ -16,8 +16,7 @@ chart's own files do not use. There it stays right in three places, which
 deployment_ok lets through: after `kubectl` on the line (`kubectl get
 deployment`), as a list item that is the bare word (a Chart.yaml keyword, a
 command's argument), and in a `# covers:` marker, which names the `$defs`
-called deployment. A key (`deployment:`, the removed backend key its fixtures
-carry), a quoted string, a path, a file name or an identifier never matches.
+called deployment. A key (`deployment:`), a quoted string, a path, a file name or an identifier never matches.
 
 Checked: every tracked text file except the ADRs and the CHANGELOG, which
 describe the repository as it was when they were written, GLOSSARY.md, which
