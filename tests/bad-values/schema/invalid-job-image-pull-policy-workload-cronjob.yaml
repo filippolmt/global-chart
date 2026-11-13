@@ -1,5 +1,6 @@
 # Same core violation on $defs/deploymentCronJob. See
 # invalid-job-image-pull-policy-root-cronjob.yaml for why there are four files.
+# API rejects: "spec.jobTemplate.spec.template.spec.containers[0].imagePullPolicy: Unsupported value: "Bogus": supported"
 workloads:
   backend:
     image: myapp:v1

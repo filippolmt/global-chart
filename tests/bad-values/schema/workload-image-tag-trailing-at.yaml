@@ -1,5 +1,6 @@
 # An image tag ending in "@" with no digest (issue #187). It would render
 # nginx:main@, an InvalidImageName at pull time.
+# API accepts: silent-misrender: the API server does not parse an image reference; the pull fails with InvalidImageName
 workloads:
   web:
     image:

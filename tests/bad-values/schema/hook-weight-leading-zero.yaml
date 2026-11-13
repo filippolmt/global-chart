@@ -1,5 +1,6 @@
 # A string hook weight with a leading zero. The weight arithmetic casts with
 # base detection, so "010" rendered hook-weight "8" on the Job.
+# API accepts: silent-misrender: the API server does not read hook-weight; it rendered "8"
 hooks:
   pre-install:
     migrate:

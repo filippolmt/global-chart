@@ -77,6 +77,11 @@ server-side dry run: a refusal means the schema is looser than the API server
 there (issue #226). The rules and the candidate table:
 `tests/bad-values/bound-sweep.py`.
 
+Then `api-verdict` sends every `tests/bad-values/schema/` fixture, rendered
+with `--skip-schema-validation`, to a server-side dry run with strict field
+validation, and holds the verdict to the markers the fixture carries (issue
+#287). The markers and their categories: `tests/bad-values/api-verdict.py`.
+
 It also runs in CI as its own job in `.github/workflows/helm-ci.yml`.
 
 Extend `values.yaml` and the assertion block in the `e2e` target when adding

@@ -1,5 +1,6 @@
 # The CRD requires type and the API server defaults it to Inline: a valueRef
 # without it is refused at apply, so the chart requires it.
+# API rejects: "spec.jwt.providers[0].localJWKS: Invalid value: Exactly one of inline or valueRef must be set with correct"
 httpRoute:
   enabled: true
   parentRefs: [{name: gw}]

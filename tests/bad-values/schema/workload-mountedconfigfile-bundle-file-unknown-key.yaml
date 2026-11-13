@@ -4,6 +4,7 @@
 # key reads as naming the file and is ignored. relPath stays: the template
 # requires it, so replacing it with a typo would reject the file even with the
 # closure gone.
+# API accepts: dropped: no template reads the unknown key, so the manifest never carries it
 workloads:
   web:
     image: nginx:1.25

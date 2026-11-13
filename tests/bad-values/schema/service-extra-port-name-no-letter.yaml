@@ -1,6 +1,8 @@
 # An IANA_SVC_NAME needs at least one letter, so a port name cannot be mistaken
 # for a port number. `9090` matches the shape pattern and fails only the second,
 # the one that stands in for the lookahead Go regexp lacks.
+# API rejects: "spec.template.spec.containers[0].ports[1].name: Invalid value: "9090": must contain at least one letter (a-z)"
+# naming key: /$defs/service/properties/extraPorts/items/properties/name
 workloads:
   app:
     image: nginx:1.25

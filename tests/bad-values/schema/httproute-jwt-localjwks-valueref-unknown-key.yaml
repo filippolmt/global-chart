@@ -1,4 +1,5 @@
 # covers: jwtProvider/properties/localJWKS/properties/valueRef
+# API rejects: "unknown field "spec.jwt.providers[0].localJWKS.valueRef.namespace""
 httpRoute:
   enabled: true
   parentRefs: [{name: gw}]

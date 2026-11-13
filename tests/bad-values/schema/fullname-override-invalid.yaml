@@ -1,3 +1,9 @@
 # fullnameOverride heads every generated name: a DNS-1123 subdomain, so no
 # uppercase and no underscore (issue #120).
+# A workload renders, or the release is empty and the name reaches no object.
+# API rejects: "metadata.name: Invalid value: "My_App-app""
+# naming key: /properties/fullnameOverride
 fullnameOverride: My_App
+workloads:
+  app:
+    image: nginx:1.25

@@ -2,6 +2,7 @@
 # An unknown key inside an ingress.tls entry (typo of secretName). Without the
 # constraint the Ingress renders `secretName: ""` and the controller serves its
 # default certificate.
+# API accepts: dropped: no template reads the unknown key, so the manifest never carries it
 workloads:
   web:
     image: nginx:1.25

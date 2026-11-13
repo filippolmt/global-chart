@@ -1,5 +1,7 @@
 # The key becomes the TriggerAuthentication name: a DNS-1123 subdomain.
 # `Redis_Auth` renders and passes `helm lint`, then the API server rejects it.
+# API rejects: "metadata.name: Invalid value: "api-verdict-global-chart-Redis_Auth": a lowercase RFC 1123 subdomain must"
+# naming key: /properties/kedaTriggerAuthentications/propertyNames
 kedaTriggerAuthentications:
   Redis_Auth:
     secretTargetRef:

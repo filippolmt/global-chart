@@ -1,6 +1,8 @@
 # Helm accepts `PRE-INSTALL`, but the chart's case-sensitive checks miss it and
 # the name it yields is invalid. An unknown type also drops the shared prereq
 # ConfigMap/Secret, whose `helm.sh/hook` joins every type.
+# API rejects: "metadata.name: Invalid value: "api-verdict-global-chart-app-PRE-INSTALL-migrate": a lowercase RFC 1123"
+# naming key: /$defs/deployment/properties/hooks/propertyNames
 workloads:
   app:
     image: nginx:1.25

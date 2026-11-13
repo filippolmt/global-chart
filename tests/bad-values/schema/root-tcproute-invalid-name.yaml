@@ -1,6 +1,8 @@
 # The key becomes the TCPRoute name `<fullname>-<key>`, which the chart composes
 # as a DNS-1123 label (issue #194). `Gps_Trackers` renders and passes
 # `helm lint`, then the API server rejects it.
+# API rejects: "metadata.name: Invalid value: "api-verdict-global-chart-Gps_Trackers": a lowercase RFC 1123 subdomain must"
+# naming key: /properties/tcpRoutes/propertyNames
 tcpRoutes:
   Gps_Trackers:
     parentRefs:

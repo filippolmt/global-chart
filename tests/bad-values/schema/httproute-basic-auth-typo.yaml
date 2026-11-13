@@ -1,4 +1,5 @@
 # covers: httpRouteBasicAuth
+# API accepts: dropped: no template reads the unknown key, so the manifest never carries it
 httpRoute:
   basicAuth:
     enabld: true

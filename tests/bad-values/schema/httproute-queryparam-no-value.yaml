@@ -1,6 +1,7 @@
 # httpRoute queryParam match omits the required 'value'.
 # Must be rejected by values.schema.json (queryParams items required:[name,value]).
 # Without it the template renders `value:` (null), an invalid HTTPQueryParamMatch.
+# API rejects: "spec.rules[0].matches[0].queryParams[0].value: Required value"
 workloads:
   api:
     image: nginx:1.25

@@ -2,6 +2,7 @@
 # An unknown key inside a backendRefs entry's explicit service reference (typo
 # of port). Without the closure the backend has no port and the traffic lands
 # nowhere.
+# API accepts: dropped: no template reads the unknown key, so the manifest never carries it
 httpRoute:
   enabled: true
   parentRefs:

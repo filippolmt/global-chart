@@ -1,6 +1,7 @@
 # covers: httpRouteRule/properties/matches/items/properties/path
 # An unknown key inside a matches entry's path (typo of value). Without the
 # closure the path matches the gateway default instead of the intended prefix.
+# API rejects: "unknown field "spec.rules[0].matches[0].path.vaule""
 workloads:
   api:
     image: nginx:1.25

@@ -1,5 +1,6 @@
 # A reference ending in ":" carries no tag (issue #173). It rendered as written
 # and the pull failed with InvalidImageName.
+# API accepts: silent-misrender: the API server does not parse an image reference; the pull fails with InvalidImageName
 workloads:
   web:
     image: "nginx:"

@@ -1,5 +1,7 @@
 # The key becomes the container name raw: a DNS-1123 label, so no `.`. It
 # renders and passes `helm lint`, then the API server rejects the CronJob.
+# API rejects: "spec.jobTemplate.spec.template.spec.containers[0].name: Invalid value: "report.nightly": must not contain dots"
+# naming key: /$defs/deployment/properties/cronJobs/propertyNames
 workloads:
   app:
     image: nginx:1.25

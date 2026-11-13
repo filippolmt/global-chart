@@ -1,5 +1,6 @@
 # A claim template asking for no storage: the size pattern takes a positive
 # quantity only.
+# API rejects: "spec.volumeClaimTemplates[0].spec.resources[storage]: Invalid value: "0": must be greater than zero"
 workloads:
   db:
     kind: StatefulSet

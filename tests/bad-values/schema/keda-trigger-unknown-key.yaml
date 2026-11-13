@@ -2,6 +2,7 @@
 # An unknown key inside a KEDA trigger (typo of metricType). Without the
 # constraint the trigger falls back to the default metric type and scales on
 # the wrong quantity.
+# API rejects: "unknown field "spec.triggers[0].metricTypee""
 workloads:
   web:
     image: nginx:1.25

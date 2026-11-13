@@ -1,3 +1,4 @@
+# API rejects: "spec.jwt.providers[0].localJWKS.valueRef.kind: Invalid value: "Config_Map""
 httpRoute:
   enabled: true
   parentRefs: [{name: gw}]

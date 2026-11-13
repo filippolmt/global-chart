@@ -1,5 +1,6 @@
 # EnvVar.value is a string (issue #137), in a job's env. Root scope; env comes
 # from jobCommon; the workload scope has its own fixture.
+# API rejects: "cannot unmarshal number into Go struct field EnvVar.spec.template.spec.containers.env.value"
 hooks:
   pre-install:
     migrate:

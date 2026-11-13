@@ -1,4 +1,5 @@
 # EnvVar.value is a string (issue #137), in an init container's env (issue #148).
+# API rejects: "cannot unmarshal number into Go struct field EnvVar.spec.template.spec.initContainers.env.value"
 workloads:
   app:
     image: nginx:1.25

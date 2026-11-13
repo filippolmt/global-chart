@@ -2,6 +2,7 @@
 # (63 chars) and, once the workload has hooks, as `<key>-hook`. The schema caps
 # it at 58 even without hooks, so adding a hook later cannot invalidate a key
 # that was valid. 59 chars here: it used to pass `helm install`.
+# API accepts: chart-rule: 59 characters fit the component label until a hook adds "-hook"; the cap of 58 keeps a hook from invalidating the key (GLOSSARY.md, *Naming key*)
 workloads:
   aaaaaaaaaabbbbbbbbbbccccccccccddddddddddeeeeeeeeeefffffffff:
     image: nginx:1.25

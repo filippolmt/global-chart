@@ -1,6 +1,7 @@
 # covers: statefulSetUpdateStrategy/properties/rollingUpdate
 # An unknown key under updateStrategy.rollingUpdate: maxUnavailable is alpha on
 # a StatefulSet and left out (ADR 0020).
+# API accepts: dropped: no template reads the unknown key, so the manifest never carries it
 workloads:
   db:
     kind: StatefulSet

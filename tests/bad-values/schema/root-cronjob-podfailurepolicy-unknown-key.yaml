@@ -1,6 +1,7 @@
 # covers: podFailurePolicy
 # An unknown key in podFailurePolicy (typo of rules): a client-side apply drops
 # it with a warning, and every preemption counts towards backoffLimit again.
+# API rejects: "unknown field "spec.jobTemplate.spec.podFailurePolicy.rule""
 cronJobs:
   report:
     schedule: "0 3 * * *"

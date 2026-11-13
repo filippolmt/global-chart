@@ -1,6 +1,7 @@
 # ingress.hosts[].service.port: 0 used to ship in values.yaml; resolveBackend
 # reads it as set and renders port.number 0, rejected by the API server
 # (issue #156).
+# API rejects: "spec.rules[0].http.paths[0].backend: Required value: port name or number is required"
 ingress:
   enabled: true
   hosts:

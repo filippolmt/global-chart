@@ -2,6 +2,7 @@
 # An unknown key in an onPodConditions pattern: a pattern matches a condition
 # by type and status only, so a reason here would be dropped with a warning and
 # the rule would match every DisruptionTarget, whatever its reason.
+# API rejects: "unknown field "spec.jobTemplate.spec.podFailurePolicy.rules[0].onPodConditions[0].reason""
 cronJobs:
   report:
     schedule: "0 3 * * *"

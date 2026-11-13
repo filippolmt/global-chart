@@ -1,5 +1,6 @@
 # A digit string the HPA's int32 averageUtilization cannot hold: the integer
 # form has a maximum, the string form a 9-digit cap (issue #226).
+# API rejects: "cannot unmarshal number 2147483648 into Go struct field MetricTarget.spec.metrics.res"
 workloads:
   app:
     image: nginx:1.25

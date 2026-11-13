@@ -6,6 +6,7 @@
 # because validate-bad-values only asks that a file be rejected: four
 # violations in one file would still fail with three branches orphaned.
 # This one covers root-level cronJobs ($defs/cronJob).
+# API rejects: "spec.jobTemplate.spec.template.spec.containers[0].imagePullPolicy: Unsupported value: "Bogus": supported"
 cronJobs:
   demo:
     schedule: "0 3 * * *"

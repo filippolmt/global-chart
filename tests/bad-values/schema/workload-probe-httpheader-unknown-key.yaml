@@ -1,6 +1,7 @@
 # covers: probe/properties/httpGet/properties/httpHeaders/items
 # An HTTPHeader has no valueFrom (EnvVar has): Kubernetes drops it, and the
 # header goes out with the literal value only.
+# API rejects: "unknown field "spec.template.spec.containers[0].readinessProbe.httpGet.httpHeaders[0].valueFrom""
 workloads:
   app:
     image: nginx:1.25

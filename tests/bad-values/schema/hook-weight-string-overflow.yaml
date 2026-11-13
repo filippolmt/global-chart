@@ -1,5 +1,6 @@
 # A string hook weight past int64 (issue #250). The weight arithmetic's int
 # cast overflows and reads it as 0: hook-weight rendered "0", without a word.
+# API accepts: silent-misrender: the API server does not read hook-weight; it rendered "0"
 hooks:
   pre-install:
     migrate:

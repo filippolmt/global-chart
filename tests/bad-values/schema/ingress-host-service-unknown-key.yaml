@@ -3,6 +3,7 @@
 # traffic lands on the wrong port of an existing Service.
 # The closure is backendServiceRef's, covered by httproute-backendref-service-unknown-key.yaml:
 # this fixture proves the ingress host reaches it through its $ref.
+# API accepts: dropped: no template reads the unknown key, so the manifest never carries it
 ingress:
   enabled: true
   hosts:

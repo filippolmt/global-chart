@@ -1,5 +1,6 @@
 # global.imageRegistry is prepended to every image, so it has to be a registry
 # host (with optional port and path), never a URL (issue #173).
+# API accepts: silent-misrender: the API server does not parse an image reference; the pull fails with InvalidImageName
 global:
   imageRegistry: "https://registry.example.com"
 workloads:

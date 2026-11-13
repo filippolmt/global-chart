@@ -1,5 +1,6 @@
 # A podFailurePolicy rule sets onExitCodes or onPodConditions, never both: the
 # API server rejects the pair (issue #282).
+# API rejects: "spec.jobTemplate.spec.podFailurePolicy.rules[0]: Invalid value: specifying both OnExitCodes and"
 cronJobs:
   report:
     schedule: "0 3 * * *"

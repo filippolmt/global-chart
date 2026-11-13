@@ -1,6 +1,7 @@
 # covers: statefulSetUpdateStrategy
 # An unknown key under a StatefulSet's updateStrategy (typo of rollingUpdate).
 # Without the constraint the partition is dropped and every pod is updated at once.
+# API accepts: dropped: no template reads the unknown key, so the manifest never carries it
 workloads:
   db:
     kind: StatefulSet

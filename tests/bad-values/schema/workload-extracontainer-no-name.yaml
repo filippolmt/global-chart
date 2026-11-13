@@ -1,5 +1,6 @@
 # An extraContainers entry with no name: the API server requires one, and the
 # schema now does too (issue #285).
+# API rejects: "spec.template.spec.containers[1].name: Required value"
 workloads:
   api:
     image: nginx:1.27

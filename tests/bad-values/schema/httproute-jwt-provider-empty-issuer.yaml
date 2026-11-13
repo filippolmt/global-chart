@@ -1,4 +1,5 @@
 # Envoy Gateway skips the issuer check on an empty issuer.
+# API accepts: stricter: Envoy Gateway accepts an empty issuer, then skips the issuer check (#261)
 httpRoute:
   enabled: true
   parentRefs: [{name: gw}]

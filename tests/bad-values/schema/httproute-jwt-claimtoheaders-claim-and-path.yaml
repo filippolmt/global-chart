@@ -1,4 +1,5 @@
 # Envoy Gateway's CEL rule: exactly one of claim and claimPath.
+# API rejects: "spec.jwt.providers[0].claimToHeaders[0]: Invalid value: exactly one of claim or claimPath must be specified"
 httpRoute:
   enabled: true
   parentRefs: [{name: gw}]

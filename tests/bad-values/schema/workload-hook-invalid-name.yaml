@@ -1,4 +1,6 @@
 # The key becomes the container name raw: a DNS-1123 label, so no uppercase.
+# API rejects: "metadata.name: Invalid value: "api-verdict-global-chart-app-pre-install-Migrate": a lowercase RFC 1123"
+# naming key: /$defs/deployment/properties/hooks/additionalProperties/propertyNames
 workloads:
   app:
     image: nginx:1.25

@@ -1,5 +1,6 @@
 # The map form's repository follows the same grammar as the string form
 # (issue #173): lowercase path components, no tag inside it.
+# API accepts: silent-misrender: the API server does not parse an image reference; the pull fails with InvalidImageName
 workloads:
   web:
     image:

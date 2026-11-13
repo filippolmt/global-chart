@@ -1,3 +1,4 @@
+# API accepts: stricter: the API server accepts completions 0, a Job that succeeds without running a pod
 cronJobs:
   broken:
     schedule: "0 2 * * *"

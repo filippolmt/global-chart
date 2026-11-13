@@ -2,6 +2,7 @@
 # An unknown key inside an httpRoute rule backendRefs entry (typo of weight).
 # Without the closure every backend gets the default weight and the intended
 # traffic split never happens.
+# API accepts: dropped: no template reads the unknown key, so the manifest never carries it
 workloads:
   api:
     image: nginx:1.25

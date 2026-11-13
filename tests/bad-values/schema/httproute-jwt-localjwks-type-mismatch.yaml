@@ -1,4 +1,5 @@
 # Envoy Gateway's CEL rule: type Inline takes inline, not valueRef.
+# API rejects: "spec.jwt.providers[0].localJWKS: Invalid value: Exactly one of inline or valueRef must be set with correct"
 httpRoute:
   enabled: true
   parentRefs: [{name: gw}]

@@ -1,6 +1,7 @@
 # covers: routeBackendRef
 # An unknown key in a tcpRoutes backendRef (typo of portName). Without the
 # closure the route falls back on the primary port, which is not the one meant.
+# API accepts: dropped: no template reads the unknown key, so the manifest never carries it
 workloads:
   traccar:
     image: traccar/traccar:6.6

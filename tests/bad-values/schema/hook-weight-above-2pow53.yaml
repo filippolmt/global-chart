@@ -1,5 +1,6 @@
 # An integer hook weight Helm cannot carry exactly (issue #250): 2^53+1 is read
 # as the float64 2^53, and hook-weight rendered "9007199254740992".
+# API accepts: silent-misrender: the API server does not read hook-weight; it rendered "9007199254740992"
 hooks:
   pre-install:
     migrate:

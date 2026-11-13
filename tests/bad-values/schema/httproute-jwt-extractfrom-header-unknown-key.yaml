@@ -1,4 +1,5 @@
 # covers: jwtProvider/properties/extractFrom/properties/headers/items
+# API rejects: "unknown field "spec.jwt.providers[0].extractFrom.headers[0].prefix""
 httpRoute:
   enabled: true
   parentRefs: [{name: gw}]

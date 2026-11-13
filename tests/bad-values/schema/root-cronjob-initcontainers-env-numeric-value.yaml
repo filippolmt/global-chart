@@ -1,5 +1,6 @@
 # EnvVar.value is a string (issue #137), in a cronjob's init container env
 # (issue #148).
+# API rejects: "cannot unmarshal number into Go struct field EnvVar.spec.jobTemplate.spec.template.spec.initContainers.env.value"
 cronJobs:
   report:
     image: busybox:1.36

@@ -2,6 +2,7 @@
 # An unknown key inside a matches entry's headers item (typo of type).
 # Without the closure the header matches exactly instead of by the intended
 # regular expression.
+# API rejects: "unknown field "spec.rules[0].matches[0].headers[0].tpye""
 workloads:
   api:
     image: nginx:1.25

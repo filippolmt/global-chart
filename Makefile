@@ -158,7 +158,7 @@ TEST_CASES := \
 .PHONY: help scenarios all check lint-chart render-diff mutate lint-templates lint-docs lint-shell lint-glossary lint-inheritance lint-checks lint-labels unit-test null-sweep null-sweep-preflight scenario-coverage schema-descriptions schema-bounds lint-release release validate-bad-values generate-templates \
 	kubeconform kube-linter-manifests kube-linter generate-docs package \
 	install install-test01 render clean clean-all \
-	kind-install kind-cluster kind-keda kind-eso kind-gateway-api kind-envoy-gateway kind-argocd kind-delete e2e e2e-dryrun bound-sweep e2e-routes e2e-argocd check-helm-floor helm-floor-image ci-images
+	kind-install kind-cluster kind-keda kind-eso kind-gateway-api kind-envoy-gateway kind-argocd kind-delete e2e e2e-dryrun bound-sweep api-verdict e2e-routes e2e-argocd check-helm-floor helm-floor-image ci-images
 
 # ============================================================================
 # Help
@@ -593,6 +593,11 @@ bound-sweep: kind-cluster kind-keda kind-eso kind-gateway-api kind-envoy-gateway
 	@KUBECONFIG=$(KIND_KUBECONFIG) python3 tests/bad-values/bound-sweep.py ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) \
 		$(foreach e,$(TEST_CASES),$(firstword $(subst :, ,$(e)))) -- $(HELM_API_VERSIONS)
 
+api-verdict: kind-cluster kind-keda kind-eso kind-gateway-api kind-envoy-gateway ## Each schema/ fixture, rendered under --skip-schema-validation, gets the API server verdict its markers state (issue #287)
+	@echo "==> Checking the API server verdict of every schema/ fixture..."
+	@KUBECONFIG=$(KIND_KUBECONFIG) python3 tests/bad-values/api-verdict.py ./$(CHART_DIR)/$(GLOBAL_CHART_NAME) \
+		tests/bad-values/schema/*.yaml -- $(HELM_API_VERSIONS)
+
 e2e-routes: e2e-dryrun ## Alias of e2e-dryrun, which sends every route along with the rest
 
 kind-argocd: kind-cluster ## Install Argo CD (core) into the e2e kind cluster
@@ -630,7 +635,7 @@ check-helm-floor: kind-cluster ## Assert NOTES.txt warns on a Helm below 3.18.6
 		|| { echo "FAIL: NOTES.txt did not warn on $(HELM_FLOOR_IMAGE)"; exit 1; }
 	@echo "    warning shown below the floor"
 
-e2e: kind-cluster kind-keda kind-eso check-helm-floor e2e-dryrun bound-sweep ## Install/upgrade/rollback/uninstall tests/e2e/values.yaml on kind and assert the hook lifecycle
+e2e: kind-cluster kind-keda kind-eso check-helm-floor e2e-dryrun bound-sweep api-verdict ## Install/upgrade/rollback/uninstall tests/e2e/values.yaml on kind and assert the hook lifecycle
 	@set -e; \
 	export KUBECONFIG=$(KIND_KUBECONFIG); \
 	ns=$(E2E_NAMESPACE); rel=$(E2E_RELEASE); \

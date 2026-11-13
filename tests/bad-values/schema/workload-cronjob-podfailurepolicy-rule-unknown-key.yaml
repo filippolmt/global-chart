@@ -1,6 +1,7 @@
 # covers: podFailurePolicy/properties/rules/items
 # An unknown key in a podFailurePolicy rule (typo of onPodConditions): the
 # rule is meant to match preempted pods, and the typo is dropped with a warning.
+# API rejects: "unknown field "spec.jobTemplate.spec.podFailurePolicy.rules[0].onPodCondition""
 workloads:
   app:
     image: nginx:1.25

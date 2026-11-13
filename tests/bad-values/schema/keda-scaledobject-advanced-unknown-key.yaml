@@ -2,6 +2,7 @@
 # An unknown key under workloads.<name>.keda.advanced (typo of
 # restoreToOriginalReplicaCount). Without the closure the replicas are not
 # restored when the ScaledObject is removed.
+# API rejects: "unknown field "spec.advanced.restoreToOriginalReplicas""
 workloads:
   web:
     image: nginx:1.25

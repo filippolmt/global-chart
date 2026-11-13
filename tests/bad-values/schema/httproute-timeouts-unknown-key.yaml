@@ -2,6 +2,7 @@
 # httpRoute rule 'timeouts' uses an unknown key (requestTimeout instead of request).
 # Must be rejected by values.schema.json (additionalProperties:false on timeouts).
 # Without the constraint the typo is silently dropped and no timeout is applied.
+# API rejects: "unknown field "spec.rules[0].timeouts.requestTimeout""
 workloads:
   api:
     image: nginx:1.25

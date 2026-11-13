@@ -1,6 +1,7 @@
 # covers: probe/properties/tcpSocket
 # An unknown key in tcpSocket (typo of host): the probe dials the pod IP
 # instead of the host intended.
+# API rejects: "unknown field "spec.template.spec.containers[0].livenessProbe.tcpSocket.hots""
 workloads:
   app:
     image: nginx:1.25

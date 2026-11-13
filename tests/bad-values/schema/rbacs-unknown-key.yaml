@@ -1,6 +1,7 @@
 # covers: rbacs
 # An unknown key under rbacs (typo of roles). Without the constraint no Role
 # and no RoleBinding are rendered at all, and the workload runs unauthorized.
+# API accepts: dropped: no template reads the unknown key, so the manifest never carries it
 rbacs:
   role:
     - name: reader

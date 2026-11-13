@@ -1,3 +1,4 @@
+# API rejects: "spec.jwt.providers[0]: Invalid value: remoteJWKS and localJWKS cannot both be specified"
 httpRoute:
   enabled: true
   parentRefs: [{name: gw}]

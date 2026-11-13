@@ -1,6 +1,8 @@
 # The key becomes the HTTPRoute name `<fullname>-<key>`, which the chart
 # composes as a DNS-1123 label (issue #195). `Traccar_Web` renders and passes
 # `helm lint`, then the API server rejects it.
+# API rejects: "metadata.name: Invalid value: "api-verdict-global-chart-Traccar_Web": a lowercase RFC 1123 subdomain must"
+# naming key: /properties/httpRoutes/propertyNames
 httpRoutes:
   Traccar_Web:
     parentRefs:

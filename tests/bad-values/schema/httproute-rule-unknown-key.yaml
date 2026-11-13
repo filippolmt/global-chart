@@ -2,6 +2,7 @@
 # An unknown key inside an httpRoute rule (typo of matches). Without the
 # constraint the rule matches every path instead of the one intended, and the
 # manifest is valid either way.
+# API accepts: dropped: no template reads the unknown key, so the manifest never carries it
 workloads:
   api:
     image: nginx:1.25

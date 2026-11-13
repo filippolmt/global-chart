@@ -282,6 +282,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   `autoscaling-unknown-key` gains a CPU target, so the `fail` it pins is the
   `maxReplicas` its typo drops rather than the missing target.
   `check-closure-coverage.py` reads `# covers:` in both directories.
+- `make api-verdict`, a prerequisite of `make e2e` beside `bound-sweep`,
+  renders each `tests/bad-values/schema/` fixture with
+  `--skip-schema-validation` and sends it to a server-side dry run with
+  strict field validation on the kind cluster (issue #287). The verdict must
+  match the fixture's markers: `# API rejects: "<substring>"` lines, each in
+  the API error, or one `# API accepts: <category>: <reason>`, the category
+  one of `dropped`, `chart-rule`, `silent-misrender`, `stricter`. A fixture
+  with a `# naming key: <pointer>` line must be rejected. The first run gave
+  115 rejected, 48 dropped, 22 silent-misrender, 4 stricter, 2 chart-rule.
+  `fullname-override-invalid` and `name-override-invalid` gain a workload:
+  they rendered nothing, so the override never reached the API server.
 
 ### Migration guide from 4.2.1
 

@@ -1,6 +1,7 @@
 # covers: dnsConfigOption
 # An unknown key in a DNS option (typo of value): Kubernetes drops it, and the
 # option is set with no value.
+# API accepts: dropped: no template reads the unknown key, so the manifest never carries it
 workloads:
   app:
     image: nginx:1.25
