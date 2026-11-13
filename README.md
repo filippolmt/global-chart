@@ -548,11 +548,13 @@ policy written by hand targets the route by name, and once that name changes
 with no error anywhere.
 
 Each provider takes `name` and exactly one of `remoteJWKS` and `localJWKS`,
-as Envoy Gateway requires. The chart is stricter than Envoy Gateway in three
-places. `issuer` and `audiences` (1 to 8) are required too: without an
-audience, a token the same identity provider issued for another application
-passes. `optional` and `failOpen` are not offered: both let an unauthenticated
-request through. And the render fails on:
+as Envoy Gateway requires. The chart is stricter than Envoy Gateway in four
+places. `issuer` and `audiences` (1 to 8) are required too, and neither takes
+an empty string: without an audience, a token the same identity provider
+issued for another application passes. `name` is a Kubernetes qualified name
+of at most 63 characters, where Envoy takes any 1 to 253. `optional` and
+`failOpen` are not offered: both let an unauthenticated request through. And
+the render fails on:
 
 - `jwt.enabled: true` with no provider;
 - two providers of one `name`: the API server accepts them, and Envoy Gateway

@@ -17,30 +17,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   Secret, nothing random. A policy written by hand targets the route by name
   and protects nothing once that name changes. The schema closes the
   provider, its `extractFrom` (header items included) and its `localJWKS`
-  (`valueRef` included), leaves `remoteJWKS` open beside `uri`, requires `name` and
-  exactly one of `remoteJWKS` / `localJWKS`, as Envoy does, and, stricter
-  than Envoy, `issuer` and `audiences`: without an audience a token issued
-  for another application passes. It offers neither `optional` nor
-  `failOpen`; a null `issuer` or `audiences` fails the render under
-  `--skip-schema-validation`. It also holds
-  Envoy Gateway's CEL rules on the provider, `localJWKS` and
-  `claimToHeaders`: `localJWKS.type` matching
-  `inline` or `valueRef`, one of `claim` / `claimPath`, `recomputeRoute`
-  only with `claimToHeaders`. The render fails
-  with no provider, on two providers of one name (Envoy Gateway drops such a
-  policy), and with `basicAuth` enabled on the same route (both filters read
-  `Authorization`, no request passes). Needs the SecurityPolicy CRD, like
-  Basic Auth.
-- A cronjob, root or workload scope, takes `podFailurePolicy`, rendered
-  verbatim into its Job spec when set (issue #282). An `Ignore` rule on the
-  `DisruptionTarget` pod condition keeps a Spot preemption from spending
-  `backoffLimit`. The job's own, like `backoffLimit`: never inherited from the
-  workload. The schema closes its shape and leaves out `FailIndex`, which needs
-  `backoffLimitPerIndex`; a rule takes `onExitCodes` or `onPodConditions`,
-  `In` does not take exit code 0, and a pod condition pattern names its
-  `status`, which the Kubernetes OpenAPI schema requires. Not offered on hooks: no hook has needed it,
-  and the default `backoffLimit` of 6 absorbs a preemption; a hook with
-  `backoffLimit: 0` on Spot nodes is the case that would add it.
+  (`valueRef` included), and leaves `remoteJWKS` and `claimToHeaders` items
+  open beside their declared fields. It requires `name` and exactly one of
+  `remoteJWKS` / `localJWKS`, as Envoy does, and is stricter than Envoy:
+  `issuer` and `audiences` are required and not empty (without an audience
+  a token issued for another application passes), `name` is a qualified
+  name of at most 63 characters, and neither `optional` nor `failOpen` is
+  offered. It holds Envoy Gateway's CEL rules on the provider, `localJWKS`
+  and `claimToHeaders`: `localJWKS.type` matching `inline` or `valueRef`,
+  one of `claim` / `claimPath`, `recomputeRoute` only with
+  `claimToHeaders`. The render fails with no provider, on two providers of
+  one name (Envoy Gateway drops such a policy), and with `basicAuth`
+  enabled on the same route (both filters read `Authorization`, no request
+  passes); under `--skip-schema-validation`, a null `issuer` or `audiences`
+  fails too. Needs the SecurityPolicy CRD, like Basic Auth.
 
 ### Changed
 

@@ -1492,7 +1492,7 @@
             { "properties": { "type": { "description": "Type ValueRef takes valueRef alone.", "const": "ValueRef" } }, "required": ["valueRef"], "not": { "required": ["inline"] } }
           ],
           "properties": {
-            "type": { "description": "Inline or ValueRef. Required, Inline included: the CRD's OpenAPI schema requires it, which kubeconform reads, though the API server defaults it to Inline; the stricter holds. Without it, a valueRef is refused at apply.", "type": "string", "enum": ["Inline", "ValueRef"] },
+            "type": { "description": "Inline or ValueRef, the two branches of localJWKS' oneOf, the one home of that list. Required, Inline included: the CRD's OpenAPI schema requires it, which kubeconform reads, though the API server defaults it to Inline; the stricter holds. Without it, a valueRef is refused at apply.", "type": "string" },
             "inline": { "description": "The JWKS itself, as a JSON string.", "type": "string" },
             "valueRef": {
               "description": "The object holding the JWKS under its jwks key, in the route's namespace. A ConfigMap: group \"\", kind ConfigMap.",
@@ -1508,7 +1508,7 @@
           }
         },
         "claimToHeaders": {
-          "description": "Claims copied into request headers, rendered verbatim. Its items stay open: the shape grew in Envoy Gateway 1.10 (claimPath).",
+          "description": "Claims copied into request headers, rendered verbatim. Its items stay open, declaring their fields, by a decision of issue #261 under ADR 0017: their shape grew in Envoy Gateway 1.10 (claimPath), so it is not fixed. The oneOf and the required header still catch a typo in claim, claimPath or header.",
           "type": "array",
           "items": {
             "description": "One claim copied into a header. Exactly one of claim and claimPath, as Envoy Gateway's CEL rule requires.",
