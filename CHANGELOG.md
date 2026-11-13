@@ -239,7 +239,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   number, a required item field, ConfigMap and Secret data, a null inside a
   structured value, a reference to an empty entry); there a null that differs
   from its removal must still fail naming its path, a structured value aside,
-  and a row no finding needs fails the sweep.
+  and a row no finding needs fails the sweep. The comparison is textual: a
+  difference of YAML style alone would show as a finding, never hide one;
+  none occurs on the scenarios (issue #315).
 - `make scenario-coverage` reports a bounded node no scenario sets even below
   a gap of its parent (#317 retro). It reported only the topmost gap, so a
   bound under a parent gap in the baseline passed with nothing to sweep it:
