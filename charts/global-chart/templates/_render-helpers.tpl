@@ -358,7 +358,9 @@ the entry, <owner>.volumes[<i>], which leads every fail message (issue #190).
 A volume with nothing but its name, a null source included, fails naming its
 path (issue #300): the API server would make it an emptyDir in
 silence, so a volume whose configMap key was dropped would mount an empty
-directory. The schema cannot say it: the volume sources are open (ADR 0017).
+directory. Only a key whose value is a map counts as a source: a scalar one,
+such as the legacy `type: emptyDir` (issue #236), does not. The schema cannot
+say it: the volume sources are open (ADR 0017).
 Usage: {{ include "global-chart.renderVolume" (dict "volume" $v "errCtx" (printf "%s.volumes[%d]" $errCtx $i)) }}
 */}}
 {{- define "global-chart.renderVolume" -}}
@@ -369,7 +371,6 @@ Usage: {{ include "global-chart.renderVolume" (dict "volume" $v "errCtx" (printf
 {{- $clean := deepCopy $vol -}}
 {{- include "global-chart.dropNullsInPlace" $clean -}}
 {{- $source := omit $clean "name" -}}
-{{- /* a volume source is a map */ -}}
 {{- $hasSource := false -}}
 {{- range $source -}}{{- if kindIs "map" . -}}{{- $hasSource = true -}}{{- end -}}{{- end -}}
 {{- if not $hasSource -}}

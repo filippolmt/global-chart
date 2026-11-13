@@ -169,9 +169,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   so a template `fail` could name their replacement. The walk, the
   declarations and their fixtures are gone: the schema's closure now rejects
   such a key without naming the replacement. On the open volume surface,
-  `secret.name` and `persistentVolumeClaim.name` reach the manifest, where the
-  API server's strict field validation rejects them, and a volume with only
-  `type` fails as naming no source.
+  `secret.name` and `persistentVolumeClaim.name` reach the manifest as unknown
+  fields of the volume source, and a volume with only `type` fails as naming
+  no source. Each key's replacement: *Migration guide from 3.x* in 4.0.0.
+
 ### Fixed
 
 - A null map value on a passthrough surface renders as the key removed

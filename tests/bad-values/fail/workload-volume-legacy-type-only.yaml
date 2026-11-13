@@ -1,5 +1,5 @@
-# The legacy volume form, `type` with no native source (removed in 4.0.0, issue
-# #183; undeclared in 5.0.0, issue #236). The volume surface is open, so the
+# The legacy volume form, `type` with no native source (issue #183), which the
+# schema no longer declares (issue #236). The volume surface is open, so the
 # schema lets `type` through; renderVolume fails naming the volume, as for any
 # volume with no source, rather than render an emptyDir in silence.
 # Expected fail substring: "workloads.web.volumes[0]: names no volume source"
