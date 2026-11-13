@@ -222,6 +222,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Tests
 
+- `make kind-install` downloads kind again when `.bin/kind` is not
+  `KIND_VERSION` (issue #331). It downloaded only a missing binary, so after
+  a `KIND_VERSION` bump a clone kept the old kind, which failed on the new
+  node image with a kubeadm error that never named kind. CI starts from an
+  empty `.bin/` and was not affected.
 - `make render VALUES=<file> BASE=<ref>` takes a values file outside the
   repository: when both refs rendered the same, it printed the diff's OK line
   with a path relative to the repository and crashed on one outside it.
