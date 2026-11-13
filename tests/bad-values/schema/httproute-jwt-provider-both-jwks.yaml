@@ -1,0 +1,12 @@
+httpRoute:
+  enabled: true
+  parentRefs: [{name: gw}]
+  rules: [{backendRefs: [{service: {name: web, port: 80}}]}]
+  jwt:
+    enabled: true
+    providers:
+      - name: idp
+        issuer: https://idp.example.com
+        audiences: [app]
+        remoteJWKS: {uri: https://idp.example.com/certs}
+        localJWKS: {type: Inline, inline: '{"keys": []}'}

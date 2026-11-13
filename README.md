@@ -16,7 +16,7 @@ The chart supports **multiple workloads** in a single release, each with indepen
 - **Networking**
   First-class Service configuration (with per-service annotations) plus optional Ingress with TLS, class annotations, and routes to specific workloads. DNS options and host aliases can be defined per workload.
   HTTP reaches the workloads through one routing layer, Ingress or Gateway API HTTPRoutes (`httpRoute` for one, `httpRoutes` for one per entry), never both. Ports that are not HTTP go through TCPRoutes and UDPRoutes (`tcpRoutes`, `udpRoutes`), alongside either (see [Exposing a TCP or UDP port](#exposing-a-tcp-or-udp-port-through-a-gateway)). A `workload:` backend picks a port of its Service by name with `portName`.
-  Envoy Gateway users can opt into [per-HTTPRoute Basic Auth](#protecting-an-httproute-with-envoy-basic-auth); stable credentials require the Argo CD configuration below.
+  Envoy Gateway users can opt into [per-HTTPRoute Basic Auth](#protecting-an-httproute-with-envoy-basic-auth); stable credentials require the Argo CD configuration below. Or into [per-HTTPRoute JWT authentication](#protecting-an-httproute-with-envoy-jwt-authentication), such as the token an identity-aware proxy injects.
 - **Configuration distribution**
   Inline ConfigMap/Secret data, mounted config files (single file) or bundles (projected lists of files), and `volumes` in the native Kubernetes form (any volume source) are supported.
 - **Lifecycle and batch**
@@ -505,6 +505,69 @@ The SHA-1 htpasswd format is required by [Envoy Basic Auth](https://gateway.envo
 not a recommendation for general password storage. The credential preservation
 behavior is documented in [Argo CD's sync options](https://argo-cd.readthedocs.io/en/latest/user-guide/sync-options/#respect-ignore-differences-configs).
 
+## Protecting an HTTPRoute with Envoy JWT authentication
+
+`httpRoute.jwt` defaults to `{enabled: false, providers: []}`; each
+`httpRoutes.<key>` entry accepts the same optional block, independently.
+Enabling it creates an Envoy `gateway.envoyproxy.io/v1alpha1` SecurityPolicy
+named exactly like the route, targeting only that HTTPRoute, with `providers`
+rendered verbatim as `spec.jwt.providers` (Envoy Gateway's JWTProvider). It
+creates no Secret, and nothing in it is random: no Argo CD setting is needed.
+
+Behind an identity-aware proxy that signs each request with a JWT in its own
+header, the policy makes Envoy verify that token on the route, so a request
+that reaches the Gateway without the proxy is refused:
+
+```yaml
+httpRoute:
+  enabled: true
+  jwt:
+    enabled: true
+    providers:
+      - name: idp
+        issuer: https://idp.example.com
+        audiences: [app]
+        remoteJWKS:
+          uri: https://idp.example.com/certs
+        extractFrom:
+          headers:
+            - name: X-Jwt-Assertion
+  parentRefs:
+    - name: shared-gateway
+      namespace: envoy-gateway-system
+      sectionName: https
+  hostnames: [app.example.com]
+  rules:
+    - backendRefs:
+        - service: {name: web, port: 80}
+```
+
+Rendering the policy from the route's own entry keeps it on the route: a
+policy written by hand targets the route by name, and once that name changes
+(a release rename, a move to `httpRoutes`, `nameOverride`) it protects nothing,
+with no error anywhere.
+
+Each provider takes `name` and exactly one of `remoteJWKS` and `localJWKS`,
+as Envoy Gateway requires. The chart is stricter than Envoy Gateway in four
+places. `issuer` and `audiences` (1 to 8) are required too, and neither takes
+an empty string: without an audience, a token the same identity provider
+issued for another application passes. `name` is a Kubernetes qualified name
+of at most 63 characters, where Envoy takes any 1 to 253. `optional` and
+`failOpen` are not offered: both let an unauthenticated request through. And
+the render fails on:
+
+- `jwt.enabled: true` with no provider;
+- two providers of one `name`: the API server accepts them, and Envoy Gateway
+  drops the policy;
+- `jwt` and `basicAuth` both enabled on one route: Envoy runs both filters, and
+  by default both read the `Authorization` header, so no request passes.
+
+The same CRD guard as Basic Auth applies: Envoy Gateway's SecurityPolicy CRD
+must be installed, and an offline render needs `--api-versions
+gateway.envoyproxy.io/v1alpha1/SecurityPolicy`. The policy binds the check to
+the route only: keeping clients from reaching the Gateway directly (a source
+allow-list, a tunnel) is the Gateway's concern.
+
 ## Exposing a TCP or UDP port through a Gateway
 
 `tcpRoutes` and `udpRoutes` are maps: one TCPRoute (or UDPRoute) per entry,
@@ -658,6 +721,7 @@ The `tests/` directory is the list — `TEST_CASES` in the `Makefile` is what
 | `external-ingress.yaml`          | Ingress pointing to external service                                                      |
 | `httproute-basic.yaml`           | Gateway API HTTPRoute, plain backend                                                      |
 | `httproute-basic-auth.yaml`      | Envoy Basic Auth on `httpRoute` and on an `httpRoutes` entry                              |
+| `httproute-jwt.yaml`             | Envoy JWT authentication on `httpRoute` and on an `httpRoutes` entry                      |
 | `httproute-canary.yaml`          | HTTPRoute with weighted backends                                                          |
 | `httproute-filters.yaml`         | HTTPRoute rule filters                                                                    |
 | `httproutes.yaml`                | `httpRoutes` entries next to `httpRoute`, a redirect-only route                           |

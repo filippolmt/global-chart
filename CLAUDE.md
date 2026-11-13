@@ -111,6 +111,7 @@ is the source of truth, this table is only the routing.
 | `_render-helpers.tpl` | `workloadKind` / `isStatefulSet`, `replicaFloor`, `podVolumeNames`, `printScalar`, `isSet`, null checks (`rejectNull`, `rejectNullItems`, `isNamedEntry`, `isNonEmptyEntry`), a passthrough surface without its nulls (`passthroughYaml`, `dropNullsInPlace`, `isSetPassthrough`), render blocks, ports, `resolveBackend`, `podSpecOwners`, route lists |
 | `_keda-helpers.tpl` | KEDA names, trigger and `authenticationRef` resolution |
 | `_basicauth-helpers.tpl` | Envoy Basic Auth on an HTTPRoute: the `{SHA}` htpasswd hash; random credentials kept by Argo CD (ADR 0024) |
+| `_jwt-helpers.tpl` | Envoy JWT authentication on an HTTPRoute: `jwtSpec`, the providers' render checks (issue #261) |
 | `_validate-helpers.tpl` | Values paths, the `fail` shape, `validateRemovedKeys` (every key removed in 4.0.0, ADR 0023), `validateValueTypes` / `valuesShape` (the kind of every map and list a template reads), cross-resource validators, `validateStatefulSets`, `validatePdbEvictions`, `validateNullItems` / `rejectNullInLists`, `hpaActiveTargets`, `requireCrd` / `requireGatewayApiCrd` |
 
 ### Invariants

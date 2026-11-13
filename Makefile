@@ -137,6 +137,7 @@ TEST_CASES := \
 	tests/name-collision.yaml:default:name-collision \
 	tests/httproute-basic.yaml:httproute-basic:httproute-basic \
 	tests/httproute-basic-auth.yaml:httproute-basic-auth:httproute-basic-auth \
+	tests/httproute-jwt.yaml:httproute-jwt:httproute-jwt \
 	tests/httproute-canary.yaml:httproute-canary:httproute-canary \
 	tests/httproute-filters.yaml:httproute-filters:httproute-filters \
 	tests/l4routes.yaml:l4routes:l4routes \

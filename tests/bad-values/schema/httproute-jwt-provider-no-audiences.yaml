@@ -1,0 +1,12 @@
+# Without an audience, a token issued for another application of the same
+# identity provider passes: the chart requires audiences, Envoy does not.
+httpRoute:
+  enabled: true
+  parentRefs: [{name: gw}]
+  rules: [{backendRefs: [{service: {name: web, port: 80}}]}]
+  jwt:
+    enabled: true
+    providers:
+      - name: idp
+        issuer: https://idp.example.com
+        remoteJWKS: {uri: https://idp.example.com/certs}

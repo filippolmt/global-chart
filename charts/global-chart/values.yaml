@@ -417,7 +417,7 @@ ingress:
     #       pathType: Prefix
 
 # -- HTTPRoute (Gateway API v1) — alternative to Ingress.
-# The chart renders HTTPRoutes and optional Envoy Basic Auth resources; the referenced Gateway must be
+# The chart renders HTTPRoutes and optional Envoy Basic Auth or JWT resources; the referenced Gateway must be
 # managed externally (e.g. by your platform team or a separate infra chart).
 # Mutually exclusive with `ingress.enabled` — enabling both fails template render.
 httpRoute:
@@ -433,6 +433,7 @@ httpRoute:
   # the SecurityPolicy CRD. With Argo CD, ignore /data of the generated Secret
   # and enable RespectIgnoreDifferences=true BEFORE the first sync; otherwise
   # every render generates new credentials. See the repository README.
+  # Excludes jwt on the same route.
   basicAuth:
     # -- Generate a random credentials Secret and an Envoy SecurityPolicy.
     enabled: false
@@ -440,6 +441,28 @@ httpRoute:
     # Defaults to admin in httpRoutes entries too. Existing Secret data is
     # preserved by Argo CD, so editing this does not rotate credentials.
     username: admin
+
+  # -- Envoy Gateway JWT authentication for every rule of this route (issue
+  # #261): a SecurityPolicy targeting the route, no Secret. Requires the
+  # SecurityPolicy CRD. Excludes basicAuth on the same route. Applies to an
+  # httpRoutes entry too.
+  jwt:
+    # -- Render the SecurityPolicy. At least one provider is required when true.
+    enabled: false
+    # -- Envoy Gateway JWT providers, rendered verbatim as
+    # SecurityPolicy.spec.jwt.providers. Each takes name, issuer, audiences
+    # and exactly one of remoteJWKS / localJWKS; names are unique.
+    providers: []
+    # Example (a token injected by an identity-aware proxy):
+    # providers:
+    #   - name: idp
+    #     issuer: https://idp.example.com
+    #     audiences: [app]
+    #     remoteJWKS:
+    #       uri: https://idp.example.com/certs
+    #     extractFrom:
+    #       headers:
+    #         - name: X-Jwt-Assertion
 
   # -- References to existing Gateway resources. At least one is required when enabled.
   # Each entry: { name, namespace?, sectionName?, port?, kind?, group? }

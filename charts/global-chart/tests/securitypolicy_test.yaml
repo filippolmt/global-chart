@@ -1,4 +1,4 @@
-suite: Envoy HTTPRoute basic authentication
+suite: Envoy HTTPRoute SecurityPolicy (basicAuth, jwt)
 templates:
   - templates/securitypolicy.yaml
 capabilities:
@@ -153,3 +153,131 @@ tests:
           path: spec.basicAuth.users.name
           value: dev-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-basic-auth
         documentIndex: 1
+
+  # ====== JWT (issue #261) ======
+  - it: renders the jwt providers verbatim into a policy targeting the route, with no Secret
+    release:
+      name: dev
+    set:
+      httpRoute: &jwtRoute
+        enabled: true
+        jwt:
+          enabled: true
+          providers:
+            - name: idp
+              issuer: https://idp.example.com
+              audiences: [app]
+              remoteJWKS:
+                uri: https://idp.example.com/certs
+              extractFrom:
+                headers:
+                  - name: X-Jwt-Assertion
+        parentRefs: [{name: shared-gateway, sectionName: https}]
+        rules: [{backendRefs: [{service: {name: web, port: 80}}]}]
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: SecurityPolicy
+      - equal:
+          path: spec
+          value:
+            targetRefs:
+              - group: gateway.networking.k8s.io
+                kind: HTTPRoute
+                name: dev-global-chart
+            jwt:
+              providers:
+                - name: idp
+                  issuer: https://idp.example.com
+                  audiences: [app]
+                  remoteJWKS:
+                    uri: https://idp.example.com/certs
+                  extractFrom:
+                    headers:
+                      - name: X-Jwt-Assertion
+
+  - it: scopes a jwt policy to its httpRoutes entry, a localJWKS provider verbatim
+    release:
+      name: dev
+    set:
+      httpRoutes:
+        sso:
+          parentRefs: [{name: shared-gateway}]
+          rules: [{backendRefs: [{service: {name: web, port: 80}}]}]
+          jwt:
+            enabled: true
+            providers:
+              - name: idp
+                issuer: https://idp.example.com
+                audiences: [app]
+                localJWKS:
+                  type: ValueRef
+                  valueRef: {group: "", kind: ConfigMap, name: jwks}
+        public:
+          parentRefs: [{name: shared-gateway}]
+          rules: [{backendRefs: [{service: {name: public, port: 80}}]}]
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: metadata.name
+          value: dev-global-chart-sso
+      - equal:
+          path: spec.targetRefs[0].name
+          value: dev-global-chart-sso
+      - equal:
+          path: spec.jwt.providers
+          value:
+            - name: idp
+              issuer: https://idp.example.com
+              audiences: [app]
+              localJWKS:
+                type: ValueRef
+                valueRef: {group: "", kind: ConfigMap, name: jwks}
+
+  - it: renders no jwt policy when jwt is disabled, even with providers
+    set:
+      httpRoute:
+        <<: *jwtRoute
+        jwt:
+          enabled: false
+          providers: [{name: idp, issuer: https://idp.example.com, audiences: [app], remoteJWKS: {uri: https://idp.example.com/certs}}]
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: fails jwt beside basicAuth on one route
+    set:
+      httpRoute:
+        <<: *jwtRoute
+        basicAuth:
+          enabled: true
+    asserts:
+      - failedTemplate:
+          errorMessage: "httpRoute.jwt: cannot be enabled beside httpRoute.basicAuth on one route: Envoy runs both filters, which by default both read the Authorization header, so no request passes. Enable one of the two."
+
+  - it: fails an enabled jwt with no provider
+    set:
+      httpRoutes:
+        sso:
+          parentRefs: [{name: gw}]
+          rules: [{backendRefs: [{service: {name: web, port: 80}}]}]
+          jwt:
+            enabled: true
+    asserts:
+      - failedTemplate:
+          errorMessage: "httpRoutes.sso.jwt.providers: needs at least one provider when httpRoutes.sso.jwt.enabled is true."
+
+  - it: fails two providers of one name
+    set:
+      httpRoute:
+        <<: *jwtRoute
+        jwt:
+          enabled: true
+          providers:
+            - {name: idp, issuer: https://a.example.com, audiences: [app], remoteJWKS: {uri: https://a.example.com/certs}}
+            - {name: idp, issuer: https://b.example.com, audiences: [app], remoteJWKS: {uri: https://b.example.com/certs}}
+    asserts:
+      - failedTemplate:
+          errorMessage: "httpRoute.jwt.providers[1].name: \"idp\" is also the name of providers[0]; Envoy Gateway drops a policy whose providers share a name, and the route serves unauthenticated."

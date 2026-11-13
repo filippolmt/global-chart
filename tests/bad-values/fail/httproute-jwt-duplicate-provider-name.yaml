@@ -1,0 +1,19 @@
+# The API server accepts two providers of one name; Envoy Gateway drops the
+# policy, and the route serves unauthenticated.
+# Expected fail substring: "httpRoute.jwt.providers[1].name: "
+# Expected fail substring: "is also the name of providers[0]"
+httpRoute:
+  enabled: true
+  parentRefs: [{name: gw}]
+  rules: [{backendRefs: [{service: {name: web, port: 80}}]}]
+  jwt:
+    enabled: true
+    providers:
+      - name: idp
+        issuer: https://idp.example.com
+        audiences: [app]
+        remoteJWKS: {uri: https://a.example.com/certs}
+      - name: idp
+        issuer: https://idp.example.com
+        audiences: [app]
+        remoteJWKS: {uri: https://b.example.com/certs}

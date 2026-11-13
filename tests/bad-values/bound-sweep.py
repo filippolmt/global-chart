@@ -100,6 +100,13 @@ CANDIDATES = {
         "a" * 63, SUBDOMAIN_253 + "/" + "a" * 63, "example.com/Ready", "0", "true"],
     "/$defs/podFailurePolicy/properties/rules/items/properties/onPodConditions/items/properties/type/allOf/0": None,  # bounds the prefix; candidates sit on the type node
     "/$defs/mountedConfigFileName": None,  # the chart's own bound, tighter than the API's
+    # Envoy Gateway's JWTProvider (issue #261): the chart's name is tighter than Envoy's 253
+    "/$defs/jwtProvider/properties/name": ["a" * 63, "a.b_c-0", "0", "true"],
+    "/$defs/jwtProvider/properties/issuer": ["https://" + "a" * 245],
+    "/$defs/jwtProvider/properties/remoteJWKS/properties/uri": ["https://" + "a" * 245],
+    "/$defs/jwtProvider/properties/localJWKS/properties/valueRef/properties/group": ["", SUBDOMAIN_253, "0"],
+    "/$defs/jwtProvider/properties/localJWKS/properties/valueRef/properties/kind": ["a" * 63, "A-0"],
+    "/$defs/jwtProvider/properties/localJWKS/properties/valueRef/properties/name": ["a" * 253],
     "/$defs/deploymentName": NAMING_KEY,
     "/$defs/jobName": NAMING_KEY,
     "/properties/httpRoutes/propertyNames": NAMING_KEY,

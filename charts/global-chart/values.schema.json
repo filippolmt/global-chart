@@ -1431,12 +1431,123 @@
       "unevaluatedProperties": false
     },
     "httpRouteBasicAuth": {
-      "description": "Opt-in Envoy Gateway Basic Auth for every rule of this HTTPRoute. Generates a random credentials Secret and a SecurityPolicy. Argo CD must ignore this Secret's /data with RespectIgnoreDifferences=true to preserve credentials across syncs; Helm alone regenerates them on every render.",
+      "description": "Opt-in Envoy Gateway Basic Auth for every rule of this HTTPRoute. Generates a random credentials Secret and a SecurityPolicy. Excludes jwt on the same route (issue #261). Argo CD must ignore this Secret's /data with RespectIgnoreDifferences=true to preserve credentials across syncs; Helm alone regenerates them on every render.",
       "type": "object",
       "additionalProperties": false,
       "properties": {
         "enabled": { "description": "Render an Envoy SecurityPolicy and a Secret with a random 32-character password. Default false. Requires gateway.envoyproxy.io/v1alpha1 SecurityPolicy and an HTTPS listener managed outside this chart.", "type": "boolean" },
         "username": { "description": "Basic Auth username, stored with the password in the generated Secret. Default admin. Letters, digits, underscores and hyphens only. With Argo CD preserving Secret data, changing this value does not rotate existing credentials.", "type": "string", "minLength": 1, "pattern": "^[a-zA-Z0-9_-]+$" }
+      }
+    },
+    "httpRouteJwt": {
+      "description": "Opt-in Envoy Gateway JWT authentication for every rule of this HTTPRoute (issue #261): a SecurityPolicy targeting the route, its providers rendered as spec.jwt.providers. No Secret, no random data. Excludes basicAuth on the same route: both filters read the Authorization header by default, so no request would pass both. Envoy's optional and failOpen are not offered: both let an unauthenticated request through.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "description": "Render the SecurityPolicy. Default false. Requires gateway.envoyproxy.io/v1alpha1 SecurityPolicy (Envoy Gateway). Enabled with no provider, the render fails.", "type": "boolean" },
+        "providers": {
+          "description": "The JWT providers, rendered as spec.jwt.providers. At most 16, as Envoy Gateway allows; at least one when enabled, or the render fails. Two providers of one name fail the render: the API server accepts them and Envoy Gateway drops the policy.",
+          "type": "array",
+          "maxItems": 16,
+          "items": { "$ref": "#/$defs/jwtProvider" }
+        }
+      }
+    },
+    "jwtProvider": {
+      "description": "One Envoy Gateway JWTProvider (gateway.envoyproxy.io/v1alpha1). Its top level, unchanged since Envoy Gateway 1.4, is closed: a typo here would drop a check in silence. Stricter than Envoy: issuer and audiences are required, since without an audience a token the same identity provider issued for another application passes. Takes exactly one of remoteJWKS and localJWKS.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "issuer", "audiences"],
+      "oneOf": [
+        { "required": ["remoteJWKS"] },
+        { "required": ["localJWKS"] }
+      ],
+      "if": { "properties": { "recomputeRoute": { "const": true } }, "required": ["recomputeRoute"] },
+      "then": { "required": ["claimToHeaders"], "properties": { "claimToHeaders": { "minItems": 1 } } },
+      "properties": {
+        "name": { "description": "The provider's name, unique within the route. A Kubernetes qualified name without prefix: letters, digits, '-', '_' and '.', starting and ending alphanumeric, at most 63 characters. A choice of the chart (issue #261), tighter than Envoy Gateway, which takes any 1 to 253 characters: the name of a provider stays the form of a Kubernetes name.", "type": "string", "maxLength": 63, "pattern": "^[A-Za-z0-9]([-A-Za-z0-9_.]*[A-Za-z0-9])?$" },
+        "issuer": { "description": "The token's expected iss claim. Required by the chart, and not empty: Envoy Gateway skips the issuer check on an empty one. At most 253 characters, as Envoy Gateway allows.", "type": "string", "minLength": 1, "maxLength": 253 },
+        "audiences": {
+          "description": "The aud values accepted; a token must carry one of them. Required by the chart, 1 to 8, as Envoy Gateway allows at most 8. An empty string is refused too: it names no audience.",
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "remoteJWKS": {
+          "description": "Where Envoy fetches the JSON Web Key Set, rendered verbatim. Open: it carries Envoy's backend settings and cache durations, which this chart does not restate; only uri is declared.",
+          "type": "object",
+          "required": ["uri"],
+          "properties": {
+            "uri": { "description": "The HTTPS URI of the JWKS. At most 253 characters, as Envoy Gateway allows.", "type": "string", "minLength": 1, "maxLength": 253 }
+          }
+        },
+        "localJWKS": {
+          "description": "A JSON Web Key Set held in the cluster, rendered verbatim: inline, or in a ConfigMap of the route's namespace (valueRef). Exactly one of the two, matching type, as Envoy Gateway's CEL rule requires.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type"],
+          "oneOf": [
+            { "properties": { "type": { "description": "Type Inline takes inline alone.", "const": "Inline" } }, "required": ["inline"], "not": { "required": ["valueRef"] } },
+            { "properties": { "type": { "description": "Type ValueRef takes valueRef alone.", "const": "ValueRef" } }, "required": ["valueRef"], "not": { "required": ["inline"] } }
+          ],
+          "properties": {
+            "type": { "description": "Inline or ValueRef, the two branches of localJWKS' oneOf, the one home of that list. Required, Inline included: the CRD's OpenAPI schema requires it, which kubeconform reads, though the API server defaults it to Inline; the stricter holds. Without it, a valueRef is refused at apply.", "type": "string" },
+            "inline": { "description": "The JWKS itself, as a JSON string.", "type": "string" },
+            "valueRef": {
+              "description": "The object holding the JWKS under its jwks key, in the route's namespace. A ConfigMap: group \"\", kind ConfigMap.",
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["group", "kind", "name"],
+              "properties": {
+                "group": { "description": "The API group of the object; \"\" for a ConfigMap. Empty or a DNS subdomain, at most 253 characters, as Gateway API allows.", "type": "string", "maxLength": 253, "pattern": "^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$" },
+                "kind": { "description": "The kind of the object, such as ConfigMap. At most 63 characters, as Gateway API allows.", "type": "string", "minLength": 1, "maxLength": 63, "pattern": "^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$" },
+                "name": { "description": "The name of the object. At most 253 characters, as Gateway API allows.", "type": "string", "minLength": 1, "maxLength": 253 }
+              }
+            }
+          }
+        },
+        "claimToHeaders": {
+          "description": "Claims copied into request headers, rendered verbatim. Its items stay open, declaring their fields, by a decision of issue #261 under ADR 0017: their shape grew in Envoy Gateway 1.10 (claimPath), so it is not fixed. The oneOf and the required header still catch a typo in claim, claimPath or header.",
+          "type": "array",
+          "items": {
+            "description": "One claim copied into a header. Exactly one of claim and claimPath, as Envoy Gateway's CEL rule requires.",
+            "type": "object",
+            "required": ["header"],
+            "oneOf": [
+              { "required": ["claim"], "not": { "required": ["claimPath"] } },
+              { "required": ["claimPath"], "not": { "required": ["claim"] } }
+            ],
+            "properties": {
+              "header": { "description": "The request header the claim is written to.", "type": "string" },
+              "claim": { "description": "The claim's name.", "type": "string" },
+              "claimPath": { "description": "The path of a nested claim, one segment per item.", "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } }
+            }
+          }
+        },
+        "recomputeRoute": { "description": "Recompute the route after claimToHeaders has written its headers. True needs at least one claimToHeaders item, as Envoy Gateway's CEL rule requires.", "type": "boolean" },
+        "extractFrom": {
+          "description": "Where Envoy reads the token. Unset, the Authorization header (Bearer) and the access_token query parameter.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "headers": {
+              "description": "Headers holding the token.",
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["name"],
+                "properties": {
+                  "name": { "description": "The header's name.", "type": "string" },
+                  "valuePrefix": { "description": "The prefix before the token in the header's value, such as \"Bearer \".", "type": "string" }
+                }
+              }
+            },
+            "cookies": { "description": "Cookies holding the token.", "type": "array", "items": { "type": "string" } },
+            "params": { "description": "Query parameters holding the token.", "type": "array", "items": { "type": "string" } }
+          }
+        }
       }
     },
     "httpRouteFields": {
@@ -1449,6 +1560,7 @@
           "additionalProperties": { "type": "string" }
         },
         "basicAuth": { "description": "Envoy Gateway Basic Auth for this route only, disabled by default. Generates a Secret and SecurityPolicy; requires the documented Argo CD ignoreDifferences configuration to keep credentials stable.", "$ref": "#/$defs/httpRouteBasicAuth" },
+        "jwt": { "description": "Envoy Gateway JWT authentication for this route only, disabled by default. Renders a SecurityPolicy targeting the route; excludes basicAuth on the same route (issue #261).", "$ref": "#/$defs/httpRouteJwt" },
         "parentRefs": {
           "description": "The existing Gateways the HTTPRoute attaches to, rendered verbatim as spec.parentRefs. At least one, or the render fails.",
           "type": "array",
