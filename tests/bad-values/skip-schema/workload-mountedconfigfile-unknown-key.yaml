@@ -1,7 +1,8 @@
 # covers: mountedConfigFiles/properties/files/items
 # An unknown key inside a mountedConfigFiles.files entry (typo of targetPath).
-# Without the closure the file has no target path and is mounted somewhere
-# other than where the values file says.
+# The schema's closure rejects it first; under --skip-schema-validation
+# workload.yaml names the targetPath it drops.
+# Expected fail substring: "workloads.web.mountedConfigFiles.files[0].targetPath: required"
 workloads:
   web:
     image: nginx:1.25

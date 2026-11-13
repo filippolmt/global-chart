@@ -1,6 +1,0 @@
-workloads:
-  worker:
-    image: busybox:1.36
-    keda:
-      enabled: true
-      maxReplicaCount: 10

@@ -1,0 +1,11 @@
+# covers: pdb
+# An unknown key under workloads.<name>.pdb (typo of minAvailable). The
+# schema's closure rejects it first; under --skip-schema-validation pdb.yaml
+# fails on a PDB with neither bound.
+# Expected fail substring: "workloads.web.pdb: one of minAvailable or maxUnavailable is required when pdb.enabled is true."
+workloads:
+  web:
+    image: nginx:1.25
+    pdb:
+      enabled: true
+      minAvailabl: 1

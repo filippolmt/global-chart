@@ -1,0 +1,10 @@
+# covers: imageMap
+# An unknown key in the map form of workloads.<name>.image (typo of tag).
+# The schema's closure rejects it first; under --skip-schema-validation
+# workload.yaml fails on a repository with neither tag nor digest.
+# Expected fail substring: "workloads.web.image: requires either a tag or a digest when repository is provided"
+workloads:
+  web:
+    image:
+      repository: nginx
+      tga: "1.25"

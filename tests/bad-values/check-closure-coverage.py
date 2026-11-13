@@ -19,9 +19,11 @@ it. `then`/`else` do constrain the values and count like any other node. A
 closed `oneOf`/`anyOf` branch belongs in a `$defs` of its own, so its pointer
 does not hang on the order of the branches.
 
-The fixture. One per closed node, in `schema/`, named after the scope and kind
-the values use (`root-cronjob-`, `workload-hook-`), not after the schema
-path: the `# covers:` line is what ties the two together.
+The fixture. One per closed node, in `schema/`, or in `skip-schema/` when a
+backstop guard rejects the typo too under --skip-schema-validation (issue
+#336), named after the scope and kind the values use (`root-cronjob-`,
+`workload-hook-`), not after the schema path: the `# covers:` line is what
+ties the two together.
 
 The static check. Every closed node has exactly one marker, and every marker
 names a closed node.
@@ -100,7 +102,7 @@ def main(rejection, flags):
             closed[pointer(keys)] = keys
 
     covered = {}
-    for fixture in sorted((HERE / "schema").glob("*.yaml")):
+    for fixture in sorted([*(HERE / "schema").glob("*.yaml"), *(HERE / "skip-schema").glob("*.yaml")]):
         for name in re.findall(r"^# covers: (\S+)$", fixture.read_text(), re.M):
             covered.setdefault(name, []).append(fixture)
 
@@ -132,7 +134,7 @@ def main(rejection, flags):
                                 " its typo does not hit that node alone")
 
     if problems:
-        print("    FAIL: bad-values/schema/ does not match the closed schema nodes:")
+        print("    FAIL: bad-values/schema/ and skip-schema/ do not match the closed schema nodes:")
         for p in problems:
             print(f"          - {p}")
         sys.exit(1)

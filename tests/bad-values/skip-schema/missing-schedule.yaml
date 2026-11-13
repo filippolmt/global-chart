@@ -1,0 +1,7 @@
+# A cronjob without a schedule: the schema's required rejects it first; under
+# --skip-schema-validation cronjob.yaml names it.
+# Expected fail substring: "cronJobs.broken.schedule: required"
+cronJobs:
+  broken:
+    image: busybox:1.36
+    command: ["echo", "no schedule"]

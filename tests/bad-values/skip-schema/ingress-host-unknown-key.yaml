@@ -1,0 +1,17 @@
+# covers: ingress/properties/hosts/items
+# An unknown key inside an ingress.hosts entry (typo of workload). The
+# schema's closure rejects it first; under --skip-schema-validation ingress.yaml
+# fails on a host with neither workload nor service.name.
+# Expected fail substring: "ingress.hosts[0]: must specify either 'workload' (name of a workload) or 'service.name' (explicit service name)"
+workloads:
+  web:
+    image: nginx:1.25
+
+ingress:
+  enabled: true
+  hosts:
+    - host: example.com
+      deploymnet: web
+      paths:
+        - path: /
+          pathType: Prefix

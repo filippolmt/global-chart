@@ -1,6 +1,8 @@
 # An extraContainers item whose volumeMounts is not a list (issue #235). The
 # StatefulSet check reads it, so the schema declares it an array; any other
-# value was rejected by the API server at apply.
+# value was rejected by the API server at apply. Under
+# --skip-schema-validation validateValueTypes names it.
+# Expected fail substring: "workloads.app.extraContainers[0].volumeMounts: a number, where the chart reads a list"
 workloads:
   app:
     image: nginx:1.25

@@ -1,6 +1,8 @@
 # A named targetPort is an IANA_SVC_NAME too: the API server validates it on the
 # Service as a port name. `web--ui` has a doubled '-', which the shape pattern
-# rules out.
+# rules out; under --skip-schema-validation the targetPort guard finds no
+# container port of that name.
+# Expected fail substring: "workloads.app.service.targetPort: names the port 'web--ui', which no container port declares"
 workloads:
   app:
     image: nginx:1.25

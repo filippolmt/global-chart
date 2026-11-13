@@ -1,0 +1,6 @@
+# An image that is neither a string nor a map: the schema rejects it first;
+# under --skip-schema-validation validateValueTypes names it.
+# Expected fail substring: "workloads.broken.image: a number, where the chart reads a map or a string"
+workloads:
+  broken:
+    image: 12345

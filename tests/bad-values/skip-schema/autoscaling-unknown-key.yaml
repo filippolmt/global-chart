@@ -1,0 +1,13 @@
+# covers: autoscaling
+# An unknown key under workloads.<name>.autoscaling (typo of maxReplicas).
+# The schema's closure rejects it first; under --skip-schema-validation the
+# missing maxReplicas is named by hpa.yaml.
+# Expected fail substring: "workloads.web.autoscaling.maxReplicas: required when HPA is enabled"
+workloads:
+  web:
+    image: nginx:1.25
+    autoscaling:
+      enabled: true
+      minReplicas: 2
+      maxReplica: 10
+      targetCPUUtilizationPercentage: 80
