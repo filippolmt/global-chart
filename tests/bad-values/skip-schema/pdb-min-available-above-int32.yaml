@@ -1,5 +1,7 @@
 # An integer minAvailable above 2147483647: the API reads it as an int32
 # (IntOrString), so the schema caps it as it caps the other int32 fields (issue #226).
+# No guard checks the int32 bound: under --skip-schema-validation the eviction
+# guard stops it, as it stops any minAvailable above the replicas.
 # Expected fail substring: "workloads.app.pdb.minAvailable: 2147483648 allows no voluntary eviction"
 workloads:
   app:

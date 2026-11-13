@@ -735,8 +735,10 @@ The `tests/` directory is the list — `TEST_CASES` in the `Makefile` is what
 | `statefulset.yaml`               | StatefulSets with claim templates, headless Service, HPA and KEDA targets, a sidecar-mounted claim |
 | `raw-workload.yaml`              | Workload with raw image string                                                            |
 | `name-collision.yaml`            | Name collision detection test                                                             |
-| `bad-values/schema/*.yaml`       | Values the schema must reject                                                             |
+| `bad-values/schema/*.yaml`       | Values the schema alone must reject: they render under `--skip-schema-validation`        |
 | `bad-values/fail/*.yaml`         | Values a template `fail` must reject                                                      |
+| `bad-values/skip-schema/*.yaml`  | Values the schema rejects and, under `--skip-schema-validation`, a backstop guard too     |
+| `bad-values/skip-schema-render/*.yaml` | Nulls the schema rejects that render as their removal under `--skip-schema-validation` |
 | `e2e/values.yaml`                | End-to-end install scenario for `make e2e` — see `tests/e2e/README.md`                    |
 
 ## Values reference

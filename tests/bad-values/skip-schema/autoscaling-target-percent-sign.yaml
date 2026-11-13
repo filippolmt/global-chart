@@ -1,5 +1,6 @@
 # A percentage written with its sign (issue #151). float64 "80%" is 0, so the
-# target read as off and, with no other target, no HPA rendered.
+# target read as off and, with no other target, no HPA rendered. The schema
+# rejects it first; under --skip-schema-validation validate.yaml names it.
 # Expected fail substring: "workloads.app.autoscaling: enabled, but neither targetCPUUtilizationPercentage nor targetMemoryUtilizationPercentage is a positive number"
 workloads:
   app:
