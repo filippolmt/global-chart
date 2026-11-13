@@ -17,13 +17,16 @@ A null map value is unset (CODING_STANDARDS.md, *A null means one thing per
 kind of node*), so it is rendered beside the same key removed and the two must
 match: both fail, whatever the message (the path of a `fail` is the suites'),
 or both render the same manifests, a `key: null` line included — the API
-server reads it as `""` or `"0"`, not as the key absent (issue #294). The
-comparison is textual, after stable_render: a difference of YAML style alone
-would show as a finding, never hide one. A map the removal empties stays `{}`
+server reads it as `""` or `"0"`, not as the key absent (issue #294). A map the removal empties stays `{}`
 (see removed()). This holds for a list item's optional fields too. A key
 values.yaml defaults is left out: Helm deletes the default on a null and
 restores it on a removal (a key under a list item is not, since Helm replaces
 a list whole and the example lists of values.yaml default nothing).
+shortcut: the comparison is textual, after stable_render, so a difference of
+YAML style alone (quoting, flow vs block) shows as a finding, never hides one;
+when one does, keep equal text as equal and, on a difference only, parse both
+renders (`yq -o=json ea '[.]'`, `key: null` kept, no sort: Helm orders both
+renders alike) and report only if they differ (issue #315).
 EXCEPTIONS lists the paths whose null is not their removal, each under the
 class CODING_STANDARDS.md names (a number printScalar renders, a required
 item field, ConfigMap and Secret data, a reference to an empty entry). Where
