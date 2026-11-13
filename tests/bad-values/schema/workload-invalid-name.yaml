@@ -1,0 +1,9 @@
+# A `workloads` key is a naming key: it lands raw in the component label and in
+# every name of the workload, so an uppercase or an underscore could never be
+# applied. workload-name-too-long holds the length cap, which the API server
+# meets until a hook adds `-hook`.
+# API rejects: "metadata.name: Invalid value: "api-verdict-global-chart-Web_App""
+# naming key: /properties/workloads/propertyNames
+workloads:
+  Web_App:
+    image: nginx:1.25

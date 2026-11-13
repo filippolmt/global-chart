@@ -788,7 +788,7 @@
       "enum": ["ClusterSecretStore", "SecretStore"]
     },
     "dns1123Subdomain": {
-      "description": "A DNS-1123 subdomain: dot-separated DNS-1123 labels, for a name the chart renders as an object name or builds one from; every $ref to it is a user. No maxLength here: a map key is prefixed by the fullname, which the schema cannot see; a name used verbatim adds maxLength 253 at its call site.",
+      "description": "A DNS-1123 subdomain: dot-separated DNS-1123 labels, for a name the chart renders as an object name or builds one from; every $ref to it is a user. No maxLength here: a map key is prefixed by the fullname, which the schema cannot see; a name used verbatim adds maxLength 253 at its call site, where the API server caps it (an RBAC name has no cap).",
       "type": "string",
       "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
     },
@@ -1809,7 +1809,7 @@
             "type": "object",
             "required": ["name", "rules"],
             "properties": {
-              "name": { "description": "The Role's name, used verbatim. The RoleBinding is <name>-rolebinding, a trailing -role dropped, and the default ServiceAccount <name>-sa, both truncated to 63 characters; a name landing on another the chart renders is a render fail.", "$ref": "#/$defs/dns1123Subdomain", "maxLength": 253 },
+              "name": { "description": "The Role's name, used verbatim. The RoleBinding is <name>-rolebinding, a trailing -role dropped, and the default ServiceAccount <name>-sa, both truncated to 63 characters; a name landing on another the chart renders is a render fail. No length cap: the API server bounds no RBAC name (issue #338), and every other name the Role feeds is truncated.", "$ref": "#/$defs/dns1123Subdomain" },
               "serviceAccount": { "description": "The ServiceAccount the Role is bound to, created as <name>-sa by default; {} is enough to declare it. With create: false it binds an existing one, <name>-sa unless name is set. Without this key no ServiceAccount and no RoleBinding are rendered.", "$ref": "#/$defs/serviceAccount" },
               "rules": {
                 "description": "The Role's PolicyRules, rendered verbatim; the hook-prerequisite copy grants the same ones.",

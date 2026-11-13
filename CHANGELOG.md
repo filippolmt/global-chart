@@ -34,6 +34,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Changed
 
+- `rbacs.roles[].name` takes any length (issue #338). The schema capped it at
+  253 characters, while the API server bounds no RBAC name and every other
+  name the Role feeds (RoleBinding, ServiceAccount, hook copies) is
+  truncated: a *naming key* rejects only what could never be applied. The
+  DNS-1123 subdomain pattern stays.
 - **Breaking: every object carries `metadata.namespace: <release namespace>`**
   (issue #323). Only the ServiceAccounts, Roles and RoleBindings carried it,
   so `helm template` piped to `kubectl apply -n <ns>` put the workloads in
@@ -289,10 +294,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   match the fixture's markers: `# API rejects: "<substring>"` lines, each in
   the API error, or one `# API accepts: <category>: <reason>`, the category
   one of `dropped`, `chart-rule`, `silent-misrender`, `stricter`. A fixture
-  with a `# naming key: <pointer>` line must be rejected. The first run gave
-  115 rejected, 48 dropped, 22 silent-misrender, 4 stricter, 2 chart-rule.
-  `fullname-override-invalid` and `name-override-invalid` gain a workload:
-  they rendered nothing, so the override never reached the API server.
+  with a `# naming key: <pointer>` line must be rejected, and every
+  `propertyNames` of the schema (a naming key, ADR 0008) is marked by at
+  least one fixture. `fullname-override-invalid` and `name-override-invalid`
+  gain a workload: they rendered nothing, so the override never reached the
+  API server. `workload-invalid-name` and `root-hook-type-uppercase` mark the
+  `workloads` key and the root hook type, whose other fixtures the API server
+  accepts (a 58 cap kept for a hook to come, a lowercase typo Helm drops).
+  `httproute-jwt-provider-name-too-long` holds the provider name cap of #261,
+  tighter than Envoy Gateway's. `bound-sweep.py` and `api-verdict.py` reach
+  the API server through `tests/bad-values/api_server.py`; bound-sweep's dry
+  run now names `--validate=strict`, which kubectl already defaulted to.
 
 ### Migration guide from 4.2.1
 

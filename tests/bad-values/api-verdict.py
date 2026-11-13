@@ -15,6 +15,8 @@ validation; its verdict must match the markers it carries:
 - `# naming key: <schema pointer>`: the fixture sets a naming key (GLOSSARY.md),
   which rejects only what could never be applied: the API server must reject it,
   and an `# API accepts:` line on it is a FAIL.
+  Every propertyNames of the schema, a naming key by ADR 0008, is marked by
+  at least one fixture: a naming key added to the schema comes with one.
 
 A fixture with no verdict marker fails with the verdict the cluster gave, so the
 markers are written from a run. A line that reads as a marker and matches none
@@ -38,10 +40,12 @@ import json
 import os
 import pathlib
 import re
-import shutil
 import subprocess
 import sys
 
+spec = importlib.util.spec_from_file_location("api_server", pathlib.Path(__file__).parent / "api_server.py")
+api_server = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(api_server)
 spec = importlib.util.spec_from_file_location("schema_navigation", pathlib.Path(__file__).parent / "schema_navigation.py")
 navigation = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(navigation)
@@ -56,20 +60,13 @@ ACCEPTS = re.compile(r"^# API accepts: (.*)$", re.M)
 REJECTS = re.compile(r'^# API rejects: "(.+)"$', re.M)
 NAMING = re.compile(r"^# naming key: (\S+)$", re.M)
 MARKER = re.compile(r"^#\s*(?:api\s+(?:accepts|rejects)|naming\s+key)\b.*$", re.M | re.I)  # every line that reads as a marker
-ABSENT = "api-verdict self-test: a substring no error carries"
+ABSENT_SUBSTRING = "api-verdict self-test: a substring no error carries"
 
 
 def render(chart, flags, fixture):
     # the release name is in some `# API rejects:` substrings (name-override-invalid.yaml)
     return subprocess.run(["helm", "template", "api-verdict", str(chart), "--skip-schema-validation", *flags,
                            "-f", str(fixture)], capture_output=True, text=True)
-
-
-def dry_run(manifest):
-    """None when the API server accepts manifest, else its error on one line."""
-    out = subprocess.run(["kubectl", "apply", "--dry-run=server", "--validate=strict", "-n", "default", "-f", "-"],
-                         input=manifest, capture_output=True, text=True)
-    return None if out.returncode == 0 else " ".join(l.strip() for l in out.stderr.splitlines() if l.strip()) or "refused"
 
 
 def markers(text):
@@ -104,6 +101,26 @@ def judge(accepts, rejects, naming, error):
     return problems
 
 
+def naming_key_gaps(schema, texts):
+    """Every propertyNames of the schema (a naming key, ADR 0008) that no fixture marks as one.
+    shortcut: a naming key on a list field (`rbacs.roles[].name`) is marked by hand, not required;
+    read the `$ref` of a list item's name field when one goes unmarked."""
+    declared = set()
+
+    def walk(node, pointer):
+        if isinstance(node, dict):
+            declared.update([f"{pointer}/propertyNames"] if "propertyNames" in node else [])
+            for k, v in node.items():
+                walk(v, f"{pointer}/{k}")
+        elif isinstance(node, list):
+            for i, v in enumerate(node):
+                walk(v, f"{pointer}/{i}")
+    walk(schema, "")
+    marked = {p for t in texts for p in NAMING.findall(t)}
+    return [f"{p}: a naming key no fixture marks; add a schema/ fixture the API server rejects for it, "
+            f"with `# naming key: {p}`" for p in sorted(declared - marked)]
+
+
 def check(chart, flags, schema, fixture):
     """(problems, verdict) of one fixture; verdict "rejected" or the accepts category."""
     text = fixture.read_text()
@@ -120,38 +137,28 @@ def check(chart, flags, schema, fixture):
     if out.returncode != 0:
         return problems + ["does not render under --skip-schema-validation; a template fail rejects it, so it "
                            f"belongs in tests/bad-values/skip-schema/: {' '.join(out.stderr.split())[:240]}"], None
-    error = dry_run(out.stdout) if re.search(r"^kind: ", out.stdout, re.M) else None
+    error = api_server.dry_run(out.stdout) if re.search(r"^kind: ", out.stdout, re.M) else None
     problems += judge(accepts, rejects, naming, error)
     # the opposite marker must be a FAIL, or the verdict was never compared
-    opposite = [(["dropped: self-test"], []), ([], [ABSENT])] if error else [([], [ABSENT])]
+    opposite = [(["dropped: self-test"], []), ([], [ABSENT_SUBSTRING])] if error else [([], [ABSENT_SUBSTRING])]
     if not all(judge(a, r, [], error) for a, r in opposite):
         problems.append("self-test: judged against the opposite marker, it passes; the verdict is not compared")
     return problems, "rejected" if error else (accepts[0].partition(":")[0] if accepts else "accepted")
 
 
 def main(argv):
-    flags = argv[argv.index("--") + 1:] if "--" in argv else []
-    argv = argv[:argv.index("--")] if "--" in argv else argv
+    argv, flags = api_server.split_args(argv)
     chart, fixtures = pathlib.Path(argv[0]), [pathlib.Path(f) for f in argv[1:]]
     missing = [str(p) for p in [chart / "values.schema.json", *fixtures] if not p.is_file()]
     if missing or not fixtures:
         print(f"    FAIL: no such chart or fixture: {', '.join(missing) or 'no fixture given'}")
         sys.exit(1)
-    if not shutil.which("helm"):
-        print("    FAIL: helm: not found on PATH")
-        sys.exit(1)
-    try:
-        ready = subprocess.run(["kubectl", "get", "--raw", "/readyz"], capture_output=True, text=True)
-    except FileNotFoundError:
-        ready = None
-    if ready is None or ready.returncode != 0:
-        print("    FAIL: kubectl: no API server reachable through KUBECONFIG; make api-verdict starts the kind cluster: "
-              + (" ".join(ready.stderr.split())[:200] if ready else "kubectl not found"))
-        sys.exit(1)
+    api_server.require_api_server("api-verdict")
     schema = json.loads((chart / "values.schema.json").read_text())
     with concurrent.futures.ThreadPoolExecutor(max_workers=os.cpu_count() or 4) as pool:
         results = list(pool.map(lambda f: check(chart, flags, schema, f), fixtures))
     findings = [f"{f}: {p}" for f, (problems, _) in zip(fixtures, results) for p in problems]
+    findings += naming_key_gaps(schema, [f.read_text() for f in fixtures])
     verdicts = [v for _, v in results if v]
     if not findings and ("rejected" not in verdicts or len(set(verdicts)) < 2):
         findings.append("every fixture got the same verdict; the dry run may not reach the API server")

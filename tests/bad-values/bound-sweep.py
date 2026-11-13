@@ -54,6 +54,9 @@ import tempfile
 spec = importlib.util.spec_from_file_location("null_sweep", pathlib.Path(__file__).parent / "null-sweep.py")
 sweep = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(sweep)
+spec = importlib.util.spec_from_file_location("api_server", pathlib.Path(__file__).parent / "api_server.py")
+api_server = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(api_server)
 spec = importlib.util.spec_from_file_location("schema_navigation", pathlib.Path(__file__).parent / "schema_navigation.py")
 navigation = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(navigation)
@@ -91,7 +94,6 @@ CANDIDATES = {
     "/$defs/serviceAccount/properties/name/anyOf/1": [SUBDOMAIN_253],
     "/$defs/optionalObjectName/anyOf/2": [SUBDOMAIN_253],
     "/$defs/l4RouteRule/properties/name": [SUBDOMAIN_253],
-    "/$defs/rbacs/properties/roles/items/properties/name": [SUBDOMAIN_253],
     "/$defs/externalSecret/properties/secretstore/properties/name": [SUBDOMAIN_253],
     "/$defs/externalSecret/properties/dataFrom/items/properties/sourceRef/properties/storeRef/properties/name": [SUBDOMAIN_253],
     "/$defs/externalSecret/properties/dataFrom/items/properties/sourceRef/properties/generatorRef/properties/name": [SUBDOMAIN_253],
@@ -169,10 +171,8 @@ def documents(manifest):
 
 
 def dry_run(docs):
-    out = subprocess.run(["kubectl", "apply", "--dry-run=server", "-n", "default", "-f", "-"],
-                         input="\n---\n".join(docs), capture_output=True, text=True)
-    return None if out.returncode == 0 else \
-        " ".join(l for l in out.stderr.splitlines() if l.strip())[:300] or "refused"
+    error = api_server.dry_run("\n---\n".join(docs))
+    return error and error[:300]
 
 
 def run(chart, files, flags, tmp, only=None):
@@ -228,21 +228,13 @@ def self_test(chart, files, flags, tmp):
 
 
 def main(argv):
-    flags = argv[argv.index("--") + 1:] if "--" in argv else []
-    argv = argv[:argv.index("--")] if "--" in argv else argv
+    argv, flags = api_server.split_args(argv)
     chart, files = pathlib.Path(argv[0]), argv[1:]
     missing = [str(p) for p in [chart / "values.schema.json", *map(pathlib.Path, files)] if not p.is_file()]
     if missing:
         print(f"    FAIL: no such chart or scenario: {', '.join(missing)}")
         sys.exit(1)
-    try:
-        ready = subprocess.run(["kubectl", "get", "--raw", "/readyz"], capture_output=True, text=True)
-    except FileNotFoundError:
-        ready = None
-    if ready is None or ready.returncode != 0:
-        print("    FAIL: kubectl: no API server reachable through KUBECONFIG; make bound-sweep starts the kind cluster: "
-              + (" ".join(ready.stderr.split())[:200] if ready else "kubectl not found"))
-        sys.exit(1)
+    api_server.require_api_server("bound-sweep")
     findings = table_findings(json.loads((chart / "values.schema.json").read_text()))
     with tempfile.TemporaryDirectory() as tmp:
         if not findings:

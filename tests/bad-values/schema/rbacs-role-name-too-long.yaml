@@ -1,7 +1,0 @@
-# 254 characters: one over the 253 a DNS-1123 subdomain allows. The name is
-# used verbatim as the Role name, so the bound is real, not a guess at a prefix.
-# API accepts: stricter: the API server does not cap a Role name at 253, and every other name the role feeds is truncated (#338)
-rbacs:
-  roles:
-    - name: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-      rules: []
