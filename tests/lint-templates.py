@@ -56,10 +56,10 @@ a rule below cannot recognise: a check that sees nothing is not a pass.
   named every entry "Deployment" until issue #217. Read the kind from
   global-chart.workloadKind.
 - chart-home: the `home` URL of Chart.yaml is never written in a template: a
-  link (the migration guide a removal `fail` names, NOTES) reads `.Chart.Home`,
-  so it follows Chart.yaml. A helper called with a dict gets the link from the
-  caller's root, as the `see` of a removal fail does (CODING_STANDARDS.md,
-  phase 2 of a removal).
+  link (NOTES.txt, the migration guide a removal `fail` names) reads
+  `.Chart.Home`, so it follows Chart.yaml. A helper called with a dict gets the
+  link from the caller's root, as a removal `fail`'s `see` must
+  (CODING_STANDARDS.md, phase 2 of a removal).
 - render-order: templates/validate/validate.yaml is the first template Helm
   renders. Helm sorts by depth, deepest first, then in reverse lexical order
   (sortTemplates in pkg/engine), and stops at the first error. A helper that

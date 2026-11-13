@@ -31,7 +31,9 @@ next enable. It runs first in `templates/validate/validate.yaml`, the first
 template Helm renders, so an old values file meets these failures before any
 other (checked on Helm 4.3.1). The walk, the declarations and their fixtures go in
 5.0.0. *Amended by issue #236:* gone in 5.0.0; an old key now meets the
-schema's closure, or on an open surface passes through to the manifest.
+schema's closure. On the open volume surface `secret.name` and
+`persistentVolumeClaim.name` render as written, and a volume with only `type`
+fails as naming no source.
 
 **There is no deprecation minor.** This is an exception to phase 1 of the
 deprecation rule in `CODING_STANDARDS.md`. `main` already carries breaking
