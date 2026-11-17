@@ -38,7 +38,7 @@ KUBECONFORM_VERSION := v0.8.0
 # they changed under a green build. The catalog follows each operator's latest
 # release, not KEDA_VERSION or ESO_VERSION: make e2e-dryrun checks those.
 # renovate: datasource=git-refs depName=https://github.com/datreeio/CRDs-catalog branch=main
-CRDS_CATALOG_REF := 89c736bdde38b5fecd0f8436ec5f3aa3679a3b86
+CRDS_CATALOG_REF := 784ec895547a36e548e6810b41f27baade3a0890
 KUBECONFORM_IMAGE := ghcr.io/yannh/kubeconform:$(KUBECONFORM_VERSION)
 
 # kind (end-to-end install tests)
